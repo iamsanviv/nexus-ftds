@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Nexus · Servicios</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ================= PANTALLA DE LOGIN ================= -->
+<div id="authScreen" class="hidden">
+  <div class="authcard">
+    <div class="authlogo"><h1>Nexus</h1><span class="tick">● Servicios</span></div>
+    <div class="authsub" id="authSub">Inicia sesión para continuar</div>
+    <div class="autherr" id="authErr"></div>
+    <div id="setupMsg" class="setup hidden"></div>
+    <div class="frow" id="nameRow" style="display:none">
+      <label>Nombre completo</label>
+      <input id="auName" placeholder="Tu nombre">
+    </div>
+    <div class="frow"><label>Correo</label><input id="auEmail" type="email" inputmode="email" placeholder="tu@correo.com"></div>
+    <div class="frow"><label>Contraseña</label><input id="auPass" type="password" placeholder="••••••••"></div>
+    <button class="authbtn" id="auBtn">Entrar</button>
+    <div class="authswitch" id="auSwitch">¿No tienes cuenta? <button id="auToggle">Crear cuenta</button></div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app" class="hidden">
+  <div class="topbar">
+    <div class="brand"><h1>Servicios</h1><span class="tick">● Nexus</span></div>
+    <div class="userbox">
+      <div class="uname"><b id="meName">—</b><span class="rol" id="meRol"></span></div>
+      <button class="logout" id="btnLogout">Salir</button>
+    </div>
+  </div>
+  <div class="sub" id="appSub">Acceso de tus clientes a clases, operativas y mentorías</div>
+
+  <div class="toolbar">
+    <button class="tbtn" id="btnImport">⬆ Importar CSV</button>
+    <button class="tbtn" id="btnExport">⬇ Exportar</button>
+    <button class="tbtn hidden" id="btnCat">⚙ Servicios</button>
+  </div>
+  <input type="file" id="fileInput" accept=".csv,text/csv" style="display:none">
+
+  <div class="modswitch" id="modSwitch"></div>
+  <div class="vtoggle" id="viewToggle"></div>
+
+  <input class="buscar" id="buscar" placeholder="Buscar cliente…">
+
+  <div id="vistaCliente">
+    <div class="stats" id="stats"></div>
+    <div class="filtros" id="filtros"></div>
+    <div class="ordwrap"><span class="lbl">Orden</span><div class="ordseg" id="orden"></div></div>
+    <div id="lista"></div>
+  </div>
+
+  <div id="vistaServicio" class="hidden">
+    <div class="frow" style="margin-bottom:12px"><label>Elige un servicio</label>
+      <select id="srvPick"></select>
+    </div>
+    <div id="srvStats"></div>
+    <div id="srvLista"></div>
+  </div>
+
+  <button class="fab" id="abrirModal">+ Cliente</button>
+</div>
+
+<!-- modal perfil (crear / editar persona) -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="cliTitulo">Nuevo cliente</h2>
+    <div class="frow"><label>Nombre</label><input id="fNombre" placeholder="Ej: Carlos Pérez"></div>
+    <div class="frow"><div class="dual">
+      <div style="flex:1.3"><label>WhatsApp (con código de país)</label><input id="fTel" inputmode="tel" placeholder="+573001234567"></div>
+      <div style="flex:1"><label>País</label><select id="fPais">
+        <option value="">Selecciona un país</option>
+        <option value="Colombia">Colombia</option>
+        <option value="México">México</option>
+        <option value="Venezuela">Venezuela</option>
+        <option value="Ecuador">Ecuador</option>
+        <option value="Perú">Perú</option>
+        <option value="Panamá">Panamá</option>
+        <option value="EEUU">EEUU</option>
+        <option value="España">España</option>
+      </select></div>
+    </div></div>
+    <div class="frow"><div class="dual">
+      <div style="flex:1"><label>Nivel</label><select id="fMem"></select></div>
+      <div style="flex:1"><label>Registrado el</label><input id="fCreado" type="date"></div>
+    </div></div>
+    <div class="frow"><div class="dual">
+      <div style="flex:1"><label>Ingreso a la Comunidad</label><input id="fComunidad" type="date"></div>
+      <div style="flex:1"><label>Último upgrade</label><input id="fUpgrade" type="date"></div>
+    </div></div>
+    <button class="convert hidden" id="btnConvertir">⬆ Convertir a Beca</button>
+    <div class="frow"><label>Nota</label><textarea id="fNota" rows="3" placeholder="Contexto, acuerdos, resumen…"></textarea></div>
+    <div class="profsec" id="fActividades"></div>
+    <div class="mbtns">
+      <button class="cancelar" id="cerrarModal">Cancelar</button>
+      <button class="guardar" id="guardarBtn">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal editar servicio (director) -->
+<div class="overlay" id="srvOverlay">
+  <div class="modal">
+    <h2>Editar servicio</h2>
+    <div class="frow"><label>Nombre del servicio</label><input id="eName"></div>
+    <div class="frow"><div class="dual">
+      <div style="flex:1"><label>Grupo</label><select id="eGroup"></select></div>
+      <div style="flex:1"><label>Nivel requerido</label><select id="eTier">
+        <option value="">Todos (incluye Beca)</option>
+        <option value="vip">VIP o superior</option>
+        <option value="oro">Solo Oro</option>
+      </select></div>
+    </div></div>
+    <div class="mbtns">
+      <button class="cancelar" id="srvCerrar">Cancelar</button>
+      <button class="guardar" id="srvGuardar">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal catálogo (director) -->
+<div class="overlay" id="catOverlay">
+  <div class="modal">
+    <h2>Catálogo de servicios</h2>
+    <div id="catLista"></div>
+    <div class="cataddbox">
+      <h3>Agregar servicio</h3>
+      <div class="frow"><label>Nombre del servicio</label><input id="cName" placeholder="Ej: Taller de Psicotrading"></div>
+      <div class="frow"><div class="dual">
+        <div style="flex:1"><label>Grupo</label><select id="cGroup"></select></div>
+        <div style="flex:1"><label>Nivel requerido</label><select id="cTier">
+          <option value="">Todos (incluye Beca)</option>
+          <option value="vip">VIP o superior</option>
+          <option value="oro">Solo Oro</option>
+        </select></div>
+      </div></div>
+      <div class="frow"><label>O crear grupo nuevo (opcional)</label><input id="cNewGroup" placeholder="Ej: Talleres especiales"></div>
+      <div class="mbtns"><button class="guardar" id="cAddBtn">Agregar servicio</button></div>
+    </div>
+    <div class="mbtns"><button class="cancelar" id="catCerrar" style="flex:1">Cerrar</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

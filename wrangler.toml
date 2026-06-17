@@ -1,0 +1,7 @@
+name = "nexus-ftds"
+compatibility_date = "2026-06-01"
+
+# Sirve la carpeta /public como sitio estático.
+[assets]
+directory = "./public"
+not_found_handling = "single-page-application"
