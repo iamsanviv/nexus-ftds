@@ -161,9 +161,12 @@ function wireCards() {
     card.querySelectorAll(".srv").forEach(row => {
       row.onclick = async () => {
         const s = todos().find(x => x.id === row.dataset.srv);
-        c.acc[s.id] ? delete c.acc[s.id] : c.acc[s.id] = hoyISO();
+        if (c.acc[s.id]) delete c.acc[s.id];
+        else {
+          c.acc[s.id] = (c.conf || {})[s.id] || hoyISO();
+        }
         render();
-        await dbPatch(c, { acc: c.acc });
+        await dbPatch(c, { acc: c.acc, conf: c.conf || {} });
       };
     });
     card.querySelector('[data-acc="perfil"]').onclick = () => abrirPerfil(c);
@@ -212,7 +215,7 @@ function renderServicio() {
   const asis = c => c.acc[sid];
   const asistieron = base.filter(c => asis(c));
   const confirmaron = base.filter(c => conf(c) && !asis(c));
-  const porInvitar  = base.filter(c => !conf(c) && !asis(c));
+  const porInvitar = base.filter(c => !conf(c) && !asis(c));
   const total = base.length;
   const pct = total ? Math.round(asistieron.length / total * 100) : 0;
 
@@ -251,8 +254,8 @@ function renderServicio() {
     render(); await dbPatch(c, { conf: c.conf });
   });
   $("srvLista").querySelectorAll("[data-asis]").forEach(b => b.onclick = async () => {
-    const c = find(b.dataset.asis); if (!c) return; c.acc[sid] = hoyISO();
-    render(); await dbPatch(c, { acc: c.acc }); toast(`✓ ${c.nombre.split(' ')[0]} asistió a «${s.n}»`);
+    const c = find(b.dataset.asis); if (!c) return; c.acc[sid] = (c.conf || {})[sid] || hoyISO();
+    render(); await dbPatch(c, { acc: c.acc, conf: c.conf || {} }); toast(`✓ ${c.nombre.split(' ')[0]} asistió a «${s.n}»`);
   });
   $("srvLista").querySelectorAll("[data-unasis]").forEach(b => b.onclick = async () => {
     const c = find(b.dataset.unasis); if (!c) return; delete c.acc[sid];
