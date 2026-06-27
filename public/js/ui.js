@@ -146,7 +146,7 @@ function cardHTML(c, p, rank, isLead, dir) {
       <div class="cbody">
         ${nota}${grupos}
         <div class="cfoot">
-          ${c.tel ? `<button class="copynum" data-num="${esc(c.tel)}">${esc(c.tel)}</button>` : ''}
+          ${c.tel ? `<button class="copynum" data-num="${esc(c.tel)}">${esc(c.tel)}</button><a class="wachip" target="_blank" rel="noopener" href="https://wa.me/${c.tel.replace(/\D/g,'')}">WhatsApp</a>` : ''}
           <button data-acc="perfil">✎ Perfil</button>
           <button class="del" data-acc="borrar">Eliminar</button>
         </div>
@@ -166,7 +166,7 @@ function wireCards() {
           c.acc[s.id] = (c.conf || {})[s.id] || hoyISO();
         }
         render();
-        await dbPatch(c, { acc: c.acc, conf: c.conf || {} });
+        await dbPatch(c, { acc: c.acc });
       };
     });
     card.querySelector('[data-acc="perfil"]').onclick = () => abrirPerfil(c);
@@ -230,7 +230,7 @@ function renderServicio() {
   </div>`;
 
   const dir = state.me.role === 'director';
-  const numchip = c => c.tel ? `<button class="copynum" data-num="${esc(c.tel)}">${esc(c.tel)}</button>` : '';
+  const numchip = c => c.tel ? `<button class="copynum" data-num="${esc(c.tel)}">${esc(c.tel)}</button><a class="wachip" target="_blank" rel="noopener" href="https://wa.me/${c.tel.replace(/\D/g,'')}">WhatsApp</a>` : '';
   const owner = c => (dir && c.owner_id !== state.me.id) ? `<span class="owner">👤 ${esc(state.perfiles[c.owner_id] || 'agente')}</span>` : '';
   const info = c => `<div class="pl"><span class="pn">${esc(c.nombre)}</span><span class="badge b-${c.mem}">${c.mem}</span>${c.pais ? `<span class="pais">📍 ${esc(c.pais)}</span>` : ''}${owner(c)}${numchip(c)}</div>`;
 
@@ -255,7 +255,7 @@ function renderServicio() {
   });
   $("srvLista").querySelectorAll("[data-asis]").forEach(b => b.onclick = async () => {
     const c = find(b.dataset.asis); if (!c) return; c.acc[sid] = (c.conf || {})[sid] || hoyISO();
-    render(); await dbPatch(c, { acc: c.acc, conf: c.conf || {} }); toast(`✓ ${c.nombre.split(' ')[0]} asistió a «${s.n}»`);
+    render(); await dbPatch(c, { acc: c.acc }); toast(`✓ ${c.nombre.split(' ')[0]} asistió a «${s.n}»`);
   });
   $("srvLista").querySelectorAll("[data-unasis]").forEach(b => b.onclick = async () => {
     const c = find(b.dataset.unasis); if (!c) return; delete c.acc[sid];

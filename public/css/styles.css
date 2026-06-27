@@ -195,3 +195,5 @@
   .actrow .an{flex:1;font-size:.84rem}
   .actrow input{width:auto;flex:0 0 auto;padding:6px 8px;font-size:.8rem}
   .pdate.conf{color:var(--gold)}
+  .wachip{font-size:.72rem;font-weight:700;color:#3ddc84;border:1px solid rgba(61,220,132,.4);border-radius:8px;padding:5px 9px;text-decoration:none;white-space:nowrap}
+  .wachip:active{background:#3ddc84;color:#08231a}
