@@ -214,18 +214,18 @@ function renderServicio() {
   const conf = c => (c.conf || {})[sid];
   const asis = c => c.acc[sid];
   const asistieron = base.filter(c => asis(c));
-  const confirmaron = base.filter(c => conf(c) && !asis(c));
+  const invitados = base.filter(c => conf(c) && !asis(c));
   const porInvitar = base.filter(c => !conf(c) && !asis(c));
   const total = base.length;
   const pct = total ? Math.round(asistieron.length / total * 100) : 0;
 
   const filt = arr => arr.filter(c => !q || c.nombre.toLowerCase().includes(q));
   const aA = filt(asistieron).sort((a, b) => (a.acc[sid] || "").localeCompare(b.acc[sid] || "") * -1);
-  const aC = filt(confirmaron).sort((a, b) => (conf(b) || "").localeCompare(conf(a) || ""));
+  const aC = filt(invitados).sort((a, b) => (conf(b) || "").localeCompare(conf(a) || ""));
   const aP = filt(porInvitar).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
   $("srvStats").innerHTML = `<div class="srvstat">
-    <div class="srvstat-top"><b>${asistieron.length}</b> asistieron · <b>${confirmaron.length}</b> invitados · <span class="falta">${porInvitar.length} por invitar</span></div>
+    <div class="srvstat-top"><b>${asistieron.length}</b> asistieron · <b>${invitados.length}</b> invitados · <span class="falta">${porInvitar.length} por invitar</span></div>
     <div class="barra"><i style="width:${pct}%"></i></div>
   </div>`;
 
@@ -241,7 +241,7 @@ function renderServicio() {
 
   $("srvLista").innerHTML =
       `<div class="grupo"><div class="gtitle">✓ Asistieron (${aA.length})</div>` + (aA.length ? aA.map(rowAsis).join("") : mini(q ? "Nadie coincide" : "Nadie aún")) + `</div>`
-    + `<div class="grupo"><div class="gtitle">📋 Confirmaron · falta preguntar asistencia (${aC.length})</div>` + (aC.length ? aC.map(rowConf).join("") : mini(q ? "Nadie coincide" : "Nadie confirmado todavía")) + `</div>`
+    + `<div class="grupo"><div class="gtitle">📋 invitados · falta preguntar asistencia (${aC.length})</div>` + (aC.length ? aC.map(rowConf).join("") : mini(q ? "Nadie coincide" : "Nadie confirmado todavía")) + `</div>`
     + `<div class="grupo"><div class="gtitle">${isLead ? '🌱 Por invitar' : '⏳ Por invitar'} (${aP.length})</div>` + (aP.length ? aP.map(rowPend).join("") : mini(q ? "Nadie coincide" : "¡Todos contactados! 🎉")) + `</div>`;
 
   const find = id => state.clientes.find(x => x.id === id);
