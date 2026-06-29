@@ -225,7 +225,7 @@ function renderServicio() {
   const aP = filt(porInvitar).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
   $("srvStats").innerHTML = `<div class="srvstat">
-    <div class="srvstat-top"><b>${asistieron.length}</b> asistieron · <b>${confirmaron.length}</b> confirmados · <span class="falta">${porInvitar.length} por invitar</span></div>
+    <div class="srvstat-top"><b>${asistieron.length}</b> asistieron · <b>${confirmaron.length}</b> invitados · <span class="falta">${porInvitar.length} por invitar</span></div>
     <div class="barra"><i style="width:${pct}%"></i></div>
   </div>`;
 
