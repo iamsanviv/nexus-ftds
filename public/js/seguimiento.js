@@ -140,7 +140,15 @@ async function programar() {
 }
 
 /* ---------- wiring ---------- */
-$("btnSeg").onclick = () => { renderForm(); renderActivos(); $("segOverlay").classList.add("open"); };
+const EMAIL_SEG = "santiagoviveros18@gmail.com";
+$("btnSeg").onclick = () => {
+  if ((state.me?.email || "").toLowerCase() !== EMAIL_SEG) {
+    toast("Seguimiento Automatizado. En fase de prueba…");
+    return;
+  }
+  renderForm(); renderActivos(); $("segOverlay").classList.add("open");
+};
+
 $("segCerrar").onclick = () => $("segOverlay").classList.remove("open");
 $("segOverlay").onclick = e => { if (e.target.id === "segOverlay") $("segOverlay").classList.remove("open"); };
 $("segProgramar").onclick = programar;
