@@ -2,6 +2,8 @@
 // y al final arrancamos la sesión.
 import "./ui.js";    // engancha modales, catálogo, búsqueda, botón + Cliente
 import "./csv.js";   // engancha importar / exportar
+import "./stats.js";
+import "./seguimiento.js";
 import { boot } from "./auth.js"; // engancha login y revisa la sesión
 
 boot();
