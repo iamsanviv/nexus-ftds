@@ -4,6 +4,7 @@ import { SUPABASE_URL, SUPABASE_ANON } from "./config.js";
 import { state, $, toast } from "./state.js";
 import { cargarTodo } from "./data.js";
 import { render } from "./ui.js";
+import { repasoDiario } from "./repaso.js";
 
 export function boot() {
   if (SUPABASE_URL.includes("TU-PROYECTO") || SUPABASE_ANON.includes("TU_ANON")) {
@@ -44,7 +45,7 @@ async function entrar() {
     ? "Vista de director · ves todos los clientes y a quién pertenecen"
     : "Tus clientes · solo tú ves y gestionas los que registras";
 
-  try { await cargarTodo(); render(); }
+  try { await cargarTodo(); render(); repasoDiario(); }
   catch (err) { toast("⚠ Error cargando datos: " + err.message); }
 }
 

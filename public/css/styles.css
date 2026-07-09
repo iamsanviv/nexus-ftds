@@ -82,6 +82,11 @@
   .grupo{margin-top:12px}
   .gtitle{font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;display:flex;align-items:center;gap:8px}
   .gtitle::after{content:'';flex:1;height:1px;background:var(--border)}
+  .gtitle.gclick{cursor:pointer;user-select:none}
+  .gchev{display:inline-block;transition:transform .15s;font-size:.75rem}
+  .grupo.acc .gbody{display:none}
+  .grupo.acc.open .gbody{display:block}
+  .grupo.acc.open .gchev{transform:rotate(90deg)}
   .srv{display:flex;align-items:center;gap:11px;padding:9px 8px;border-radius:10px}
   .srv:active{background:var(--surface2)}
   .check{width:24px;height:24px;border-radius:8px;border:1.5px solid var(--border);flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;transition:all .15s}
@@ -213,6 +218,7 @@
   font-variant-numeric:tabular-nums}
 
 /* ---- seguimiento ---- */
+.pstitle{font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
 .seg-lista{max-height:220px;overflow-y:auto;border:1px solid var(--border);
   border-radius:10px;padding:6px 8px;margin-bottom:12px}
 .seg-row{display:flex;align-items:center;gap:8px;padding:6px 2px;
@@ -221,3 +227,19 @@
 .seg-row input[type=checkbox]{width:auto;accent-color:var(--gold)}
 .seg-row .sfecha{color:var(--muted);font-size:.75rem;margin-left:6px}
 .seg-row button{margin-left:auto;flex:0 0 auto}
+.seg-row .pr{margin-left:auto;display:flex;gap:6px;align-items:center}
+.seg-row .pr button{margin-left:0}
+.actsel{border:1px solid var(--gold-dim);background:var(--surface2);border-radius:10px;padding:8px 10px;margin-bottom:10px;font-size:.85rem}
+.actsel b{color:var(--gold)}
+.segtop{display:flex;align-items:center;gap:12px;margin:4px 0 10px}
+.segtop .segtitle{font-family:'Archivo';font-size:1.05rem;font-weight:800;margin:0}
+.segformbtns{display:flex;gap:8px;align-items:center}
+.segformbtns .authbtn{flex:1}
+#vistaSeguimiento .seg-lista{max-height:300px}
+.msgspanel{border:1px solid var(--gold-dim);border-radius:12px;padding:10px 12px;margin-bottom:14px;background:var(--surface)}
+.msgshelp{font-size:.76rem;color:var(--muted);margin-bottom:10px}
+.msgshelp code{background:var(--surface2);border-radius:5px;padding:1px 5px;color:var(--gold);font-size:.9em}
+.msgspanel textarea{width:100%;resize:vertical}
+.segfiltros{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.segselbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.segselcount{font-size:.78rem;color:var(--muted);margin-right:auto}

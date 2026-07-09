@@ -12,6 +12,8 @@ export const state = {
   orden: "cerca",
   vista: "cliente",      // "cliente" | "servicio"
   abiertos: new Set(),
+  // Acordeones de la vista por servicio (true = desplegado).
+  srvOpen: { asis: false, conf: true, pend: true },
   cliEdit: null,
   srvEdit: null,
   signupMode: false,
@@ -22,6 +24,8 @@ export const $ = id => document.getElementById(id);
 export const hoyISO = () => new Date().toISOString().slice(0, 10);
 export const fmtF = iso => { const p = (iso || "").split("-"); return p.length === 3 ? `${p[2]}/${p[1]}` : (iso || ""); };
 export const esc = s => (s || "").replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m]));
+// Para búsquedas: minúsculas y sin acentos ("César" → "cesar").
+export const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
 export const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 export function toast(msg) {
