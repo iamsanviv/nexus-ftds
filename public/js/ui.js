@@ -2,7 +2,7 @@
 import Sortable from "https://esm.sh/sortablejs@1.15.3";
 import { NIVEL } from "./config.js";
 import {
-  state, $, esc, fmtF, hoyISO, uid, toast, copyNum,
+  state, $, esc, fmtF, hoyISO, uid, toast, copyNum, norm,
   todos, esRequerido, esAdicional, esLead, progreso, siguiente,
 } from "./state.js";
 import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar } from "./data.js";
@@ -14,6 +14,17 @@ export function render() {
   renderModuleSwitch();
   renderViewToggle();
   const isLead = state.modulo === "leads";
+
+  if (state.vista === "seguimiento") {
+    $("vistaCliente").classList.add("hidden");
+    $("vistaServicio").classList.add("hidden");
+    $("vistaSeguimiento").classList.remove("hidden");
+    $("abrirModal").classList.add("hidden");
+    $("buscar").classList.add("hidden");
+    return;
+  }
+  $("vistaSeguimiento").classList.add("hidden");
+  $("buscar").classList.remove("hidden");
 
   if (state.vista === "servicio") {
     $("vistaCliente").classList.add("hidden");
@@ -55,9 +66,9 @@ export function render() {
   $("orden").querySelectorAll(".oseg").forEach(b => b.onclick = () => { state.orden = b.dataset.o; render(); });
 
   /* ----- filtrar ----- */
-  const q = $("buscar").value.trim().toLowerCase();
+  const q = norm($("buscar").value.trim());
   let vis = base.filter(c => {
-    if (q && !c.nombre.toLowerCase().includes(q)) return false;
+    if (q && !norm(c.nombre).includes(q)) return false;
     if (state.filtro === "todos") return true;
     if (state.filtro === "activos") return pr(c).extra > 0;
     if (state.filtro === "inactivos") return pr(c).extra === 0;
@@ -183,8 +194,10 @@ function renderModuleSwitch() {
   const ms = [["comunidad", "🎓 Comunidad"], ["leads", "🌱 Leads"]];
   $("modSwitch").innerHTML = ms.map(([v, l]) => `<button class="mbtn ${v} ${state.modulo === v ? 'on' : ''}" data-m="${v}">${l}</button>`).join("");
   $("modSwitch").querySelectorAll(".mbtn").forEach(b => b.onclick = () => {
-    if (state.modulo === b.dataset.m) return;
-    state.modulo = b.dataset.m; state.filtro = "todos"; render();
+    if (state.modulo === b.dataset.m && state.vista !== "seguimiento") return;
+    state.modulo = b.dataset.m; state.filtro = "todos";
+    if (state.vista === "seguimiento") state.vista = "cliente";
+    render();
   });
   $("abrirModal").textContent = state.modulo === "leads" ? "+ Lead" : "+ Cliente";
 }
@@ -210,7 +223,7 @@ function renderServicio() {
   const sid = sel.value, s = todos().find(x => x.id === sid);
   if (!s) { $("srvStats").innerHTML = ""; $("srvLista").innerHTML = `<div class="vacio"><b>No hay servicios en el catálogo</b></div>`; return; }
 
-  const q = $("buscar").value.trim().toLowerCase();
+  const q = norm($("buscar").value.trim());
   const conf = c => (c.conf || {})[sid];
   const asis = c => c.acc[sid];
   const asistieron = base.filter(c => asis(c));
@@ -219,7 +232,7 @@ function renderServicio() {
   const total = base.length;
   const pct = total ? Math.round(asistieron.length / total * 100) : 0;
 
-  const filt = arr => arr.filter(c => !q || c.nombre.toLowerCase().includes(q));
+  const filt = arr => arr.filter(c => !q || norm(c.nombre).includes(q));
   const aA = filt(asistieron).sort((a, b) => (a.acc[sid] || "").localeCompare(b.acc[sid] || "") * -1);
   const aC = filt(invitados).sort((a, b) => (conf(b) || "").localeCompare(conf(a) || ""));
   const aP = filt(porInvitar).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
@@ -239,10 +252,24 @@ function renderServicio() {
   const rowPend = c => `<div class="prow">${info(c)}<div class="pr"><button class="pmark" data-conf="${c.id}">✓ invitado</button></div></div>`;
   const mini = t => `<div class="naplica">${t}</div>`;
 
+  // Acordeón: cada grupo se pliega/despliega; con búsqueda activa se abren todos.
+  const grupoAcc = (key, titulo, filas, vacioMsg) => {
+    const open = q ? true : state.srvOpen[key];
+    return `<div class="grupo acc ${open ? 'open' : ''}">
+      <div class="gtitle gclick" data-g="${key}"><span class="gchev">▸</span>${titulo}</div>
+      <div class="gbody">${filas || mini(vacioMsg)}</div>
+    </div>`;
+  };
   $("srvLista").innerHTML =
-      `<div class="grupo"><div class="gtitle">✓ Asistieron (${aA.length})</div>` + (aA.length ? aA.map(rowAsis).join("") : mini(q ? "Nadie coincide" : "Nadie aún")) + `</div>`
-    + `<div class="grupo"><div class="gtitle">📋 invitados · falta preguntar asistencia (${aC.length})</div>` + (aC.length ? aC.map(rowConf).join("") : mini(q ? "Nadie coincide" : "Nadie confirmado todavía")) + `</div>`
-    + `<div class="grupo"><div class="gtitle">${isLead ? '🌱 Por invitar' : '⏳ Por invitar'} (${aP.length})</div>` + (aP.length ? aP.map(rowPend).join("") : mini(q ? "Nadie coincide" : "¡Todos contactados! 🎉")) + `</div>`;
+      grupoAcc("asis", `✓ Asistieron (${aA.length})`, aA.map(rowAsis).join(""), q ? "Nadie coincide" : "Nadie aún")
+    + grupoAcc("conf", `📋 invitados · falta preguntar asistencia (${aC.length})`, aC.map(rowConf).join(""), q ? "Nadie coincide" : "Nadie confirmado todavía")
+    + grupoAcc("pend", `${isLead ? '🌱 Por invitar' : '⏳ Por invitar'} (${aP.length})`, aP.map(rowPend).join(""), q ? "Nadie coincide" : "¡Todos contactados! 🎉");
+
+  $("srvLista").querySelectorAll(".gclick").forEach(t => t.onclick = () => {
+    const k = t.dataset.g;
+    state.srvOpen[k] = !state.srvOpen[k];
+    render();
+  });
 
   const find = id => state.clientes.find(x => x.id === id);
   $("srvLista").querySelectorAll("[data-conf]").forEach(b => b.onclick = async () => {
@@ -317,6 +344,15 @@ $("guardarBtn").onclick = async () => {
   const nombre = $("fNombre").value.trim();
   if (!nombre) { toast("Falta el nombre"); return; }
   const telN = $("fTel").value.replace(/\D/g, "");
+
+  // Duplicados (entre mis contactos): mismo teléfono bloquea, mismo nombre advierte.
+  const mios = state.clientes.filter(x => x.owner_id === state.me.id && x.id !== state.cliEdit);
+  if (telN) {
+    const dupTel = mios.find(x => (x.tel || "").replace(/\D/g, "") === telN);
+    if (dupTel) { toast(`⚠ Ese número ya es de ${dupTel.nombre}`); return; }
+  }
+  const dupNom = mios.find(x => norm(x.nombre) === norm(nombre));
+  if (dupNom && !confirm(`Ya tienes un contacto llamado «${dupNom.nombre}». ¿Guardar de todas formas?`)) return;
   const datos = {
     nombre, pais: $("fPais").value.trim(), tel: telN ? "+" + telN : "",
     mem: $("fMem").value, creado: $("fCreado").value || "",
