@@ -325,6 +325,9 @@ async function programar() {
       yaInvitados = new Set((previas || []).map(r => r.telefono));
     }
 
+    // Imagen del servicio (si tiene): acompaña la invitación como foto + caption.
+    const imgServicio = (todos().find(s => s.id === actSel.servicio_id) || {}).img || null;
+
     // 2) los 5 mensajes por persona (se omiten los que ya quedaron en el pasado)
     const msgs = [];
     const tiempos = () => ([
@@ -339,10 +342,13 @@ async function programar() {
       const tpl = plantillas(c.nombre, actSel.nombre, actSel.inicio, actSel.enlace, yaInvitados.has(c.tel));
       for (const [tipo, cuando] of tiempos()) {
         if (tipo !== "invitacion" && cuando <= ahora) continue; // ya pasó
-        msgs.push({
+        const fila = {
           seguimiento_id: seg.id, tipo, enviar_en: cuando.toISOString(),
           telefono: c.tel, texto: tpl[tipo],
-        });
+        };
+        // La imagen del servicio solo acompaña la invitación.
+        if (tipo === "invitacion" && imgServicio) fila.media_url = imgServicio;
+        msgs.push(fila);
       }
     }
     const { error: e2 } = await SB.from("mensajes_programados").insert(msgs);

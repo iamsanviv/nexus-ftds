@@ -240,6 +240,11 @@
 .msgshelp{font-size:.76rem;color:var(--muted);margin-bottom:10px}
 .msgshelp code{background:var(--surface2);border-radius:5px;padding:1px 5px;color:var(--gold);font-size:.9em}
 .msgspanel textarea{width:100%;resize:vertical}
+.imgfield{display:flex;gap:12px;align-items:flex-start}
+.imgprev{width:96px;height:96px;object-fit:cover;border-radius:10px;border:1px solid var(--border)}
+.imgbtns{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.imgestado{font-size:.76rem;color:var(--muted)}
+.stag.img{background:transparent;padding:0 2px}
 .segfiltros{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
 .segselbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .segselcount{font-size:.78rem;color:var(--muted);margin-right:auto}
