@@ -61,3 +61,22 @@ export async function guardarCatalogo() {
     .eq("id", "catalogo");
   if (error) toast("⚠ No se pudo guardar el catálogo: " + error.message);
 }
+
+const BUCKET_SRV = "servicios";
+
+// Sube la imagen de un servicio al Storage y devuelve su URL pública.
+// El archivo se nombra por el id del servicio, así reemplaza la anterior.
+export async function subirImagenServicio(file, serviceId) {
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const path = `${serviceId}.${ext}`;
+  const { error } = await SB.storage.from(BUCKET_SRV)
+    .upload(path, file, { upsert: true, contentType: file.type });
+  if (error) throw error;
+  return SB.storage.from(BUCKET_SRV).getPublicUrl(path).data.publicUrl;
+}
+
+// Borra del Storage la imagen a partir de su URL pública.
+export async function borrarImagenServicio(url) {
+  const m = (url || "").split("?")[0].match(/\/servicios\/(.+)$/);
+  if (m) await SB.storage.from(BUCKET_SRV).remove([m[1]]);
+}

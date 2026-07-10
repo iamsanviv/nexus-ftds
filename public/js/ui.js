@@ -5,7 +5,7 @@ import {
   state, $, esc, fmtF, hoyISO, uid, toast, copyNum, norm,
   todos, esRequerido, esAdicional, esLead, progreso, siguiente,
 } from "./state.js";
-import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar } from "./data.js";
+import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio } from "./data.js";
 
 const NIVELES = ["Lead", "Beca", "VIP", "Platino", "Oro"];
 
@@ -392,6 +392,7 @@ function renderCat() {
         <div class="catrow" data-si="${si}">
           <span class="drag" title="Arrastra para reordenar">☰</span>
           <span class="cn">${esc(s.n)}</span>
+          ${s.img ? `<span class="stag img" title="Tiene imagen">🖼</span>` : ''}
           ${s.tier ? `<span class="stag ${s.tier}">${s.tier === 'oro' ? 'ORO' : 'VIP'}</span>` : ''}
           <button data-e="${gi}:${si}">✎</button>
           <button class="cdel" data-d="${gi}:${si}">✕</button>
@@ -409,6 +410,7 @@ function renderCat() {
     $("eName").value = s.n;
     $("eGroup").innerHTML = state.catalogo.map((g, i) => `<option value="${i}" ${i === gi ? 'selected' : ''}>${esc(g.g)}</option>`).join("");
     $("eTier").value = s.tier || "";
+    setImgPreview(s.img);
     $("srvOverlay").classList.add("open");
   });
   $("catLista").querySelectorAll("[data-d]").forEach(b => b.onclick = () => {
@@ -431,6 +433,48 @@ function renderCat() {
     });
   });
 }
+
+// ---- imagen del servicio ----
+function setImgPreview(url) {
+  const img = $("eImgPreview"), del = $("eImgDel");
+  if (url) {
+    img.src = url + (url.includes("?") ? "" : "?v=" + Date.now());  // cache-bust solo en la vista
+    img.classList.remove("hidden"); del.classList.remove("hidden");
+  } else {
+    img.src = ""; img.classList.add("hidden"); del.classList.add("hidden");
+  }
+  $("eImgEstado").textContent = "";
+}
+
+$("eImgPick").onclick = () => $("eImgFile").click();
+$("eImgFile").onchange = async () => {
+  const file = $("eImgFile").files[0];
+  if (!file || !state.srvEdit) return;
+  const { gi, si } = state.srvEdit, s = state.catalogo[gi].items[si];
+  $("eImgEstado").textContent = "Subiendo…";
+  try {
+    const url = await subirImagenServicio(file, s.id);
+    s.img = url;
+    await guardarCatalogo();
+    setImgPreview(url);
+    $("eImgEstado").textContent = "✓ Imagen guardada";
+    renderCat();
+  } catch (err) {
+    $("eImgEstado").textContent = "⚠ " + err.message;
+  } finally {
+    $("eImgFile").value = "";
+  }
+};
+$("eImgDel").onclick = async () => {
+  if (!state.srvEdit) return;
+  const { gi, si } = state.srvEdit, s = state.catalogo[gi].items[si];
+  if (!s.img || !confirm("¿Quitar la imagen de este servicio?")) return;
+  try { await borrarImagenServicio(s.img); } catch (e) { /* si ya no está, seguimos */ }
+  delete s.img;
+  await guardarCatalogo();
+  setImgPreview(null);
+  renderCat();
+};
 
 $("srvCerrar").onclick = () => { $("srvOverlay").classList.remove("open"); state.srvEdit = null; };
 $("srvOverlay").onclick = e => { if (e.target.id === "srvOverlay") { $("srvOverlay").classList.remove("open"); state.srvEdit = null; } };

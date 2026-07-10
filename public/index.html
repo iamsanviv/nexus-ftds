@@ -186,6 +186,18 @@
         <option value="oro">Solo Oro</option>
       </select></div>
     </div></div>
+    <div class="frow">
+      <label>Imagen (se envía con la invitación)</label>
+      <div class="imgfield">
+        <img id="eImgPreview" class="imgprev hidden" alt="">
+        <div class="imgbtns">
+          <input type="file" id="eImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
+          <button type="button" class="tbtn" id="eImgPick">Subir imagen</button>
+          <button type="button" class="tbtn hidden" id="eImgDel" style="color:var(--bad)">Quitar</button>
+          <span id="eImgEstado" class="imgestado"></span>
+        </div>
+      </div>
+    </div>
     <div class="mbtns">
       <button class="cancelar" id="srvCerrar">Cancelar</button>
       <button class="guardar" id="srvGuardar">Guardar cambios</button>
