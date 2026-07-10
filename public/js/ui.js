@@ -165,10 +165,21 @@ function cardHTML(c, p, rank, isLead, dir) {
     </div>`;
 }
 
+// Re-renderiza manteniendo fija en pantalla la tarjeta indicada. Sin esto, al
+// marcar un servicio la lista se reconstruye y reordena, y el scroll salta.
+function renderKeepingCard(cardId) {
+  const sel = `.card[data-id="${cardId}"]`;
+  const antes = document.querySelector(sel)?.getBoundingClientRect().top;
+  render();
+  if (antes == null) return;
+  const el = document.querySelector(sel);
+  if (el) window.scrollBy(0, el.getBoundingClientRect().top - antes);
+}
+
 function wireCards() {
   $("lista").querySelectorAll(".card").forEach(card => {
     const c = state.clientes.find(x => x.id === card.dataset.id);
-    card.querySelector(".chead").onclick = () => { state.abiertos.has(c.id) ? state.abiertos.delete(c.id) : state.abiertos.add(c.id); render(); };
+    card.querySelector(".chead").onclick = () => { state.abiertos.has(c.id) ? state.abiertos.delete(c.id) : state.abiertos.add(c.id); renderKeepingCard(c.id); };
     card.querySelectorAll(".srv").forEach(row => {
       row.onclick = async () => {
         const s = todos().find(x => x.id === row.dataset.srv);
@@ -176,7 +187,7 @@ function wireCards() {
         else {
           c.acc[s.id] = (c.conf || {})[s.id] || hoyISO();
         }
-        render();
+        renderKeepingCard(c.id);
         await dbPatch(c, { acc: c.acc });
       };
     });

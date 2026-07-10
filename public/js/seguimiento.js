@@ -44,12 +44,15 @@ function aplicar(tpl, { nombre, actividad, hora, enlace }) {
 
 // yaInvitado: si la persona ya recibió una invitación hoy, la invitación de
 // esta actividad usa la variante "extra" (sin saludo) para no repetir el hola.
+// El mensaje de "enlace" conserva el token {enlace} sin resolver: el worker pone
+// el enlace vigente al enviar (así se puede agregar/cambiar después de programar).
 function plantillas(nombre, actividad, inicioISO, enlace, yaInvitado) {
-  const datos = { nombre: nombre.trim().split(/\s+/)[0], actividad, hora: horaCO(inicioISO), enlace };
+  const base = { nombre: nombre.trim().split(/\s+/)[0], actividad, hora: horaCO(inicioISO) };
   const out = {};
   for (const t of TIPOS) {
     const clave = (t === "invitacion" && yaInvitado) ? "invitacion_extra" : t;
-    out[t] = aplicar(plantillasUsuario[clave] || PLANTILLAS_DEF[clave], datos);
+    const linkVal = t === "enlace" ? "{enlace}" : (enlace || "");   // enlace: token; resto: resuelto
+    out[t] = aplicar(plantillasUsuario[clave] || PLANTILLAS_DEF[clave], { ...base, enlace: linkVal });
   }
   return out;
 }
@@ -145,7 +148,8 @@ async function guardarActividad() {
   const enlace = $("segLink").value.trim();
   if (!srv) { toast("Elige una actividad"); return; }
   if (!fecha || !hora) { toast("Falta la fecha o la hora"); return; }
-  if (!enlace) { toast("Falta el enlace de la sala"); return; }
+  // El enlace es OPCIONAL: se puede agregar/editar después, antes de que salga
+  // el mensaje del enlace.
 
   const inicio = new Date(`${fecha}T${hora}:00`);   // hora local = Colombia
   if (isNaN(inicio)) { toast("Fecha/hora inválida"); return; }
@@ -158,7 +162,19 @@ async function guardarActividad() {
     if (actEdit) {
       const { error } = await SB.from("actividades").update(datos).eq("id", actEdit.id);
       if (error) throw error;
-      toast("✓ Actividad actualizada (los mensajes ya programados no cambian)");
+      // Propaga el enlace nuevo a los mensajes de "enlace" aún pendientes de los
+      // seguimientos activos de esta actividad (por eso el link no se congela).
+      const { data: segs } = await SB.from("seguimientos")
+        .select("id").eq("actividad_id", actEdit.id).eq("estado", "activo");
+      const ids = (segs || []).map(s => s.id);
+      if (ids.length) {
+        await SB.from("mensajes_programados")
+          .update({ enlace_url: enlace || null })
+          .in("seguimiento_id", ids).eq("tipo", "enlace").eq("estado", "pendiente");
+      }
+      toast(enlace
+        ? "✓ Actividad actualizada · enlace aplicado a los mensajes pendientes"
+        : "✓ Actividad actualizada");
       if (actSel && actSel.id === actEdit.id) ocultarProg();
       salirEdicion();
     } else {
@@ -199,7 +215,7 @@ async function cargarActividades() {
   }
   $("segActividades").innerHTML = actividades.map(a => `
     <div class="seg-row">
-      <span>${esc(a.nombre)}<span class="sfecha">${fechaHoraCO(a.inicio)}</span></span>
+      <span>${esc(a.nombre)}<span class="sfecha">${fechaHoraCO(a.inicio)}</span>${a.enlace ? "" : `<span class="sinlink">⚠ sin enlace</span>`}</span>
       <span class="pr">
         <button class="pmark" data-prog="${a.id}">📨 Programar</button>
         <button class="pmark" data-edit="${a.id}" title="Editar actividad">✎</button>
@@ -310,7 +326,8 @@ async function programar() {
   try {
     // 1) un seguimiento por persona (copia los datos de la actividad)
     const segRows = seleccion.map(c => ({
-      cliente_id: c.id, actividad: actSel.nombre, inicio: actSel.inicio, enlace: actSel.enlace,
+      cliente_id: c.id, actividad_id: actSel.id, actividad: actSel.nombre,
+      inicio: actSel.inicio, enlace: actSel.enlace,
     }));
     const { data: segs, error: e1 } = await SB.from("seguimientos").insert(segRows).select("id, cliente_id");
     if (e1) throw e1;
@@ -332,9 +349,6 @@ async function programar() {
       yaInvitados = new Set((previas || []).map(r => r.telefono));
     }
 
-    // Imagen del servicio (si tiene): acompaña la invitación como foto + caption.
-    const imgServicio = (todos().find(s => s.id === actSel.servicio_id) || {}).img || null;
-
     // 2) los 5 mensajes por persona (se omiten los que ya quedaron en el pasado)
     const msgs = [];
     const tiempos = () => ([
@@ -353,8 +367,11 @@ async function programar() {
           seguimiento_id: seg.id, tipo, enviar_en: cuando.toISOString(),
           telefono: c.tel, texto: tpl[tipo],
         };
-        // La imagen del servicio solo acompaña la invitación.
-        if (tipo === "invitacion" && imgServicio) fila.media_url = imgServicio;
+        // La imagen la resuelve el worker al enviar (imagen actual del servicio),
+        // así no se congela: solo guardamos de qué servicio es la invitación.
+        if (tipo === "invitacion") fila.servicio_id = actSel.servicio_id;
+        // El enlace se resuelve al enviar (el texto conserva el token {enlace}).
+        if (tipo === "enlace") fila.enlace_url = actSel.enlace || null;
         msgs.push(fila);
       }
     }

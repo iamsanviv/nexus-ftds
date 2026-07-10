@@ -248,6 +248,8 @@
 .segfiltros{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
 .segselbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .segselcount{font-size:.78rem;color:var(--muted);margin-right:auto}
+.opt{font-weight:400;color:var(--muted);font-size:.85em}
+.sinlink{color:var(--bad);font-size:.7rem;font-weight:700;margin-left:8px}
 /* registro de envíos (logs) */
 .seg-lista.logs{max-height:340px}
 .logrow{padding:8px 2px;border-bottom:1px solid var(--border)}
