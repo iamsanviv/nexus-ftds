@@ -60,6 +60,7 @@ let actSel = null;            // actividad elegida para programar
 let actEdit = null;           // actividad en edición en el formulario
 let segSel = new Set();       // ids de clientes seleccionados para programar
 let segFiltroMem = "todos";   // filtro de membresía en el selector
+let logFiltro = "todos";      // filtro del registro de envíos
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
 const esLeadMem = m => m === "Lead";
@@ -185,9 +186,15 @@ async function cargarActividades() {
     $("segActividades").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`;
     return;
   }
-  actividades = data || [];
+  // Las actividades de días pasados se cierran y desaparecen de la vista.
+  const inicioHoy = new Date(); inicioHoy.setHours(0, 0, 0, 0);
+  const pasadas = (data || []).filter(a => new Date(a.inicio) < inicioHoy);
+  if (pasadas.length) {
+    await SB.from("actividades").update({ estado: "cerrada" }).in("id", pasadas.map(a => a.id));
+  }
+  actividades = (data || []).filter(a => new Date(a.inicio) >= inicioHoy);
   if (!actividades.length) {
-    $("segActividades").innerHTML = `<div class="naplica">Aún no has creado actividades. Crea una arriba.</div>`;
+    $("segActividades").innerHTML = `<div class="naplica">No hay actividades para hoy. Crea una arriba.</div>`;
     return;
   }
   $("segActividades").innerHTML = actividades.map(a => `
@@ -354,9 +361,20 @@ async function programar() {
     const { error: e2 } = await SB.from("mensajes_programados").insert(msgs);
     if (e2) throw e2;
 
+    // Marca a los seleccionados como "invitados" al servicio (si no lo estaban),
+    // así pasan de «por invitar» a «invitados» en la vista por servicio.
+    const hoy = hoyISO();
+    for (const c of seleccion) {
+      if (!(c.conf || {})[actSel.servicio_id]) {
+        c.conf = { ...(c.conf || {}), [actSel.servicio_id]: hoy };
+        await SB.from("clientes").update({ conf: c.conf }).eq("id", c.id);
+      }
+    }
+
     toast(`✓ ${segs.length} seguimiento(s) · ${msgs.length} mensaje(s) programado(s)`);
     ocultarProg();
     renderActivos();
+    renderLogs();
   } catch (err) {
     toast("⚠ " + err.message);
   } finally {
@@ -371,9 +389,20 @@ async function renderActivos() {
     .eq("estado", "activo")
     .order("inicio", { ascending: true });
   if (error) { $("segActivos").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
-  if (!data.length) { $("segActivos").innerHTML = `<div class="naplica">No hay seguimientos activos.</div>`; return; }
 
-  $("segActivos").innerHTML = data.map(s => `
+  // Un seguimiento deja de estar "activo" pasada su hora de confirmación
+  // (inicio + 15 min). Si el mensaje de confirmación falló, el worker no lo
+  // completó; aquí lo cerramos igual para que no quede colgado.
+  const ahora = Date.now();
+  const finConf = s => new Date(s.inicio).getTime() + 15 * 60000;
+  const vencidos = (data || []).filter(s => finConf(s) <= ahora);
+  if (vencidos.length) {
+    await SB.from("seguimientos").update({ estado: "completado" }).in("id", vencidos.map(s => s.id));
+  }
+  const activos = (data || []).filter(s => finConf(s) > ahora);
+  if (!activos.length) { $("segActivos").innerHTML = `<div class="naplica">No hay seguimientos activos.</div>`; return; }
+
+  $("segActivos").innerHTML = activos.map(s => `
     <div class="seg-row">
       <span>${esc(s.clientes?.nombre || "(cliente)")} · <b>${esc(s.actividad)}</b>
         <span class="sfecha">${fechaHoraCO(s.inicio)}</span>
@@ -393,6 +422,60 @@ async function renderActivos() {
   });
 }
 
+/* ================= REGISTRO DE ENVÍOS (logs) ================= */
+const LOG_TIPO = {
+  invitacion: "Invitación", rec_60: "Recordatorio 1 h", rec_15: "Recordatorio 15 min",
+  enlace: "Enlace", confirmacion: "Confirmación",
+};
+const LOG_BADGE = {
+  enviado:   ["ok",   "✓ Enviado"],
+  error:     ["err",  "⚠ Error"],
+  pendiente: ["pend", "⏳ Pendiente"],
+  cancelado: ["can",  "✕ Cancelado"],
+};
+
+async function renderLogs() {
+  const { data, error } = await SB.from("mensajes_programados")
+    .select("tipo, telefono, estado, enviar_en, enviado_en, error, seguimientos(clientes(nombre))")
+    .order("enviar_en", { ascending: false })
+    .limit(60);
+  if (error) { $("segLogs").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
+  const todas = data || [];
+
+  // Chips de filtro con conteos.
+  const n = e => todas.filter(m => m.estado === e).length;
+  const chips = [
+    ["todos", `Todos (${todas.length})`],
+    ["enviado", `✓ ${n("enviado")}`],
+    ["error", `⚠ ${n("error")}`],
+    ["pendiente", `⏳ ${n("pendiente")}`],
+  ];
+  $("segLogsFiltros").innerHTML = chips.map(([v, l]) =>
+    `<button class="pill ${logFiltro === v ? "on" : ""}" data-flog="${v}">${l}</button>`).join("");
+  $("segLogsFiltros").querySelectorAll("[data-flog]").forEach(b => b.onclick = () => {
+    logFiltro = b.dataset.flog; renderLogs();
+  });
+
+  const filas = logFiltro === "todos" ? todas : todas.filter(m => m.estado === logFiltro);
+  if (!filas.length) { $("segLogs").innerHTML = `<div class="naplica">Sin mensajes en este filtro.</div>`; return; }
+
+  $("segLogs").innerHTML = filas.map(m => {
+    const nombre = m.seguimientos?.clientes?.nombre || m.telefono;
+    const cuando = m.enviado_en || m.enviar_en;
+    const [cls, txt] = LOG_BADGE[m.estado] || ["pend", m.estado];
+    const err = (m.estado === "error" && m.error)
+      ? `<div class="logerr" title="${esc(m.error)}">${esc(m.error.slice(0, 90))}</div>` : "";
+    return `<div class="logrow">
+      <div class="logtop">
+        <span class="logbadge ${cls}">${txt}</span>
+        <span class="logname">${esc(nombre)}</span>
+        <span class="logtipo">${LOG_TIPO[m.tipo] || m.tipo}</span>
+        <span class="logtime">${fechaHoraCO(cuando)}</span>
+      </div>${err}
+    </div>`;
+  }).join("");
+}
+
 /* ================= WIRING ================= */
 const EMAIL_SEG = "santiagoviveros18@gmail.com";
 $("btnSeg").onclick = () => {
@@ -403,7 +486,7 @@ $("btnSeg").onclick = () => {
   state.vista = "seguimiento";
   render();
   $("segMsgsPanel").classList.add("hidden");
-  salirEdicion(); ocultarProg(); cargarPlantillas(); cargarActividades(); renderActivos();
+  salirEdicion(); ocultarProg(); cargarPlantillas(); cargarActividades(); renderActivos(); renderLogs();
 };
 
 $("segVolver").onclick = () => { state.vista = "cliente"; render(); };
