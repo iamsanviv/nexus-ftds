@@ -356,7 +356,7 @@ async function programar() {
       ["rec_60",       new Date(inicio.getTime() - 60 * 60000)],
       ["rec_15",       new Date(inicio.getTime() - 15 * 60000)],
       ["enlace",       inicio],
-      ["confirmacion", new Date(inicio.getTime() + 15 * 60000)],
+      ["confirmacion", new Date(inicio.getTime() + 10 * 60000)],
     ]);
     for (const seg of segs) {
       const c = seleccion.find(x => x.id === seg.cliente_id);
@@ -408,10 +408,10 @@ async function renderActivos() {
   if (error) { $("segActivos").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
 
   // Un seguimiento deja de estar "activo" pasada su hora de confirmación
-  // (inicio + 15 min). Si el mensaje de confirmación falló, el worker no lo
+  // (inicio + 10 min). Si el mensaje de confirmación falló, el worker no lo
   // completó; aquí lo cerramos igual para que no quede colgado.
   const ahora = Date.now();
-  const finConf = s => new Date(s.inicio).getTime() + 15 * 60000;
+  const finConf = s => new Date(s.inicio).getTime() + 10 * 60000;
   const vencidos = (data || []).filter(s => finConf(s) <= ahora);
   if (vencidos.length) {
     await SB.from("seguimientos").update({ estado: "completado" }).in("id", vencidos.map(s => s.id));
@@ -441,7 +441,7 @@ async function renderActivos() {
 
 /* ================= REGISTRO DE ENVÍOS (logs) ================= */
 const LOG_TIPO = {
-  invitacion: "Invitación", rec_60: "Recordatorio 1 h", rec_15: "Recordatorio 15 min",
+  invitacion: "Invitación", rec_60: "Recordatorio 1 h", rec_15: "Recordatorio 10 min",
   enlace: "Enlace", confirmacion: "Confirmación",
 };
 const LOG_BADGE = {
