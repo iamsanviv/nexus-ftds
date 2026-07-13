@@ -29,26 +29,16 @@
 
 <!-- ================= APP ================= -->
 <div id="app" class="hidden">
-  <div class="topbar">
-    <div class="brand"><h1>Servicios</h1><span class="tick">● Nexus</span></div>
-    <div class="userbox">
-      <div class="uname"><b id="meName">—</b><span class="rol" id="meRol"></span></div>
-      <button class="logout" id="btnLogout">Salir</button>
+  <div class="apphead">
+    <div>
+      <div class="apptitle" id="viewTitle">Personas</div>
+      <div class="appsub" id="viewSub"></div>
     </div>
-  </div>
-  <div class="sub" id="appSub">Acceso de tus clientes a clases, operativas y mentorías</div>
-
-  <div class="toolbar">
-    <button class="tbtn" id="btnImport">⬆ Importar CSV</button>
-    <button class="tbtn" id="btnExport">⬇ Exportar</button>
-    <button class="tbtn" id="btnSeg">📨 Seguimiento</button>
-    <button class="tbtn" id="btnStats">📊 Estadísticas</button>
-    <button class="tbtn hidden" id="btnCat">⚙ Servicios</button>
   </div>
   <input type="file" id="fileInput" accept=".csv,text/csv" style="display:none">
 
   <div class="modswitch" id="modSwitch"></div>
-  <div class="vtoggle" id="viewToggle"></div>
+  <div class="vtoggle hidden" id="viewToggle"></div>
 
   <input class="buscar" id="buscar" placeholder="Buscar cliente…">
 
@@ -70,8 +60,7 @@
   <!-- vista seguimiento automatizado (acceso restringido) -->
   <div id="vistaSeguimiento" class="hidden">
     <div class="segtop">
-      <button class="tbtn" id="segVolver">← Volver</button>
-      <h2 class="segtitle">📨 Seguimiento automatizado</h2>
+      <button class="tbtn hidden" id="segVolver">← Volver</button>
       <button class="tbtn" id="segBtnMasivo" style="margin-left:auto">✉ Masivo</button>
       <button class="tbtn" id="segBtnMsgs">✎ Mensajes</button>
     </div>
@@ -129,7 +118,53 @@
     <div id="segLogs" class="seg-lista logs"></div>
   </div>
 
+  <!-- vista más (cuenta y herramientas) -->
+  <div id="vistaMas" class="hidden">
+    <div class="prof">
+      <div class="pav" id="meAv">—</div>
+      <div>
+        <div class="pn"><b id="meName">—</b></div>
+        <div class="pr"><span id="meRol"></span></div>
+      </div>
+    </div>
+    <div class="massub" id="appSub"></div>
+
+    <div class="mgrp">
+      <button class="mrow" id="btnStats"><span class="mi">📊</span>Estadísticas<span class="mc">›</span></button>
+      <button class="mrow hidden" id="btnCat"><span class="mi">⚙</span>Servicios y catálogo<span class="mc">›</span></button>
+    </div>
+
+    <div class="mgrp">
+      <button class="mrow" id="btnImport"><span class="mi">⬆</span>Importar CSV<span class="mc">›</span></button>
+      <button class="mrow" id="btnExport"><span class="mi">⬇</span>Exportar CSV<span class="mc">›</span></button>
+    </div>
+
+    <div class="mgrp">
+      <div class="mrow"><span class="mi">💬</span>Mi WhatsApp<span class="wstate">● Vinculado</span></div>
+    </div>
+
+    <div class="mgrp">
+      <button class="mrow danger" id="btnLogout"><span class="mi">⎋</span>Cerrar sesión</button>
+    </div>
+  </div>
+
   <button class="fab" id="abrirModal">+ Cliente</button>
+
+  <!-- barra de pestañas inferior -->
+  <nav class="tabbar"><div class="tabinner">
+    <button class="tab" data-v="cliente" id="tabPersonas">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5" stroke-linecap="round"/></svg>
+      Personas</button>
+    <button class="tab" data-v="servicio" id="tabServicios">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg>
+      Servicios</button>
+    <button class="tab" data-v="seguimiento" id="btnSeg">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M21 4L3 11l6 2.5L11 20l3-6 7-10z"/></svg>
+      Seguimiento</button>
+    <button class="tab" data-v="mas" id="tabMas">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></svg>
+      Más</button>
+  </div></nav>
 </div>
 
 <!-- modal estadísticas -->

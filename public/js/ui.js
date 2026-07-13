@@ -13,7 +13,18 @@ const NIVELES = ["Lead", "Beca", "VIP", "Platino", "Oro"];
 export function render() {
   renderModuleSwitch();
   renderViewToggle();
+  renderShell();
   const isLead = state.modulo === "leads";
+
+  if (state.vista === "mas") {
+    $("vistaCliente").classList.add("hidden");
+    $("vistaServicio").classList.add("hidden");
+    $("vistaSeguimiento").classList.add("hidden");
+    $("vistaMas").classList.remove("hidden");
+    $("abrirModal").classList.add("hidden");
+    return;
+  }
+  $("vistaMas").classList.add("hidden");
 
   if (state.vista === "seguimiento") {
     $("vistaCliente").classList.add("hidden");
@@ -146,7 +157,7 @@ function cardHTML(c, p, rank, isLead, dir) {
 
   return `<div class="card ${open ? 'open' : ''}" data-id="${c.id}">
       <div class="chead">
-        ${rankChip}
+        ${rankChip || `<div class="cav">${esc(iniciales(c.nombre))}</div>`}
         <div class="cinfo">
           <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span> ${ownerBadge}</div>
           ${isLead ? '' : `<div class="barra"><i style="width:${p.pct}%"></i></div>`}
@@ -219,6 +230,36 @@ function renderViewToggle() {
   $("viewToggle").innerHTML = vs.map(([v, l]) => `<button class="vbtn ${state.vista === v ? 'on' : ''}" data-v="${v}">${l}</button>`).join("");
   $("viewToggle").querySelectorAll(".vbtn").forEach(b => b.onclick = () => { state.vista = b.dataset.v; render(); });
 }
+
+/* ================= SHELL DE APP (header + tab bar) ================= */
+export const iniciales = n => (n || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+
+function renderShell() {
+  const V = state.vista;
+  const isLead = state.modulo === "leads";
+  const titulos = { cliente: isLead ? "Leads" : "Personas", servicio: "Servicios", seguimiento: "Seguimiento", mas: "Más" };
+  $("viewTitle").textContent = titulos[V] || "Nexus";
+  let sub = "";
+  if (V === "cliente" || V === "servicio") {
+    const n = state.clientes.filter(c => isLead ? esLead(c) : !esLead(c)).length;
+    sub = isLead ? `${n} lead${n === 1 ? "" : "s"}` : `${n} en la comunidad`;
+  } else if (V === "seguimiento") sub = "Actividades y mensajes automáticos";
+  else sub = "Cuenta y herramientas";
+  $("viewSub").textContent = sub;
+
+  document.querySelectorAll(".tabbar .tab").forEach(t => t.classList.toggle("on", t.dataset.v === V));
+
+  const enListas = V === "cliente" || V === "servicio";
+  $("modSwitch").classList.toggle("hidden", !enListas);
+  $("buscar").classList.toggle("hidden", !enListas);
+
+  const av = $("meAv");
+  if (av && state.me?.name) av.textContent = iniciales(state.me.name);
+}
+
+$("tabPersonas").onclick = () => { state.vista = "cliente"; render(); };
+$("tabServicios").onclick = () => { state.vista = "servicio"; render(); };
+$("tabMas").onclick = () => { state.vista = "mas"; render(); };
 
 /* ================= VISTA POR SERVICIO ================= */
 function renderServicio() {
