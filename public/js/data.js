@@ -80,3 +80,12 @@ export async function borrarImagenServicio(url) {
   const m = (url || "").split("?")[0].match(/\/servicios\/(.+)$/);
   if (m) await SB.storage.from(BUCKET_SRV).remove([m[1]]);
 }
+
+// Imagen para mensajes masivos: nombre único (no se pisan entre campañas).
+export async function subirImagenMensaje(file) {
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const path = `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await SB.storage.from("mensajes").upload(path, file, { contentType: file.type });
+  if (error) throw error;
+  return SB.storage.from("mensajes").getPublicUrl(path).data.publicUrl;
+}

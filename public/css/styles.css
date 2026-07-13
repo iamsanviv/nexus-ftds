@@ -249,6 +249,11 @@
 .segselbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .segselcount{font-size:.78rem;color:var(--muted);margin-right:auto}
 .opt{font-weight:400;color:var(--muted);font-size:.85em}
+.masprev{display:block;margin-top:6px;color:var(--muted);font-style:italic}
+.segchip.on,.segchip{border-color:var(--gold-dim);color:var(--gold)}
+.nmlink{cursor:pointer;border-bottom:1px dotted transparent;transition:border-color .15s,color .15s}
+.nmlink:hover{border-bottom-color:var(--gold-dim)}
+.nmlink:active{color:var(--gold)}
 .sinlink{color:var(--bad);font-size:.7rem;font-weight:700;margin-left:8px}
 /* registro de envíos (logs) */
 .seg-lista.logs{max-height:340px}

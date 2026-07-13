@@ -72,7 +72,8 @@
     <div class="segtop">
       <button class="tbtn" id="segVolver">← Volver</button>
       <h2 class="segtitle">📨 Seguimiento automatizado</h2>
-      <button class="tbtn" id="segBtnMsgs" style="margin-left:auto">✎ Mensajes</button>
+      <button class="tbtn" id="segBtnMasivo" style="margin-left:auto">✉ Masivo</button>
+      <button class="tbtn" id="segBtnMsgs">✎ Mensajes</button>
     </div>
 
     <!-- editor de plantillas (oculto por defecto) -->
@@ -239,6 +240,56 @@
     <div class="authsub" id="repSub"></div>
     <div id="repBody"></div>
     <div class="mfoot"><button class="tbtn" id="repCerrar">Cerrar</button></div>
+  </div>
+</div>
+
+<!-- modal compositor de mensaje masivo -->
+<div class="overlay" id="masOverlay">
+  <div class="modal">
+    <h2>✉ Mensaje masivo</h2>
+
+    <div class="pstitle">Mensaje</div>
+    <div class="frow"><textarea id="masTexto" rows="4" placeholder="¡Hola {nombre}! Te comparto algo importante…"></textarea></div>
+    <div class="msgshelp">Etiqueta <code>{nombre}</code>. Para variar el texto entre personas (más seguro): <code>{Hola|Buenas|Qué tal}</code>. <span id="masPrev" class="masprev"></span></div>
+
+    <div class="frow">
+      <label>Imagen (opcional)</label>
+      <div class="imgfield">
+        <img id="masImgPrev" class="imgprev hidden" alt="">
+        <div class="imgbtns">
+          <input type="file" id="masImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
+          <button type="button" class="tbtn" id="masImgPick">Subir imagen</button>
+          <button type="button" class="tbtn hidden" id="masImgDel" style="color:var(--bad)">Quitar</button>
+          <span id="masImgEstado" class="imgestado"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="pstitle">Destinatarios <span id="masCount" class="segselcount"></span></div>
+    <div id="masSegs" class="segfiltros"></div>
+    <div id="masFiltros" class="segfiltros"></div>
+    <div class="frow"><input id="masBuscar" placeholder="Buscar persona…"></div>
+    <div class="segselbar">
+      <button class="pill" id="masMarcar">✓ Marcar visibles</button>
+      <button class="pill" id="masDesmarcar">✗ Desmarcar visibles</button>
+      <button class="pill" id="masGuardarSeg">＋ Guardar como segmento</button>
+    </div>
+    <div id="masLista" class="seg-lista"></div>
+
+    <div class="pstitle">¿Cuándo enviar?</div>
+    <div class="seg" id="masCuandoSeg">
+      <button class="on" data-cuando="ahora">Ahora</button>
+      <button data-cuando="prog">Programar</button>
+    </div>
+    <div class="frow hidden" id="masProgRow"><div class="dual">
+      <div style="flex:1"><label>Fecha</label><input type="date" id="masFecha"></div>
+      <div style="flex:1"><label>Hora (Colombia)</label><input type="time" id="masHora"></div>
+    </div></div>
+
+    <div class="segformbtns" style="margin-top:12px">
+      <button class="authbtn" id="masEnviar">Enviar mensaje</button>
+      <button class="tbtn" id="masCerrar">Cancelar</button>
+    </div>
   </div>
 </div>
 

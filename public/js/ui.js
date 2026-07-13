@@ -148,7 +148,7 @@ function cardHTML(c, p, rank, isLead, dir) {
       <div class="chead">
         ${rankChip}
         <div class="cinfo">
-          <div class="nombre">${esc(c.nombre)} <span class="badge b-${c.mem}">${c.mem}</span> ${ownerBadge}</div>
+          <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span> ${ownerBadge}</div>
           ${isLead ? '' : `<div class="barra"><i style="width:${p.pct}%"></i></div>`}
           <div class="pct">${metric}</div>
         </div>
@@ -180,6 +180,7 @@ function wireCards() {
   $("lista").querySelectorAll(".card").forEach(card => {
     const c = state.clientes.find(x => x.id === card.dataset.id);
     card.querySelector(".chead").onclick = () => { state.abiertos.has(c.id) ? state.abiertos.delete(c.id) : state.abiertos.add(c.id); renderKeepingCard(c.id); };
+    const nml = card.querySelector(".nmlink"); if (nml) nml.onclick = e => { e.stopPropagation(); abrirPerfil(c); };
     card.querySelectorAll(".srv").forEach(row => {
       row.onclick = async () => {
         const s = todos().find(x => x.id === row.dataset.srv);
@@ -256,7 +257,7 @@ function renderServicio() {
   const dir = state.me.role === 'director';
   const numchip = c => c.tel ? `<button class="copynum" data-num="${esc(c.tel)}">${esc(c.tel)}</button><a class="wachip" target="_blank" rel="noopener" href="https://wa.me/${c.tel.replace(/\D/g,'')}">WhatsApp</a>` : '';
   const owner = c => (dir && c.owner_id !== state.me.id) ? `<span class="owner">👤 ${esc(state.perfiles[c.owner_id] || 'agente')}</span>` : '';
-  const info = c => `<div class="pl"><span class="pn">${esc(c.nombre)}</span><span class="badge b-${c.mem}">${c.mem}</span>${c.pais ? `<span class="pais">📍 ${esc(c.pais)}</span>` : ''}${owner(c)}${numchip(c)}</div>`;
+  const info = c => `<div class="pl"><span class="pn nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span><span class="badge b-${c.mem}">${c.mem}</span>${c.pais ? `<span class="pais">📍 ${esc(c.pais)}</span>` : ''}${owner(c)}${numchip(c)}</div>`;
 
   const rowAsis = c => `<div class="prow">${info(c)}<div class="pr"><span class="pdate">asistió ${fmtF(c.acc[sid])}</span><button class="pmark off" data-unasis="${c.id}" title="Quitar asistencia">✕</button></div></div>`;
   const rowConf = c => `<div class="prow">${info(c)}<div class="pr"><span class="pdate conf">invitado ${fmtF(conf(c))}</span><button class="pmark" data-asis="${c.id}">✓ Asistió</button><button class="pmark off" data-unconf="${c.id}" title="Quitar confirmación">✕</button></div></div>`;
@@ -283,6 +284,7 @@ function renderServicio() {
   });
 
   const find = id => state.clientes.find(x => x.id === id);
+  $("srvLista").querySelectorAll("[data-perfil]").forEach(b => b.onclick = () => { const c = find(b.dataset.perfil); if (c) abrirPerfil(c); });
   $("srvLista").querySelectorAll("[data-conf]").forEach(b => b.onclick = async () => {
     const c = find(b.dataset.conf); if (!c) return; c.conf = c.conf || {}; c.conf[sid] = hoyISO();
     render(); await dbPatch(c, { conf: c.conf }); toast(`✓ ${c.nombre.split(' ')[0]} invitado «${s.n}»`);
