@@ -259,6 +259,14 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 .appsub{font-size:.78rem;color:var(--muted);margin-top:2px}
 .vtoggle{display:none!important}
 
+/* indicador de repaso pendiente (header) */
+.repind{display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);
+  color:var(--gold);border-radius:999px;padding:6px 11px 6px 9px;cursor:pointer;font:inherit;
+  flex-shrink:0;margin-bottom:2px;transition:background .15s,border-color .15s}
+.repind:active{background:#252d38}
+.repind svg{width:16px;height:16px}
+.repcount{font-size:.74rem;font-weight:700;letter-spacing:.01em;color:var(--text)}
+
 /* tab bar inferior */
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,14,18,.96);
   backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid #1c232d;
