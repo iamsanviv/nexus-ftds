@@ -6,6 +6,9 @@ import {
   todos, esRequerido, esAdicional, esLead, progreso, siguiente,
 } from "./state.js";
 import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio } from "./data.js";
+// repaso.js importa a ui.js: para no crear un ciclo, aquí solo se usa el
+// contador (función pura sobre `state`) y el modo manual se carga a demanda.
+import { repasoPendientes } from "./repaso.js";
 
 const NIVELES = ["Lead", "Beca", "VIP", "Platino", "Oro"];
 
@@ -255,7 +258,25 @@ function renderShell() {
 
   const av = $("meAv");
   if (av && state.me?.name) av.textContent = iniciales(state.me.name);
+
+  renderRepInd();
 }
+
+// Indicador de repaso: solo aparece si hay invitaciones sin responder.
+function renderRepInd() {
+  const btn = $("repInd");
+  if (!btn) return;
+  const n = repasoPendientes();
+  btn.classList.toggle("hidden", n === 0);
+  if (n) $("repIndCount").textContent = n;
+}
+
+// El repaso se carga a demanda (import dinámico) para no crear un ciclo
+// de dependencias entre ui.js y repaso.js.
+$("repInd").onclick = async () => {
+  const { repasoManual } = await import("./repaso.js");
+  repasoManual();
+};
 
 $("tabPersonas").onclick = () => { state.vista = "cliente"; render(); };
 $("tabServicios").onclick = () => { state.vista = "servicio"; render(); };
