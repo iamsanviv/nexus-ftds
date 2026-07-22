@@ -246,6 +246,24 @@
 .imgestado{font-size:.76rem;color:var(--muted)}
 .stag.img{background:transparent;padding:0 2px}
 .segfiltros{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.segbuscar{margin-bottom:8px}
+.segtoggle{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);
+  margin-bottom:8px;cursor:pointer;padding:2px 0}
+.segtoggle input{width:auto;accent-color:var(--gold)}
+/* marca de "ya asistió" en la lista de selección */
+.seg-row .yaasis{font-size:.62rem;font-weight:700;color:var(--gold);background:var(--surface2);
+  border:1px solid var(--gold-dim);padding:2px 7px;border-radius:999px;margin-left:6px}
+/* segmentos guardados / historial */
+.segsegmentos{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.segchip{display:inline-flex;align-items:center;gap:6px;font-size:.76rem;font-weight:600;
+  padding:6px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text);cursor:pointer;white-space:nowrap}
+.segchip:active{background:var(--surface2)}
+.segchip.hist{color:var(--muted);border-style:dashed}
+.segchip .x{color:var(--muted);font-weight:700;padding:0 2px}
+.segchip .x:hover{color:var(--gold)}
+.segchip .star{color:var(--gold)}
+.segguardar{margin-top:8px;width:100%;justify-content:center}
 .segselbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .segselcount{font-size:.78rem;color:var(--muted);margin-right:auto}
 .opt{font-weight:400;color:var(--muted);font-size:.85em}
