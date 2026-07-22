@@ -158,7 +158,7 @@
     </div>
 
     <div class="mgrp">
-      <div class="mrow"><span class="mi">💬</span>Mi WhatsApp<span class="wstate">● Vinculado</span></div>
+      <button class="mrow" id="btnCanal"><span class="mi">💬</span>Mi WhatsApp<span class="wstate" id="canalEstado">…</span></button>
     </div>
 
     <div class="mgrp">
@@ -293,6 +293,15 @@
     <div class="authsub" id="repSub"></div>
     <div id="repBody"></div>
     <div class="mfoot"><button class="tbtn" id="repCerrar">Cerrar</button></div>
+  </div>
+</div>
+
+<!-- modal Mi WhatsApp (vincular canal del agente) -->
+<div class="overlay" id="canalOverlay">
+  <div class="modal">
+    <h2>💬 Mi WhatsApp</h2>
+    <div id="canalBody"></div>
+    <div class="mfoot"><button class="tbtn" id="canalCerrar">Cerrar</button></div>
   </div>
 </div>
 

@@ -9,6 +9,7 @@ import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenSe
 // repaso.js importa a ui.js: para no crear un ciclo, aquí solo se usa el
 // contador (función pura sobre `state`) y el modo manual se carga a demanda.
 import { repasoPendientes } from "./repaso.js";
+import { refrescarCanal } from "./canal.js";
 
 const NIVELES = ["Lead", "Beca", "VIP", "Platino", "Oro"];
 
@@ -25,6 +26,7 @@ export function render() {
     $("vistaSeguimiento").classList.add("hidden");
     $("vistaMas").classList.remove("hidden");
     $("abrirModal").classList.add("hidden");
+    refrescarCanal();
     return;
   }
   $("vistaMas").classList.add("hidden");
