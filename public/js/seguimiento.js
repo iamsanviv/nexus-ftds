@@ -63,6 +63,9 @@ let actSel = null;            // actividad elegida para programar
 let actEdit = null;           // actividad en edición en el formulario
 let segSel = new Set();       // ids de clientes seleccionados para programar
 let segFiltroMem = "todos";   // filtro de membresía en el selector
+let segBuscarTxt = "";        // texto de búsqueda por nombre en el selector
+let segIncAsis = false;       // incluir a quienes ya asistieron (para reinvitar)
+let segInvitarTarde = null;   // Date para diferir la invitación, o null = ahora
 let logFiltro = "todos";      // filtro del registro de envíos
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
@@ -242,17 +245,33 @@ async function cargarActividades() {
 }
 
 /* ================= SELECCIÓN + PROGRAMACIÓN ================= */
+// A quienes les falta la actividad (comportamiento original).
 function faltantes(sid) {
   return state.clientes.filter(c => !c.acc[sid] && c.tel);
+}
+
+// Universo elegible para programar: los que faltan, y —si el toggle está
+// activo— también quienes ya asistieron (para reinvitarlos). Siempre exige tel.
+function elegibles(sid) {
+  return state.clientes.filter(c => c.tel && (!c.acc[sid] || segIncAsis));
 }
 
 function seleccionarActividad(a) {
   actSel = a;
   segFiltroMem = "todos";
-  // Por defecto: marcar toda la comunidad (no Leads).
+  segBuscarTxt = "";
+  segIncAsis = false;
+  segInvitarTarde = null;
+  const bs = $("segBuscar"); if (bs) bs.value = "";
+  const bx = $("segBuscarX"); if (bx) bx.classList.add("hidden");
+  const ia = $("segIncAsis"); if (ia) ia.checked = false;
+  const tr = $("segTardeRow"); if (tr) tr.classList.add("hidden");
+  const tt = $("segTardeToggle"); if (tt) tt.classList.remove("on");
+  // Por defecto: marcar toda la comunidad que le falta la actividad (no Leads).
   segSel = new Set(faltantes(a.servicio_id).filter(c => !esLeadMem(c.mem)).map(c => c.id));
   $("segProgTitulo").innerHTML = `Programar para <b>${esc(a.nombre)}</b> · ${fechaHoraCO(a.inicio)}`;
   $("segProgBloque").classList.remove("hidden");
+  renderSegmentos();
   renderFaltan();
   $("segProgBloque").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
@@ -264,13 +283,16 @@ function ocultarProg() {
   $("segFaltan").innerHTML = "";
   $("segFiltros").innerHTML = "";
   $("segSelCount").textContent = "";
+  const seg = $("segSegmentos"); if (seg) seg.innerHTML = "";
+  const bs = $("segBuscar"); if (bs) bs.value = "";
+  segBuscarTxt = "";
 }
 
 function renderFaltan() {
   if (!actSel) return;
   const sid = actSel.servicio_id;
-  const lista = faltantes(sid);
-  const sinTel = state.clientes.filter(c => !c.acc[sid] && !c.tel).length;
+  const lista = elegibles(sid);
+  const sinTel = state.clientes.filter(c => (!c.acc[sid] || segIncAsis) && !c.tel).length;
 
   // Chips de filtro: "Todos" + solo las membresías presentes en la lista.
   const presentes = MEMS.filter(m => lista.some(c => c.mem === m));
@@ -282,16 +304,22 @@ function renderFaltan() {
     segFiltroMem = b.dataset.fmem; renderFaltan();
   });
 
-  const visibles = lista.filter(c => segFiltroMem === "todos" || c.mem === segFiltroMem);
+  // Filtro combinado: membresía + búsqueda por nombre.
+  const q = segBuscarTxt.trim().toLowerCase();
+  const visibles = lista.filter(c =>
+    (segFiltroMem === "todos" || c.mem === segFiltroMem) &&
+    (!q || c.nombre.toLowerCase().includes(q)));
+
   $("segFaltan").innerHTML = visibles.length
     ? visibles.map(c => `
         <label class="seg-row">
           <input type="checkbox" data-cid="${c.id}" ${segSel.has(c.id) ? "checked" : ""}>
           <span class="badge b-${c.mem}">${c.mem}</span>
           <span>${esc(c.nombre)}</span>
+          ${c.acc[sid] ? `<span class="yaasis">ya asistió</span>` : ""}
         </label>`).join("")
-    : `<div class="naplica">Nadie en este filtro.</div>`;
-  if (sinTel && segFiltroMem === "todos") $("segFaltan").insertAdjacentHTML("beforeend",
+    : `<div class="naplica">${q ? "Nadie coincide con la búsqueda." : "Nadie en este filtro."}</div>`;
+  if (sinTel && segFiltroMem === "todos" && !q) $("segFaltan").insertAdjacentHTML("beforeend",
     `<div class="naplica">${sinTel} persona(s) sin teléfono no aparecen aquí.</div>`);
 
   $("segFaltan").querySelectorAll("input[data-cid]").forEach(inp => inp.onchange = () => {
@@ -307,8 +335,9 @@ function renderFaltan() {
 
 function actualizarConteo() {
   if (!actSel) return;
-  const total = faltantes(actSel.servicio_id).length;
-  const sel = faltantes(actSel.servicio_id).filter(c => segSel.has(c.id)).length;
+  const uni = elegibles(actSel.servicio_id);
+  const total = uni.length;
+  const sel = uni.filter(c => segSel.has(c.id)).length;
   $("segSelCount").textContent = `${sel} de ${total} seleccionados`;
 }
 
@@ -318,8 +347,14 @@ async function programar() {
   const ahora = new Date();
   if (inicio <= ahora) { toast("Esta actividad ya empezó; crea una nueva"); return; }
 
-  const seleccion = faltantes(actSel.servicio_id).filter(c => segSel.has(c.id));
+  const seleccion = elegibles(actSel.servicio_id).filter(c => segSel.has(c.id));
   if (!seleccion.length) { toast("No hay nadie seleccionado"); return; }
+
+  // Si se difirió la invitación, debe caer entre ahora y el inicio de la actividad.
+  if (segInvitarTarde) {
+    if (segInvitarTarde <= ahora) { toast("La hora de envío ya pasó; elige una futura"); return; }
+    if (segInvitarTarde >= inicio) { toast("La invitación debe salir antes de que empiece la actividad"); return; }
+  }
 
   const btn = $("segProgramar");
   btn.disabled = true; btn.textContent = "Programando…";
@@ -350,9 +385,11 @@ async function programar() {
     }
 
     // 2) los 5 mensajes por persona (se omiten los que ya quedaron en el pasado)
+    // La invitación sale "ahora" salvo que se haya elegido diferirla (más tarde).
+    const cuandoInv = (segInvitarTarde && segInvitarTarde > ahora) ? segInvitarTarde : ahora;
     const msgs = [];
     const tiempos = () => ([
-      ["invitacion",   ahora],
+      ["invitacion",   cuandoInv],
       ["rec_60",       new Date(inicio.getTime() - 60 * 60000)],
       ["rec_15",       new Date(inicio.getTime() - 15 * 60000)],
       ["enlace",       inicio],
@@ -380,6 +417,7 @@ async function programar() {
 
     // Marca a los seleccionados como "invitados" al servicio (si no lo estaban),
     // así pasan de «por invitar» a «invitados» en la vista por servicio.
+    // NO se toca `acc`: quien ya asistió y es reinvitado conserva su asistencia.
     const hoy = hoyISO();
     for (const c of seleccion) {
       if (!(c.conf || {})[actSel.servicio_id]) {
@@ -388,7 +426,12 @@ async function programar() {
       }
     }
 
-    toast(`✓ ${segs.length} seguimiento(s) · ${msgs.length} mensaje(s) programado(s)`);
+    // Guarda la selección en el historial de segmentos (automático).
+    await guardarSegmentoHistorial(seleccion.map(c => c.id), actSel.nombre);
+
+    const notaTarde = (segInvitarTarde && segInvitarTarde > ahora)
+      ? ` · invitación sale ${fechaHoraCO(cuandoInv.toISOString())}` : "";
+    toast(`✓ ${segs.length} seguimiento(s) · ${msgs.length} mensaje(s) programado(s)${notaTarde}`);
     ocultarProg();
     renderActivos();
     renderLogs();
@@ -399,10 +442,120 @@ async function programar() {
   }
 }
 
+/* ================= SEGMENTOS (historial + guardados) ================= */
+// Se guardan en la tabla `segmentos` (owner_id, nombre, definicion jsonb).
+// definicion = { tipo:"historial"|"guardado", cliente_ids:[...], actividad:"..." }
+// El historial es automático y rota (se conservan los N más recientes);
+// los "guardados" son permanentes y no rotan.
+const MAX_HISTORIAL = 8;
+let segmentos = [];   // cache de los segmentos del agente
+
+async function cargarSegmentos() {
+  const { data, error } = await SB.from("segmentos")
+    .select("id, nombre, definicion, created_at")
+    .eq("owner_id", state.me.id)
+    .order("created_at", { ascending: false });
+  segmentos = error ? [] : (data || []);
+}
+
+// Guarda la selección como entrada de historial y poda las más viejas.
+async function guardarSegmentoHistorial(clienteIds, actividad) {
+  if (!clienteIds.length) return;
+  try {
+    await SB.from("segmentos").insert({
+      owner_id: state.me.id,
+      nombre: `${actividad} · ${fechaHoraCO(new Date().toISOString())}`,
+      definicion: { tipo: "historial", cliente_ids: clienteIds, actividad },
+    });
+    await cargarSegmentos();
+    // Poda: deja solo los MAX_HISTORIAL más recientes de tipo historial.
+    const hist = segmentos.filter(s => s.definicion?.tipo === "historial");
+    const sobran = hist.slice(MAX_HISTORIAL);
+    if (sobran.length) {
+      await SB.from("segmentos").delete().in("id", sobran.map(s => s.id));
+      await cargarSegmentos();
+    }
+  } catch (e) { /* el guardado de historial nunca debe romper la programación */ }
+}
+
+// Guarda la selección ACTUAL como segmento permanente, con nombre.
+async function guardarSegmentoManual() {
+  if (!actSel) return;
+  const ids = elegibles(actSel.servicio_id).filter(c => segSel.has(c.id)).map(c => c.id);
+  if (!ids.length) { toast("No hay nadie seleccionado para guardar"); return; }
+  const nombre = (prompt("Nombre para este segmento:", "") || "").trim();
+  if (!nombre) return;
+  try {
+    await SB.from("segmentos").insert({
+      owner_id: state.me.id, nombre,
+      definicion: { tipo: "guardado", cliente_ids: ids, actividad: actSel.nombre },
+    });
+    await cargarSegmentos();
+    renderSegmentos();
+    toast(`✓ Segmento «${nombre}» guardado`);
+  } catch (err) { toast("⚠ " + err.message); }
+}
+
+// Aplica un segmento a la selección actual: marca solo a las personas que
+// siguen siendo elegibles (les falta el servicio o el toggle lo permite, y
+// tienen teléfono). Avisa cuántas se omitieron.
+function aplicarSegmento(seg) {
+  if (!actSel) return;
+  const guardados = new Set(seg.definicion?.cliente_ids || []);
+  const uni = elegibles(actSel.servicio_id);
+  const validos = uni.filter(c => guardados.has(c.id));
+  segSel = new Set(validos.map(c => c.id));
+  const omitidos = guardados.size - validos.length;
+  renderFaltan();
+  toast(omitidos > 0
+    ? `Segmento aplicado · ${validos.length} marcados, ${omitidos} ya no aplican`
+    : `Segmento aplicado · ${validos.length} marcados`);
+}
+
+async function eliminarSegmento(id) {
+  try {
+    await SB.from("segmentos").delete().eq("id", id);
+    await cargarSegmentos();
+    renderSegmentos();
+  } catch (err) { toast("⚠ " + err.message); }
+}
+
+function renderSegmentos() {
+  const cont = $("segSegmentos");
+  if (!cont) return;
+  if (!segmentos.length) { cont.innerHTML = ""; return; }
+  const guardados = segmentos.filter(s => s.definicion?.tipo === "guardado");
+  const historial = segmentos.filter(s => s.definicion?.tipo === "historial");
+
+  const chip = (s, esHist) => {
+    const n = (s.definicion?.cliente_ids || []).length;
+    const et = esHist ? "hist" : "";
+    const star = esHist ? "" : `<span class="star">★</span>`;
+    return `<span class="segchip ${et}">
+      ${star}<span data-seg="${s.id}">${esc(s.nombre)} · ${n}</span>
+      <span class="x" data-segdel="${s.id}" title="Eliminar">✕</span>
+    </span>`;
+  };
+
+  cont.innerHTML =
+    (guardados.length ? `<div class="pstitle" style="margin:0 0 4px">⭐ Segmentos guardados</div>` : "") +
+    guardados.map(s => chip(s, false)).join("") +
+    (historial.length ? `<div class="pstitle" style="margin:8px 0 4px">🕘 Recientes</div>` : "") +
+    historial.map(s => chip(s, true)).join("");
+
+  cont.querySelectorAll("[data-seg]").forEach(el => el.onclick = () => {
+    const s = segmentos.find(x => x.id === el.dataset.seg);
+    if (s) aplicarSegmento(s);
+  });
+  cont.querySelectorAll("[data-segdel]").forEach(el => el.onclick = () => {
+    if (confirm("¿Eliminar este segmento?")) eliminarSegmento(el.dataset.segdel);
+  });
+}
+
 /* ================= SEGUIMIENTOS ACTIVOS ================= */
 async function renderActivos() {
   const { data, error } = await SB.from("seguimientos")
-    .select("id, actividad, inicio, estado, clientes(nombre)")
+    .select("id, cliente_id, actividad_id, actividad, inicio, estado, clientes(nombre)")
     .eq("estado", "activo")
     .order("inicio", { ascending: true });
   if (error) { $("segActivos").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
@@ -427,16 +580,67 @@ async function renderActivos() {
       <button class="pmark off" data-cancel="${s.id}">✕ Cancelar</button>
     </div>`).join("");
 
-  $("segActivos").querySelectorAll("[data-cancel]").forEach(b => b.onclick = async () => {
-    if (!confirm("¿Cancelar este seguimiento? No se enviarán los mensajes pendientes.")) return;
-    const id = b.dataset.cancel;
-    const r1 = await SB.from("mensajes_programados")
-      .update({ estado: "cancelado" }).eq("seguimiento_id", id).eq("estado", "pendiente");
-    const r2 = await SB.from("seguimientos")
-      .update({ estado: "cancelado" }).eq("id", id);
-    if (r1.error || r2.error) toast("⚠ " + (r1.error || r2.error).message);
-    else { toast("Seguimiento cancelado ✓"); renderActivos(); }
+  $("segActivos").querySelectorAll("[data-cancel]").forEach(b => b.onclick = () => {
+    const s = activos.find(x => x.id === b.dataset.cancel);
+    if (s) abrirCancelar(s);
   });
+}
+
+// Diálogo de cancelación: además de cancelar los mensajes pendientes, deja
+// elegir si la persona queda "invitada" (conserva conf) o vuelve a "por
+// invitar" (se borra conf de ese servicio).
+function abrirCancelar(s) {
+  const nombre = s.clientes?.nombre || "esta persona";
+  $("repSub").textContent = "Cancelar seguimiento";
+  $("repBody").innerHTML = `
+    <div class="prow" style="flex-direction:column;align-items:stretch;gap:12px">
+      <div style="font-size:.95rem">Vas a cancelar el seguimiento de <b>${esc(nombre)}</b>
+        para <b>${esc(s.actividad)}</b>. No se enviarán los mensajes pendientes.
+        <span class="sfecha">¿En qué estado dejas a la persona?</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="pmark" data-cx="invitado">Dejarla como «invitada»</button>
+        <button class="pmark off" data-cx="porinvitar">Volver a «por invitar»</button>
+        <button class="tbtn" data-cx="nada">No cancelar</button>
+      </div>
+    </div>`;
+  const cerrar = () => { $("repOverlay").classList.remove("open"); };
+  $("repCerrar").onclick = cerrar;
+  $("repOverlay").onclick = e => { if (e.target.id === "repOverlay") cerrar(); };
+  $("repBody").querySelectorAll("[data-cx]").forEach(btn => btn.onclick = async () => {
+    const modo = btn.dataset.cx;
+    if (modo === "nada") { cerrar(); return; }
+    btn.disabled = true;
+    try {
+      // 1) cancelar mensajes pendientes y el seguimiento
+      const r1 = await SB.from("mensajes_programados")
+        .update({ estado: "cancelado" }).eq("seguimiento_id", s.id).eq("estado", "pendiente");
+      const r2 = await SB.from("seguimientos")
+        .update({ estado: "cancelado" }).eq("id", s.id);
+      if (r1.error || r2.error) throw (r1.error || r2.error);
+
+      // 2) si se elige "por invitar", quitar conf de ese servicio a la persona
+      if (modo === "porinvitar" && s.actividad_id) {
+        const { data: act } = await SB.from("actividades")
+          .select("servicio_id").eq("id", s.actividad_id).maybeSingle();
+        const sid = act?.servicio_id;
+        const c = state.clientes.find(x => x.id === s.cliente_id);
+        if (sid && c && (c.conf || {})[sid]) {
+          delete c.conf[sid];
+          await SB.from("clientes").update({ conf: c.conf }).eq("id", c.id);
+        }
+      }
+      cerrar();
+      toast(modo === "porinvitar"
+        ? "Seguimiento cancelado · persona vuelve a «por invitar» ✓"
+        : "Seguimiento cancelado · persona queda «invitada» ✓");
+      renderActivos();
+    } catch (err) {
+      toast("⚠ " + err.message);
+      btn.disabled = false;
+    }
+  });
+  $("repOverlay").classList.add("open");
 }
 
 /* ================= REGISTRO DE ENVÍOS (logs) ================= */
@@ -508,8 +712,46 @@ $("btnSeg").onclick = () => {
   state.vista = "seguimiento";
   render();
   $("segMsgsPanel").classList.add("hidden");
-  salirEdicion(); ocultarProg(); cargarPlantillas(); cargarActividades(); renderActivos(); renderLogs();
+  salirEdicion(); ocultarProg(); cargarPlantillas(); cargarActividades();
+  cargarSegmentos(); renderActivos(); renderLogs();
 };
+
+// Búsqueda por nombre (Req 2): filtra en vivo la lista de selección.
+$("segBuscar").oninput = e => {
+  segBuscarTxt = e.target.value;
+  $("segBuscarX").classList.toggle("hidden", !e.target.value);
+  if (actSel) renderFaltan();
+};
+$("segBuscarX").onclick = () => {
+  $("segBuscar").value = ""; segBuscarTxt = "";
+  $("segBuscarX").classList.add("hidden");
+  if (actSel) renderFaltan();
+  $("segBuscar").focus();
+};
+
+// Toggle "enviar la invitación más tarde": despliega el campo de hora.
+$("segTardeToggle").onclick = () => {
+  const activo = $("segTardeRow").classList.toggle("hidden") === false;
+  $("segTardeToggle").classList.toggle("on", activo);
+  if (activo) {
+    // valor por defecto: dentro de 1 hora, redondeado
+    const d = new Date(Date.now() + 60 * 60000);
+    const p = n => String(n).padStart(2, "0");
+    $("segTardeCuando").value = `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+    segInvitarTarde = new Date($("segTardeCuando").value);
+  } else {
+    segInvitarTarde = null;   // vuelve a "ahora"
+  }
+};
+$("segTardeCuando").onchange = e => {
+  segInvitarTarde = e.target.value ? new Date(e.target.value) : null;
+};
+
+// Toggle "incluir a quienes ya asistieron" (Req 2).
+$("segIncAsis").onchange = e => { segIncAsis = e.target.checked; if (actSel) renderFaltan(); };
+
+// Guardar la selección actual como segmento permanente (Req 3).
+$("segGuardarSeg").onclick = guardarSegmentoManual;
 
 $("segVolver").onclick = () => { state.vista = "cliente"; render(); };
 $("segCancelEdit").onclick = salirEdicion;

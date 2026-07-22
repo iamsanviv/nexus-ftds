@@ -246,6 +246,32 @@
 .imgestado{font-size:.76rem;color:var(--muted)}
 .stag.img{background:transparent;padding:0 2px}
 .segfiltros{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.progrow{display:flex;gap:8px;align-items:stretch}
+.progrow .authbtn{flex:1;margin:0}
+.progtarde{flex:0 0 auto;font-size:.78rem;font-weight:600;padding:0 12px;border-radius:11px;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted);white-space:nowrap;cursor:pointer}
+.progtarde.on{background:var(--surface2);color:var(--gold);border-color:var(--gold-dim)}
+.progtarderow{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.progtardelbl{font-size:.8rem;color:var(--muted)}
+.progtarderow input{width:auto;flex:1;min-width:180px}
+.segbuscar{margin-bottom:8px}
+.segtoggle{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);
+  margin-bottom:8px;cursor:pointer;padding:2px 0}
+.segtoggle input{width:auto;accent-color:var(--gold)}
+/* marca de "ya asistió" en la lista de selección */
+.seg-row .yaasis{font-size:.62rem;font-weight:700;color:var(--gold);background:var(--surface2);
+  border:1px solid var(--gold-dim);padding:2px 7px;border-radius:999px;margin-left:6px}
+/* segmentos guardados / historial */
+.segsegmentos{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.segchip{display:inline-flex;align-items:center;gap:6px;font-size:.76rem;font-weight:600;
+  padding:6px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text);cursor:pointer;white-space:nowrap}
+.segchip:active{background:var(--surface2)}
+.segchip.hist{color:var(--muted);border-style:dashed}
+.segchip .x{color:var(--muted);font-weight:700;padding:0 2px}
+.segchip .x:hover{color:var(--gold)}
+.segchip .star{color:var(--gold)}
+.segguardar{margin-top:8px;width:100%;justify-content:center}
 .masbuscarwrap{position:relative;width:100%}
 .masbuscarwrap input{padding-right:38px}
 .masbuscarx{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:26px;height:26px;
