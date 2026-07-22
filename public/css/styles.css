@@ -272,6 +272,13 @@
 .segchip .x:hover{color:var(--gold)}
 .segchip .star{color:var(--gold)}
 .segguardar{margin-top:8px;width:100%;justify-content:center}
+.masbuscarwrap{position:relative;width:100%}
+.masbuscarwrap input{padding-right:38px}
+.masbuscarx{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:26px;height:26px;
+  border:none;background:var(--surface);color:var(--muted);border-radius:999px;font-size:.8rem;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.masbuscarx:active{background:var(--surface2);color:var(--gold)}
+.segchip.hist{border-style:dashed;color:var(--muted)}
 .segselbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .segselcount{font-size:.78rem;color:var(--muted);margin-right:auto}
 .opt{font-weight:400;color:var(--muted);font-size:.85em}

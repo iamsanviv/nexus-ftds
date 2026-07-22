@@ -26,34 +26,58 @@ function renderPrev() {
   $("masPrev").textContent = t ? "Ej.: " + resolverMensaje(t, "Ana Bermúdez").slice(0, 90) : "";
 }
 
+// ¿La persona ya fue invitada a alguna actividad? (tiene al menos un conf)
+const yaInvitada = c => c.conf && Object.keys(c.conf).length > 0;
+
 function renderFiltros() {
   const lista = pool();
   const presentes = MEMS.filter(m => lista.some(c => c.mem === m));
-  const chips = [["todos", `Todos (${lista.length})`]].concat(
-    presentes.map(m => [m, `${m} (${lista.filter(c => c.mem === m).length})`]));
+  const nInv = lista.filter(yaInvitada).length;
+  const chips = [["todos", `Todos (${lista.length})`]]
+    .concat(nInv ? [["invitadas", `Ya invitadas (${nInv})`]] : [])
+    .concat(presentes.map(m => [m, `${m} (${lista.filter(c => c.mem === m).length})`]));
   $("masFiltros").innerHTML = chips.map(([v, l]) =>
     `<button class="pill ${masFiltro === v ? "on" : ""}" data-fmem="${v}">${l}</button>`).join("");
   $("masFiltros").querySelectorAll("[data-fmem]").forEach(b => b.onclick = () => { masFiltro = b.dataset.fmem; renderLista(); });
 }
 
+// Lee los ids de un segmento sin importar el formato: masivo guarda
+// { ids:[...] }; el flujo de seguimiento por actividad guarda
+// { tipo, cliente_ids:[...] }. Se aceptan ambos.
+const idsDeSegmento = s => (s?.definicion?.ids) || (s?.definicion?.cliente_ids) || [];
+
 function renderSegs() {
-  const chips = segmentos.map(s =>
-    `<button class="pill segchip" data-seg="${s.id}">◆ ${esc(s.nombre)}</button>`).join("");
-  $("masSegs").innerHTML = chips || `<span class="segselcount">Sin segmentos guardados</span>`;
+  if (!segmentos.length) {
+    $("masSegs").innerHTML = `<span class="segselcount">Sin segmentos guardados</span>`;
+    return;
+  }
+  const guardados = segmentos.filter(s => s.definicion?.tipo !== "historial");
+  const historial = segmentos.filter(s => s.definicion?.tipo === "historial");
+  const chip = (s, hist) =>
+    `<button class="pill segchip ${hist ? "hist" : ""}" data-seg="${s.id}">${hist ? "🕘" : "◆"} ${esc(s.nombre)} · ${idsDeSegmento(s).length}</button>`;
+  $("masSegs").innerHTML =
+    guardados.map(s => chip(s, false)).join("") +
+    historial.map(s => chip(s, true)).join("");
   $("masSegs").querySelectorAll("[data-seg]").forEach(b => b.onclick = () => {
     const s = segmentos.find(x => x.id === b.dataset.seg);
-    const ids = (s?.definicion?.ids) || [];
+    const ids = idsDeSegmento(s);
     const enPool = new Set(pool().map(c => c.id));
     masSel = new Set(ids.filter(id => enPool.has(id)));
     masFiltro = "todos";
     renderFiltros(); renderLista();
-    toast(`Segmento «${s.nombre}»: ${masSel.size} seleccionados`);
+    const omit = ids.length - masSel.size;
+    toast(omit > 0
+      ? `Segmento «${s.nombre}»: ${masSel.size} seleccionados · ${omit} ya no aplican`
+      : `Segmento «${s.nombre}»: ${masSel.size} seleccionados`);
   });
 }
 
 function visibles() {
   const q = norm($("masBuscar").value.trim());
-  return pool().filter(c => (masFiltro === "todos" || c.mem === masFiltro) && (!q || norm(c.nombre).includes(q)));
+  return pool().filter(c => {
+    const okMem = masFiltro === "todos" || (masFiltro === "invitadas" ? yaInvitada(c) : c.mem === masFiltro);
+    return okMem && (!q || norm(c.nombre).includes(q));
+  });
 }
 
 function renderLista() {
@@ -88,7 +112,7 @@ function setImg(url) {
 /* ---------- abrir / enviar ---------- */
 async function abrir() {
   masSel = new Set(); masFiltro = "todos"; masCuando = "ahora";
-  $("masTexto").value = ""; $("masBuscar").value = "";
+  $("masTexto").value = ""; $("masBuscar").value = ""; $("masBuscarX").classList.add("hidden");
   setImg(null); $("masImgEstado").textContent = ""; renderPrev();
   $("masProgRow").classList.add("hidden");
   $("masCuandoSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.cuando === "ahora"));
@@ -142,7 +166,16 @@ $("segBtnMasivo").onclick = abrir;
 $("masCerrar").onclick = () => $("masOverlay").classList.remove("open");
 $("masOverlay").onclick = e => { if (e.target.id === "masOverlay") $("masOverlay").classList.remove("open"); };
 $("masTexto").oninput = renderPrev;
-$("masBuscar").oninput = renderLista;
+$("masBuscar").oninput = () => {
+  $("masBuscarX").classList.toggle("hidden", !$("masBuscar").value);
+  renderLista();
+};
+$("masBuscarX").onclick = () => {
+  $("masBuscar").value = "";
+  $("masBuscarX").classList.add("hidden");
+  renderLista();
+  $("masBuscar").focus();
+};
 $("masMarcar").onclick = () => { visibles().forEach(c => masSel.add(c.id)); renderLista(); };
 $("masDesmarcar").onclick = () => { visibles().forEach(c => masSel.delete(c.id)); renderLista(); };
 
