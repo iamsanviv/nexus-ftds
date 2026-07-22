@@ -476,8 +476,13 @@ async function renderLogs() {
   const filas = logFiltro === "todos" ? todas : todas.filter(m => m.estado === logFiltro);
   if (!filas.length) { $("segLogs").innerHTML = `<div class="naplica">Sin mensajes en este filtro.</div>`; return; }
 
+  // Mapa teléfono → nombre, para resolver el nombre en mensajes masivos
+  // (que no tienen seguimiento_id → clientes asociados).
+  const porTel = new Map();
+  for (const c of state.clientes) if (c.tel) porTel.set(c.tel, c.nombre);
+
   $("segLogs").innerHTML = filas.map(m => {
-    const nombre = m.seguimientos?.clientes?.nombre || m.telefono;
+    const nombre = m.seguimientos?.clientes?.nombre || porTel.get(m.telefono) || m.telefono;
     const cuando = m.enviado_en || m.enviar_en;
     const [cls, txt] = LOG_BADGE[m.estado] || ["pend", m.estado];
     const err = (m.estado === "error" && m.error)
