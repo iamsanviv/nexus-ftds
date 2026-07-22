@@ -108,7 +108,7 @@
       <div id="segSegmentos" class="segsegmentos"></div>
 
       <div class="pstitle">Elige a quién incluir</div>
-      <input type="search" id="segBuscar" class="segbuscar" placeholder="🔎 Buscar por nombre…" autocomplete="off">
+      <div class="masbuscarwrap"><input type="search" id="segBuscar" placeholder="🔎 Buscar por nombre…" autocomplete="off"><button id="segBuscarX" class="masbuscarx hidden" title="Limpiar">✕</button></div>
       <div id="segFiltros" class="segfiltros"></div>
       <label class="segtoggle"><input type="checkbox" id="segIncAsis"> Incluir a quienes ya asistieron (para reinvitar)</label>
       <div class="segselbar">
@@ -117,7 +117,14 @@
         <button class="pill" id="segDesmarcarVis">✗ Desmarcar visibles</button>
       </div>
       <div id="segFaltan" class="seg-lista"></div>
-      <button class="authbtn" id="segProgramar">Programar mensajes</button>
+      <div class="progrow">
+        <button class="authbtn" id="segProgramar">Programar mensajes</button>
+        <button class="progtarde" id="segTardeToggle" title="Programar la invitación para más tarde">🕓 Más tarde</button>
+      </div>
+      <div id="segTardeRow" class="progtarderow hidden">
+        <span class="progtardelbl">Enviar la invitación:</span>
+        <input type="datetime-local" id="segTardeCuando">
+      </div>
       <button class="pill segguardar" id="segGuardarSeg">💾 Guardar esta selección como segmento</button>
     </div>
 

@@ -246,6 +246,14 @@
 .imgestado{font-size:.76rem;color:var(--muted)}
 .stag.img{background:transparent;padding:0 2px}
 .segfiltros{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.progrow{display:flex;gap:8px;align-items:stretch}
+.progrow .authbtn{flex:1;margin:0}
+.progtarde{flex:0 0 auto;font-size:.78rem;font-weight:600;padding:0 12px;border-radius:11px;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted);white-space:nowrap;cursor:pointer}
+.progtarde.on{background:var(--surface2);color:var(--gold);border-color:var(--gold-dim)}
+.progtarderow{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.progtardelbl{font-size:.8rem;color:var(--muted)}
+.progtarderow input{width:auto;flex:1;min-width:180px}
 .segbuscar{margin-bottom:8px}
 .segtoggle{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);
   margin-bottom:8px;cursor:pointer;padding:2px 0}

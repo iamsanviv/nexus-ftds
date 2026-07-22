@@ -65,6 +65,7 @@ let segSel = new Set();       // ids de clientes seleccionados para programar
 let segFiltroMem = "todos";   // filtro de membresía en el selector
 let segBuscarTxt = "";        // texto de búsqueda por nombre en el selector
 let segIncAsis = false;       // incluir a quienes ya asistieron (para reinvitar)
+let segInvitarTarde = null;   // Date para diferir la invitación, o null = ahora
 let logFiltro = "todos";      // filtro del registro de envíos
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
@@ -260,8 +261,12 @@ function seleccionarActividad(a) {
   segFiltroMem = "todos";
   segBuscarTxt = "";
   segIncAsis = false;
+  segInvitarTarde = null;
   const bs = $("segBuscar"); if (bs) bs.value = "";
+  const bx = $("segBuscarX"); if (bx) bx.classList.add("hidden");
   const ia = $("segIncAsis"); if (ia) ia.checked = false;
+  const tr = $("segTardeRow"); if (tr) tr.classList.add("hidden");
+  const tt = $("segTardeToggle"); if (tt) tt.classList.remove("on");
   // Por defecto: marcar toda la comunidad que le falta la actividad (no Leads).
   segSel = new Set(faltantes(a.servicio_id).filter(c => !esLeadMem(c.mem)).map(c => c.id));
   $("segProgTitulo").innerHTML = `Programar para <b>${esc(a.nombre)}</b> · ${fechaHoraCO(a.inicio)}`;
@@ -345,6 +350,12 @@ async function programar() {
   const seleccion = elegibles(actSel.servicio_id).filter(c => segSel.has(c.id));
   if (!seleccion.length) { toast("No hay nadie seleccionado"); return; }
 
+  // Si se difirió la invitación, debe caer entre ahora y el inicio de la actividad.
+  if (segInvitarTarde) {
+    if (segInvitarTarde <= ahora) { toast("La hora de envío ya pasó; elige una futura"); return; }
+    if (segInvitarTarde >= inicio) { toast("La invitación debe salir antes de que empiece la actividad"); return; }
+  }
+
   const btn = $("segProgramar");
   btn.disabled = true; btn.textContent = "Programando…";
   try {
@@ -374,9 +385,11 @@ async function programar() {
     }
 
     // 2) los 5 mensajes por persona (se omiten los que ya quedaron en el pasado)
+    // La invitación sale "ahora" salvo que se haya elegido diferirla (más tarde).
+    const cuandoInv = (segInvitarTarde && segInvitarTarde > ahora) ? segInvitarTarde : ahora;
     const msgs = [];
     const tiempos = () => ([
-      ["invitacion",   ahora],
+      ["invitacion",   cuandoInv],
       ["rec_60",       new Date(inicio.getTime() - 60 * 60000)],
       ["rec_15",       new Date(inicio.getTime() - 15 * 60000)],
       ["enlace",       inicio],
@@ -416,7 +429,9 @@ async function programar() {
     // Guarda la selección en el historial de segmentos (automático).
     await guardarSegmentoHistorial(seleccion.map(c => c.id), actSel.nombre);
 
-    toast(`✓ ${segs.length} seguimiento(s) · ${msgs.length} mensaje(s) programado(s)`);
+    const notaTarde = (segInvitarTarde && segInvitarTarde > ahora)
+      ? ` · invitación sale ${fechaHoraCO(cuandoInv.toISOString())}` : "";
+    toast(`✓ ${segs.length} seguimiento(s) · ${msgs.length} mensaje(s) programado(s)${notaTarde}`);
     ocultarProg();
     renderActivos();
     renderLogs();
@@ -697,7 +712,35 @@ $("btnSeg").onclick = () => {
 };
 
 // Búsqueda por nombre (Req 2): filtra en vivo la lista de selección.
-$("segBuscar").oninput = e => { segBuscarTxt = e.target.value; if (actSel) renderFaltan(); };
+$("segBuscar").oninput = e => {
+  segBuscarTxt = e.target.value;
+  $("segBuscarX").classList.toggle("hidden", !e.target.value);
+  if (actSel) renderFaltan();
+};
+$("segBuscarX").onclick = () => {
+  $("segBuscar").value = ""; segBuscarTxt = "";
+  $("segBuscarX").classList.add("hidden");
+  if (actSel) renderFaltan();
+  $("segBuscar").focus();
+};
+
+// Toggle "enviar la invitación más tarde": despliega el campo de hora.
+$("segTardeToggle").onclick = () => {
+  const activo = $("segTardeRow").classList.toggle("hidden") === false;
+  $("segTardeToggle").classList.toggle("on", activo);
+  if (activo) {
+    // valor por defecto: dentro de 1 hora, redondeado
+    const d = new Date(Date.now() + 60 * 60000);
+    const p = n => String(n).padStart(2, "0");
+    $("segTardeCuando").value = `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+    segInvitarTarde = new Date($("segTardeCuando").value);
+  } else {
+    segInvitarTarde = null;   // vuelve a "ahora"
+  }
+};
+$("segTardeCuando").onchange = e => {
+  segInvitarTarde = e.target.value ? new Date(e.target.value) : null;
+};
 
 // Toggle "incluir a quienes ya asistieron" (Req 2).
 $("segIncAsis").onchange = e => { segIncAsis = e.target.checked; if (actSel) renderFaltan(); };
