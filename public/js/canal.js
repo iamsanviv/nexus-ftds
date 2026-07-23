@@ -7,6 +7,7 @@ import { state, $, esc, toast } from "./state.js";
 
 let poll = null;      // intervalo de sondeo mientras el modal está abierto
 let ultimo = null;    // firma del último estado pintado (evita re-render/flicker)
+let desvinculando = false;  // esperando que el bridge procese "desvincular"
 
 // estado -> [etiqueta corta para la fila de "Más"]
 const ESTADOS = {
@@ -100,8 +101,11 @@ async function desvincular() {
   if (!confirm("¿Desvincular tu WhatsApp? Dejarás de enviar mensajes hasta que vuelvas a escanear el código QR.")) return;
   const { error } = await SB.from("canales_wa").update({ comando: "desvincular" }).eq("owner_id", state.me.id);
   if (error) { toast("⚠ No se pudo: " + error.message); return; }
-  ultimo = "__desvinculando__";  // fuerza re-render en el próximo tick
+  desvinculando = true;          // no revertir a "Vinculado" hasta que el estado cambie
   $("canalBody").innerHTML = `<div class="naplica" style="padding:26px 0;text-align:center">⏳ Desvinculando…<br>Espera unos segundos.</div>`;
+  // Seguridad: si en 25s el bridge no respondió, soltar la bandera para no
+  // quedar atascado en el mensaje de transición.
+  setTimeout(() => { desvinculando = false; ultimo = null; }, 25000);
 }
 
 function detener() { if (poll) { clearInterval(poll); poll = null; } }
@@ -116,6 +120,14 @@ function arrancarPoll() {
 
 async function tick() {
   const c = await leerCanal();
+  // Tras pulsar "Desvincular", el bridge tarda unos segundos en procesarlo.
+  // Mientras siga 'vinculado', no revertir el mensaje de transición; en cuanto
+  // el estado cambie, seguir el flujo normal (Preparando… / QR).
+  if (desvinculando) {
+    if (c?.estado === "vinculado") return;
+    desvinculando = false;
+    ultimo = null;   // fuerza re-render del nuevo estado
+  }
   const sig = (c?.estado || "") + "|" + (c?.qr || "");
   if (sig !== ultimo) { ultimo = sig; renderBody(c); }
   const el = $("canalEstado");
@@ -124,6 +136,7 @@ async function tick() {
 
 function abrir() {
   ultimo = null;
+  desvinculando = false;
   $("canalBody").innerHTML = `<div class="naplica" style="padding:22px 0;text-align:center">Cargando…</div>`;
   $("canalOverlay").classList.add("open");
   arrancarPoll();
