@@ -3,7 +3,7 @@
 // (Supabase); aquí solo LEEMOS esa tabla y sondeamos hasta que quede vinculado.
 // El QR se dibuja en el navegador a partir del string que dejó el bridge.
 import { SB } from "./supabase.js";
-import { state, $, esc } from "./state.js";
+import { state, $, esc, toast } from "./state.js";
 
 let poll = null;      // intervalo de sondeo mientras el modal está abierto
 let ultimo = null;    // firma del último estado pintado (evita re-render/flicker)
@@ -56,8 +56,11 @@ function renderBody(c) {
         <div style="font-size:2.4rem">✅</div>
         <div style="margin-top:6px"><b>WhatsApp vinculado</b></div>
         ${c.telefono ? `<div class="sfecha">+${esc(c.telefono)}</div>` : ""}
-        <div class="naplica" style="margin-top:10px">Tus mensajes programados salen desde este número.</div>
+        <div class="naplica" style="margin:10px 0 16px">Tus mensajes programados salen desde este número.</div>
+        <button class="tbtn" id="canalDesv" style="color:#ff6b6b;border-color:#ff6b6b">Desvincular este WhatsApp</button>
       </div>`;
+    const b = $("canalDesv");
+    if (b) b.onclick = desvincular;
     return;
   }
 
@@ -70,15 +73,29 @@ function renderBody(c) {
     return;
   }
 
-  if (estado === "vinculando" || estado === "solicitado") {
-    body.innerHTML = `<div class="naplica" style="padding:26px 0;text-align:center">⏳ Preparando tu código QR…<br>Un momento.</div>`;
+  // Estados transitorios de un canal YA aprovisionado (hay fila): vinculando
+  // sin qr, solicitado (reiniciando), o sin_vincular momentáneo → está por salir
+  // un QR fresco. Nunca mandamos al admin si el canal ya existe.
+  if (c) {
+    body.innerHTML = `<div class="naplica" style="padding:26px 0;text-align:center">⏳ Preparando tu código QR…<br>Un momento (se genera solo).</div>`;
     return;
   }
 
-  // sin_vincular / sin fila todavía
+  // Sin fila en canales_wa: el agente nunca fue aprovisionado.
   body.innerHTML = `<div class="naplica" style="padding:22px 0;text-align:center">
     Tu canal de WhatsApp aún no está activo.<br>
     Pídele al administrador que lo active para tu cuenta y vuelve a abrir esta ventana.</div>`;
+}
+
+// Pide al bridge cerrar la sesión de WhatsApp (comando en canales_wa que el
+// bridge escucha). Tras desvincular, el bridge reinicia y ofrece un QR nuevo,
+// así el agente puede re-vincularse solo cuando quiera.
+async function desvincular() {
+  if (!confirm("¿Desvincular tu WhatsApp? Dejarás de enviar mensajes hasta que vuelvas a escanear el código QR.")) return;
+  const { error } = await SB.from("canales_wa").update({ comando: "desvincular" }).eq("owner_id", state.me.id);
+  if (error) { toast("⚠ No se pudo: " + error.message); return; }
+  ultimo = "__desvinculando__";  // fuerza re-render en el próximo tick
+  $("canalBody").innerHTML = `<div class="naplica" style="padding:26px 0;text-align:center">⏳ Desvinculando…<br>Espera unos segundos.</div>`;
 }
 
 function detener() { if (poll) { clearInterval(poll); poll = null; } }
