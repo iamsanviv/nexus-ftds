@@ -6,6 +6,7 @@
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, todos, hoyISO } from "./state.js";
 import { render } from "./ui.js";
+import { canalVinculado } from "./canal.js";
 
 /* ---------- plantillas ---------- */
 // Tipos de mensaje programado (5 por persona). NO incluye invitacion_extra:
@@ -703,11 +704,18 @@ async function renderLogs() {
 }
 
 /* ================= WIRING ================= */
-const EMAIL_SEG = "santiagoviveros18@gmail.com";
-$("btnSeg").onclick = () => {
-  if ((state.me?.email || "").toLowerCase() !== EMAIL_SEG) {
-    toast("Seguimiento Automatizado. En fase de prueba…");
-    return;
+// Seguimiento disponible para todos los agentes, con la condición de tener el
+// WhatsApp vinculado (si no, los mensajes no podrían salir desde su número).
+$("btnSeg").onclick = async () => {
+  const btn = $("btnSeg");
+  btn.disabled = true;
+  try {
+    if (!(await canalVinculado())) {
+      toast("Vincula tu WhatsApp en «Más → Mi WhatsApp» para usar Seguimiento.");
+      return;
+    }
+  } finally {
+    btn.disabled = false;
   }
   state.vista = "seguimiento";
   render();

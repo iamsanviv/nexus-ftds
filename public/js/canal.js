@@ -33,6 +33,12 @@ export async function refrescarCanal() {
   el.textContent = ESTADOS[c?.estado] || ESTADOS.sin_vincular;
 }
 
+// ¿El WhatsApp de este agente está vinculado? (para habilitar Seguimiento).
+export async function canalVinculado() {
+  const c = await leerCanal();
+  return c?.estado === "vinculado";
+}
+
 async function pintarQR(cont, texto) {
   cont.innerHTML = `<div class="naplica">Generando QR…</div>`;
   try {
