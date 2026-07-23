@@ -100,21 +100,27 @@ async function desvincular() {
 
 function detener() { if (poll) { clearInterval(poll); poll = null; } }
 
+// Sondea mientras el modal está abierto (no se detiene en 'vinculado': así la
+// desvinculación y la re-vinculación se ven en tiempo real). Solo para al cerrar.
+function arrancarPoll() {
+  detener();
+  tick();
+  poll = setInterval(tick, 2500);
+}
+
 async function tick() {
   const c = await leerCanal();
   const sig = (c?.estado || "") + "|" + (c?.qr || "");
   if (sig !== ultimo) { ultimo = sig; renderBody(c); }
   const el = $("canalEstado");
   if (el) el.textContent = ESTADOS[c?.estado] || ESTADOS.sin_vincular;
-  if (c?.estado === "vinculado") detener();   // estado final: dejar de sondear
 }
 
 function abrir() {
   ultimo = null;
   $("canalBody").innerHTML = `<div class="naplica" style="padding:22px 0;text-align:center">Cargando…</div>`;
   $("canalOverlay").classList.add("open");
-  tick();
-  poll = setInterval(tick, 3500);
+  arrancarPoll();
 }
 
 function cerrar() { detener(); $("canalOverlay").classList.remove("open"); }
