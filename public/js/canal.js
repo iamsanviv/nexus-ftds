@@ -37,8 +37,10 @@ async function pintarQR(cont, texto) {
   cont.innerHTML = `<div class="naplica">Generando QR…</div>`;
   try {
     const { default: QRCode } = await import("https://esm.sh/qrcode@1.5.4");
-    const url = await QRCode.toDataURL(texto, { width: 240, margin: 1 });
-    cont.innerHTML = `<img src="${url}" alt="QR" style="width:240px;height:240px;border-radius:12px;background:#fff;padding:8px">`;
+    // Nivel L (como WhatsApp) y grande: el código de WA es largo (~250 chars),
+    // con nivel M/240px sale demasiado denso y el teléfono no lo escanea bien.
+    const url = await QRCode.toDataURL(texto, { errorCorrectionLevel: "L", width: 320, margin: 2 });
+    cont.innerHTML = `<img src="${url}" alt="QR" style="width:min(320px,80vw);height:auto;border-radius:12px;background:#fff;padding:10px">`;
   } catch (e) {
     cont.innerHTML = `<div class="naplica">No pude generar el QR. Cierra y vuelve a abrir.</div>`;
   }
