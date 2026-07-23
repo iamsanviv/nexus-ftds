@@ -28,6 +28,14 @@ export const esc = s => (s || "").replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": 
 export const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
 export const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
+// Snippets: reemplaza cada {a|b|c} por una opción al azar. Se resuelve POR
+// PERSONA, así dos contactos nunca reciben el texto idéntico (menos riesgo de
+// que WhatsApp lo marque como spam). Solo toca grupos que tengan "|", por eso
+// las etiquetas normales ({nombre}, {hora}, {enlace}…) quedan intactas.
+// OJO: no anidar llaves dentro de un snippet — el grupo no puede contener { }.
+export const resolverSnippets = t => (t || "").replace(/\{([^{}]*\|[^{}]*)\}/g,
+  (m, g) => { const o = g.split("|"); return o[Math.floor(Math.random() * o.length)].trim(); });
+
 export function toast(msg) {
   const t = $("toast");
   t.textContent = msg;

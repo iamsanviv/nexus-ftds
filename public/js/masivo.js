@@ -2,7 +2,7 @@
 // Cada persona recibe un texto ya resuelto: {nombre} + snippets {a|b|c} para
 // que no llegue idéntico (más seguro). Crea una "campaña" y N mensajes en cola.
 import { SB } from "./supabase.js";
-import { state, $, esc, toast, norm } from "./state.js";
+import { state, $, esc, toast, norm, resolverSnippets } from "./state.js";
 import { subirImagenMensaje } from "./data.js";
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
@@ -13,9 +13,7 @@ let masCuando = "ahora";    // ahora | prog
 let segmentos = [];         // segmentos guardados
 
 const primerNombre = n => (n || "").trim().split(/\s+/)[0];
-// Reemplaza cada {a|b|c} por una opción al azar (solo grupos con "|").
-const resolverSnippets = t => (t || "").replace(/\{([^{}]*\|[^{}]*)\}/g,
-  (m, g) => { const o = g.split("|"); return o[Math.floor(Math.random() * o.length)].trim(); });
+// resolverSnippets vive en state.js (lo comparten masivo y las actividades).
 const resolverMensaje = (tpl, nombre) => resolverSnippets(tpl).replaceAll("{nombre}", primerNombre(nombre));
 
 const pool = () => state.clientes.filter(c => c.tel);

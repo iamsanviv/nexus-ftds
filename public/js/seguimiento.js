@@ -4,7 +4,7 @@
 // Las plantillas de mensajes son editables por agente (tabla plantillas_seguimiento).
 // Tablas: actividades, seguimientos, mensajes_programados, plantillas_seguimiento.
 import { SB } from "./supabase.js";
-import { state, $, esc, toast, todos, hoyISO } from "./state.js";
+import { state, $, esc, toast, todos, hoyISO, resolverSnippets } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 
@@ -16,14 +16,17 @@ const TIPOS = ["invitacion", "rec_60", "rec_15", "enlace", "confirmacion"];
 const CLAVES_TPL = ["invitacion", "invitacion_extra", "rec_60", "rec_15", "enlace", "confirmacion"];
 
 // Plantillas por defecto. Etiquetas: {nombre} {actividad} {hora} {enlace}
+// Además admiten snippets {a|b|c}: se elige una opción al azar POR PERSONA,
+// así no salen 50 mensajes con el texto idéntico. No anidar llaves dentro de
+// un snippet, y no meter datos clave (hora, enlace) dentro de las variantes.
 const PLANTILLAS_DEF = {
-  invitacion:       `¡Hola {nombre}! 👋 Hoy tenemos *{actividad}* a las {hora} (hora Colombia). ¡Te esperamos! ¿Cuento contigo?`,
+  invitacion:       `{¡Hola|¡Buenas|¡Qué más} {nombre}! 👋 {Hoy tenemos|Hoy nos vemos en|Hoy está} *{actividad}* a las {hora} (hora Colombia). {¡Te esperamos!|¡Ahí te espero!|¡No te la pierdas!} {¿Cuento contigo?|¿Te veo por allá?|¿Vienes?}`,
   // Se usa cuando la persona YA recibió una invitación hoy (otra actividad): sin saludo.
-  invitacion_extra: `Y hoy también tienes *{actividad}* a las {hora} (hora Colombia). ¡Ahí te espero! 🙌`,
-  rec_60:           `{nombre}, te recuerdo que en 1 hora empieza *{actividad}* ({hora}). ¡Ve preparándote! 🙌`,
-  rec_15:           `¡{nombre}, en 15 minutos arrancamos *{actividad}*! 🔥`,
-  enlace:           `¡{nombre}, ya empezamos! Este es el enlace para entrar 👉 {enlace}`,
-  confirmacion:     `{nombre}, ¿ya lograste entrar a la sala? Si tuviste algún problema, escríbeme y te ayudo 🙏`,
+  invitacion_extra: `{Y hoy también tienes|Y ojo, hoy también está|Ah, y hoy además tenemos} *{actividad}* a las {hora} (hora Colombia). {¡Ahí te espero!|¡Te esperamos!|¡No te la pierdas!} {🙌|💪|✨}`,
+  rec_60:           `{nombre}, {te recuerdo que|recuerda que|ojo que} en 1 hora empieza *{actividad}* ({hora}). {¡Ve preparándote!|¡Alístate!|¡Que no se te pase!} {🙌|⏰|💪}`,
+  rec_15:           `¡{nombre}, en 15 minutos {arrancamos|empezamos|comenzamos} *{actividad}*! {🔥|🚀|⚡}`,
+  enlace:           `¡{nombre}, {ya empezamos|ya arrancamos|estamos en vivo}! {Este es el enlace para entrar|Entra por aquí|Aquí tienes el enlace} 👉 {enlace}`,
+  confirmacion:     `{nombre}, ¿{ya lograste entrar a la sala|pudiste entrar|lograste conectarte}? {Si tuviste algún problema, escríbeme y te ayudo|Cualquier cosa me escribes y te ayudo|Si algo falla, dime y lo resolvemos} 🙏`,
 };
 
 let plantillasUsuario = { ...PLANTILLAS_DEF };  // se sobreescribe al cargar
@@ -35,8 +38,12 @@ const fechaHoraCO = iso => new Date(iso).toLocaleString("es-CO",
   { day: "2-digit", month: "2-digit", hour: "numeric", minute: "2-digit", hour12: true });
 
 // Reemplaza las etiquetas de una plantilla con los datos reales.
+// Primero resuelve los snippets {a|b|c} (al azar, por persona: como `aplicar`
+// se llama una vez por contacto, cada quien recibe una redacción distinta) y
+// luego sustituye las etiquetas. El token {enlace} no tiene "|", así que los
+// snippets no lo tocan y el worker lo resuelve al enviar.
 function aplicar(tpl, { nombre, actividad, hora, enlace }) {
-  return (tpl || "")
+  return resolverSnippets(tpl)
     .replaceAll("{nombre}", nombre)
     .replaceAll("{actividad}", actividad)
     .replaceAll("{hora}", hora)
