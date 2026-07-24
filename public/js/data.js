@@ -89,3 +89,13 @@ export async function subirImagenMensaje(file) {
   if (error) throw error;
   return SB.storage.from("mensajes").getPublicUrl(path).data.publicUrl;
 }
+
+// Nota de voz para masivos: se sube tal como la grabó el navegador (webm/m4a);
+// el worker la convierte a ogg/opus al enviar para que WhatsApp la muestre
+// como nota de voz (PTT). La extensión importa: el worker detecta audio por ella.
+export async function subirAudioMensaje(blob, ext) {
+  const path = `a_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await SB.storage.from("mensajes").upload(path, blob, { contentType: blob.type || "audio/webm" });
+  if (error) throw error;
+  return SB.storage.from("mensajes").getPublicUrl(path).data.publicUrl;
+}

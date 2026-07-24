@@ -328,6 +328,27 @@
       </div>
     </div>
 
+    <div class="frow">
+      <label>Nota de voz (opcional) — llega como nota de voz normal, con tu voz</label>
+      <div class="audfield">
+        <div class="audbtns" id="masAudIdle">
+          <button type="button" class="tbtn" id="masAudRec">🎤 Grabar nota de voz</button>
+        </div>
+        <div class="audbtns hidden" id="masAudLive">
+          <span class="recdot"></span>
+          <span id="masAudTimer" class="audtimer">0:00</span>
+          <button type="button" class="tbtn" id="masAudPause">⏸ Pausar</button>
+          <button type="button" class="tbtn" id="masAudStop">✔ Listo</button>
+          <button type="button" class="tbtn" id="masAudCancel" style="color:var(--bad)">✕ Descartar</button>
+        </div>
+        <div class="audbtns hidden" id="masAudDone">
+          <audio id="masAudPlayer" controls></audio>
+          <button type="button" class="tbtn" id="masAudDel" style="color:var(--bad)">Quitar</button>
+        </div>
+        <span id="masAudEstado" class="imgestado"></span>
+      </div>
+    </div>
+
     <div class="pstitle">Destinatarios <span id="masCount" class="segselcount"></span></div>
     <div id="masSegs" class="segfiltros"></div>
     <div id="masFiltros" class="segfiltros"></div>

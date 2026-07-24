@@ -3,7 +3,7 @@
 // que no llegue idéntico (más seguro). Crea una "campaña" y N mensajes en cola.
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, norm, resolverSnippets } from "./state.js";
-import { subirImagenMensaje } from "./data.js";
+import { subirImagenMensaje, subirAudioMensaje } from "./data.js";
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
 let masSel = new Set();     // ids seleccionados
@@ -99,6 +99,83 @@ function renderCount() {
   $("masCount").textContent = masSel.size ? `${masSel.size} seleccionados` : "";
 }
 
+/* ---------- nota de voz ---------- */
+// Graba con MediaRecorder (pausar/reanudar como WhatsApp). El blob se sube al
+// enviar; el worker lo convierte a ogg/opus para que llegue como nota de voz.
+let masAudio = null;        // { blob, ext } grabado y listo (o null)
+let rec = null;             // MediaRecorder activo
+let recChunks = [];
+let recDescartar = false;
+let recTimer = null, recSeg = 0;
+
+const fmtSeg = s => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+
+// Chrome/Android graban webm/opus; iOS (Safari) mp4/aac. Cualquiera sirve:
+// la conversión a ogg/opus la hace el worker con ffmpeg.
+function mimeGrabacion() {
+  if (!window.MediaRecorder) return null;
+  for (const m of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"])
+    if (MediaRecorder.isTypeSupported(m)) return m;
+  return "";   // dejar que el navegador elija
+}
+
+function audVista(v) {  // idle | live | done
+  $("masAudIdle").classList.toggle("hidden", v !== "idle");
+  $("masAudLive").classList.toggle("hidden", v !== "live");
+  $("masAudDone").classList.toggle("hidden", v !== "done");
+}
+
+function pararTimer() { clearInterval(recTimer); recTimer = null; }
+function arrancarTimer() {
+  pararTimer();
+  recTimer = setInterval(() => { recSeg++; $("masAudTimer").textContent = fmtSeg(recSeg); }, 1000);
+}
+
+function limpiarAudio() {
+  if ($("masAudPlayer").src) { URL.revokeObjectURL($("masAudPlayer").src); $("masAudPlayer").src = ""; }
+  masAudio = null;
+  audVista("idle");
+}
+
+async function audGrabar() {
+  if (mimeGrabacion() === null) { toast("⚠ Este navegador no soporta grabar audio"); return; }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    toast(e.name === "NotAllowedError"
+      ? "⚠ Permiso de micrófono denegado: actívalo en el navegador"
+      : "⚠ No pude acceder al micrófono: " + e.message);
+    return;
+  }
+  const mime = mimeGrabacion();
+  rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  recChunks = []; recDescartar = false; recSeg = 0;
+  $("masAudTimer").textContent = "0:00";
+  rec.ondataavailable = e => { if (e.data.size) recChunks.push(e.data); };
+  rec.onstop = () => {
+    stream.getTracks().forEach(t => t.stop());
+    pararTimer();
+    if (recDescartar || !recChunks.length) { limpiarAudio(); return; }
+    const tipo = rec.mimeType || mime || "audio/webm";
+    const blob = new Blob(recChunks, { type: tipo.split(";")[0] });
+    const ext = tipo.includes("mp4") ? "m4a" : tipo.includes("ogg") ? "ogg" : "webm";
+    masAudio = { blob, ext };
+    $("masAudPlayer").src = URL.createObjectURL(blob);
+    audVista("done");
+  };
+  rec.start();
+  arrancarTimer();
+  $("masAudPause").textContent = "⏸ Pausar";
+  audVista("live");
+}
+
+function audPausa() {
+  if (!rec) return;
+  if (rec.state === "recording") { rec.pause(); pararTimer(); $("masAudPause").textContent = "▶ Reanudar"; }
+  else if (rec.state === "paused") { rec.resume(); arrancarTimer(); $("masAudPause").textContent = "⏸ Pausar"; }
+}
+
 /* ---------- imagen ---------- */
 function setImg(url) {
   masImg = url || null;
@@ -112,6 +189,8 @@ async function abrir() {
   masSel = new Set(); masFiltro = "todos"; masCuando = "ahora";
   $("masTexto").value = ""; $("masBuscar").value = ""; $("masBuscarX").classList.add("hidden");
   setImg(null); $("masImgEstado").textContent = ""; renderPrev();
+  if (rec && rec.state !== "inactive") { recDescartar = true; rec.stop(); }
+  limpiarAudio(); $("masAudEstado").textContent = "";
   $("masProgRow").classList.add("hidden");
   $("masCuandoSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.cuando === "ahora"));
   renderFiltros(); renderLista();
@@ -122,7 +201,9 @@ async function abrir() {
 
 async function enviar() {
   const tpl = $("masTexto").value.trim();
-  if (!tpl && !masImg) { toast("Escribe un mensaje o agrega una imagen"); return; }
+  if (rec && rec.state !== "inactive") { toast("Termina la grabación primero (✔ Listo)"); return; }
+  if (!tpl && !masImg && !masAudio) { toast("Escribe un mensaje, agrega una imagen o graba una nota de voz"); return; }
+  if (masImg && masAudio) { toast("Imagen y nota de voz a la vez no: quita una de las dos"); return; }
   const sel = pool().filter(c => masSel.has(c.id));
   if (!sel.length) { toast("No hay destinatarios seleccionados"); return; }
 
@@ -137,15 +218,24 @@ async function enviar() {
   const btn = $("masEnviar");
   btn.disabled = true; btn.textContent = "Enviando…";
   try {
+    // La nota de voz se sube recién aquí (no al grabar): si el agente la
+    // descarta y regraba tres veces, solo la definitiva llega al Storage.
+    let media = masImg || null;
+    if (masAudio) {
+      $("masAudEstado").textContent = "Subiendo nota de voz…";
+      media = await subirAudioMensaje(masAudio.blob, masAudio.ext);
+      $("masAudEstado").textContent = "✓ Nota de voz lista";
+    }
+
     const { data: camp, error: e1 } = await SB.from("campanas").insert({
-      nombre: (tpl || "Imagen").slice(0, 60), texto: tpl || null, media_url: masImg || null,
+      nombre: (tpl || (masAudio ? "Nota de voz" : "Imagen")).slice(0, 60), texto: tpl || null, media_url: media,
       enviar_en: enviarEn.toISOString(), total: sel.length,
     }).select("id").single();
     if (e1) throw e1;
 
     const rows = sel.map(c => ({
       campana_id: camp.id, tipo: "masivo", enviar_en: enviarEn.toISOString(),
-      telefono: c.tel, texto: tpl ? resolverMensaje(tpl, c.nombre) : null, media_url: masImg || null,
+      telefono: c.tel, texto: tpl ? resolverMensaje(tpl, c.nombre) : null, media_url: media,
     }));
     const { error: e2 } = await SB.from("mensajes_programados").insert(rows);
     if (e2) throw e2;
@@ -196,6 +286,12 @@ $("masImgFile").onchange = async () => {
   } finally { $("masImgFile").value = ""; }
 };
 $("masImgDel").onclick = () => { setImg(null); $("masImgEstado").textContent = ""; };
+
+$("masAudRec").onclick = audGrabar;
+$("masAudPause").onclick = audPausa;
+$("masAudStop").onclick = () => { if (rec && rec.state !== "inactive") rec.stop(); };
+$("masAudCancel").onclick = () => { if (rec && rec.state !== "inactive") { recDescartar = true; rec.stop(); } };
+$("masAudDel").onclick = () => { limpiarAudio(); $("masAudEstado").textContent = ""; };
 
 $("masGuardarSeg").onclick = async () => {
   if (!masSel.size) { toast("Selecciona personas primero"); return; }

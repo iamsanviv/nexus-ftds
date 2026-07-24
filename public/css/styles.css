@@ -245,6 +245,13 @@
 .imgbtns{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 .imgestado{font-size:.76rem;color:var(--muted)}
 .stag.img{background:transparent;padding:0 2px}
+/* grabadora de nota de voz (masivo) */
+.audfield{display:flex;flex-direction:column;gap:8px}
+.audbtns{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.audbtns audio{height:38px;flex:1;min-width:180px;max-width:100%}
+.recdot{width:10px;height:10px;border-radius:50%;background:#ff5252;animation:recblink 1.1s infinite}
+@keyframes recblink{50%{opacity:.2}}
+.audtimer{font-variant-numeric:tabular-nums;min-width:44px;font-weight:600}
 .segfiltros{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
 .progrow{display:flex;gap:8px;align-items:stretch}
 .progrow .authbtn{flex:1;margin:0}
