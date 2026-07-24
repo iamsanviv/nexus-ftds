@@ -328,7 +328,14 @@
       </div>
     </div>
 
-    <div class="frow">
+    <!-- Nota de voz: OCULTA por ahora. El audio llega como nota de voz pero al
+         reproducir WhatsApp dice "Este audio ya no está disponible" (el archivo
+         sí se sube bien: como documento se descarga, y las imágenes funcionan).
+         Se probó: 3 perfiles de opus, whatsmeow actualizada, MediaKeyTimestamp
+         y subida al bucket ptt del CDN. Nada lo resolvió. Ver memoria
+         "audio-nota-de-voz-pendiente" antes de retomar. Toda la lógica de
+         grabación queda intacta: para reactivar, quitar el hidden de abajo. -->
+    <div class="frow hidden">
       <label>Nota de voz (opcional) — llega como nota de voz normal, con tu voz</label>
       <div class="audfield">
         <div class="audbtns" id="masAudIdle">
