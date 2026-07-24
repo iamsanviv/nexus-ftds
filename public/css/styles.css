@@ -218,6 +218,10 @@
   font-variant-numeric:tabular-nums}
 
 /* ---- seguimiento ---- */
+/* vista previa de una plantilla ya resuelta (con los snippets al azar) */
+.tplprev{font-size:.76rem;color:#9fb4cc;background:var(--surface2);border-left:2px solid var(--gold-dim);
+  border-radius:0 8px 8px 0;padding:7px 9px;margin-top:6px;white-space:pre-wrap}
+.tplprev:empty{display:none}
 .pstitle{font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
 .seg-lista{max-height:220px;overflow-y:auto;border:1px solid var(--border);
   border-radius:10px;padding:6px 8px;margin-bottom:12px}

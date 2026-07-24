@@ -92,6 +92,20 @@ async function cargarPlantillas() {
 
 function volcarPlantillasAlForm() {
   for (const t of CLAVES_TPL) { const el = $("tpl_" + t); if (el) el.value = plantillasUsuario[t]; }
+  renderPrevPlantillas();
+}
+
+// Vista previa de cada plantilla ya resuelta: los snippets {a|b|c} se eligen al
+// azar (como al enviar) y las etiquetas se llenan con datos de ejemplo. Así el
+// agente ve el mensaje tal como le llegará a una persona antes de guardar.
+function renderPrevPlantillas() {
+  const ej = { nombre: "Ana", actividad: "Operativa", hora: "7:00 p. m.", enlace: "https://…" };
+  for (const t of CLAVES_TPL) {
+    const ta = $("tpl_" + t), prev = $("prev_" + t);
+    if (!ta || !prev) continue;
+    const txt = (ta.value || "").trim();
+    prev.textContent = txt ? aplicar(txt, ej) : "";
+  }
 }
 
 async function guardarPlantillas() {
@@ -115,6 +129,7 @@ async function guardarPlantillas() {
 
 function resetPlantillas() {
   for (const t of CLAVES_TPL) { const el = $("tpl_" + t); if (el) el.value = PLANTILLAS_DEF[t]; }
+  renderPrevPlantillas();
   toast("Restaurado. Toca «Guardar mensajes» para aplicar.");
 }
 
@@ -775,3 +790,7 @@ $("segProgramar").onclick = programar;
 $("segBtnMsgs").onclick = () => $("segMsgsPanel").classList.toggle("hidden");
 $("segMsgsGuardar").onclick = guardarPlantillas;
 $("segMsgsReset").onclick = resetPlantillas;
+// La vista previa se recalcula al escribir y al pedir "otro ejemplo" (vuelve a
+// sortear los snippets, para comprobar que todas las variantes suenan bien).
+$("segMsgsDado").onclick = renderPrevPlantillas;
+for (const t of CLAVES_TPL) { const el = $("tpl_" + t); if (el) el.oninput = renderPrevPlantillas; }
