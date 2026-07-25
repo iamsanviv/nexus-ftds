@@ -482,3 +482,84 @@ body.segwide .tabinner{max-width:1180px}
   .formpanel{max-width:760px}
   .formpanel .segformbtns .authbtn{flex:0 0 auto;width:auto;min-width:220px}
 }
+
+/* ═══════════ REDISEÑO DEL COMPOSITOR MASIVO ═══════════
+   Antes: el modal scrolleaba a 88vh y adentro la lista de personas tenía OTRO
+   scroll de 300px, con «Enviar» al final de todo. Ahora el scroll es uno solo
+   (en .mbody), la barra de acción queda fija abajo con el resumen del envío, y
+   en escritorio se redacta a la izquierda mientras se ve la audiencia a la
+   derecha. Mismo patrón que la vista de Seguimiento. */
+.masmodal{padding:0;display:flex;flex-direction:column;overflow:hidden;max-height:88vh}
+
+.masmodal .mhead{display:flex;align-items:center;gap:12px;padding:15px 18px;
+  border-bottom:1px solid var(--border);flex:0 0 auto}
+.masmodal .mhead h2{margin-bottom:0;font-size:1.05rem}
+.masmodal .mhead .mx{margin-left:auto;color:var(--muted);font-size:1rem;padding:5px 9px;
+  border-radius:8px;background:none;border:none;width:auto}
+.masmodal .mhead .mx:active{color:var(--bad);background:var(--surface2)}
+
+/* el único scroll del modal */
+.masmodal .mbody{flex:1;min-height:0;overflow-y:auto;padding:16px 18px;
+  display:grid;gap:20px;align-content:start}
+.masmodal .paneh{font-size:.69rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:9px}
+.masmodal .paneh .rule{flex:1;height:1px;background:var(--border)}
+.masmodal .paneh .cnt{font-size:.66rem;font-weight:700;color:var(--gold);background:var(--surface2);
+  border:1px solid var(--gold-dim);border-radius:999px;padding:1px 9px;
+  font-variant-numeric:tabular-nums;letter-spacing:0;text-transform:none}
+.masmodal .paneh .cnt:empty{display:none}
+.masmodal .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+.masmodal .chips:empty{display:none}
+.masmodal .masbuscarwrap{margin-bottom:9px}
+.maslista{border:1px solid var(--border);border-radius:11px;overflow:hidden}
+.maslista .seg-row{padding:8px 11px;border-bottom:1px solid var(--surface2);cursor:pointer}
+.maslista .seg-row:last-child{border-bottom:none}
+.maslista .seg-row:active{background:var(--surface2)}
+.maslista .naplica{padding:16px 12px}
+
+/* vista previa del mensaje ya resuelto (etiquetas y variantes aplicadas) */
+.masprevbox{font-size:.79rem;color:#9fb4cc;background:var(--surface2);
+  border-left:2px solid var(--gold-dim);border-radius:0 8px 8px 0;padding:9px 11px;
+  margin-top:9px;white-space:pre-wrap;word-break:break-word}
+.masprevbox .prevlbl{display:block;font-size:.6rem;font-weight:800;color:var(--gold);
+  letter-spacing:.07em;text-transform:uppercase;margin-bottom:4px}
+
+/* barra de acción fija */
+.masmodal .mfoot{flex:0 0 auto;border-top:1px solid var(--border);background:var(--surface2);
+  padding:12px 18px calc(12px + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;gap:11px}
+.masmodal .mfootmain{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.masmodal .fsum{font-size:.83rem;min-width:0}
+.masmodal .fsum b{font-family:'Archivo';font-size:1.05rem;font-weight:800;color:var(--gold);
+  font-variant-numeric:tabular-nums}
+.masmodal .fs2{display:block;font-size:.71rem;color:var(--muted);margin-top:1px}
+.masmodal .cuando{display:flex;gap:4px;background:var(--bg);border:1px solid var(--border);
+  border-radius:10px;padding:3px;margin-left:auto}
+.masmodal .cuando button{font-size:.77rem;font-weight:600;padding:7px 13px;border-radius:7px;
+  color:var(--muted);background:none;border:none;width:auto}
+.masmodal .cuando button.on{background:var(--surface2);color:var(--gold)}
+.masenviar{background:var(--gold);color:#191204;font-family:'Archivo';font-weight:800;
+  border:none;border-radius:11px;padding:12px 22px;font-size:.92rem;white-space:nowrap;width:auto}
+.masenviar:disabled{opacity:.45}
+/* fecha y hora van ARRIBA de la fila de acción: se llenan, se lee el resumen
+   («Programado para el 25/07…») y recién entonces se envía. */
+.masmodal .progrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.masmodal .progrow label{display:block;font-size:.66rem;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin:0 0 4px}
+.masmodal .progrow input{width:100%;padding:8px 10px;font-size:.85rem}
+/* en celular el botón de enviar ocupa toda la línea (área de toque cómoda) */
+@media (max-width:899px){.masmodal .masenviar{flex:1 0 100%;width:100%}}
+
+@media (min-width:900px){
+  /* en escritorio deja de ser hoja pegada abajo y pasa a diálogo centrado
+     (solo este modal: los demás siguen entrando desde abajo) */
+  #masOverlay{align-items:center}
+  .masmodal{max-width:1060px;border-radius:18px;max-height:82vh}
+  /* Dos paneles lado a lado: cada uno scrollea por su cuenta, así el mensaje
+     no se va de la vista mientras se recorre la lista de personas. No son
+     scrolls anidados sino hermanos, que es el patrón de un compositor. */
+  .masmodal .mbody{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;padding:0;
+    overflow:hidden;align-content:stretch}
+  .masmodal .pane{overflow-y:auto;min-height:0;padding:18px 20px}
+  .masmodal .pane.aud{border-left:1px solid var(--border)}
+}

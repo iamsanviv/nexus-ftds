@@ -19,9 +19,12 @@ const resolverMensaje = (tpl, nombre) => resolverSnippets(tpl).replaceAll("{nomb
 const pool = () => state.clientes.filter(c => c.tel);
 
 /* ---------- render ---------- */
+// Vista previa del mensaje ya resuelto: con etiquetas y variantes {a|b|c}, lo
+// que se escribe no es lo que llega, así que se muestra el resultado real.
 function renderPrev() {
   const t = $("masTexto").value.trim();
-  $("masPrev").textContent = t ? "Ej.: " + resolverMensaje(t, "Ana Bermúdez").slice(0, 90) : "";
+  $("masPrevBox").classList.toggle("hidden", !t);
+  $("masPrev").textContent = t ? resolverMensaje(t, "Ana Bermúdez") : "";
 }
 
 // ¿La persona ya fue invitada a alguna actividad? (tiene al menos un conf)
@@ -96,7 +99,20 @@ function renderLista() {
 }
 
 function renderCount() {
-  $("masCount").textContent = masSel.size ? `${masSel.size} seleccionados` : "";
+  const total = pool().length;
+  $("masCount").textContent = masSel.size ? `${masSel.size} de ${total}` : "";
+  // La barra de acción de abajo repite la cifra: es lo último que se mira
+  // antes de enviar, y ahí ya no se ve la lista.
+  $("masFootN").textContent = masSel.size;
+  $("masEnviar").disabled = masSel.size === 0;
+}
+
+// Resumen de "cuándo" en la barra de acción, para no tener que subir a mirar.
+function renderCuando() {
+  const f = $("masFecha").value, h = $("masHora").value;
+  $("masFootCuando").textContent = masCuando === "prog"
+    ? (f && h ? `Programado para el ${f.slice(8, 10)}/${f.slice(5, 7)} a las ${h}` : "Elige fecha y hora")
+    : "Se envía ahora mismo";
 }
 
 /* ---------- nota de voz ---------- */
@@ -193,7 +209,7 @@ async function abrir() {
   limpiarAudio(); $("masAudEstado").textContent = "";
   $("masProgRow").classList.add("hidden");
   $("masCuandoSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.cuando === "ahora"));
-  renderFiltros(); renderLista();
+  renderFiltros(); renderLista(); renderCuando();
   $("masOverlay").classList.add("open");
   const { data } = await SB.from("segmentos").select("id, nombre, definicion").order("created_at", { ascending: false });
   segmentos = data || []; renderSegs();
@@ -271,7 +287,10 @@ $("masCuandoSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
   masCuando = b.dataset.cuando;
   $("masCuandoSeg").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
   $("masProgRow").classList.toggle("hidden", masCuando !== "prog");
+  renderCuando();
 });
+$("masFecha").onchange = renderCuando;
+$("masHora").onchange = renderCuando;
 
 $("masImgPick").onclick = () => $("masImgFile").click();
 $("masImgFile").onchange = async () => {
