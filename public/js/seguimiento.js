@@ -146,6 +146,11 @@ function renderForm() {
   $("segLink").value = "";
 }
 
+// El formulario vive plegado: crear una actividad se hace 1–2 veces al día,
+// mientras que la lista y el registro se consultan todo el tiempo.
+const abrirForm = () => $("segFormPanel").classList.remove("hidden");
+const cerrarForm = () => $("segFormPanel").classList.add("hidden");
+
 function entrarEdicion(a) {
   actEdit = a;
   const d = new Date(a.inicio);
@@ -153,18 +158,31 @@ function entrarEdicion(a) {
   $("segFecha").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   $("segHora").value = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   $("segLink").value = a.enlace;
-  $("segFormTitulo").textContent = `✎ Editando «${a.nombre}»`;
+  $("segFormTitulo").textContent = `Editando «${a.nombre}»`;
   $("segCrearAct").textContent = "Guardar cambios";
   $("segCancelEdit").classList.remove("hidden");
-  $("segFormTitulo").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  abrirForm();
+  $("segFormPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
+// Sale del modo edición y deja el formulario limpio y plegado.
 function salirEdicion() {
   actEdit = null;
-  $("segFormTitulo").textContent = "➕ Crear actividad del día";
+  $("segFormTitulo").textContent = "Nueva actividad del día";
   $("segCrearAct").textContent = "Guardar actividad";
   $("segCancelEdit").classList.add("hidden");
+  cerrarForm();
   renderForm();
+}
+
+// Tira de estado: pinta una cifra y su color según lo que significa.
+// tono: "acc" (hay algo que atender), "good" (todo salió), "alert" (falló algo).
+function setTile(tileId, numId, valor, tono) {
+  const tile = $(tileId), num = $(numId);
+  if (!tile || !num) return;
+  num.textContent = valor;
+  tile.classList.remove("acc", "good", "alert");
+  if (valor > 0 && tono) tile.classList.add(tono);
 }
 
 async function guardarActividad() {
@@ -207,7 +225,7 @@ async function guardarActividad() {
       const { error } = await SB.from("actividades").insert(datos);
       if (error) throw error;
       toast(`✓ Actividad «${srv.n}» creada`);
-      $("segLink").value = "";
+      salirEdicion();   // deja el formulario limpio y plegado
     }
     await cargarActividades();
   } catch (err) {
@@ -235,19 +253,32 @@ async function cargarActividades() {
     await SB.from("actividades").update({ estado: "cerrada" }).in("id", pasadas.map(a => a.id));
   }
   actividades = (data || []).filter(a => new Date(a.inicio) >= inicioHoy);
+  $("segActsCnt").textContent = actividades.length;
+  setTile("segTileActs", "segTActs", actividades.length, "acc");
   if (!actividades.length) {
-    $("segActividades").innerHTML = `<div class="naplica">No hay actividades para hoy. Crea una arriba.</div>`;
+    $("segActividades").innerHTML = `<div class="segempty">
+      <div class="eh">Todavía no hay actividades</div>
+      <p>Crea una con «＋ Nueva actividad» y desde ahí programas los mensajes.</p>
+    </div>`;
     return;
   }
   $("segActividades").innerHTML = actividades.map(a => `
-    <div class="seg-row">
-      <span>${esc(a.nombre)}<span class="sfecha">${fechaHoraCO(a.inicio)}</span>${a.enlace ? "" : `<span class="sinlink">⚠ sin enlace</span>`}</span>
-      <span class="pr">
+    <article class="actcard">
+      <div class="am">
+        <h4>${esc(a.nombre)}</h4>
+        <div class="ameta">
+          <span class="atime">${fechaHoraCO(a.inicio)}</span>
+          ${a.enlace
+            ? `<span class="achip ok">Enlace listo</span>`
+            : `<span class="achip miss">Falta el enlace</span>`}
+        </div>
+      </div>
+      <div class="ab">
         <button class="pmark" data-prog="${a.id}">📨 Programar</button>
         <button class="pmark" data-edit="${a.id}" title="Editar actividad">✎</button>
         <button class="pmark off" data-delact="${a.id}" title="Eliminar actividad">✕</button>
-      </span>
-    </div>`).join("");
+      </div>
+    </article>`).join("");
 
   $("segActividades").querySelectorAll("[data-prog]").forEach(b => b.onclick = () => {
     const a = actividades.find(x => x.id === b.dataset.prog);
@@ -593,15 +624,27 @@ async function renderActivos() {
     await SB.from("seguimientos").update({ estado: "completado" }).in("id", vencidos.map(s => s.id));
   }
   const activos = (data || []).filter(s => finConf(s) > ahora);
-  if (!activos.length) { $("segActivos").innerHTML = `<div class="naplica">No hay seguimientos activos.</div>`; return; }
+  setTile("segTileActivos", "segTActivos", activos.length, "acc");
+  if (!activos.length) {
+    $("segActivos").innerHTML = `<div class="segempty">
+      <div class="eh">Nada en curso ahora mismo</div>
+      <p>Cuando programes mensajes para una actividad, aquí ves a quién le están saliendo y puedes cancelar.</p>
+    </div>`;
+    return;
+  }
 
   $("segActivos").innerHTML = activos.map(s => `
-    <div class="seg-row">
-      <span>${esc(s.clientes?.nombre || "(cliente)")} · <b>${esc(s.actividad)}</b>
-        <span class="sfecha">${fechaHoraCO(s.inicio)}</span>
-      </span>
-      <button class="pmark off" data-cancel="${s.id}">✕ Cancelar</button>
-    </div>`).join("");
+    <article class="actcard">
+      <div class="am">
+        <h4>${esc(s.clientes?.nombre || "(cliente)")}</h4>
+        <div class="ameta">
+          <span class="atime">${esc(s.actividad)} · <b>${fechaHoraCO(s.inicio)}</b></span>
+        </div>
+      </div>
+      <div class="ab">
+        <button class="pmark off" data-cancel="${s.id}">✕ Cancelar</button>
+      </div>
+    </article>`).join("");
 
   $("segActivos").querySelectorAll("[data-cancel]").forEach(b => b.onclick = () => {
     const s = activos.find(x => x.id === b.dataset.cancel);
@@ -686,8 +729,12 @@ async function renderLogs() {
   if (error) { $("segLogs").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
   const todas = data || [];
 
-  // Chips de filtro con conteos.
+  // Chips de filtro con conteos. Las cifras de la tira de estado salen de esta
+  // misma ventana de 60 mensajes, así chip y tira siempre concuerdan.
   const n = e => todas.filter(m => m.estado === e).length;
+  $("segLogsCnt").textContent = todas.length;
+  setTile("segTileEnv", "segTEnv", n("enviado"), "good");
+  setTile("segTileErr", "segTErr", n("error"), "alert");
   const chips = [
     ["todos", `Todos (${todas.length})`],
     ["enviado", `✓ ${n("enviado")}`],
@@ -742,6 +789,9 @@ $("btnSeg").onclick = async () => {
   state.vista = "seguimiento";
   render();
   $("segMsgsPanel").classList.add("hidden");
+  // El registro es consulta, no acción: en celular arranca plegado para no
+  // llenar la pantalla; en escritorio va desplegado en su propio riel.
+  $("segLogSec").open = window.matchMedia("(min-width:900px)").matches;
   salirEdicion(); ocultarProg(); cargarPlantillas(); cargarActividades();
   cargarSegmentos(); renderActivos(); renderLogs();
 };
@@ -786,6 +836,14 @@ $("segGuardarSeg").onclick = guardarSegmentoManual;
 $("segVolver").onclick = () => { state.vista = "cliente"; render(); };
 $("segCancelEdit").onclick = salirEdicion;
 $("segCrearAct").onclick = guardarActividad;
+// ＋ Nueva actividad: abre el formulario plegado (o lo cierra si ya estaba).
+$("segNuevaAct").onclick = () => {
+  if (!$("segFormPanel").classList.contains("hidden")) { salirEdicion(); return; }
+  salirEdicion();      // limpia cualquier edición previa
+  abrirForm();
+  $("segFormPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+};
+$("segFormCerrar").onclick = salirEdicion;
 $("segProgramar").onclick = programar;
 $("segBtnMsgs").onclick = () => $("segMsgsPanel").classList.toggle("hidden");
 $("segMsgsGuardar").onclick = guardarPlantillas;

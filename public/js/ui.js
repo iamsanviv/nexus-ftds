@@ -19,6 +19,9 @@ export function render() {
   renderViewToggle();
   renderShell();
   const isLead = state.modulo === "leads";
+  // Seguimiento usa dos columnas en escritorio, así que necesita más ancho que
+  // el resto de la app (las demás vistas son listas y se leen mejor angostas).
+  document.body.classList.toggle("segwide", state.vista === "seguimiento");
 
   if (state.vista === "mas") {
     $("vistaCliente").classList.add("hidden");

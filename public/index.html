@@ -65,8 +65,17 @@
   <div id="vistaSeguimiento" class="hidden">
     <div class="segtop">
       <button class="tbtn hidden" id="segVolver">← Volver</button>
-      <button class="tbtn" id="segBtnMasivo" style="margin-left:auto">✉ Masivo</button>
-      <button class="tbtn" id="segBtnMsgs">✎ Mensajes</button>
+      <button class="sgbtn quiet" id="segBtnMasivo">✉ Masivo</button>
+      <button class="sgbtn quiet" id="segBtnMsgs">✎ Mensajes</button>
+      <button class="sgbtn primary" id="segNuevaAct">＋ Nueva actividad</button>
+    </div>
+
+    <!-- tira de estado: cómo va el día de un vistazo -->
+    <div class="segstrip">
+      <div class="stile" id="segTileActs"><span class="tn" id="segTActs">0</span><span class="tl">Actividades hoy</span></div>
+      <div class="stile" id="segTileActivos"><span class="tn" id="segTActivos">0</span><span class="tl">Seguimientos activos</span></div>
+      <div class="stile" id="segTileEnv"><span class="tn" id="segTEnv">0</span><span class="tl">Mensajes enviados</span></div>
+      <div class="stile" id="segTileErr"><span class="tn" id="segTErr">0</span><span class="tl">Fallidos</span></div>
     </div>
 
     <!-- editor de plantillas (oculto por defecto) -->
@@ -87,20 +96,31 @@
       </div>
     </div>
 
-    <div class="pstitle" id="segFormTitulo">➕ Crear actividad del día</div>
-    <div class="frow"><label>Actividad (del catálogo)</label><select id="segSrv"></select></div>
-    <div class="frow"><div class="dual">
-      <div style="flex:1"><label>Fecha</label><input type="date" id="segFecha"></div>
-      <div style="flex:1"><label>Hora (Colombia)</label><input type="time" id="segHora"></div>
-    </div></div>
-    <div class="frow"><label>Enlace de la sala <span class="opt">(opcional — puedes agregarlo luego)</span></label><input id="segLink" placeholder="https://…"></div>
-    <div class="segformbtns">
-      <button class="authbtn" id="segCrearAct">Guardar actividad</button>
-      <button class="tbtn hidden" id="segCancelEdit">Cancelar edición</button>
+    <!-- crear / editar actividad: plegado por defecto (se abre con ＋ Nueva actividad) -->
+    <div id="segFormPanel" class="formpanel hidden">
+      <div class="fph">
+        <h3 class="fpt" id="segFormTitulo">Nueva actividad del día</h3>
+        <button class="fpx" id="segFormCerrar" title="Cerrar" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="fgrid">
+        <div class="frow wide"><label>Actividad (del catálogo)</label><select id="segSrv"></select></div>
+        <div class="frow"><label>Fecha</label><input type="date" id="segFecha"></div>
+        <div class="frow"><label>Hora (Colombia)</label><input type="time" id="segHora"></div>
+        <div class="frow wide"><label>Enlace de la sala <span class="opt">(opcional — puedes agregarlo luego)</span></label><input id="segLink" placeholder="https://…"></div>
+      </div>
+      <div class="segformbtns">
+        <button class="authbtn" id="segCrearAct">Guardar actividad</button>
+        <button class="tbtn hidden" id="segCancelEdit">Cancelar edición</button>
+      </div>
     </div>
 
-    <div class="pstitle">Actividades del día</div>
-    <div id="segActividades" class="seg-lista"></div>
+    <div class="seggrid">
+    <div class="segcol">
+
+    <section class="segsec">
+      <div class="sechead"><h3>Actividades del día</h3><span class="cnt" id="segActsCnt">0</span><span class="rule"></span></div>
+      <div id="segActividades" class="acts"></div>
+    </section>
 
     <!-- bloque de programación: aparece al elegir una actividad -->
     <div id="segProgBloque" class="hidden">
@@ -130,12 +150,26 @@
       <button class="pill segguardar" id="segGuardarSeg">💾 Guardar esta selección como segmento</button>
     </div>
 
-    <div class="pstitle">Seguimientos activos</div>
-    <div id="segActivos" class="seg-lista"></div>
+    <section class="segsec">
+      <div class="sechead"><h3>Seguimientos activos</h3><span class="rule"></span></div>
+      <div id="segActivos" class="acts"></div>
+    </section>
 
-    <div class="pstitle">Registro de envíos</div>
-    <div id="segLogsFiltros" class="segfiltros"></div>
-    <div id="segLogs" class="seg-lista logs"></div>
+    </div><!-- /segcol -->
+
+    <div class="segcol logcol">
+      <details class="segsec logsec" id="segLogSec" open>
+        <summary>
+          <div class="sechead"><h3>Registro de envíos</h3><span class="cnt" id="segLogsCnt">0</span><span class="rule"></span><span class="chev">▸</span></div>
+        </summary>
+        <div class="logbox">
+          <div id="segLogsFiltros" class="logfil"></div>
+          <div id="segLogs" class="logrows"></div>
+        </div>
+      </details>
+    </div>
+
+    </div><!-- /seggrid -->
   </div>
 
   <!-- vista más (cuenta y herramientas) -->

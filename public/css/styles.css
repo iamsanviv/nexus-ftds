@@ -373,3 +373,112 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 .logtipo{font-size:.76rem;color:var(--muted);white-space:nowrap}
 .logtime{margin-left:auto;font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .logerr{color:var(--bad);font-size:.73rem;margin-top:3px;padding-left:2px;word-break:break-word}
+
+/* ═══════════ REDISEÑO DEL MÓDULO SEGUIMIENTO ═══════════
+   El problema no era el estilo sino el orden: todo salía desplegado a la vez,
+   en una sola columna de 760px. Ahora: el formulario se pliega (se crea una
+   actividad 1–2 veces al día, se consulta todo el tiempo), hay una tira de
+   estado arriba, y en escritorio la vista se ensancha y se parte en dos —
+   izquierda lo que se opera, derecha el registro como riel. */
+
+/* la vista de seguimiento usa más ancho que el resto de la app */
+body.segwide{max-width:1180px}
+body.segwide .tabinner{max-width:1180px}
+
+/* ---- barra de acciones ---- */
+.segtop{flex-wrap:wrap;justify-content:flex-end}
+.segtop #segVolver{margin-right:auto;flex:0 0 auto}
+.sgbtn{font-size:.79rem;font-weight:700;padding:9px 14px;border-radius:10px;
+  border:1px solid var(--border);background:var(--surface);color:var(--text);
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:background .15s}
+.sgbtn:active{background:var(--surface2)}
+.sgbtn.quiet{color:var(--muted);font-weight:600}
+.sgbtn.primary{background:var(--gold);color:#191204;border-color:var(--gold);
+  font-family:'Archivo';font-weight:800}
+.sgbtn.primary:active{filter:brightness(.92)}
+
+/* ---- tira de estado ---- */
+.segstrip{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:18px}
+.stile{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 13px}
+.stile .tn{font-family:'Archivo';font-size:1.5rem;font-weight:800;line-height:1;
+  font-variant-numeric:tabular-nums;display:block;color:var(--muted)}
+.stile .tl{font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;
+  font-weight:600;margin-top:5px;display:block}
+.stile.acc .tn{color:var(--gold)}
+.stile.good .tn{color:var(--ok)}
+.stile.alert{border-color:rgba(242,85,90,.45);background:rgba(242,85,90,.07)}
+.stile.alert .tn{color:var(--bad)}
+
+/* ---- formulario plegable ---- */
+.formpanel{background:var(--surface);border:1px solid var(--gold-dim);border-radius:13px;
+  padding:15px;margin-bottom:18px}
+.fph{display:flex;align-items:center;gap:9px;margin-bottom:13px}
+.fpt{font-family:'Archivo';font-size:.93rem;font-weight:800}
+.fpx{margin-left:auto;color:var(--muted);font-size:.9rem;padding:3px 8px;border-radius:7px}
+.fpx:active{color:var(--bad);background:var(--surface2)}
+.fgrid{display:grid;gap:11px}
+.fgrid .frow{margin-bottom:0}
+.formpanel .segformbtns{margin-top:14px}
+
+/* ---- rejilla y secciones ---- */
+.seggrid{display:grid;gap:18px;align-items:start}
+.segsec{margin-bottom:20px}
+.segsec:last-child{margin-bottom:0}
+.sechead{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.sechead h3{font-size:.69rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted)}
+.sechead .cnt{font-size:.66rem;font-weight:700;color:var(--muted);background:var(--surface2);
+  border:1px solid var(--border);border-radius:999px;padding:1px 8px;font-variant-numeric:tabular-nums}
+.sechead .rule{flex:1;height:1px;background:var(--border)}
+
+/* ---- tarjetas de actividad / seguimiento activo ---- */
+.acts{display:flex;flex-direction:column;gap:8px}
+.actcard{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:13px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.actcard .am{flex:1;min-width:150px}
+.actcard h4{font-family:'Archivo';font-size:.99rem;font-weight:700;letter-spacing:-.01em;
+  line-height:1.25}
+.ameta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:6px}
+.atime{font-size:.76rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.atime b{color:var(--text);font-weight:600}
+.achip{font-size:.63rem;font-weight:700;letter-spacing:.03em;padding:3px 9px;border-radius:999px;
+  white-space:nowrap}
+.achip.ok{background:rgba(78,203,141,.14);color:var(--ok)}
+.achip.miss{background:rgba(242,85,90,.13);color:var(--bad)}
+.actcard .ab{display:flex;gap:6px;align-items:center;flex:0 0 auto;margin-left:auto}
+.actcard .ab .pmark{margin-left:0}
+
+/* ---- estado vacío ---- */
+.segempty{border:1px dashed var(--border);border-radius:12px;padding:18px 16px;text-align:center}
+@media (min-width:900px){.segempty{padding:26px 18px}}
+.segempty .eh{font-family:'Archivo';font-size:.9rem;font-weight:700;color:var(--text)}
+.segempty p{font-size:.78rem;color:var(--muted);margin-top:5px;max-width:34ch;
+  margin-inline:auto;line-height:1.5}
+
+/* ---- registro de envíos ---- */
+.logsec > summary{list-style:none;cursor:pointer}
+.logsec > summary::-webkit-details-marker{display:none}
+.logsec .chev{color:var(--muted);font-size:.7rem;transition:transform .2s}
+.logsec[open] .chev{transform:rotate(90deg)}
+.logbox{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.logfil{display:flex;gap:5px;padding:10px 11px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.logrows{max-height:340px;overflow-y:auto}
+.logrows .logrow{padding:9px 11px;border-bottom:1px solid var(--surface2)}
+.logrows .naplica{padding:18px 12px}
+/* En el riel angosto algo tiene que ceder: que se recorte el tipo de mensaje,
+   nunca el nombre — el nombre es lo que se busca al leer el registro. */
+.logrows .logname{flex:0 0 auto;max-width:55%;min-width:0}
+.logrows .logtipo{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+
+@media (min-width:900px){
+  .seggrid{grid-template-columns:minmax(0,1.65fr) minmax(300px,1fr);gap:22px}
+  .segstrip{grid-template-columns:repeat(4,1fr)}
+  .fgrid{grid-template-columns:1fr 1fr}
+  .fgrid .wide{grid-column:1/-1}
+  .logcol{position:sticky;top:14px}
+  .logrows{max-height:420px}
+  /* Un formulario de 4 campos no debe ocupar 1180px de ancho: se acota y el
+     botón deja de estirarse de lado a lado. */
+  .formpanel{max-width:760px}
+  .formpanel .segformbtns .authbtn{flex:0 0 auto;width:auto;min-width:220px}
+}
