@@ -14,6 +14,10 @@ export const mapAEditar = c => ({
   membresia: c.mem, creado: c.creado || null,
   comunidad_desde: c.comunidadDesde || null, upgrade_fecha: c.upgradeFecha || null,
   nota: c.nota || null, acc: c.acc || {}, conf: c.conf || {},
+  // Solo se manda si quien guarda eligió dueño (un director asignando a uno de
+  // sus agentes). Si no va, la base pone auth.uid() por defecto. El RLS valida
+  // que el dueño elegido sea de su equipo: no se puede regalar a un ajeno.
+  ...(c.owner_id ? { owner_id: c.owner_id } : {}),
 });
 
 export async function cargarTodo() {
@@ -21,9 +25,19 @@ export async function cargarTodo() {
   state.catalogo = (cfg && Array.isArray(cfg.data)) ? cfg.data : [];
 
   if (state.me.role === "director") {
-    const { data: ps } = await SB.from("profiles").select("id,full_name,role");
+    // El RLS ya limita esto al equipo del director (él + sus agentes).
+    const { data: ps } = await SB.from("profiles").select("id,full_name,role,aprobado");
     state.perfiles = {};
-    (ps || []).forEach(p => state.perfiles[p.id] = p.full_name || "(sin nombre)");
+    state.equipo = [];
+    (ps || []).forEach(p => {
+      const nombre = p.full_name || "(sin nombre)";
+      state.perfiles[p.id] = nombre;
+      // Los pendientes de aprobación no pueden operar, así que tampoco se les
+      // asignan clientes.
+      if (p.aprobado) state.equipo.push({ id: p.id, nombre, yo: p.id === state.me.id });
+    });
+    state.equipo.sort((a, b) =>
+      a.yo ? -1 : b.yo ? 1 : a.nombre.localeCompare(b.nombre, "es"));
   }
 
   const { data: cl, error } = await SB.from("clientes").select("*").order("created_at", { ascending: true });

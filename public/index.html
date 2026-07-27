@@ -295,6 +295,12 @@
 <div class="overlay" id="overlay">
   <div class="modal">
     <h2 id="cliTitulo">Nuevo cliente</h2>
+    <!-- solo para directores: a nombre de qué agente de su equipo queda -->
+    <div class="frow hidden" id="fDuenoRow">
+      <label>A nombre de</label>
+      <select id="fDueno"></select>
+      <div class="msgshelp">Queda como cliente de esa persona: ella lo verá en su lista y podrá enviarle mensajes.</div>
+    </div>
     <div class="frow"><label>Nombre</label><input id="fNombre" placeholder="Ej: Carlos Pérez"></div>
     <div class="frow"><div class="dual">
       <div style="flex:1.3"><label>WhatsApp (con código de país)</label><input id="fTel" inputmode="tel" placeholder="+573001234567"></div>

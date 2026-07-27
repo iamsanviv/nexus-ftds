@@ -6,6 +6,9 @@ export const state = {
   clientes: [],
   catalogo: [],
   perfiles: {},
+  // Miembros aprobados del equipo de un director (él incluido), para el
+  // selector de «a nombre de quién» al crear un cliente. Vacío para los demás.
+  equipo: [],
   me: null,
   modulo: "comunidad",   // "comunidad" | "leads"
   filtro: "todos",

@@ -384,6 +384,9 @@ function abrirPerfil(c) {
   $("fCreado").value = c.creado || ""; $("fComunidad").value = c.comunidadDesde || ""; $("fUpgrade").value = c.upgradeFecha || "";
   $("fNota").value = c.nota || "";
   $("btnConvertir").classList.toggle("hidden", c.mem !== "Lead");
+  // Al editar se precarga el dueño actual: el director también puede
+  // reasignar un cliente a otro agente de su equipo.
+  renderDueno(c.owner_id);
   construirActividades(c);
   $("overlay").classList.add("open");
 }
@@ -402,12 +405,26 @@ function cerrarM() {
   $("fActividades").innerHTML = ""; $("btnConvertir").classList.add("hidden");
 }
 
+// Selector de dueño: solo tiene sentido para un director, que es el único que
+// puede crear clientes a nombre de otra persona (los de SU equipo). Para los
+// demás la fila queda oculta y el dueño lo pone la base (auth.uid()).
+function renderDueno(seleccionado) {
+  const row = $("fDuenoRow"), sel = $("fDueno");
+  const puede = state.me.role === "director" && state.equipo.length > 1;
+  row.classList.toggle("hidden", !puede);
+  if (!puede) { sel.innerHTML = ""; return; }
+  sel.innerHTML = state.equipo.map(m =>
+    `<option value="${m.id}">${esc(m.nombre)}${m.yo ? " (yo)" : ""}</option>`).join("");
+  sel.value = seleccionado || state.me.id;
+}
+
 $("abrirModal").onclick = () => {
   state.cliEdit = null;
   $("cliTitulo").textContent = state.modulo === "leads" ? "Nuevo lead" : "Nuevo cliente";
   ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fComunidad", "fUpgrade"].forEach(i => $(i).value = "");
   $("fMem").innerHTML = opcionesNivel(state.modulo === "leads" ? "Lead" : "Beca");
   $("fActividades").innerHTML = ""; $("btnConvertir").classList.add("hidden");
+  renderDueno(state.me.id);
   $("overlay").classList.add("open");
 };
 $("cerrarModal").onclick = cerrarM;
@@ -425,19 +442,35 @@ $("guardarBtn").onclick = async () => {
   if (!nombre) { toast("Falta el nombre"); return; }
   const telN = $("fTel").value.replace(/\D/g, "");
 
-  // Duplicados (entre mis contactos): mismo teléfono bloquea, mismo nombre advierte.
-  const mios = state.clientes.filter(x => x.owner_id === state.me.id && x.id !== state.cliEdit);
+  // ¿A nombre de quién queda? Solo un director elige; el resto son sus propios.
+  const eligeDueno = !$("fDuenoRow").classList.contains("hidden") && $("fDueno").value;
+  const dueno = eligeDueno || state.me.id;
+  const ajeno = dueno !== state.me.id;
+  const deQuien = ajeno ? (state.perfiles[dueno] || "ese agente") : null;
+
+  // Duplicados: se comparan contra los contactos DEL DUEÑO elegido, no contra
+  // los de quien está escribiendo. Mismo teléfono bloquea, mismo nombre advierte.
+  const suyos = state.clientes.filter(x => x.owner_id === dueno && x.id !== state.cliEdit);
   if (telN) {
-    const dupTel = mios.find(x => (x.tel || "").replace(/\D/g, "") === telN);
-    if (dupTel) { toast(`⚠ Ese número ya es de ${dupTel.nombre}`); return; }
+    const dupTel = suyos.find(x => (x.tel || "").replace(/\D/g, "") === telN);
+    if (dupTel) {
+      toast(ajeno
+        ? `⚠ ${deQuien} ya tiene ese número (${dupTel.nombre})`
+        : `⚠ Ese número ya es de ${dupTel.nombre}`);
+      return;
+    }
   }
-  const dupNom = mios.find(x => norm(x.nombre) === norm(nombre));
-  if (dupNom && !confirm(`Ya tienes un contacto llamado «${dupNom.nombre}». ¿Guardar de todas formas?`)) return;
+  const dupNom = suyos.find(x => norm(x.nombre) === norm(nombre));
+  if (dupNom && !confirm(ajeno
+    ? `${deQuien} ya tiene un contacto llamado «${dupNom.nombre}». ¿Guardar de todas formas?`
+    : `Ya tienes un contacto llamado «${dupNom.nombre}». ¿Guardar de todas formas?`)) return;
+
   const datos = {
     nombre, pais: $("fPais").value.trim(), tel: telN ? "+" + telN : "",
     mem: $("fMem").value, creado: $("fCreado").value || "",
     comunidadDesde: $("fComunidad").value || "", upgradeFecha: $("fUpgrade").value || "",
     nota: $("fNota").value.trim(),
+    ...(eligeDueno ? { owner_id: eligeDueno } : {}),
   };
   if (state.cliEdit) {
     const c = state.clientes.find(x => x.id === state.cliEdit);
@@ -450,7 +483,11 @@ $("guardarBtn").onclick = async () => {
     if (await dbPatch(c, mapAEditar(c))) toast("Perfil actualizado ✓");
   } else {
     const nuevo = await dbInsert({ ...datos, acc: {} });
-    if (nuevo) { state.clientes.push(nuevo); toast((datos.mem === "Lead" ? "Lead" : "Cliente") + " agregado ✓"); }
+    if (nuevo) {
+      state.clientes.push(nuevo);
+      const qué = datos.mem === "Lead" ? "Lead" : "Cliente";
+      toast(ajeno ? `${qué} agregado a nombre de ${deQuien} ✓` : `${qué} agregado ✓`);
+    }
   }
   cerrarM(); render();
 };

@@ -77,10 +77,16 @@
 
 
 -- ───────────────────────────────────────────────────────────────────────────
--- PENDIENTE (no implementado todavía)
+-- ASIGNAR CLIENTES A UN AGENTE (ya implementado)
 --
--- Un director puede crear clientes a nombre de sus agentes a nivel de RLS
--- (el INSERT ya lo permite vía puede_ver_de), pero la interfaz todavía no
--- tiene el selector de "asignar a". Hoy, cuando un director crea un cliente,
--- queda a su propio nombre.
+-- El modal de cliente muestra «A nombre de» solo si quien escribe es director
+-- y su equipo tiene más de una persona. Sirve tanto al crear como al editar
+-- (reasignar). El RLS es quien manda: el WITH CHECK del INSERT y del UPDATE
+-- exige puede_ver_de(owner_id), así que un director puede poner un cliente a
+-- nombre de sí mismo o de sus agentes, y de nadie más.
+--
+-- Probado en transacción revertida, con Evelin sacada del equipo:
+--   director → cliente a nombre de SU agente        PERMITIDO ✓
+--   director → cliente a nombre de alguien AJENO    BLOQUEADO ✓
+--   director → reasignarse clientes de un ajeno     sin efecto ✓ (no ve las filas)
 -- ───────────────────────────────────────────────────────────────────────────
