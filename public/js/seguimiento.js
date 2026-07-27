@@ -145,14 +145,31 @@ function resetPlantillas() {
 /* ================= FORMULARIO crear / editar actividad ================= */
 const pad = n => String(n).padStart(2, "0");
 
+// Valor especial del selector para una actividad que NO está en el catálogo
+// (lanzamientos, clases únicas). No es un servicio: no se le marca asistencia
+// ni cuenta para el progreso de nadie.
+const LIBRE = "__libre__";
+const esLibre = a => !a || !a.servicio_id;
+
 function renderForm() {
   const sel = $("segSrv");
-  sel.innerHTML = state.catalogo.map(g => `<optgroup label="${esc(g.g)}">` +
-    g.items.map(s => `<option value="${s.id}">${esc(s.n)}</option>`).join("") +
-    `</optgroup>`).join("");
+  sel.innerHTML =
+    state.catalogo.map(g => `<optgroup label="${esc(g.g)}">` +
+      g.items.map(s => `<option value="${s.id}">${esc(s.n)}</option>`).join("") +
+      `</optgroup>`).join("") +
+    `<optgroup label="Fuera del catálogo">
+       <option value="${LIBRE}">✦ Actividad puntual (escribo el nombre)</option>
+     </optgroup>`;
   $("segFecha").value = hoyISO();
   $("segHora").value = "";
   $("segLink").value = "";
+  $("segLibre").value = "";
+  sincronizarLibre();
+}
+
+// Muestra el campo de nombre libre solo cuando aplica.
+function sincronizarLibre() {
+  $("segLibreRow").classList.toggle("hidden", $("segSrv").value !== LIBRE);
 }
 
 // El formulario vive plegado: crear una actividad se hace 1–2 veces al día,
@@ -163,7 +180,13 @@ const cerrarForm = () => $("segFormPanel").classList.add("hidden");
 function entrarEdicion(a) {
   actEdit = a;
   const d = new Date(a.inicio);
-  if ([...$("segSrv").options].some(o => o.value === a.servicio_id)) $("segSrv").value = a.servicio_id;
+  if (esLibre(a)) {
+    $("segSrv").value = LIBRE;
+    $("segLibre").value = a.nombre;
+  } else if ([...$("segSrv").options].some(o => o.value === a.servicio_id)) {
+    $("segSrv").value = a.servicio_id;
+  }
+  sincronizarLibre();
   $("segFecha").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   $("segHora").value = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   $("segLink").value = a.enlace;
@@ -195,11 +218,14 @@ function setTile(tileId, numId, valor, tono) {
 }
 
 async function guardarActividad() {
-  const sid = $("segSrv").value;
-  const srv = todos().find(s => s.id === sid);
+  const sel = $("segSrv").value;
+  const libre = sel === LIBRE;
+  const srv = libre ? null : todos().find(s => s.id === sel);
+  const nombreLibre = $("segLibre").value.trim();
   const fecha = $("segFecha").value, hora = $("segHora").value;
   const enlace = $("segLink").value.trim();
-  if (!srv) { toast("Elige una actividad"); return; }
+  if (libre && !nombreLibre) { toast("Escribe el nombre de la actividad"); return; }
+  if (!libre && !srv) { toast("Elige una actividad"); return; }
   if (!fecha || !hora) { toast("Falta la fecha o la hora"); return; }
   // El enlace es OPCIONAL: se puede agregar/editar después, antes de que salga
   // el mensaje del enlace.
@@ -211,7 +237,12 @@ async function guardarActividad() {
   const btn = $("segCrearAct");
   btn.disabled = true; btn.textContent = "Guardando…";
   try {
-    const datos = { servicio_id: sid, nombre: srv.n, inicio: inicio.toISOString(), enlace };
+    const nombreAct = libre ? nombreLibre : srv.n;
+    const datos = {
+      servicio_id: libre ? null : sel,
+      nombre: nombreAct,
+      inicio: inicio.toISOString(), enlace,
+    };
     if (actEdit) {
       const { error } = await SB.from("actividades").update(datos).eq("id", actEdit.id);
       if (error) throw error;
@@ -233,7 +264,7 @@ async function guardarActividad() {
     } else {
       const { error } = await SB.from("actividades").insert(datos);
       if (error) throw error;
-      toast(`✓ Actividad «${srv.n}» creada`);
+      toast(`✓ Actividad «${nombreAct}» creada`);
       salirEdicion();   // deja el formulario limpio y plegado
     }
     await cargarActividades();
@@ -277,6 +308,7 @@ async function cargarActividades() {
         <h4>${esc(a.nombre)}</h4>
         <div class="ameta">
           <span class="atime">${fechaHoraCO(a.inicio)}</span>
+          ${esLibre(a) ? `<span class="achip suelta" title="No está en el catálogo">✦ Puntual</span>` : ""}
           ${a.enlace
             ? `<span class="achip ok">Enlace listo</span>`
             : `<span class="achip miss">Falta el enlace</span>`}
@@ -308,14 +340,16 @@ async function cargarActividades() {
 }
 
 /* ================= SELECCIÓN + PROGRAMACIÓN ================= */
-// A quienes les falta la actividad (comportamiento original).
+// A quienes les falta la actividad. Sin servicio (actividad puntual) no hay
+// asistencia que consultar: entran todos los que tengan teléfono.
 function faltantes(sid) {
-  return state.clientes.filter(c => !c.acc[sid] && c.tel);
+  return state.clientes.filter(c => c.tel && (!sid || !c.acc[sid]));
 }
 
 // Universo elegible para programar: los que faltan, y —si el toggle está
 // activo— también quienes ya asistieron (para reinvitarlos). Siempre exige tel.
 function elegibles(sid) {
+  if (!sid) return state.clientes.filter(c => c.tel);
   return state.clientes.filter(c => c.tel && (!c.acc[sid] || segIncAsis));
 }
 
@@ -338,6 +372,10 @@ async function seleccionarActividad(a) {
   const bs = $("segBuscar"); if (bs) bs.value = "";
   const bx = $("segBuscarX"); if (bx) bx.classList.add("hidden");
   const ia = $("segIncAsis"); if (ia) ia.checked = false;
+  // Sin servicio no hay asistencia, así que «incluir a quienes ya asistieron»
+  // no significa nada: se esconde en vez de dejar un control muerto.
+  const iaRow = $("segIncAsis").closest("label");
+  if (iaRow) iaRow.classList.toggle("hidden", esLibre(a));
   const si = $("segSinInv"); if (si) si.checked = false;
   const tr = $("segTardeRow"); if (tr) tr.classList.add("hidden");
   const tt = $("segTardeToggle"); if (tt) { tt.classList.remove("on"); tt.classList.remove("hidden"); }
@@ -372,9 +410,10 @@ function ocultarProg() {
 
 function renderFaltan() {
   if (!actSel) return;
-  const sid = actSel.servicio_id;
+  const sid = actSel.servicio_id;          // null si es una actividad puntual
   const lista = elegibles(sid);
-  const sinTel = state.clientes.filter(c => (!c.acc[sid] || segIncAsis) && !c.tel).length;
+  const sinTel = state.clientes.filter(c =>
+    (!sid || !c.acc[sid] || segIncAsis) && !c.tel).length;
 
   // Chips de filtro: "Todos" + solo las membresías presentes en la lista.
   const presentes = MEMS.filter(m => lista.some(c => c.mem === m));
@@ -401,7 +440,7 @@ function renderFaltan() {
           <span class="badge b-${c.mem}">${c.mem}</span>
           <span>${esc(c.nombre)}</span>
           ${prog ? `<span class="yaprog" title="Ya tiene los mensajes programados para esta actividad">✓ ya programado</span>` : ""}
-          ${c.acc[sid] ? `<span class="yaasis">ya asistió</span>` : ""}
+          ${sid && c.acc[sid] ? `<span class="yaasis">ya asistió</span>` : ""}
         </label>`; }).join("")
     : `<div class="naplica">${q ? "Nadie coincide con la búsqueda." : "Nadie en este filtro."}</div>`;
   if (sinTel && segFiltroMem === "todos" && !q) $("segFaltan").insertAdjacentHTML("beforeend",
@@ -524,7 +563,8 @@ async function programar() {
         };
         // La imagen la resuelve el worker al enviar (imagen actual del servicio),
         // así no se congela: solo guardamos de qué servicio es la invitación.
-        if (tipo === "invitacion") fila.servicio_id = actSel.servicio_id;
+        // Una actividad puntual no tiene servicio, así que va sin imagen.
+        if (tipo === "invitacion" && actSel.servicio_id) fila.servicio_id = actSel.servicio_id;
         // El enlace se resuelve al enviar (el texto conserva el token {enlace}).
         if (tipo === "enlace") fila.enlace_url = actSel.enlace || null;
         msgs.push(fila);
@@ -536,11 +576,15 @@ async function programar() {
     // Marca a los seleccionados como "invitados" al servicio (si no lo estaban),
     // así pasan de «por invitar» a «invitados» en la vista por servicio.
     // NO se toca `acc`: quien ya asistió y es reinvitado conserva su asistencia.
-    const hoy = hoyISO();
-    for (const c of seleccion) {
-      if (!(c.conf || {})[actSel.servicio_id]) {
-        c.conf = { ...(c.conf || {}), [actSel.servicio_id]: hoy };
-        await SB.from("clientes").update({ conf: c.conf }).eq("id", c.id);
+    // Solo aplica si la actividad es de un servicio del catálogo: `conf` está
+    // indexado por servicio, y una actividad puntual no tiene ninguno.
+    if (actSel.servicio_id) {
+      const hoy = hoyISO();
+      for (const c of seleccion) {
+        if (!(c.conf || {})[actSel.servicio_id]) {
+          c.conf = { ...(c.conf || {}), [actSel.servicio_id]: hoy };
+          await SB.from("clientes").update({ conf: c.conf }).eq("id", c.id);
+        }
       }
     }
 
@@ -723,6 +767,11 @@ async function renderActivos() {
 // invitar" (se borra conf de ese servicio).
 function abrirCancelar(s) {
   const nombre = s.clientes?.nombre || "esta persona";
+  // «Volver a por invitar» solo tiene sentido si la actividad es de un
+  // servicio: en una puntual no hay `conf` que quitar. Si la actividad ya no
+  // está cargada no se asume nada y se deja el botón (la acción es null-safe).
+  const act = actividades.find(x => x.id === s.actividad_id);
+  const sinServicio = !!act && esLibre(act);
   $("repSub").textContent = "Cancelar seguimiento";
   $("repBody").innerHTML = `
     <div class="prow" style="flex-direction:column;align-items:stretch;gap:12px">
@@ -732,7 +781,7 @@ function abrirCancelar(s) {
       </div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <button class="pmark" data-cx="invitado">Dejarla como «invitada»</button>
-        <button class="pmark off" data-cx="porinvitar">Volver a «por invitar»</button>
+        ${sinServicio ? "" : `<button class="pmark off" data-cx="porinvitar">Volver a «por invitar»</button>`}
         <button class="tbtn" data-cx="nada">No cancelar</button>
       </div>
     </div>`;
@@ -920,6 +969,7 @@ $("segGuardarSeg").onclick = guardarSegmentoManual;
 $("segVolver").onclick = () => { state.vista = "cliente"; render(); };
 $("segCancelEdit").onclick = salirEdicion;
 $("segCrearAct").onclick = guardarActividad;
+$("segSrv").onchange = sincronizarLibre;
 // ＋ Nueva actividad: abre el formulario plegado (o lo cierra si ya estaba).
 $("segNuevaAct").onclick = () => {
   if (!$("segFormPanel").classList.contains("hidden")) { salirEdicion(); return; }

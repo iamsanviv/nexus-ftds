@@ -479,6 +479,8 @@ body.segwide .tabinner{max-width:1180px}
   white-space:nowrap}
 .achip.ok{background:rgba(78,203,141,.14);color:var(--ok)}
 .achip.miss{background:rgba(242,85,90,.13);color:var(--bad)}
+/* actividad puntual: no está en el catálogo */
+.achip.suelta{background:rgba(176,124,232,.15);color:var(--vip)}
 .actcard .ab{display:flex;gap:6px;align-items:center;flex:0 0 auto;margin-left:auto}
 .actcard .ab .pmark{margin-left:0}
 

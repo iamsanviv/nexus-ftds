@@ -141,7 +141,13 @@
         <button class="fpx" id="segFormCerrar" title="Cerrar" aria-label="Cerrar">✕</button>
       </div>
       <div class="fgrid">
-        <div class="frow wide"><label>Actividad (del catálogo)</label><select id="segSrv"></select></div>
+        <div class="frow wide"><label>Actividad</label><select id="segSrv"></select></div>
+        <!-- nombre libre: solo cuando se elige «actividad puntual» -->
+        <div class="frow wide hidden" id="segLibreRow">
+          <label>Nombre de la actividad</label>
+          <input id="segLibre" placeholder="Ej: Lanzamiento de membresías" autocomplete="off">
+          <div class="msgshelp">No entra al catálogo ni cuenta para el progreso de nadie. Úsalo para cosas de una sola vez.</div>
+        </div>
         <div class="frow"><label>Fecha</label><input type="date" id="segFecha"></div>
         <div class="frow"><label>Hora (Colombia)</label><input type="time" id="segHora"></div>
         <div class="frow wide"><label>Enlace de la sala <span class="opt">(opcional — puedes agregarlo luego)</span></label><input id="segLink" placeholder="https://…"></div>
