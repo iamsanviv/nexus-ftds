@@ -75,6 +75,10 @@ let segFiltroMem = "todos";   // filtro de membresía en el selector
 let segBuscarTxt = "";        // texto de búsqueda por nombre en el selector
 let segIncAsis = false;       // incluir a quienes ya asistieron (para reinvitar)
 let segInvitarTarde = null;   // Date para diferir la invitación, o null = ahora
+// Programar el seguimiento SIN mandar la invitación: para gente que ya se
+// invitó por llamada o por otro mensaje. Los recordatorios, el enlace y la
+// confirmación salen igual.
+let segSinInvitacion = false;
 let logFiltro = "todos";      // filtro del registro de envíos
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
@@ -317,14 +321,17 @@ function seleccionarActividad(a) {
   segBuscarTxt = "";
   segIncAsis = false;
   segInvitarTarde = null;
+  segSinInvitacion = false;
   const bs = $("segBuscar"); if (bs) bs.value = "";
   const bx = $("segBuscarX"); if (bx) bx.classList.add("hidden");
   const ia = $("segIncAsis"); if (ia) ia.checked = false;
+  const si = $("segSinInv"); if (si) si.checked = false;
   const tr = $("segTardeRow"); if (tr) tr.classList.add("hidden");
-  const tt = $("segTardeToggle"); if (tt) tt.classList.remove("on");
+  const tt = $("segTardeToggle"); if (tt) { tt.classList.remove("on"); tt.classList.remove("hidden"); }
   // Por defecto: marcar toda la comunidad que le falta la actividad (no Leads).
   segSel = new Set(faltantes(a.servicio_id).filter(c => !esLeadMem(c.mem)).map(c => c.id));
   $("segProgTitulo").innerHTML = `Programar para <b>${esc(a.nombre)}</b> · ${fechaHoraCO(a.inicio)}`;
+  refrescarBotonProgramar();
   $("segProgBloque").classList.remove("hidden");
   renderSegmentos();
   renderFaltan();
@@ -388,6 +395,12 @@ function renderFaltan() {
   actualizarConteo();
 }
 
+// El botón dice lo que va a pasar: es el último punto donde el agente puede
+// darse cuenta de que olvidó (o dejó puesto) el modo «sin invitación».
+const etiquetaProgramar = () =>
+  segSinInvitacion ? "Programar sin invitación" : "Programar mensajes";
+const refrescarBotonProgramar = () => { $("segProgramar").textContent = etiquetaProgramar(); };
+
 function actualizarConteo() {
   if (!actSel) return;
   const uni = elegibles(actSel.servicio_id);
@@ -406,7 +419,8 @@ async function programar() {
   if (!seleccion.length) { toast("No hay nadie seleccionado"); return; }
 
   // Si se difirió la invitación, debe caer entre ahora y el inicio de la actividad.
-  if (segInvitarTarde) {
+  // (No aplica si no se va a enviar invitación.)
+  if (!segSinInvitacion && segInvitarTarde) {
     if (segInvitarTarde <= ahora) { toast("La hora de envío ya pasó; elige una futura"); return; }
     if (segInvitarTarde >= inicio) { toast("La invitación debe salir antes de que empiece la actividad"); return; }
   }
@@ -424,11 +438,12 @@ async function programar() {
 
     // ¿Quiénes ya recibieron una invitación HOY (otra actividad)? Para no
     // repetir el saludo, esos usan la invitación "extra" (sin hola).
+    // Si no se va a invitar, esta consulta no hace falta.
     const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
     const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
     const tels = [...new Set(seleccion.map(c => c.tel))];
     let yaInvitados = new Set();
-    if (tels.length) {
+    if (tels.length && !segSinInvitacion) {
       const { data: previas } = await SB.from("mensajes_programados")
         .select("telefono")
         .eq("tipo", "invitacion")
@@ -439,17 +454,22 @@ async function programar() {
       yaInvitados = new Set((previas || []).map(r => r.telefono));
     }
 
-    // 2) los 5 mensajes por persona (se omiten los que ya quedaron en el pasado)
-    // La invitación sale "ahora" salvo que se haya elegido diferirla (más tarde).
+    // 2) los mensajes por persona (se omiten los que ya quedaron en el pasado).
+    // La invitación sale "ahora" salvo que se haya elegido diferirla, y se
+    // omite del todo si el agente ya invitó por fuera: en ese caso el
+    // seguimiento arranca directo en los recordatorios.
     const cuandoInv = (segInvitarTarde && segInvitarTarde > ahora) ? segInvitarTarde : ahora;
     const msgs = [];
-    const tiempos = () => ([
-      ["invitacion",   cuandoInv],
-      ["rec_60",       new Date(inicio.getTime() - 60 * 60000)],
-      ["rec_15",       new Date(inicio.getTime() - 15 * 60000)],
-      ["enlace",       inicio],
-      ["confirmacion", new Date(inicio.getTime() + 10 * 60000)],
-    ]);
+    const tiempos = () => {
+      const t = [
+        ["rec_60",       new Date(inicio.getTime() - 60 * 60000)],
+        ["rec_15",       new Date(inicio.getTime() - 15 * 60000)],
+        ["enlace",       inicio],
+        ["confirmacion", new Date(inicio.getTime() + 10 * 60000)],
+      ];
+      if (!segSinInvitacion) t.unshift(["invitacion", cuandoInv]);
+      return t;
+    };
     for (const seg of segs) {
       const c = seleccion.find(x => x.id === seg.cliente_id);
       const tpl = plantillas(c.nombre, actSel.nombre, actSel.inicio, actSel.enlace, yaInvitados.has(c.tel));
@@ -484,16 +504,18 @@ async function programar() {
     // Guarda la selección en el historial de segmentos (automático).
     await guardarSegmentoHistorial(seleccion.map(c => c.id), actSel.nombre);
 
-    const notaTarde = (segInvitarTarde && segInvitarTarde > ahora)
-      ? ` · invitación sale ${fechaHoraCO(cuandoInv.toISOString())}` : "";
-    toast(`✓ ${segs.length} seguimiento(s) · ${msgs.length} mensaje(s) programado(s)${notaTarde}`);
+    const nota = segSinInvitacion
+      ? " · sin invitación (empieza en los recordatorios)"
+      : (segInvitarTarde && segInvitarTarde > ahora)
+        ? ` · invitación sale ${fechaHoraCO(cuandoInv.toISOString())}` : "";
+    toast(`✓ ${segs.length} seguimiento(s) · ${msgs.length} mensaje(s) programado(s)${nota}`);
     ocultarProg();
     renderActivos();
     renderLogs();
   } catch (err) {
     toast("⚠ " + err.message);
   } finally {
-    btn.disabled = false; btn.textContent = "Programar mensajes";
+    btn.disabled = false; btn.textContent = etiquetaProgramar();
   }
 }
 
@@ -833,6 +855,19 @@ $("segTardeCuando").onchange = e => {
 
 // Toggle "incluir a quienes ya asistieron" (Req 2).
 $("segIncAsis").onchange = e => { segIncAsis = e.target.checked; if (actSel) renderFaltan(); };
+
+// Toggle "sin invitación": si no se manda invitación, diferirla no significa
+// nada, así que se esconde ese botón y se descarta la hora elegida.
+$("segSinInv").onchange = e => {
+  segSinInvitacion = e.target.checked;
+  $("segTardeToggle").classList.toggle("hidden", segSinInvitacion);
+  if (segSinInvitacion) {
+    segInvitarTarde = null;
+    $("segTardeRow").classList.add("hidden");
+    $("segTardeToggle").classList.remove("on");
+  }
+  refrescarBotonProgramar();
+};
 
 // Guardar la selección actual como segmento permanente (Req 3).
 $("segGuardarSeg").onclick = guardarSegmentoManual;
