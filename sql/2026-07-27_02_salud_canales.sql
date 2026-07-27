@@ -96,6 +96,11 @@ grant select on public.salud_canales to authenticated;
 
 
 -- ───────────────────────────────────────────────────────────────────────────
+-- ESTADO: APLICADO EN PRODUCCIÓN el 27/07/2026. Devuelve las 9 filas.
+-- ───────────────────────────────────────────────────────────────────────────
+
+
+-- ───────────────────────────────────────────────────────────────────────────
 -- VERIFICACIÓN
 --
 --   select nombre, salud, estado_canal, total_mensajes,

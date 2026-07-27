@@ -29,13 +29,21 @@
 -- no romper la capacidad legítima del director de asignar roles.
 -- ───────────────────────────────────────────────────────────────────────────
 
+-- La condición `auth.uid() is not null` importa: el ataque que se cierra es el
+-- de un agente autenticado llamando a la API REST con la anon key (pública).
+-- Los contextos administrativos —el editor SQL del panel, la service_role key,
+-- un backup— no tienen auth.uid() y ya son de confianza. Sin esa condición el
+-- trigger también los bloquea, y el director se queda sin forma de asignar
+-- roles desde ningún lado.
 create or replace function public.impedir_cambio_de_rol()
 returns trigger
 language plpgsql
 set search_path to 'public'
 as $$
 begin
-  if new.role is distinct from old.role and not public.is_director() then
+  if new.role is distinct from old.role
+     and auth.uid() is not null
+     and not public.is_director() then
     raise exception 'Solo un director puede cambiar el rol de una cuenta'
       using errcode = '42501';
   end if;
@@ -163,6 +171,37 @@ create policy "servicios_select" on storage.objects
 -- (c) La tabla de autorizados existe y está protegida:
 --     select relrowsecurity from pg_class where relname='agentes_autorizados';
 --     → debe decir true
+
+
+-- ───────────────────────────────────────────────────────────────────────────
+-- ESTADO: APLICADO EN PRODUCCIÓN el 27/07/2026.
+--
+-- Probado simulando la sesión de un agente vía PostgREST:
+--   · intento de UPDATE profiles SET role='director' → BLOQUEADO
+--   · el rol quedó en 'agente'
+--   · el contexto admin (este editor) sí puede cambiar roles
+-- ───────────────────────────────────────────────────────────────────────────
+
+
+-- ───────────────────────────────────────────────────────────────────────────
+-- DOS AVISOS DEL LINTER QUE SE DEJAN A PROPÓSITO
+--
+-- 1. «Public bucket `servicios` allows listing»
+--    El catálogo de servicios es compartido por todos los agentes por diseño:
+--    todos ven las mismas imágenes en la interfaz. Poder listarlas no expone
+--    nada que el agente no vea igual en pantalla. Se restringió de `public` a
+--    `authenticated`, que era la parte que sí importaba (antes lo listaba
+--    cualquiera sin sesión). El bucket `mensajes`, donde sí había datos de un
+--    agente que otro no debía ver, quedó cerrado del todo.
+--
+-- 2. «Public/authenticated can execute is_director()»
+--    NO se puede revocar. Se probó en una transacción revertida: al quitarle
+--    EXECUTE a `authenticated`, las políticas RLS que la invocan dejan de
+--    evaluarse y el agente pierde acceso hasta a sus propios clientes
+--    («permission denied for function is_director»). Además la función solo
+--    revela si QUIEN LLAMA es director — para anon siempre devuelve false, así
+--    que no filtra datos de nadie.
+-- ───────────────────────────────────────────────────────────────────────────
 
 
 -- ───────────────────────────────────────────────────────────────────────────
