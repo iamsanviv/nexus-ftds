@@ -164,12 +164,38 @@
   .copynum:active{background:var(--gold);color:#191204;border-color:var(--gold)}
 
   /* ---- pantalla de login ---- */
-  #authScreen{max-width:380px;margin:8vh auto 0;padding:0 6px}
-  .authcard{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:26px 22px}
-  .authlogo{display:flex;align-items:baseline;gap:8px;justify-content:center;margin-bottom:4px}
-  .authlogo h1{font-size:1.6rem;font-weight:800}
-  .authlogo .tick{color:var(--gold);font-weight:700;font-size:.8rem;letter-spacing:.12em;text-transform:uppercase}
-  .authsub{text-align:center;color:var(--muted);font-size:.82rem;margin-bottom:22px}
+  /* ── Pantalla de entrada: dos paneles ──────────────────────────────────
+     En escritorio, identidad a la izquierda y formulario a la derecha; en
+     celular la identidad se vuelve una cabecera compacta encima. Sin nombre
+     de empresa: el producto se llama por lo que hace. */
+  #authScreen{max-width:400px;margin:7vh auto 0;padding:0 6px}
+  .authcard{background:var(--surface);border:1px solid var(--border);border-radius:18px;
+    overflow:hidden;display:grid}
+  .authpane{padding:22px 22px 20px;border-bottom:1px solid var(--border);
+    background:radial-gradient(120% 90% at 0% 0%, rgba(232,184,75,.10), transparent 60%)}
+  .authkicker{font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--gold);margin-bottom:9px}
+  .authpane h1{font-family:'Archivo';font-size:1.4rem;font-weight:800;letter-spacing:-.025em;
+    line-height:1.1;text-wrap:balance}
+  .authpitch{font-size:.82rem;color:var(--muted);margin-top:8px;line-height:1.5;max-width:34ch}
+  /* embudo FTD → venta: tres barras decrecientes */
+  .authfunnel{display:flex;flex-direction:column;gap:6px;margin-top:16px;max-width:230px}
+  .authfunnel .fb{height:8px;border-radius:999px;background:var(--surface2);overflow:hidden}
+  .authfunnel .fb i{display:block;height:100%;border-radius:999px;
+    background:linear-gradient(90deg,var(--gold),var(--gold-dim))}
+  .authfunnel .fb:nth-child(2) i{opacity:.75}
+  .authfunnel .fb:nth-child(3) i{opacity:.5}
+  .authform{padding:22px}
+  .authsub{color:var(--muted);font-size:.82rem;margin-bottom:18px}
+
+  @media (min-width:880px){
+    #authScreen{max-width:880px;margin:12vh auto 0}
+    .authcard{grid-template-columns:1.05fr .95fr}
+    .authpane{border-bottom:none;border-right:1px solid var(--border);
+      display:flex;flex-direction:column;justify-content:center;padding:40px 34px}
+    .authpane h1{font-size:1.85rem}
+    .authform{display:flex;flex-direction:column;justify-content:center;padding:40px 34px}
+  }
   #authScreen .frow{margin-bottom:13px}
   .authbtn{width:100%;background:var(--gold);color:#191204;font-family:'Archivo';font-weight:800;border-radius:12px;padding:13px;font-size:.95rem;margin-top:6px}
   .authswitch{text-align:center;font-size:.82rem;color:var(--muted);margin-top:16px}
@@ -615,6 +641,12 @@ body.segwide .tabinner{max-width:1180px}
 
 /* pantalla de espera de aprobación */
 #pendScreen{max-width:420px;margin:8vh auto 0;padding:0 6px}
+/* .authcard es una rejilla de dos paneles en el login; aquí se usa como
+   tarjeta simple, así que se anula la rejilla. */
+.authcard.solo{display:block;padding:24px 22px}
+.pendmarca{font-family:'Archivo';font-size:.95rem;font-weight:800;text-align:center;
+  letter-spacing:-.01em;margin-bottom:4px}
+.pendmarca span{color:var(--gold);font-weight:700}
 .pendbox{text-align:center;padding:6px 4px 4px}
 .pendicon{font-size:2.6rem;line-height:1}
 .pendtit{font-family:'Archivo';font-size:1.15rem;font-weight:800;margin:10px 0 8px}

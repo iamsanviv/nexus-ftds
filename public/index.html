@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Nexus · Servicios</title>
+<title>Seguimiento FTDs y Ventas</title>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -12,7 +12,20 @@
 <!-- ================= PANTALLA DE LOGIN ================= -->
 <div id="authScreen" class="hidden">
   <div class="authcard">
-    <div class="authlogo"><h1>Nexus</h1><span class="tick">● Servicios</span></div>
+    <!-- panel de identidad: en escritorio va al lado del formulario, en celular
+         encima y compacto. El embudo dice de qué va el producto sin texto. -->
+    <div class="authpane">
+      <div class="authkicker">Panel de agentes</div>
+      <h1>Seguimiento de FTDs y Ventas</h1>
+      <p class="authpitch">Actividades, invitaciones y mensajes automáticos, en un solo lugar.</p>
+      <div class="authfunnel" aria-hidden="true">
+        <span class="fb"><i style="width:100%"></i></span>
+        <span class="fb"><i style="width:64%"></i></span>
+        <span class="fb"><i style="width:33%"></i></span>
+      </div>
+    </div>
+
+    <div class="authform">
     <div class="authsub" id="authSub">Inicia sesión para continuar</div>
     <div class="autherr" id="authErr"></div>
     <div id="setupMsg" class="setup hidden"></div>
@@ -29,13 +42,14 @@
     <div class="frow"><label>Contraseña</label><input id="auPass" type="password" placeholder="••••••••"></div>
     <button class="authbtn" id="auBtn">Entrar</button>
     <div class="authswitch" id="auSwitch">¿No tienes cuenta? <button id="auToggle">Crear cuenta</button></div>
+    </div><!-- /authform -->
   </div>
 </div>
 
 <!-- ===== CUENTA CREADA, EN ESPERA DE APROBACIÓN ===== -->
 <div id="pendScreen" class="hidden">
-  <div class="authcard">
-    <div class="authlogo"><h1>Nexus</h1><span class="tick">● Servicios</span></div>
+  <div class="authcard solo">
+    <div class="pendmarca">Seguimiento <span>FTDs y Ventas</span></div>
     <div class="pendbox">
       <div class="pendicon" id="pendIcono">⏳</div>
       <div class="pendtit" id="pendTitulo">Tu cuenta está en revisión</div>

@@ -246,7 +246,7 @@ function renderShell() {
   const V = state.vista;
   const isLead = state.modulo === "leads";
   const titulos = { cliente: isLead ? "Leads" : "Personas", servicio: "Servicios", seguimiento: "Seguimiento", mas: "Más" };
-  $("viewTitle").textContent = titulos[V] || "Nexus";
+  $("viewTitle").textContent = titulos[V] || "Seguimiento";
   let sub = "";
   if (V === "cliente" || V === "servicio") {
     const n = state.clientes.filter(c => isLead ? esLead(c) : !esLead(c)).length;

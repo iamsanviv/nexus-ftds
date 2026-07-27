@@ -1,7 +1,15 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Nexus · Alertas que se pueden dar por vistas — 27 de julio de 2026
 --
--- CORRER EN Supabase → SQL Editor. Idempotente.
+-- ESTADO: APLICADO EN PRODUCCIÓN el 27/07/2026. Idempotente.
+--
+-- Ciclo completo probado en transacción revertida, como admin:
+--   1. el admin ve el equipo             9 filas
+--   2. alertas sin revisar (antes)       1
+--   3. estado de Majo                    salud=fallando, alertar=true
+--   4. tras «Ya lo vi»                   salud=fallando (sigue rota), alertar=false
+--   5. alertas sin revisar (después)     0 → el indicador se apaga
+--   6. tras un fallo NUEVO               alertar=true → la alerta vuelve sola
 --
 -- ───────────────────────────────────────────────────────────────────────────
 -- EL PROBLEMA
