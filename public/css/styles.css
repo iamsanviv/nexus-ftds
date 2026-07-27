@@ -481,6 +481,8 @@ body.segwide .tabinner{max-width:1180px}
 .achip.miss{background:rgba(242,85,90,.13);color:var(--bad)}
 /* actividad puntual: no está en el catálogo */
 .achip.suelta{background:rgba(176,124,232,.15);color:var(--vip)}
+/* actividad del director: se puede usar, no editar */
+.achip.equipo{background:rgba(91,155,213,.16);color:var(--beca)}
 
 /* elegir entre actividad del catálogo o puntual */
 .tipoact{display:flex;gap:4px;background:var(--bg);border:1px solid var(--border);

@@ -393,9 +393,26 @@ function abrirPerfil(c) {
 
 function construirActividades(c) {
   const items = todos().filter(s => c.acc[s.id]);
-  if (!items.length) { $("fActividades").innerHTML = `<div class="pstitle">Fechas de actividades</div><div class="naplica">Aún no ha tomado ningún servicio.</div>`; return; }
-  $("fActividades").innerHTML = `<div class="pstitle">Fechas de actividades (edita o vacía para quitar)</div>` +
-    items.map(s => `<div class="actrow"><span class="an">${esc(s.n)}</span><input type="date" data-sid="${s.id}" value="${c.acc[s.id]}"></div>`).join("");
+  // Actividades puntuales a las que asistió. Van aparte porque no son del
+  // catálogo y no cuentan para el progreso, pero sí son parte de su historia.
+  const pun = Object.entries(c.pun || {})
+    .filter(([, p]) => p && p.acc)
+    .sort((a, b) => (b[1].acc || "").localeCompare(a[1].acc || ""));
+
+  let html = "";
+  html += items.length
+    ? `<div class="pstitle">Fechas de actividades (edita o vacía para quitar)</div>` +
+      items.map(s => `<div class="actrow"><span class="an">${esc(s.n)}</span><input type="date" data-sid="${s.id}" value="${c.acc[s.id]}"></div>`).join("")
+    : `<div class="pstitle">Fechas de actividades</div><div class="naplica">Aún no ha tomado ningún servicio.</div>`;
+
+  if (pun.length) {
+    html += `<div class="pstitle" style="margin-top:14px">Actividades puntuales</div>` +
+      pun.map(([id, p]) => `<div class="actrow">
+        <span class="an">${esc(p.n || "actividad")}<span class="achip suelta" style="margin-left:7px">✦ Puntual</span></span>
+        <input type="date" data-pid="${esc(id)}" value="${esc(p.acc)}">
+      </div>`).join("");
+  }
+  $("fActividades").innerHTML = html;
 }
 
 function cerrarM() {
@@ -479,6 +496,13 @@ $("guardarBtn").onclick = async () => {
     $("fActividades").querySelectorAll("input[data-sid]").forEach(inp => {
       const sid = inp.dataset.sid;
       if (inp.value) c.acc[sid] = inp.value; else delete c.acc[sid];
+    });
+    // lo mismo para las puntuales: vaciar la fecha borra la asistencia
+    $("fActividades").querySelectorAll("input[data-pid]").forEach(inp => {
+      const pid = inp.dataset.pid;
+      if (!c.pun || !c.pun[pid]) return;
+      if (inp.value) c.pun[pid] = { ...c.pun[pid], acc: inp.value };
+      else delete c.pun[pid];
     });
     if (await dbPatch(c, mapAEditar(c))) toast("Perfil actualizado ✓");
   } else {

@@ -67,6 +67,14 @@ function pendientes() {
       const f = (c.conf || {})[s.id];
       if (f && !c.acc[s.id] && yaSePuedePreguntar(s.id, f, hoy)) items.push({ c, s, f });
     }
+    // Actividades puntuales: viven en su propio mapa y traen nombre y hora
+    // copiados, así que no hay que resolver nada contra otra tabla.
+    for (const [actId, p] of Object.entries(c.pun || {})) {
+      if (!p || !p.conf || p.acc) continue;
+      const inicio = p.i ? new Date(p.i).getTime() : null;
+      const listo = inicio != null ? Date.now() >= inicio + MARGEN_MS : p.conf < hoy;
+      if (listo) items.push({ c, actId, s: { n: p.n || "actividad" }, f: p.conf });
+    }
   }
   return items.sort((a, b) => a.f.localeCompare(b.f));
 }
@@ -102,7 +110,7 @@ function abrir(items, marcarHecho) {
       if (marcarHecho) localStorage.setItem(clave(), hoy);
       return;
     }
-    const { c, s, f } = items[i];
+    const { c, s, f, actId } = items[i];
     $("repSub").textContent = `${i + 1} de ${items.length} · invitaciones sin respuesta`;
     $("repBody").innerHTML = `
       <div class="prow" style="flex-direction:column;align-items:stretch;gap:12px">
@@ -117,13 +125,26 @@ function abrir(items, marcarHecho) {
       </div>`;
     $("repBody").querySelectorAll("[data-r]").forEach(b => b.onclick = async () => {
       if (b.dataset.r === "si") {
-        c.acc[s.id] = f;
-        await dbPatch(c, { acc: c.acc });
+        if (actId) {
+          c.pun[actId] = { ...c.pun[actId], acc: f };
+          await dbPatch(c, { puntuales: c.pun });
+        } else {
+          c.acc[s.id] = f;
+          await dbPatch(c, { acc: c.acc });
+        }
         toast(`✓ ${c.nombre.split(" ")[0]} asistió a «${s.n}»`);
       } else if (b.dataset.r === "no") {
-        delete c.conf[s.id];
-        await dbPatch(c, { conf: c.conf });
-        toast(`${c.nombre.split(" ")[0]} vuelve a «por invitar»`);
+        if (actId) {
+          // En una puntual no hay «por invitar» al que volver: se descarta la
+          // invitación entera para que no vuelva a preguntar.
+          delete c.pun[actId];
+          await dbPatch(c, { puntuales: c.pun });
+          toast(`${c.nombre.split(" ")[0]} no asistió · anotado`);
+        } else {
+          delete c.conf[s.id];
+          await dbPatch(c, { conf: c.conf });
+          toast(`${c.nombre.split(" ")[0]} vuelve a «por invitar»`);
+        }
       }
       i++;
       paso();

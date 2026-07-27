@@ -8,12 +8,16 @@ export const mapDesdeDB = r => ({
   pais: r.pais || "", mem: r.membresia, creado: r.creado || "",
   comunidadDesde: r.comunidad_desde || "", upgradeFecha: r.upgrade_fecha || "",
   nota: r.nota || "", acc: r.acc || {}, conf: r.conf || {},
+  // Asistencia a actividades puntuales (fuera del catálogo), auto-contenida:
+  // { [actividad_id]: { n, i, conf, acc } }.
+  pun: r.puntuales || {},
 });
 export const mapAEditar = c => ({
   nombre: c.nombre, telefono: c.tel || null, pais: c.pais || null,
   membresia: c.mem, creado: c.creado || null,
   comunidad_desde: c.comunidadDesde || null, upgrade_fecha: c.upgradeFecha || null,
   nota: c.nota || null, acc: c.acc || {}, conf: c.conf || {},
+  puntuales: c.pun || {},
   // Solo se manda si quien guarda eligió dueño (un director asignando a uno de
   // sus agentes). Si no va, la base pone auth.uid() por defecto. El RLS valida
   // que el dueño elegido sea de su equipo: no se puede regalar a un ajeno.

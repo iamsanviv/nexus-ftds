@@ -163,8 +163,16 @@ function renderForm() {
   $("segLibre").value = "";
   setImgActividad(null);
   $("segImgEstado").textContent = "";
+  // Compartir solo aplica si hay a quién: es cosa de directores.
+  $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
+  $("segCompartir").checked = true;
   setTipoActividad("cat");
 }
+
+// Una actividad de otro (el director) se puede usar para programar, pero no
+// editar ni borrar. El RLS ya lo impide; esto solo evita ofrecer botones que
+// van a fallar.
+const esAjena = a => a.owner_id && a.owner_id !== state.me.id;
 
 // Alterna entre «del catálogo» y «puntual»: cambia qué campo se pide y el
 // texto de ayuda de la imagen, porque una puntual no tiene servicio del que
@@ -204,6 +212,8 @@ function entrarEdicion(a) {
   }
   setImgActividad(a.imagen);
   $("segImgEstado").textContent = "";
+  $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
+  $("segCompartir").checked = !!a.compartida;
   $("segFecha").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   $("segHora").value = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   $("segLink").value = a.enlace;
@@ -260,6 +270,7 @@ async function guardarActividad() {
       nombre: nombreAct,
       inicio: inicio.toISOString(), enlace,
       imagen: segImg,
+      compartida: state.me.role === "director" && $("segCompartir").checked,
     };
     if (actEdit) {
       const { error } = await SB.from("actividades").update(datos).eq("id", actEdit.id);
@@ -297,7 +308,7 @@ async function guardarActividad() {
 /* ================= LISTA de actividades ================= */
 async function cargarActividades() {
   const { data, error } = await SB.from("actividades")
-    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen")
+    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen, compartida, owner_id")
     .eq("estado", "activa")
     .order("inicio", { ascending: true });
   if (error) {
@@ -306,7 +317,10 @@ async function cargarActividades() {
   }
   // Las actividades de días pasados se cierran y desaparecen de la vista.
   const inicioHoy = new Date(); inicioHoy.setHours(0, 0, 0, 0);
-  const pasadas = (data || []).filter(a => new Date(a.inicio) < inicioHoy);
+  // Solo se cierran las propias: sobre las del director no hay permiso de
+  // escritura, y pedirlo sería un update que no hace nada.
+  const pasadas = (data || []).filter(a =>
+    new Date(a.inicio) < inicioHoy && !esAjena(a));
   if (pasadas.length) {
     await SB.from("actividades").update({ estado: "cerrada" }).in("id", pasadas.map(a => a.id));
   }
@@ -320,13 +334,16 @@ async function cargarActividades() {
     </div>`;
     return;
   }
-  $("segActividades").innerHTML = actividades.map(a => `
+  $("segActividades").innerHTML = actividades.map(a => {
+    const ajena = esAjena(a);
+    return `
     <article class="actcard">
       <div class="am">
         <h4>${esc(a.nombre)}</h4>
         <div class="ameta">
           <span class="atime">${fechaHoraCO(a.inicio)}</span>
           ${esLibre(a) ? `<span class="achip suelta" title="No está en el catálogo">✦ Puntual</span>` : ""}
+          ${ajena ? `<span class="achip equipo" title="La creó tu director: puedes programar, no editar">👥 De tu director</span>` : ""}
           ${a.enlace
             ? `<span class="achip ok">Enlace listo</span>`
             : `<span class="achip miss">Falta el enlace</span>`}
@@ -334,10 +351,11 @@ async function cargarActividades() {
       </div>
       <div class="ab">
         <button class="pmark" data-prog="${a.id}">📨 Programar</button>
+        ${ajena ? "" : `
         <button class="pmark" data-edit="${a.id}" title="Editar actividad">✎</button>
-        <button class="pmark off" data-delact="${a.id}" title="Eliminar actividad">✕</button>
+        <button class="pmark off" data-delact="${a.id}" title="Eliminar actividad">✕</button>`}
       </div>
-    </article>`).join("");
+    </article>`; }).join("");
 
   $("segActividades").querySelectorAll("[data-prog]").forEach(b => b.onclick = () => {
     const a = actividades.find(x => x.id === b.dataset.prog);
@@ -601,14 +619,24 @@ async function programar() {
     // Marca a los seleccionados como "invitados" al servicio (si no lo estaban),
     // así pasan de «por invitar» a «invitados» en la vista por servicio.
     // NO se toca `acc`: quien ya asistió y es reinvitado conserva su asistencia.
-    // Solo aplica si la actividad es de un servicio del catálogo: `conf` está
-    // indexado por servicio, y una actividad puntual no tiene ninguno.
+    const hoy = hoyISO();
     if (actSel.servicio_id) {
-      const hoy = hoyISO();
+      // Actividad del catálogo: `conf` va indexado por servicio.
       for (const c of seleccion) {
         if (!(c.conf || {})[actSel.servicio_id]) {
           c.conf = { ...(c.conf || {}), [actSel.servicio_id]: hoy };
           await SB.from("clientes").update({ conf: c.conf }).eq("id", c.id);
+        }
+      }
+    } else {
+      // Actividad puntual: se guarda en su propio mapa, con el nombre y la
+      // hora copiados, para que el perfil y el repaso no dependan de que la
+      // actividad siga existiendo.
+      for (const c of seleccion) {
+        if (!(c.pun || {})[actSel.id]) {
+          c.pun = { ...(c.pun || {}),
+            [actSel.id]: { n: actSel.nombre, i: actSel.inicio, conf: hoy } };
+          await SB.from("clientes").update({ puntuales: c.pun }).eq("id", c.id);
         }
       }
     }
