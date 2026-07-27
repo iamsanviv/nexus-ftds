@@ -585,6 +585,12 @@ body.segwide .tabinner{max-width:1180px}
 .agchip.mal{background:rgba(242,85,90,.15);color:var(--bad)}
 .agchip.gris{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
 .agrow:has(.agchip.gris){opacity:.72}
+/* Alerta ya revisada: sigue visible y sigue roja, pero deja de gritar. */
+.agrow.visto{opacity:.6}
+.agvisto{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted);background:var(--bg);border:1px solid var(--border);
+  border-radius:999px;padding:2px 8px}
+.agtop .agok{margin-left:auto;flex:0 0 auto}
 .agmeta{display:flex;gap:12px;flex-wrap:wrap;font-size:.75rem;color:var(--muted);margin-top:6px;
   font-variant-numeric:tabular-nums}
 .agmeta .agbad{color:var(--bad);font-weight:600}

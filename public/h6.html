@@ -1,0 +1,39 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="/css/styles.css"></head><body>
+<div class="overlay open" id="agentesOverlay">
+  <div class="modal">
+    <h2>🩺 Agentes y canales</h2>
+
+    <!-- cuentas nuevas esperando aprobación -->
+    <div id="agPendBloque" class="hidden">
+      <div class="pstitle">Esperando aprobación <span class="cnt" id="agPendCnt"></span></div>
+      <div id="agPendientes"></div>
+    </div>
+
+    <div class="pstitle" style="margin-top:16px">Equipo</div>
+    <div id="agentesBody"><div class="naplica">Cargando…</div></div>
+
+    <!-- directorio de clientes: solo nombres, solo para el admin -->
+    <div id="agDirBloque" class="hidden">
+      <div class="pstitle" style="margin-top:18px">Directorio de clientes <span class="cnt" id="agDirCnt"></span></div>
+      <div class="msgshelp">Solo el nombre con el que cada agente los registró. Sin teléfono ni datos personales.</div>
+      <div class="masbuscarwrap"><input id="agDirBuscar" placeholder="🔎 Buscar por nombre…" autocomplete="off"></div>
+      <div id="agDirLista"></div>
+    </div>
+
+    <div class="pstitle" style="margin-top:18px">Autorizar un correo por adelantado</div>
+    <div class="msgshelp">Quien crees cuenta con uno de estos correos entra ya aprobado, sin esperar. Los demás pueden registrarse igual, pero quedan arriba en «Esperando aprobación». Se usa una sola vez.</div>
+    <div class="autorow">
+      <input id="agAutEmail" type="email" inputmode="email" placeholder="correo@ejemplo.com" autocomplete="off">
+      <button class="tbtn" id="agAutBtn">Autorizar</button>
+    </div>
+    <div id="agAutLista"></div>
+
+    <div class="segformbtns" style="margin-top:14px">
+      <button class="tbtn" id="agentesCerrar">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="/h6.js"></script></body></html>

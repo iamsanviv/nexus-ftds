@@ -12,11 +12,32 @@ import { state, $, esc, toast, norm } from "./state.js";
 
 // La vista puede no existir todavía (si aún no se corrió el SQL). En ese caso
 // no rompemos nada: simplemente no hay aviso.
+const CAMPOS_BASE = "owner_id, nombre, rol, estado_canal, telefono, enviados_24h, fallidos_24h, atascados, ultimo_envio_ok, ultimo_error, salud";
+
 async function leerSalud() {
-  const { data, error } = await SB.from("salud_canales")
-    .select("owner_id, nombre, rol, estado_canal, telefono, enviados_24h, fallidos_24h, atascados, ultimo_envio_ok, ultimo_error, salud");
-  if (error) return null;
+  // Si todavía no se corrió la migración de alertas acusables, las columnas
+  // nuevas no existen y la consulta falla entera. En ese caso se reintenta sin
+  // ellas: el panel sigue funcionando (sin el botón «Ya lo vi») en vez de
+  // romperse, así el orden entre desplegar y correr el SQL deja de importar.
+  let { data, error } = await SB.from("salud_canales")
+    .select(CAMPOS_BASE + ", alertar, alerta_vista_en, ultimo_fallo_en");
+  if (error) {
+    ({ data, error } = await SB.from("salud_canales").select(CAMPOS_BASE));
+    if (error) return null;
+    // Sin la columna, se alerta como antes: todo lo roto suena siempre.
+    (data || []).forEach(f => f.alertar = f.salud !== "ok" && f.salud !== "sin_uso");
+  }
   return data || [];
+}
+
+// Dar por vista una alerta: guarda cuándo se revisó. No "resuelve" nada — el
+// estado sigue siendo el que es —, solo deja de sonar. Si esa persona vuelve a
+// fallar después de esta marca, la alerta reaparece sola.
+async function marcarVisto(ownerId) {
+  const { error } = await SB.from("profiles")
+    .update({ alerta_vista_en: new Date().toISOString() }).eq("id", ownerId);
+  if (error) { toast("⚠ " + error.message); return false; }
+  return true;
 }
 
 const fechaCorta = iso => iso
@@ -94,6 +115,11 @@ const SALUD_ETIQUETA = {
 
 // Orden: primero lo que necesita atención, al final lo que nunca arrancó.
 const PRIORIDAD = { fallando: 0, sin_canal: 1, atascado: 2, degradado: 3, ok: 4, sin_uso: 5 };
+// Lo ya revisado baja, aunque siga roto: arriba va lo que aún no has visto.
+const orden = (a, b) =>
+  (b.alertar === true) - (a.alertar === true) ||
+  (PRIORIDAD[a.salud] ?? 9) - (PRIORIDAD[b.salud] ?? 9) ||
+  (a.nombre || "").localeCompare(b.nombre || "", "es");
 
 async function renderAgentes() {
   const body = $("agentesBody");
@@ -102,17 +128,17 @@ async function renderAgentes() {
     body.innerHTML = `<div class="naplica">Falta correr <code>sql/2026-07-27_02_salud_canales.sql</code> en Supabase.</div>`;
     return;
   }
-  const orden = [...filas].sort((a, b) =>
-    (PRIORIDAD[a.salud] ?? 9) - (PRIORIDAD[b.salud] ?? 9) || (a.nombre || "").localeCompare(b.nombre || ""));
-
-  body.innerHTML = orden.map(f => {
+  body.innerHTML = [...filas].sort(orden).map(f => {
     const [cls, txt] = SALUD_ETIQUETA[f.salud] || ["ojo", f.salud];
+    const roto = f.salud !== "ok" && f.salud !== "sin_uso";
     return `
-      <div class="agrow">
+      <div class="agrow${roto && !f.alertar ? " visto" : ""}">
         <div class="agtop">
           <span class="agchip ${cls}">${txt}</span>
           <span class="agname">${esc(f.nombre || "(sin nombre)")}</span>
           ${f.rol === "director" ? `<span class="agrol">director</span>` : ""}
+          ${roto && !f.alertar ? `<span class="agvisto">revisado</span>` : ""}
+          ${f.alertar ? `<button class="pmark agok" data-visto="${f.owner_id}">Ya lo vi</button>` : ""}
         </div>
         <div class="agmeta">
           ${f.salud === "sin_uso"
@@ -123,10 +149,17 @@ async function renderAgentes() {
                ${f.atascados > 0 ? `<span class="agbad">⏳ ${f.atascados} atascados</span>` : ""}
                <span>Último OK: ${fechaCorta(f.ultimo_envio_ok)}</span>`}
         </div>
-        ${f.ultimo_error && f.salud !== "ok" && f.salud !== "sin_uso"
+        ${f.ultimo_error && roto
           ? `<div class="agerr">${esc(String(f.ultimo_error).slice(0, 120))}</div>` : ""}
       </div>`;
   }).join("");
+
+  body.querySelectorAll("[data-visto]").forEach(b => b.onclick = async () => {
+    b.disabled = true; b.textContent = "…";
+    if (!(await marcarVisto(b.dataset.visto))) { b.disabled = false; b.textContent = "Ya lo vi"; return; }
+    toast("Alerta silenciada · vuelve si falla otra vez");
+    renderAgentes(); refrescarIndicadorAgentes();
+  });
 }
 
 // Indicador en la fila de «Más»: cuántos agentes necesitan atención.
@@ -145,8 +178,10 @@ export async function refrescarIndicadorAgentes() {
   }
   const filas = await leerSalud();
   if (!filas) { el.textContent = ""; return; }
-  const mal = filas.filter(f => f.salud === "fallando" || f.salud === "sin_canal").length;
-  el.textContent = mal ? `${mal} con problemas` : "todo bien";
+  // Solo cuenta lo que NO se ha revisado. Lo ya visto sigue roto, pero deja de
+  // gritar: si volviera a fallar, `alertar` se pone en true solo y reaparece.
+  const mal = filas.filter(f => f.alertar).length;
+  el.textContent = mal ? `${mal} sin revisar` : "todo al día";
   el.className = "agstate " + (mal ? "mal" : "ok");
 }
 
