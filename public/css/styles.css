@@ -481,6 +481,14 @@ body.segwide .tabinner{max-width:1180px}
 .achip.miss{background:rgba(242,85,90,.13);color:var(--bad)}
 /* actividad puntual: no está en el catálogo */
 .achip.suelta{background:rgba(176,124,232,.15);color:var(--vip)}
+
+/* elegir entre actividad del catálogo o puntual */
+.tipoact{display:flex;gap:4px;background:var(--bg);border:1px solid var(--border);
+  border-radius:10px;padding:3px}
+.tipoact button{flex:1;font-size:.8rem;font-weight:600;padding:9px 10px;border-radius:7px;
+  color:var(--muted);background:none;border:none}
+.tipoact button.on{background:var(--surface2);color:var(--gold);font-weight:700}
+#segImgPrev{width:76px;height:76px;object-fit:cover}
 .actcard .ab{display:flex;gap:6px;align-items:center;flex:0 0 auto;margin-left:auto}
 .actcard .ab .pmark{margin-left:0}
 

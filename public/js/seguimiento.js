@@ -8,6 +8,7 @@ import { state, $, esc, toast, todos, hoyISO, resolverSnippets } from "./state.j
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { avisarSiCanalCaido } from "./salud.js";
+import { subirImagenMensaje } from "./data.js";
 
 /* ---------- plantillas ---------- */
 // Tipos de mensaje programado (5 por persona). NO incluye invitacion_extra:
@@ -145,31 +146,45 @@ function resetPlantillas() {
 /* ================= FORMULARIO crear / editar actividad ================= */
 const pad = n => String(n).padStart(2, "0");
 
-// Valor especial del selector para una actividad que NO está en el catálogo
-// (lanzamientos, clases únicas). No es un servicio: no se le marca asistencia
-// ni cuenta para el progreso de nadie.
-const LIBRE = "__libre__";
+// Una actividad puntual (lanzamiento, clase única) NO es un servicio: no se le
+// marca asistencia ni cuenta para el progreso de nadie.
 const esLibre = a => !a || !a.servicio_id;
 
+let segTipoAct = "cat";   // "cat" (del catálogo) | "libre" (puntual)
+let segImg = null;        // URL de la imagen subida para esta actividad
+
 function renderForm() {
-  const sel = $("segSrv");
-  sel.innerHTML =
-    state.catalogo.map(g => `<optgroup label="${esc(g.g)}">` +
-      g.items.map(s => `<option value="${s.id}">${esc(s.n)}</option>`).join("") +
-      `</optgroup>`).join("") +
-    `<optgroup label="Fuera del catálogo">
-       <option value="${LIBRE}">✦ Actividad puntual (escribo el nombre)</option>
-     </optgroup>`;
+  $("segSrv").innerHTML = state.catalogo.map(g => `<optgroup label="${esc(g.g)}">` +
+    g.items.map(s => `<option value="${s.id}">${esc(s.n)}</option>`).join("") +
+    `</optgroup>`).join("");
   $("segFecha").value = hoyISO();
   $("segHora").value = "";
   $("segLink").value = "";
   $("segLibre").value = "";
-  sincronizarLibre();
+  setImgActividad(null);
+  $("segImgEstado").textContent = "";
+  setTipoActividad("cat");
 }
 
-// Muestra el campo de nombre libre solo cuando aplica.
-function sincronizarLibre() {
-  $("segLibreRow").classList.toggle("hidden", $("segSrv").value !== LIBRE);
+// Alterna entre «del catálogo» y «puntual»: cambia qué campo se pide y el
+// texto de ayuda de la imagen, porque una puntual no tiene servicio del que
+// heredarla.
+function setTipoActividad(tipo) {
+  segTipoAct = tipo;
+  $("segTipoAct").querySelectorAll("[data-tipo]").forEach(b =>
+    b.classList.toggle("on", b.dataset.tipo === tipo));
+  $("segSrvRow").classList.toggle("hidden", tipo !== "cat");
+  $("segLibreRow").classList.toggle("hidden", tipo !== "libre");
+  $("segImgAyuda").textContent = tipo === "libre"
+    ? "Una actividad puntual no tiene servicio del cual heredar imagen: si no subes una, la invitación va sin imagen."
+    : "Si no subes ninguna, se usa la del servicio del catálogo.";
+}
+
+function setImgActividad(url) {
+  segImg = url || null;
+  const img = $("segImgPrev"), del = $("segImgDel");
+  if (url) { img.src = url; img.classList.remove("hidden"); del.classList.remove("hidden"); }
+  else { img.src = ""; img.classList.add("hidden"); del.classList.add("hidden"); }
 }
 
 // El formulario vive plegado: crear una actividad se hace 1–2 veces al día,
@@ -181,12 +196,14 @@ function entrarEdicion(a) {
   actEdit = a;
   const d = new Date(a.inicio);
   if (esLibre(a)) {
-    $("segSrv").value = LIBRE;
+    setTipoActividad("libre");
     $("segLibre").value = a.nombre;
-  } else if ([...$("segSrv").options].some(o => o.value === a.servicio_id)) {
-    $("segSrv").value = a.servicio_id;
+  } else {
+    setTipoActividad("cat");
+    if ([...$("segSrv").options].some(o => o.value === a.servicio_id)) $("segSrv").value = a.servicio_id;
   }
-  sincronizarLibre();
+  setImgActividad(a.imagen);
+  $("segImgEstado").textContent = "";
   $("segFecha").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   $("segHora").value = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   $("segLink").value = a.enlace;
@@ -219,7 +236,7 @@ function setTile(tileId, numId, valor, tono) {
 
 async function guardarActividad() {
   const sel = $("segSrv").value;
-  const libre = sel === LIBRE;
+  const libre = segTipoAct === "libre";
   const srv = libre ? null : todos().find(s => s.id === sel);
   const nombreLibre = $("segLibre").value.trim();
   const fecha = $("segFecha").value, hora = $("segHora").value;
@@ -242,6 +259,7 @@ async function guardarActividad() {
       servicio_id: libre ? null : sel,
       nombre: nombreAct,
       inicio: inicio.toISOString(), enlace,
+      imagen: segImg,
     };
     if (actEdit) {
       const { error } = await SB.from("actividades").update(datos).eq("id", actEdit.id);
@@ -279,7 +297,7 @@ async function guardarActividad() {
 /* ================= LISTA de actividades ================= */
 async function cargarActividades() {
   const { data, error } = await SB.from("actividades")
-    .select("id, servicio_id, nombre, inicio, enlace, estado")
+    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen")
     .eq("estado", "activa")
     .order("inicio", { ascending: true });
   if (error) {
@@ -561,10 +579,17 @@ async function programar() {
           seguimiento_id: seg.id, tipo, enviar_en: cuando.toISOString(),
           telefono: c.tel, texto: tpl[tipo],
         };
-        // La imagen la resuelve el worker al enviar (imagen actual del servicio),
-        // así no se congela: solo guardamos de qué servicio es la invitación.
-        // Una actividad puntual no tiene servicio, así que va sin imagen.
-        if (tipo === "invitacion" && actSel.servicio_id) fila.servicio_id = actSel.servicio_id;
+        // Imagen de la invitación, por orden de precedencia:
+        //   1. la subida para ESTA actividad → media_url (vía ya probada: hay
+        //      invitaciones enviadas con media_url y sin servicio_id).
+        //   2. si no hay, y la actividad es de un servicio, se manda el
+        //      servicio_id y el worker resuelve la imagen vigente al enviar,
+        //      así no se congela si se cambia después.
+        // Se manda UNA sola de las dos, para que no haya ambigüedad.
+        if (tipo === "invitacion") {
+          if (actSel.imagen) fila.media_url = actSel.imagen;
+          else if (actSel.servicio_id) fila.servicio_id = actSel.servicio_id;
+        }
         // El enlace se resuelve al enviar (el texto conserva el token {enlace}).
         if (tipo === "enlace") fila.enlace_url = actSel.enlace || null;
         msgs.push(fila);
@@ -969,7 +994,25 @@ $("segGuardarSeg").onclick = guardarSegmentoManual;
 $("segVolver").onclick = () => { state.vista = "cliente"; render(); };
 $("segCancelEdit").onclick = salirEdicion;
 $("segCrearAct").onclick = guardarActividad;
-$("segSrv").onchange = sincronizarLibre;
+$("segTipoAct").querySelectorAll("[data-tipo]").forEach(b =>
+  b.onclick = () => setTipoActividad(b.dataset.tipo));
+
+/* ---------- imagen de la actividad ---------- */
+// Se sube al bucket `mensajes` con nombre único: es de esta actividad, no del
+// catálogo, así que no debe pisar la imagen de ningún servicio.
+$("segImgPick").onclick = () => $("segImgFile").click();
+$("segImgFile").onchange = async () => {
+  const file = $("segImgFile").files[0];
+  if (!file) return;
+  $("segImgEstado").textContent = "Subiendo…";
+  try {
+    setImgActividad(await subirImagenMensaje(file));
+    $("segImgEstado").textContent = "✓ Imagen lista";
+  } catch (err) {
+    $("segImgEstado").textContent = "⚠ " + err.message;
+  } finally { $("segImgFile").value = ""; }
+};
+$("segImgDel").onclick = () => { setImgActividad(null); $("segImgEstado").textContent = ""; };
 // ＋ Nueva actividad: abre el formulario plegado (o lo cierra si ya estaba).
 $("segNuevaAct").onclick = () => {
   if (!$("segFormPanel").classList.contains("hidden")) { salirEdicion(); return; }

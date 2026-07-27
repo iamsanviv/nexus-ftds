@@ -1,0 +1,47 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="/css/styles.css"></head><body>
+<div style="max-width:560px;margin:0 auto;padding:16px 12px"><div id="segFormPanel" class="formpanel">
+      <div class="fph">
+        <h3 class="fpt" id="segFormTitulo">Nueva actividad del día</h3>
+        <button class="fpx" id="segFormCerrar" title="Cerrar" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="fgrid">
+        <div class="frow wide">
+          <label>Actividad</label>
+          <div class="tipoact" id="segTipoAct" role="group" aria-label="Tipo de actividad">
+            <button type="button" class="on" data-tipo="cat">Del catálogo</button>
+            <button type="button" data-tipo="libre">✦ Puntual</button>
+          </div>
+        </div>
+        <div class="frow wide" id="segSrvRow"><select id="segSrv" aria-label="Servicio del catálogo"></select></div>
+        <!-- nombre libre: solo en las puntuales -->
+        <div class="frow wide hidden" id="segLibreRow">
+          <input id="segLibre" placeholder="Ej: Lanzamiento de membresías" autocomplete="off">
+          <div class="msgshelp">No entra al catálogo ni cuenta para el progreso de nadie. Úsalo para cosas de una sola vez.</div>
+        </div>
+        <div class="frow wide">
+          <label>Imagen de la invitación <span class="opt">(opcional)</span></label>
+          <div class="imgfield">
+            <img id="segImgPrev" class="imgprev hidden" alt="">
+            <div class="imgbtns">
+              <input type="file" id="segImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
+              <button type="button" class="tbtn" id="segImgPick">Subir imagen</button>
+              <button type="button" class="tbtn hidden" id="segImgDel" style="color:var(--bad)">Quitar</button>
+              <span id="segImgEstado" class="imgestado"></span>
+            </div>
+          </div>
+          <div class="msgshelp" id="segImgAyuda">Si no subes ninguna, se usa la del servicio del catálogo.</div>
+        </div>
+        <div class="frow"><label>Fecha</label><input type="date" id="segFecha"></div>
+        <div class="frow"><label>Hora (Colombia)</label><input type="time" id="segHora"></div>
+        <div class="frow wide"><label>Enlace de la sala <span class="opt">(opcional — puedes agregarlo luego)</span></label><input id="segLink" placeholder="https://…"></div>
+      </div>
+      <div class="segformbtns">
+        <button class="authbtn" id="segCrearAct">Guardar actividad</button>
+        <button class="tbtn hidden" id="segCancelEdit">Cancelar edición</button>
+      </div>
+    </div>
+
+    </div>
+<script src="/hb.js"></script></body></html>

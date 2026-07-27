@@ -141,12 +141,31 @@
         <button class="fpx" id="segFormCerrar" title="Cerrar" aria-label="Cerrar">✕</button>
       </div>
       <div class="fgrid">
-        <div class="frow wide"><label>Actividad</label><select id="segSrv"></select></div>
-        <!-- nombre libre: solo cuando se elige «actividad puntual» -->
+        <div class="frow wide">
+          <label>Actividad</label>
+          <div class="tipoact" id="segTipoAct" role="group" aria-label="Tipo de actividad">
+            <button type="button" class="on" data-tipo="cat">Del catálogo</button>
+            <button type="button" data-tipo="libre">✦ Puntual</button>
+          </div>
+        </div>
+        <div class="frow wide" id="segSrvRow"><select id="segSrv" aria-label="Servicio del catálogo"></select></div>
+        <!-- nombre libre: solo en las puntuales -->
         <div class="frow wide hidden" id="segLibreRow">
-          <label>Nombre de la actividad</label>
           <input id="segLibre" placeholder="Ej: Lanzamiento de membresías" autocomplete="off">
           <div class="msgshelp">No entra al catálogo ni cuenta para el progreso de nadie. Úsalo para cosas de una sola vez.</div>
+        </div>
+        <div class="frow wide">
+          <label>Imagen de la invitación <span class="opt">(opcional)</span></label>
+          <div class="imgfield">
+            <img id="segImgPrev" class="imgprev hidden" alt="">
+            <div class="imgbtns">
+              <input type="file" id="segImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
+              <button type="button" class="tbtn" id="segImgPick">Subir imagen</button>
+              <button type="button" class="tbtn hidden" id="segImgDel" style="color:var(--bad)">Quitar</button>
+              <span id="segImgEstado" class="imgestado"></span>
+            </div>
+          </div>
+          <div class="msgshelp" id="segImgAyuda">Si no subes ninguna, se usa la del servicio del catálogo.</div>
         </div>
         <div class="frow"><label>Fecha</label><input type="date" id="segFecha"></div>
         <div class="frow"><label>Hora (Colombia)</label><input type="time" id="segHora"></div>
