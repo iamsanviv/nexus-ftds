@@ -501,11 +501,38 @@ function renderFaltan() {
   actualizarConteo();
 }
 
+// ¿Hay WhatsApp vinculado? Sin él se puede usar todo el módulo —crear
+// actividades, organizar, ver el registro— salvo poner mensajes en cola, que
+// solo produciría envíos fallidos.
+let canalListo = true;
+
+async function revisarCanal() {
+  canalListo = await canalVinculado();
+  const cont = $("segSinCanal");
+  if (canalListo) { cont.classList.add("hidden"); cont.innerHTML = ""; }
+  else {
+    cont.innerHTML = `
+      <div class="alerta ojo">
+        <div class="at">Tu WhatsApp no está vinculado</div>
+        <div class="ax">Puedes crear actividades, organizar tu lista y revisar el registro,
+          pero no programar envíos: saldrían todos con error. Vincúlalo en
+          «Más → Mi WhatsApp» y vuelve.</div>
+      </div>`;
+    cont.classList.remove("hidden");
+  }
+  refrescarBotonProgramar();
+}
+
 // El botón dice lo que va a pasar: es el último punto donde el agente puede
 // darse cuenta de que olvidó (o dejó puesto) el modo «sin invitación».
 const etiquetaProgramar = () =>
-  segSinInvitacion ? "Programar sin invitación" : "Programar mensajes";
-const refrescarBotonProgramar = () => { $("segProgramar").textContent = etiquetaProgramar(); };
+  !canalListo ? "Vincula tu WhatsApp para programar"
+  : segSinInvitacion ? "Programar sin invitación" : "Programar mensajes";
+const refrescarBotonProgramar = () => {
+  const b = $("segProgramar");
+  b.textContent = etiquetaProgramar();
+  b.disabled = !canalListo;
+};
 
 function actualizarConteo() {
   if (!actSel) return;
@@ -519,6 +546,14 @@ function actualizarConteo() {
 
 async function programar() {
   if (!actSel) { toast("Elige una actividad primero"); return; }
+  // Se vuelve a comprobar aquí (no solo al entrar): el canal pudo caerse
+  // mientras el agente armaba la selección, y encolar sin canal solo genera
+  // errores.
+  if (!(await canalVinculado())) {
+    await revisarCanal();
+    toast("Vincula tu WhatsApp en «Más → Mi WhatsApp» para poder programar");
+    return;
+  }
   const inicio = new Date(actSel.inicio);
   const ahora = new Date();
   if (inicio <= ahora) { toast("Esta actividad ya empezó; crea una nueva"); return; }
@@ -655,7 +690,9 @@ async function programar() {
   } catch (err) {
     toast("⚠ " + err.message);
   } finally {
-    btn.disabled = false; btn.textContent = etiquetaProgramar();
+    // No se re-habilita a ciegas: si el canal se cayó mientras tanto, el botón
+    // debe quedar deshabilitado.
+    refrescarBotonProgramar();
   }
 }
 
@@ -945,17 +982,9 @@ async function renderLogs() {
 /* ================= WIRING ================= */
 // Seguimiento disponible para todos los agentes, con la condición de tener el
 // WhatsApp vinculado (si no, los mensajes no podrían salir desde su número).
+// Seguimiento está abierto a todos. Tener el WhatsApp vinculado solo hace falta
+// para poner mensajes en cola; el resto del módulo funciona igual.
 $("btnSeg").onclick = async () => {
-  const btn = $("btnSeg");
-  btn.disabled = true;
-  try {
-    if (!(await canalVinculado())) {
-      toast("Vincula tu WhatsApp en «Más → Mi WhatsApp» para usar Seguimiento.");
-      return;
-    }
-  } finally {
-    btn.disabled = false;
-  }
   state.vista = "seguimiento";
   render();
   $("segMsgsPanel").classList.add("hidden");
@@ -967,6 +996,7 @@ $("btnSeg").onclick = async () => {
   // Si el canal está caído o los mensajes vienen fallando, avisarlo arriba
   // en vez de dejar que el agente lo descubra días después.
   avisarSiCanalCaido();
+  revisarCanal();
 };
 
 // Búsqueda por nombre (Req 2): filtra en vivo la lista de selección.

@@ -4,6 +4,7 @@
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, norm, resolverSnippets } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje } from "./data.js";
+import { canalVinculado } from "./canal.js";
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
 let masSel = new Set();     // ids seleccionados
@@ -216,6 +217,12 @@ async function abrir() {
 }
 
 async function enviar() {
+  // Un masivo sale por el mismo WhatsApp del agente: sin canal vinculado no
+  // se encola nada, porque serían decenas de mensajes fallidos.
+  if (!(await canalVinculado())) {
+    toast("Vincula tu WhatsApp en «Más → Mi WhatsApp» para poder enviar");
+    return;
+  }
   const tpl = $("masTexto").value.trim();
   if (rec && rec.state !== "inactive") { toast("Termina la grabación primero (✔ Listo)"); return; }
   if (!tpl && !masImg && !masAudio) { toast("Escribe un mensaje, agrega una imagen o graba una nota de voz"); return; }
