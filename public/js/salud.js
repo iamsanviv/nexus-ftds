@@ -8,7 +8,7 @@
 //   · el agente ve un aviso en su pantalla de Seguimiento;
 //   · el director ve el estado de todos en «Más → Agentes y canales».
 import { SB } from "./supabase.js";
-import { state, $, esc, toast } from "./state.js";
+import { state, $, esc, toast, norm } from "./state.js";
 
 // La vista puede no existir todavía (si aún no se corrió el SQL). En ese caso
 // no rompemos nada: simplemente no hay aviso.
@@ -132,12 +132,101 @@ async function renderAgentes() {
 // Indicador en la fila de «Más»: cuántos agentes necesitan atención.
 export async function refrescarIndicadorAgentes() {
   const el = $("agentesEstado");
-  if (!el || state.me?.role !== "director") return;
+  if (!el || !["admin", "director"].includes(state.me?.role)) return;
+  // Las aprobaciones pendientes mandan sobre el estado de los canales: es lo
+  // único que exige una acción de quien mira.
+  const { count } = await SB.from("profiles")
+    .select("id", { count: "exact", head: true }).eq("aprobado", false);
+  if (count) {
+    el.textContent = `${count} por aprobar`;
+    el.className = "agstate pend";
+    return;
+  }
   const filas = await leerSalud();
   if (!filas) { el.textContent = ""; return; }
   const mal = filas.filter(f => f.salud === "fallando" || f.salud === "sin_canal").length;
   el.textContent = mal ? `${mal} con problemas` : "todo bien";
   el.className = "agstate " + (mal ? "mal" : "ok");
+}
+
+/* ================= APROBAR CUENTAS NUEVAS ================= */
+// El RLS ya decide a quién puede aprobar cada quien: el admin ve todos los
+// perfiles, un director solo los de su equipo. Aquí no hace falta filtrar.
+async function renderPendientes() {
+  const bloque = $("agPendBloque"), cont = $("agPendientes");
+  const { data, error } = await SB.from("profiles")
+    .select("id, full_name, email, director_id, aprobado")
+    .eq("aprobado", false)
+    .order("full_name");
+  if (error) { bloque.classList.add("hidden"); return; }
+
+  const pend = data || [];
+  $("agPendCnt").textContent = pend.length;
+  bloque.classList.toggle("hidden", pend.length === 0);
+  if (!pend.length) return;
+
+  cont.innerHTML = pend.map(p => `
+    <div class="agrow pend">
+      <div class="agtop">
+        <span class="agchip ojo">Pendiente</span>
+        <span class="agname">${esc(p.full_name || "(sin nombre)")}</span>
+      </div>
+      <div class="agmeta"><span>${esc(p.email || "")}</span></div>
+      <div class="agacc">
+        <button class="pmark" data-aprobar="${p.id}">✓ Aprobar</button>
+        <button class="pmark off" data-rechazar="${p.id}">✕ Rechazar</button>
+      </div>
+    </div>`).join("");
+
+  cont.querySelectorAll("[data-aprobar]").forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    const { error } = await SB.from("profiles")
+      .update({ aprobado: true }).eq("id", b.dataset.aprobar);
+    if (error) { toast("⚠ " + error.message); b.disabled = false; return; }
+    toast("✓ Cuenta aprobada");
+    renderPendientes(); renderAgentes(); refrescarIndicadorAgentes();
+  });
+
+  // Rechazar deja la cuenta sin aprobar y sin director: no puede operar y
+  // desaparece de la bandeja. No se borra el usuario de Auth desde aquí.
+  cont.querySelectorAll("[data-rechazar]").forEach(b => b.onclick = async () => {
+    if (!confirm("¿Rechazar esta cuenta? No podrá usar el sistema.")) return;
+    b.disabled = true;
+    const { error } = await SB.from("profiles")
+      .update({ aprobado: false, director_id: null }).eq("id", b.dataset.rechazar);
+    if (error) { toast("⚠ " + error.message); b.disabled = false; return; }
+    toast("Cuenta rechazada");
+    renderPendientes();
+  });
+}
+
+/* ================= DIRECTORIO DE CLIENTES (solo admin) ================= */
+// Vista `clientes_directorio`: nombre y de quién es, nada más. Si quien mira
+// no es admin, la consulta devuelve 0 filas y el bloque no se muestra.
+let dirCache = [];
+async function renderDirectorio() {
+  const bloque = $("agDirBloque");
+  if (state.me?.role !== "admin") { bloque.classList.add("hidden"); return; }
+  const { data, error } = await SB.from("clientes_directorio")
+    .select("id, nombre, agente").order("nombre");
+  if (error) { bloque.classList.add("hidden"); return; }
+  dirCache = data || [];
+  bloque.classList.remove("hidden");
+  $("agDirCnt").textContent = dirCache.length;
+  pintarDirectorio("");
+}
+
+function pintarDirectorio(q) {
+  const t = norm(q.trim());
+  const vis = t ? dirCache.filter(c => norm(c.nombre).includes(t)) : dirCache;
+  $("agDirLista").innerHTML = vis.length
+    ? vis.slice(0, 200).map(c => `
+        <div class="dirrow">
+          <span class="dirn">${esc(c.nombre)}</span>
+          <span class="dira">${esc(c.agente || "—")}</span>
+        </div>`).join("") +
+      (vis.length > 200 ? `<div class="naplica">…y ${vis.length - 200} más. Afina la búsqueda.</div>` : "")
+    : `<div class="naplica">Nadie coincide.</div>`;
 }
 
 /* ---------- autorizar correos ---------- */
@@ -189,7 +278,7 @@ async function autorizar() {
 function abrir() {
   $("agentesBody").innerHTML = `<div class="naplica">Cargando…</div>`;
   $("agentesOverlay").classList.add("open");
-  renderAgentes(); renderAutorizados();
+  renderPendientes(); renderAgentes(); renderDirectorio(); renderAutorizados();
 }
 const cerrar = () => $("agentesOverlay").classList.remove("open");
 
@@ -198,3 +287,4 @@ $("agentesCerrar").onclick = cerrar;
 $("agentesOverlay").onclick = e => { if (e.target.id === "agentesOverlay") cerrar(); };
 $("agAutBtn").onclick = autorizar;
 $("agAutEmail").onkeydown = e => { if (e.key === "Enter") autorizar(); };
+$("agDirBuscar").oninput = e => pintarDirectorio(e.target.value);

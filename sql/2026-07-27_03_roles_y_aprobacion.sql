@@ -1,0 +1,86 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Nexus · Roles, jerarquía y aprobación de cuentas — 27 de julio de 2026
+--
+-- ESTADO: YA APLICADO EN PRODUCCIÓN (migraciones `aprobacion_de_agentes`,
+-- `roles_jerarquia_admin_director_agente` y `vistas_admin_y_salud_por_jerarquia`).
+-- Este archivo queda como referencia de lo que se hizo y por qué.
+--
+-- ───────────────────────────────────────────────────────────────────────────
+-- QUÉ CAMBIÓ
+--
+-- 1. Crear cuenta ya no se rechaza. Antes el trigger de alta lanzaba una
+--    excepción y el usuario veía un error ilegible. Ahora la cuenta se crea y
+--    nace SIN APROBAR: entra a una pantalla de espera y no puede operar.
+--
+-- 2. Tres roles, con alcance de datos distinto:
+--
+--      agente    → solo lo suyo.
+--      director  → lo suyo + lo de SUS agentes (los que lo eligieron al
+--                  registrarse). No ve agentes de otros directores.
+--      admin     → administra el sistema pero NO ve datos de clientes ajenos:
+--                  solo el nombre con el que el agente los registró. Sobre sus
+--                  propios clientes trabaja como cualquier agente.
+--
+-- 3. Cada agente cuelga de un director (`profiles.director_id`), que elige al
+--    registrarse. Estado inicial: todos cuelgan de Juan Camilo, incluido
+--    Santiago, que además pasó a rol `admin`.
+--
+-- ───────────────────────────────────────────────────────────────────────────
+-- CÓMO SE SOSTIENE
+--
+-- Toda la visibilidad pasa por una sola función, `puede_ver_de(owner)`. Las
+-- políticas de clientes, actividades, seguimientos, mensajes, campañas,
+-- segmentos, plantillas y canales la usan. El día que cambie la jerarquía se
+-- toca ahí y en ningún otro lado.
+--
+--   create function public.puede_ver_de(owner uuid) returns boolean as $$
+--     select owner = auth.uid()
+--         or ( public.mi_rol() = 'director'
+--              and (select director_id from profiles where id = owner) = auth.uid() );
+--   $$;
+--
+-- El admin NO aparece en esa función a propósito: sobre `clientes` solo ve lo
+-- suyo. Para el resto existe `clientes_directorio`, una vista SECURITY DEFINER
+-- (sin security_invoker) que salta el RLS pero solo devuelve filas si
+-- `es_admin()`, y solo expone id, nombre y de quién es. Nunca teléfono, país,
+-- membresía, notas ni asistencias.
+--
+-- `salud_canales` dejó de apoyarse en RLS por lo mismo, y decide su alcance
+-- internamente: propio / mis agentes / todos si es admin. Además enmascara los
+-- dígitos largos de los mensajes de error del bridge, porque traen el teléfono
+-- del cliente ("no LID found for 573001234567@s.whatsapp.net") y ni el director
+-- ni el admin deben leer teléfonos por esa puerta.
+--
+-- Nadie se auto-aprueba ni se auto-asciende: el trigger
+-- `impedir_cambio_de_rol` cubre `role`, `aprobado` y `director_id`, y solo deja
+-- pasar al admin o al director del que cuelga esa cuenta.
+--
+-- Una cuenta sin aprobar no puede CREAR nada: los WITH CHECK de los INSERT
+-- exigen `aprobado()`. Sin eso, "en espera" sería solo una pantalla, y por la
+-- API con la anon key podría cargar clientes y encolar mensajes.
+--
+-- ───────────────────────────────────────────────────────────────────────────
+-- PROBADO CONTRA LA BASE (simulando sesiones vía PostgREST)
+--
+--   admin (Santiago)        clientes: 45 (solo suyos)
+--                           clientes_directorio: 217 (todos, solo nombre)
+--                           salud_canales: 9 de 9
+--   director (Juan Camilo)  clientes: 217 (suyos + de sus agentes)
+--                           clientes_directorio: 0 (la vista es solo admin)
+--   agente (Majo)           clientes: 25 (solo suyos)
+--                           salud_canales: 1 (solo su fila)
+--
+-- Aislamiento entre directores, en transacción revertida: al pasar a Majo al
+-- equipo de otra directora, Juan Camilo dejó de ver sus 25 clientes (0 filas)
+-- y la nueva directora pasó a verlos (25). ✓
+-- ═══════════════════════════════════════════════════════════════════════════
+
+
+-- ───────────────────────────────────────────────────────────────────────────
+-- PENDIENTE (no implementado todavía)
+--
+-- Un director puede crear clientes a nombre de sus agentes a nivel de RLS
+-- (el INSERT ya lo permite vía puede_ver_de), pero la interfaz todavía no
+-- tiene el selector de "asignar a". Hoy, cuando un director crea un cliente,
+-- queda a su propio nombre.
+-- ───────────────────────────────────────────────────────────────────────────

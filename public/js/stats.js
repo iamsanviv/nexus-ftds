@@ -111,7 +111,7 @@ async function abrirStats() {
     `<div class="pstitle">Evolución mensual</div>` + mensualHTML(d.mensual) +
     `<div class="pstitle">Distribución por membresía</div>` + membresiaHTML(d.membresia) +
     (state.me.role === "director"
-      ? `<div class="stx-dato">Vista de director: estos números incluyen a todos los agentes.</div>`
+      ? `<div class="stx-dato">Vista de director: incluye a los agentes de tu equipo.</div>`
       : `<div class="stx-dato">Estos números corresponden solo a tus clientes.</div>`);
 }
 

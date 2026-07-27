@@ -594,6 +594,32 @@ body.segwide .tabinner{max-width:1180px}
 .agrow.autor .agmeta{margin-top:0;margin-left:auto}
 .agrow.autor .pmark{flex:0 0 auto}
 
+.agstate.pend{color:var(--gold)}
+.agrow.pend{border-color:var(--gold-dim);background:rgba(232,184,75,.06)}
+.agacc{display:flex;gap:7px;margin-top:9px}
+
+/* directorio de clientes del admin: nombre + de quién es, nada más */
+.dirrow{display:flex;align-items:center;gap:10px;padding:7px 11px;
+  border-bottom:1px solid var(--surface2);font-size:.85rem}
+.dirrow:last-child{border-bottom:none}
+.dirn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dira{font-size:.74rem;color:var(--muted);white-space:nowrap}
+#agDirLista{border:1px solid var(--border);border-radius:11px;overflow:hidden;
+  max-height:320px;overflow-y:auto}
+
+/* pantalla de espera de aprobación */
+#pendScreen{max-width:420px;margin:8vh auto 0;padding:0 6px}
+.pendbox{text-align:center;padding:6px 4px 4px}
+.pendicon{font-size:2.6rem;line-height:1}
+.pendtit{font-family:'Archivo';font-size:1.15rem;font-weight:800;margin:10px 0 8px}
+.pendbox p{font-size:.88rem;color:var(--text);line-height:1.55;margin-bottom:8px}
+.pendbox p b{color:var(--gold)}
+.pendbox .pendsub{font-size:.79rem;color:var(--muted);margin-bottom:18px}
+.pendbox .authbtn{margin-bottom:8px}
+
+/* insignia de rol */
+.rol.admin{background:rgba(176,124,232,.16);color:var(--vip)}
+
 /* autorizar correo */
 .autorow{display:flex;gap:8px;align-items:center;margin-bottom:10px}
 .autorow input{flex:1;min-width:0}
