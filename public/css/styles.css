@@ -296,6 +296,14 @@
   margin-bottom:8px;cursor:pointer;padding:2px 0}
 .segtoggle input{width:auto;accent-color:var(--gold)}
 /* marca de "ya asistió" en la lista de selección */
+/* «Ya programado»: distinto del oro de «ya asistió» a propósito, para que se
+   distingan de un vistazo. La fila se atenúa porque normalmente NO hay que
+   volver a marcarla. */
+.seg-row .yaprog{font-size:.62rem;font-weight:700;color:var(--ok);
+  background:rgba(78,203,141,.14);border-radius:999px;padding:2px 8px;
+  margin-left:auto;flex:0 0 auto;white-space:nowrap}
+.seg-row.yaprogfila{opacity:.62}
+.seg-row.yaprogfila .yaasis{margin-left:6px}
 .seg-row .yaasis{font-size:.62rem;font-weight:700;color:var(--gold);background:var(--surface2);
   border:1px solid var(--gold-dim);padding:2px 7px;border-radius:999px;margin-left:6px}
 /* segmentos guardados / historial */

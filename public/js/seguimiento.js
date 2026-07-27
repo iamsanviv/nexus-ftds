@@ -79,6 +79,10 @@ let segInvitarTarde = null;   // Date para diferir la invitación, o null = ahor
 // invitó por llamada o por otro mensaje. Los recordatorios, el enlace y la
 // confirmación salen igual.
 let segSinInvitacion = false;
+// Quiénes YA tienen seguimiento para la actividad elegida. Sin esto, al volver
+// a programar la misma actividad aparecían igual que el resto y era fácil
+// duplicarles los mensajes sin darse cuenta.
+let segYaProg = new Set();
 let logFiltro = "todos";      // filtro del registro de envíos
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
@@ -315,7 +319,16 @@ function elegibles(sid) {
   return state.clientes.filter(c => c.tel && (!c.acc[sid] || segIncAsis));
 }
 
-function seleccionarActividad(a) {
+// Un seguimiento cancelado NO cuenta: se deshizo a propósito, así que volver a
+// programarlo es legítimo.
+async function cargarYaProgramados(actividadId) {
+  segYaProg = new Set();
+  const { data } = await SB.from("seguimientos")
+    .select("cliente_id").eq("actividad_id", actividadId).neq("estado", "cancelado");
+  (data || []).forEach(s => segYaProg.add(s.cliente_id));
+}
+
+async function seleccionarActividad(a) {
   actSel = a;
   segFiltroMem = "todos";
   segBuscarTxt = "";
@@ -328,12 +341,18 @@ function seleccionarActividad(a) {
   const si = $("segSinInv"); if (si) si.checked = false;
   const tr = $("segTardeRow"); if (tr) tr.classList.add("hidden");
   const tt = $("segTardeToggle"); if (tt) { tt.classList.remove("on"); tt.classList.remove("hidden"); }
-  // Por defecto: marcar toda la comunidad que le falta la actividad (no Leads).
-  segSel = new Set(faltantes(a.servicio_id).filter(c => !esLeadMem(c.mem)).map(c => c.id));
   $("segProgTitulo").innerHTML = `Programar para <b>${esc(a.nombre)}</b> · ${fechaHoraCO(a.inicio)}`;
   refrescarBotonProgramar();
   $("segProgBloque").classList.remove("hidden");
+  $("segFaltan").innerHTML = `<div class="naplica">Cargando…</div>`;
   renderSegmentos();
+
+  await cargarYaProgramados(a.id);
+  // Por defecto: la comunidad que le falta la actividad (no Leads) y a la que
+  // NO se le haya programado ya. Repetir sería mandarle todo dos veces.
+  segSel = new Set(faltantes(a.servicio_id)
+    .filter(c => !esLeadMem(c.mem) && !segYaProg.has(c.id))
+    .map(c => c.id));
   renderFaltan();
   $("segProgBloque").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
@@ -341,6 +360,7 @@ function seleccionarActividad(a) {
 function ocultarProg() {
   actSel = null;
   segSel = new Set();
+  segYaProg = new Set();
   $("segProgBloque").classList.add("hidden");
   $("segFaltan").innerHTML = "";
   $("segFiltros").innerHTML = "";
@@ -373,13 +393,16 @@ function renderFaltan() {
     (!q || c.nombre.toLowerCase().includes(q)));
 
   $("segFaltan").innerHTML = visibles.length
-    ? visibles.map(c => `
-        <label class="seg-row">
+    ? visibles.map(c => {
+        const prog = segYaProg.has(c.id);
+        return `
+        <label class="seg-row${prog ? " yaprogfila" : ""}">
           <input type="checkbox" data-cid="${c.id}" ${segSel.has(c.id) ? "checked" : ""}>
           <span class="badge b-${c.mem}">${c.mem}</span>
           <span>${esc(c.nombre)}</span>
+          ${prog ? `<span class="yaprog" title="Ya tiene los mensajes programados para esta actividad">✓ ya programado</span>` : ""}
           ${c.acc[sid] ? `<span class="yaasis">ya asistió</span>` : ""}
-        </label>`).join("")
+        </label>`; }).join("")
     : `<div class="naplica">${q ? "Nadie coincide con la búsqueda." : "Nadie en este filtro."}</div>`;
   if (sinTel && segFiltroMem === "todos" && !q) $("segFaltan").insertAdjacentHTML("beforeend",
     `<div class="naplica">${sinTel} persona(s) sin teléfono no aparecen aquí.</div>`);
@@ -389,8 +412,16 @@ function renderFaltan() {
     actualizarConteo();
   });
 
-  // botones marcar/desmarcar actúan sobre lo VISIBLE
-  $("segMarcarVis").onclick = () => { visibles.forEach(c => segSel.add(c.id)); renderFaltan(); };
+  // botones marcar/desmarcar actúan sobre lo VISIBLE. «Marcar» salta a los que
+  // ya tienen seguimiento: marcar de golpe es justo donde se cuelan los
+  // duplicados. Si quieres uno de esos, lo marcas a mano.
+  $("segMarcarVis").onclick = () => {
+    const nuevos = visibles.filter(c => !segYaProg.has(c.id));
+    nuevos.forEach(c => segSel.add(c.id));
+    const omitidos = visibles.length - nuevos.length;
+    renderFaltan();
+    if (omitidos) toast(`${omitidos} ya tenían seguimiento · no se marcaron`);
+  };
   $("segDesmarcarVis").onclick = () => { visibles.forEach(c => segSel.delete(c.id)); renderFaltan(); };
   actualizarConteo();
 }
@@ -406,7 +437,9 @@ function actualizarConteo() {
   const uni = elegibles(actSel.servicio_id);
   const total = uni.length;
   const sel = uni.filter(c => segSel.has(c.id)).length;
-  $("segSelCount").textContent = `${sel} de ${total} seleccionados`;
+  const yaProg = uni.filter(c => segYaProg.has(c.id)).length;
+  $("segSelCount").textContent = `${sel} de ${total} seleccionados`
+    + (yaProg ? ` · ${yaProg} ya programado${yaProg === 1 ? "" : "s"}` : "");
 }
 
 async function programar() {
@@ -417,6 +450,16 @@ async function programar() {
 
   const seleccion = elegibles(actSel.servicio_id).filter(c => segSel.has(c.id));
   if (!seleccion.length) { toast("No hay nadie seleccionado"); return; }
+
+  // Última red antes de duplicar: si alguien marcado ya tiene seguimiento para
+  // esta actividad, recibiría todo dos veces.
+  const repetidos = seleccion.filter(c => segYaProg.has(c.id));
+  if (repetidos.length) {
+    const quienes = repetidos.slice(0, 3).map(c => c.nombre.split(" ")[0]).join(", ");
+    const resto = repetidos.length > 3 ? ` y ${repetidos.length - 3} más` : "";
+    if (!confirm(`${repetidos.length} persona(s) ya tienen seguimiento para esta actividad (${quienes}${resto}).\n\n`
+               + `Si continúas les llegarán los mensajes DOS veces. ¿Programar de todas formas?`)) return;
+  }
 
   // Si se difirió la invitación, debe caer entre ahora y el inicio de la actividad.
   // (No aplica si no se va a enviar invitación.)
@@ -734,7 +777,9 @@ function abrirCancelar(s) {
 
 /* ================= REGISTRO DE ENVÍOS (logs) ================= */
 const LOG_TIPO = {
-  invitacion: "Invitación", rec_60: "Recordatorio 1 h", rec_15: "Recordatorio 10 min",
+  // Las etiquetas deben coincidir con los tiempos reales de `tiempos()`:
+  // rec_15 sale 15 min ANTES; confirmacion, 10 min DESPUÉS del inicio.
+  invitacion: "Invitación", rec_60: "Recordatorio 1 h", rec_15: "Recordatorio 15 min",
   enlace: "Enlace", confirmacion: "Confirmación",
 };
 const LOG_BADGE = {
