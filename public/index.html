@@ -70,6 +70,9 @@
       <button class="sgbtn primary" id="segNuevaAct">＋ Nueva actividad</button>
     </div>
 
+    <!-- aviso de canal caído / mensajes fallando (lo llena salud.js) -->
+    <div id="segAlerta" class="hidden"></div>
+
     <!-- tira de estado: cómo va el día de un vistazo -->
     <div class="segstrip">
       <div class="stile" id="segTileActs"><span class="tn" id="segTActs">0</span><span class="tl">Actividades hoy</span></div>
@@ -186,6 +189,7 @@
     <div class="mgrp">
       <button class="mrow" id="btnStats"><span class="mi">📊</span>Estadísticas<span class="mc">›</span></button>
       <button class="mrow hidden" id="btnCat"><span class="mi">⚙</span>Servicios y catálogo<span class="mc">›</span></button>
+      <button class="mrow hidden" id="btnAgentes"><span class="mi">🩺</span>Agentes y canales<span class="agstate" id="agentesEstado"></span><span class="mc">›</span></button>
     </div>
 
     <div class="mgrp">
@@ -219,6 +223,26 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></svg>
       Más</button>
   </div></nav>
+</div>
+
+<!-- modal supervisión de agentes (solo director) -->
+<div class="overlay" id="agentesOverlay">
+  <div class="modal">
+    <h2>🩺 Agentes y canales</h2>
+    <div id="agentesBody"><div class="naplica">Cargando…</div></div>
+
+    <div class="pstitle" style="margin-top:18px">Autorizar un correo nuevo</div>
+    <div class="msgshelp">Solo los correos autorizados aquí pueden crear cuenta. Se usa una sola vez.</div>
+    <div class="autorow">
+      <input id="agAutEmail" type="email" inputmode="email" placeholder="correo@ejemplo.com" autocomplete="off">
+      <button class="tbtn" id="agAutBtn">Autorizar</button>
+    </div>
+    <div id="agAutLista"></div>
+
+    <div class="segformbtns" style="margin-top:14px">
+      <button class="tbtn" id="agentesCerrar">Cerrar</button>
+    </div>
+  </div>
 </div>
 
 <!-- modal estadísticas -->

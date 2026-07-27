@@ -22,7 +22,9 @@ public/
     auth.js             Login, registro, sesión y aplicación del rol
     ui.js               Render de vistas, modales y catálogo
     csv.js              Importar / exportar CSV
+    salud.js            Avisos de canal caído + panel de agentes (director)
     main.js             Punto de entrada (arranque)
+sql/                    Migraciones para correr a mano en Supabase → SQL Editor
 wrangler.toml           Configuración de despliegue (assets en /public)
 ```
 

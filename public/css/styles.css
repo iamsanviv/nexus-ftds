@@ -550,6 +550,55 @@ body.segwide .tabinner{max-width:1180px}
 /* en celular el botón de enviar ocupa toda la línea (área de toque cómoda) */
 @media (max-width:899px){.masmodal .masenviar{flex:1 0 100%;width:100%}}
 
+/* ═══════════ SALUD DE CANALES ═══════════
+   Aviso al agente cuando sus mensajes fallan, y panel del director con el
+   estado de todos. Rojo y ámbar aquí son SEMÁNTICOS (gravedad), no decoración:
+   el oro de la marca se reserva para acciones. */
+
+/* aviso arriba de Seguimiento */
+.alerta{border-radius:12px;padding:13px 15px;margin-bottom:16px;border:1px solid}
+.alerta.mal{background:rgba(242,85,90,.09);border-color:rgba(242,85,90,.45)}
+.alerta.ojo{background:rgba(232,184,75,.08);border-color:var(--gold-dim)}
+.alerta .at{font-family:'Archivo';font-weight:800;font-size:.95rem;margin-bottom:4px}
+.alerta.mal .at{color:var(--bad)}
+.alerta.ojo .at{color:var(--gold)}
+.alerta .ax{font-size:.83rem;color:var(--text);line-height:1.5}
+.alerta .ae{font-size:.75rem;color:var(--muted);margin-top:7px;word-break:break-word;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+/* etiqueta en la fila «Agentes y canales» de la vista Más */
+.agstate{margin-left:auto;font-size:.75rem;font-weight:600;color:var(--muted)}
+.agstate.mal{color:var(--bad)}
+.agstate.ok{color:var(--ok)}
+.mrow .agstate + .mc{margin-left:8px}
+
+/* panel del director */
+.agrow{background:var(--surface2);border:1px solid var(--border);border-radius:11px;
+  padding:11px 13px;margin-bottom:8px}
+.agtop{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.agname{font-weight:600;font-size:.9rem}
+.agrol{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--gold);background:rgba(232,184,75,.12);border-radius:999px;padding:2px 8px}
+.agchip{font-size:.63rem;font-weight:800;letter-spacing:.03em;padding:3px 9px;border-radius:999px}
+.agchip.ok{background:rgba(78,203,141,.14);color:var(--ok)}
+.agchip.ojo{background:rgba(232,184,75,.14);color:var(--gold)}
+.agchip.mal{background:rgba(242,85,90,.15);color:var(--bad)}
+.agchip.gris{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+.agrow:has(.agchip.gris){opacity:.72}
+.agmeta{display:flex;gap:12px;flex-wrap:wrap;font-size:.75rem;color:var(--muted);margin-top:6px;
+  font-variant-numeric:tabular-nums}
+.agmeta .agbad{color:var(--bad);font-weight:600}
+.agerr{font-size:.72rem;color:var(--bad);margin-top:6px;word-break:break-word;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.agrow.autor{display:flex;align-items:center;gap:10px}
+.agrow.autor .agmeta{margin-top:0;margin-left:auto}
+.agrow.autor .pmark{flex:0 0 auto}
+
+/* autorizar correo */
+.autorow{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.autorow input{flex:1;min-width:0}
+.autorow .tbtn{flex:0 0 auto}
+
 @media (min-width:900px){
   /* en escritorio deja de ser hoja pegada abajo y pasa a diálogo centrado
      (solo este modal: los demás siguen entrando desde abajo) */

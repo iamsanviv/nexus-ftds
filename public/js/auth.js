@@ -5,6 +5,7 @@ import { state, $, toast } from "./state.js";
 import { cargarTodo } from "./data.js";
 import { render } from "./ui.js";
 import { repasoDiario } from "./repaso.js";
+import { refrescarIndicadorAgentes } from "./salud.js";
 
 export function boot() {
   if (SUPABASE_URL.includes("TU-PROYECTO") || SUPABASE_ANON.includes("TU_ANON")) {
@@ -25,6 +26,11 @@ function traducirError(m) {
   if (/Invalid login/i.test(m)) return "Correo o contraseña incorrectos.";
   if (/already registered/i.test(m)) return "Ese correo ya tiene cuenta. Inicia sesión.";
   if (/at least 6/i.test(m)) return "La contraseña debe tener al menos 6 caracteres.";
+  // El registro es por invitación: el trigger de alta rechaza los correos que
+  // el director no autorizó. Supabase suele envolver ese error del trigger en
+  // un "Database error saving new user", así que atajamos las dos formas.
+  if (/CORREO_NO_AUTORIZADO/i.test(m) || /Database error saving new user/i.test(m))
+    return "Ese correo no está autorizado todavía. Pídele al director que te habilite y vuelve a intentar.";
   return m;
 }
 
@@ -41,6 +47,8 @@ async function entrar() {
   $("meRol").className = "rol " + state.me.role;
   const dir = state.me.role === "director";
   $("btnCat").classList.toggle("hidden", !dir);
+  $("btnAgentes").classList.toggle("hidden", !dir);
+  if (dir) refrescarIndicadorAgentes();
   $("appSub").textContent = dir
     ? "Vista de director · ves todos los clientes y a quién pertenecen"
     : "Tus clientes · solo tú ves y gestionas los que registras";

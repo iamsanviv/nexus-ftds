@@ -7,6 +7,7 @@ import { SB } from "./supabase.js";
 import { state, $, esc, toast, todos, hoyISO, resolverSnippets } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
+import { avisarSiCanalCaido } from "./salud.js";
 
 /* ---------- plantillas ---------- */
 // Tipos de mensaje programado (5 por persona). NO incluye invitacion_extra:
@@ -794,6 +795,9 @@ $("btnSeg").onclick = async () => {
   $("segLogSec").open = window.matchMedia("(min-width:900px)").matches;
   salirEdicion(); ocultarProg(); cargarPlantillas(); cargarActividades();
   cargarSegmentos(); renderActivos(); renderLogs();
+  // Si el canal está caído o los mensajes vienen fallando, avisarlo arriba
+  // en vez de dejar que el agente lo descubra días después.
+  avisarSiCanalCaido();
 };
 
 // Búsqueda por nombre (Req 2): filtra en vivo la lista de selección.
