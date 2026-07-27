@@ -77,6 +77,46 @@
 
 
 -- ───────────────────────────────────────────────────────────────────────────
+-- QUIÉN APRUEBA CUENTAS NUEVAS
+--
+--   admin     → cualquiera.
+--   director  → solo agentes que ya cuelgan de él. Nunca a otro director ni a
+--               un admin, aunque cuelguen de él (todos cuelgan de Juan Camilo,
+--               incluido el admin: sin esa condición podría desaprobarlo).
+--   el ROL solo lo cambia un admin. Si un director pudiera, ascendería a un
+--   agente suyo a admin y escalaría a través de él.
+--
+-- UNA TRAMPA DE POSTGRES QUE COSTÓ ENCONTRAR
+--
+-- Rechazar ponía director_id = null y fallaba con "new row violates row-level
+-- security policy". La política de UPDATE no tenía nada que ver: incluso con
+-- WITH CHECK (true) seguía fallando. La culpable era la política de SELECT.
+--
+-- Regla: en un UPDATE la fila resultante debe seguir siendo VISIBLE para quien
+-- la edita. No se puede actualizar una fila hasta sacarla de la propia vista.
+-- Al quitarle el director, la fila dejaba de cumplir `director_id = auth.uid()`
+-- y el motor lo bloqueaba, con un mensaje que señalaba al lugar equivocado.
+--
+-- Por eso rechazar ya NO rompe el vínculo: marca `rechazado_en`. La bandeja
+-- filtra `aprobado = false and rechazado_en is null`. Mejor de todos modos,
+-- porque queda rastro de quién quedó fuera y cuándo.
+--
+-- Consecuencia a tener presente: MOVER a un agente de un director a otro queda
+-- de hecho reservado al admin (su SELECT es es_admin(), que no depende de
+-- director_id). Un director que lo intente chocará con la misma regla.
+--
+-- Probado, en transacción revertida, con un director ajeno de verdad:
+--   pendientes que ve Juan Camilo            1 (solo el suyo) ✓
+--   APRUEBA a su agente                      APROBADO ✓
+--   RECHAZA a su agente                      RECHAZADO ✓
+--   bandeja después de rechazar              0 ✓
+--   aprueba a agente de OTRO director        sin efecto ✓
+--   desaprueba al ADMIN                      sin efecto ✓
+--   asciende a su agente a admin             BLOQUEADO ✓
+-- ───────────────────────────────────────────────────────────────────────────
+
+
+-- ───────────────────────────────────────────────────────────────────────────
 -- ASIGNAR CLIENTES A UN AGENTE (ya implementado)
 --
 -- El modal de cliente muestra «A nombre de» solo si quien escribe es director

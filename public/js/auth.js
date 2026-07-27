@@ -45,7 +45,7 @@ function traducirError(err) {
 async function entrar() {
   const { data: { user } } = await SB.auth.getUser();
   let { data: prof } = await SB.from("profiles")
-    .select("id,full_name,role,aprobado,director_id").eq("id", user.id).single();
+    .select("id,full_name,role,aprobado,director_id,rechazado_en").eq("id", user.id).single();
   if (!prof) { prof = { id: user.id, full_name: "", role: "agente", aprobado: false }; }
   state.me = {
     id: user.id, name: prof.full_name || (user.email || "").split("@")[0],
@@ -55,7 +55,7 @@ async function entrar() {
 
   // Cuenta creada pero sin aprobar: no entra a la app. El RLS ya le impide
   // crear nada, esto es para que entienda por qué en vez de ver todo vacío.
-  if (!state.me.aprobado) { mostrarEspera(prof.director_id); return; }
+  if (!state.me.aprobado) { mostrarEspera(prof.director_id, prof.rechazado_en); return; }
 
   $("pendScreen").classList.add("hidden");
   $("authScreen").classList.add("hidden");
@@ -80,10 +80,23 @@ async function entrar() {
 }
 
 /* ---------- espera de aprobación ---------- */
-async function mostrarEspera(directorId) {
+async function mostrarEspera(directorId, rechazadoEn) {
   $("app").classList.add("hidden");
   $("authScreen").classList.add("hidden");
   $("pendScreen").classList.remove("hidden");
+
+  // A quien fue rechazado no se le deja esperando un permiso que no va a
+  // llegar: se le dice, y se le quita el botón de "ya me aprobaron".
+  if (rechazadoEn) {
+    $("pendIcono").textContent = "🚫";
+    $("pendTitulo").textContent = "Tu solicitud no fue aprobada";
+    $("pendTexto").innerHTML = "Si crees que es un error, habla con la persona que te invitó y pídele que la revise de nuevo.";
+    $("pendSub").textContent = "";
+    $("pendRefrescar").classList.add("hidden");
+    return;
+  }
+  $("pendRefrescar").classList.remove("hidden");
+
   // Decirle a quién le toca aprobarlo evita el "¿y ahora a quién le escribo?".
   let quien = "Un administrador";
   if (directorId) {

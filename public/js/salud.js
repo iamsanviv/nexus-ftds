@@ -136,7 +136,8 @@ export async function refrescarIndicadorAgentes() {
   // Las aprobaciones pendientes mandan sobre el estado de los canales: es lo
   // único que exige una acción de quien mira.
   const { count } = await SB.from("profiles")
-    .select("id", { count: "exact", head: true }).eq("aprobado", false);
+    .select("id", { count: "exact", head: true })
+    .eq("aprobado", false).is("rechazado_en", null);
   if (count) {
     el.textContent = `${count} por aprobar`;
     el.className = "agstate pend";
@@ -157,6 +158,7 @@ async function renderPendientes() {
   const { data, error } = await SB.from("profiles")
     .select("id, full_name, email, director_id, aprobado")
     .eq("aprobado", false)
+    .is("rechazado_en", null)          // los rechazados no vuelven a la bandeja
     .order("full_name");
   if (error) { bloque.classList.add("hidden"); return; }
 
@@ -181,22 +183,25 @@ async function renderPendientes() {
   cont.querySelectorAll("[data-aprobar]").forEach(b => b.onclick = async () => {
     b.disabled = true;
     const { error } = await SB.from("profiles")
-      .update({ aprobado: true }).eq("id", b.dataset.aprobar);
+      .update({ aprobado: true, rechazado_en: null }).eq("id", b.dataset.aprobar);
     if (error) { toast("⚠ " + error.message); b.disabled = false; return; }
     toast("✓ Cuenta aprobada");
     renderPendientes(); renderAgentes(); refrescarIndicadorAgentes();
   });
 
-  // Rechazar deja la cuenta sin aprobar y sin director: no puede operar y
-  // desaparece de la bandeja. No se borra el usuario de Auth desde aquí.
+  // Rechazar deja constancia (rechazado_en) en vez de romper el vínculo con el
+  // director. Quitar el director haría que la fila dejara de ser visible para
+  // él, y Postgres impide actualizar una fila hasta sacarla de tu propia vista.
+  // Además así queda rastro de quién quedó fuera y cuándo.
   cont.querySelectorAll("[data-rechazar]").forEach(b => b.onclick = async () => {
     if (!confirm("¿Rechazar esta cuenta? No podrá usar el sistema.")) return;
     b.disabled = true;
     const { error } = await SB.from("profiles")
-      .update({ aprobado: false, director_id: null }).eq("id", b.dataset.rechazar);
+      .update({ aprobado: false, rechazado_en: new Date().toISOString() })
+      .eq("id", b.dataset.rechazar);
     if (error) { toast("⚠ " + error.message); b.disabled = false; return; }
     toast("Cuenta rechazada");
-    renderPendientes();
+    renderPendientes(); refrescarIndicadorAgentes();
   });
 }
 
