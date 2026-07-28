@@ -169,10 +169,13 @@ function renderForm() {
   setTipoActividad("cat");
 }
 
-// Una actividad de otro (el director) se puede usar para programar, pero no
-// editar ni borrar. El RLS ya lo impide; esto solo evita ofrecer botones que
-// van a fallar.
-const esAjena = a => a.owner_id && a.owner_id !== state.me.id;
+// Se separan dos preguntas que antes se confundían en una:
+//   · esMia      → ¿puedo editarla o borrarla?
+//   · deMiDirector → ¿la puso mi director para el equipo? (solo para etiquetar)
+// Usar «no es mía» como sinónimo de «es de mi director» era el error: para un
+// director, «no es mía» incluía las de sus propios agentes.
+const esMia = a => !a.owner_id || a.owner_id === state.me.id;
+const deMiDirector = a => !!state.me.directorId && a.owner_id === state.me.directorId;
 
 // Alterna entre «del catálogo» y «puntual»: cambia qué campo se pide y el
 // texto de ayuda de la imagen, porque una puntual no tiene servicio del que
@@ -320,7 +323,7 @@ async function cargarActividades() {
   // Solo se cierran las propias: sobre las del director no hay permiso de
   // escritura, y pedirlo sería un update que no hace nada.
   const pasadas = (data || []).filter(a =>
-    new Date(a.inicio) < inicioHoy && !esAjena(a));
+    new Date(a.inicio) < inicioHoy && esMia(a));
   if (pasadas.length) {
     await SB.from("actividades").update({ estado: "cerrada" }).in("id", pasadas.map(a => a.id));
   }
@@ -335,7 +338,7 @@ async function cargarActividades() {
     return;
   }
   $("segActividades").innerHTML = actividades.map(a => {
-    const ajena = esAjena(a);
+    const mia = esMia(a);
     return `
     <article class="actcard">
       <div class="am">
@@ -343,7 +346,7 @@ async function cargarActividades() {
         <div class="ameta">
           <span class="atime">${fechaHoraCO(a.inicio)}</span>
           ${esLibre(a) ? `<span class="achip suelta" title="No está en el catálogo">✦ Puntual</span>` : ""}
-          ${ajena ? `<span class="achip equipo" title="La creó tu director: puedes programar, no editar">👥 De tu director</span>` : ""}
+          ${deMiDirector(a) ? `<span class="achip equipo" title="La creó tu director: puedes programar, no editar">👥 De tu director</span>` : ""}
           ${a.enlace
             ? `<span class="achip ok">Enlace listo</span>`
             : `<span class="achip miss">Falta el enlace</span>`}
@@ -351,9 +354,9 @@ async function cargarActividades() {
       </div>
       <div class="ab">
         <button class="pmark" data-prog="${a.id}">📨 Programar</button>
-        ${ajena ? "" : `
+        ${mia ? `
         <button class="pmark" data-edit="${a.id}" title="Editar actividad">✎</button>
-        <button class="pmark off" data-delact="${a.id}" title="Eliminar actividad">✕</button>`}
+        <button class="pmark off" data-delact="${a.id}" title="Eliminar actividad">✕</button>` : ""}
       </div>
     </article>`; }).join("");
 
@@ -376,17 +379,22 @@ async function cargarActividades() {
 }
 
 /* ================= SELECCIÓN + PROGRAMACIÓN ================= */
+// Solo se le escribe a los clientes PROPIOS. Un director ve los de sus agentes
+// para supervisar, pero los mensajes saldrían desde SU WhatsApp a gente que no
+// lo agregó: eso no se hace. Cada quien escribe a los suyos.
+const mios = () => state.clientes.filter(c => c.tel && c.owner_id === state.me.id);
+
 // A quienes les falta la actividad. Sin servicio (actividad puntual) no hay
 // asistencia que consultar: entran todos los que tengan teléfono.
 function faltantes(sid) {
-  return state.clientes.filter(c => c.tel && (!sid || !c.acc[sid]));
+  return mios().filter(c => !sid || !c.acc[sid]);
 }
 
 // Universo elegible para programar: los que faltan, y —si el toggle está
-// activo— también quienes ya asistieron (para reinvitarlos). Siempre exige tel.
+// activo— también quienes ya asistieron (para reinvitarlos).
 function elegibles(sid) {
-  if (!sid) return state.clientes.filter(c => c.tel);
-  return state.clientes.filter(c => c.tel && (!c.acc[sid] || segIncAsis));
+  if (!sid) return mios();
+  return mios().filter(c => !c.acc[sid] || segIncAsis);
 }
 
 // Un seguimiento cancelado NO cuenta: se deshizo a propósito, así que volver a
@@ -449,7 +457,7 @@ function renderFaltan() {
   const sid = actSel.servicio_id;          // null si es una actividad puntual
   const lista = elegibles(sid);
   const sinTel = state.clientes.filter(c =>
-    (!sid || !c.acc[sid] || segIncAsis) && !c.tel).length;
+    c.owner_id === state.me.id && (!sid || !c.acc[sid] || segIncAsis) && !c.tel).length;
 
   // Chips de filtro: "Todos" + solo las membresías presentes en la lista.
   const presentes = MEMS.filter(m => lista.some(c => c.mem === m));

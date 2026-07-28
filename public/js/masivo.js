@@ -17,7 +17,10 @@ const primerNombre = n => (n || "").trim().split(/\s+/)[0];
 // resolverSnippets vive en state.js (lo comparten masivo y las actividades).
 const resolverMensaje = (tpl, nombre) => resolverSnippets(tpl).replaceAll("{nombre}", primerNombre(nombre));
 
-const pool = () => state.clientes.filter(c => c.tel);
+// Solo los clientes PROPIOS. Un director ve los de sus agentes para
+// supervisar, pero un masivo saldría desde SU WhatsApp a gente que agregó otro:
+// cada quien le escribe a los suyos.
+const pool = () => state.clientes.filter(c => c.tel && c.owner_id === state.me.id);
 
 /* ---------- render ---------- */
 // Vista previa del mensaje ya resuelto: con etiquetas y variantes {a|b|c}, lo

@@ -11,13 +11,30 @@
 alter table public.actividades
   add column if not exists compartida boolean not null default false;
 
+-- CORREGIDO poco después: la primera versión usaba puede_ver_de(), que para un
+-- director incluye las actividades de SUS agentes. Resultado: al director le
+-- salían las de su gente etiquetadas «De tu director», que es al revés.
+--
+-- El modelo correcto es que cada quien opera SUS actividades, y la única
+-- excepción va hacia abajo: lo que un director comparte con su equipo. La
+-- supervisión del director no vive en esta lista sino en «Agentes y canales».
 drop policy if exists "actividades_sel" on public.actividades;
 create policy "actividades_sel" on public.actividades
   for select using (
-    public.puede_ver_de(owner_id)
+    owner_id = auth.uid()
     or (compartida
         and owner_id = (select director_id from public.profiles where id = auth.uid()))
   );
+
+-- Editar y borrar: solo lo propio, dicho explícitamente en vez de quedar
+-- implícito en que la fila no se puede ni ver.
+drop policy if exists "actividades_upd" on public.actividades;
+create policy "actividades_upd" on public.actividades
+  for update using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+
+drop policy if exists "actividades_del" on public.actividades;
+create policy "actividades_del" on public.actividades
+  for delete using (owner_id = auth.uid());
 
 -- Editar y borrar NO se tocaron: siguen en puede_ver_de(owner_id), que para un
 -- agente mirando la actividad de su director da falso. La compartición queda de
@@ -27,12 +44,23 @@ create policy "actividades_sel" on public.actividades
 -- existe: sin él un director perdería la posibilidad de tener una actividad
 -- propia, que es una capacidad que ya tenía.
 --
--- Probado en transacción revertida, con un segundo director:
---   agente ve la COMPARTIDA de su director   SÍ ✓
+-- Probado en transacción revertida:
+--   director ve la actividad de su AGENTE    no ✓  (este era el bug)
+--   director ve las suyas                    2 de 2 ✓
+--   agente ve la COMPARTIDA de su director   sí ✓
 --   agente ve la PRIVADA de su director      no ✓
 --   agente ve la de OTRO director            no ✓
 --   agente EDITA la compartida               sin efecto ✓
---   agente BORRA la compartida               sin efecto ✓
+--   agente EDITA la suya                     pudo ✓
+--
+-- ───────────────────────────────────────────────────────────────────────────
+-- A QUIÉN SE LE PUEDE ESCRIBIR
+--
+-- Un director ve los clientes de sus agentes para supervisar, pero los
+-- mensajes saldrían desde SU WhatsApp a gente que agregó otra persona. Por eso
+-- tanto Seguimiento como Masivo filtran a los clientes PROPIOS
+-- (owner_id = auth.uid()), no a todo lo que el RLS deja ver. Un director es
+-- también un agente: le escribe a los suyos.
 
 
 -- 2. ASISTENCIA A ACTIVIDADES PUNTUALES ──────────────────────────────────
