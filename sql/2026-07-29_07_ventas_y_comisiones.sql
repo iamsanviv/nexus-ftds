@@ -139,9 +139,14 @@ create table if not exists public.metas_ftd (
   pago numeric(12,2) not null check (pago >= 0)
 );
 
+-- La primera meta es 45. Hubo una de 25 = 200 USD que se quitó el 29/07: por
+-- debajo de 45 no se paga nada y todo se acumula como base.
 insert into public.metas_ftd (ftd, pago) values
-  (25, 200), (45, 360), (65, 585), (90, 850), (120, 1200), (150, 1500)
+  (45, 360), (65, 585), (90, 850), (120, 1200), (150, 1500)
 on conflict (ftd) do nothing;
+
+-- Si esta migración ya se corrió con la meta de 25, hay que sacarla.
+delete from public.metas_ftd where ftd = 25;
 
 alter table public.metas_ftd enable row level security;
 

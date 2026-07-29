@@ -323,8 +323,13 @@ const misClientes = () => state.clientes
   .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
 const prod = id => state.productos.find(p => p.id === id);
-const NIVEL_NOM = { 1: "Beca", 2: "VIP", 3: "Platino", 4: "Oro" };
 const nivelDe = mem => ({ Beca: 1, VIP: 2, Platino: 3, Oro: 4 }[mem] || 0);
+
+// Pasar de Beca a una membresía NO es upgrade: la beca es gratis, así que no
+// hay pago inicial que descontar ni comisión ya cobrada. Se cobra precio
+// completo y comisiona lo del producto. El upgrade empieza en VIP (nivel 2).
+const esUpgrade = (cliente, p) =>
+  !!p && p.categoria === "membresia" && nivelDe(cliente.mem) > 1 && nivelDe(cliente.mem) < p.nivel;
 
 // Qué pagó el cliente por la membresía que tiene hoy. Se busca su última venta
 // de membresía; si no hay (entró antes del módulo), se usa el producto más
@@ -351,7 +356,7 @@ function calcular() {
   const hint = $("vfHint");
   if (!c || !p) { hint.classList.add("hidden"); return; }
 
-  const esUp = p.categoria === "membresia" && nivelDe(c.mem) > 0 && nivelDe(c.mem) < p.nivel;
+  const esUp = esUpgrade(c, p);
   const comUp = Number(state.parametros.comision_upgrade || 0);
 
   if (esUp) {
@@ -435,7 +440,7 @@ $("vGuardar").onclick = async () => {
   const valor = Number($("vfValor").value);
   if (!(valor >= 0)) return toast("⚠ El monto no es válido");
 
-  const esUp = !!p && p.categoria === "membresia" && nivelDe(c.mem) > 0 && nivelDe(c.mem) < p.nivel;
+  const esUp = esUpgrade(c, p);
   const campos = {
     cliente_id: c.id, cliente_nombre: c.nombre,
     producto_id: otro ? null : pid, producto_nombre: nombreProd,

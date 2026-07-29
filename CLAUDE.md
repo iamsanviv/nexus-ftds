@@ -112,7 +112,9 @@ Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
   se guardan: una sola verdad.
 - **Upgrade**: cobra la diferencia de precio y comisiona un **monto fijo**
   (`parametros.comision_upgrade`), no la comisión del producto — el pago inicial
-  ya comisionó en su momento.
+  ya comisionó en su momento. **De Beca a membresía NO es upgrade**: la beca es
+  gratis, así que no hay pago inicial que descontar ni comisión ya cobrada. Se
+  cobra precio completo. El upgrade empieza en VIP (nivel 2).
 - **Los FTD no se pagan uno por uno**: solo si se alcanza una meta mensual. Lo
   que sobra se acumula como «base» para el mes siguiente. `ftd_base` se guarda
   en vez de derivarse: derivarla dejaría que un FTD registrado tarde moviera la
