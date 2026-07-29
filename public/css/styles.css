@@ -718,16 +718,67 @@ body.segwide .tabinner{max-width:1180px}
 .hsplit .k{color:var(--ok)} .hsplit .w{color:var(--muted)}
 .vtwarn{margin-top:11px;font-size:.7rem;color:var(--gold);background:rgba(232,184,75,.07);border:1px solid rgba(232,184,75,.25);border-radius:9px;padding:7px 9px}
 
-/* --- bloque de FTD --- */
-.vtftd{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px 14px;margin-bottom:12px}
-.vtftd .fhead{display:flex;align-items:center;gap:8px}
-.vtftd .lbl{flex:1;font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.vtftd .fpago{font-family:'Archivo';font-weight:800;font-size:1.05rem;font-variant-numeric:tabular-nums;color:var(--muted)}
-.vtftd .fpago.on{color:var(--ok)}
-.vtftd .fnum{font-size:.78rem;color:var(--muted);margin-top:5px;display:flex;gap:7px;flex-wrap:wrap}
-.vtftd .fnum b{color:var(--text);font-family:'Archivo';font-variant-numeric:tabular-nums}
-.vtftd .fpie{font-size:.7rem;color:var(--muted);margin-top:7px}
-.vtftd .fpie b{color:var(--gold);font-variant-numeric:tabular-nums}
+/* --- bloque de FTD (vive en Personas) --------------------------------------
+   Compacto pero llamativo: el degradado dorado lo separa del resto de la
+   lista sin ocupar más alto que una tarjeta de cliente. */
+.ftdcard{position:relative;overflow:hidden;margin-bottom:12px;padding:13px 14px;border-radius:var(--r);
+  background:linear-gradient(145deg,rgba(232,184,75,.13),rgba(232,184,75,.03) 58%,transparent),var(--surface);
+  border:1px solid rgba(232,184,75,.3);box-shadow:0 4px 20px rgba(232,184,75,.07)}
+.ftdcard::after{content:'';position:absolute;top:-40px;right:-30px;width:150px;height:150px;pointer-events:none;
+  background:radial-gradient(circle,rgba(232,184,75,.16),transparent 68%)}
+.ftdcard .fhead{display:flex;align-items:center;gap:8px}
+.ftdcard .lbl{flex:1;font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
+.ftdcard .fpago{font-family:'Archivo';font-weight:800;font-size:1.05rem;font-variant-numeric:tabular-nums;color:var(--muted)}
+.ftdcard .fpago.on{color:var(--ok)}
+.ftdcard .fbig{display:flex;align-items:baseline;gap:8px;margin-top:5px}
+.ftdcard .fbig b{font-family:'Archivo';font-size:1.75rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.ftdcard .fbig span{font-size:.78rem;color:var(--muted)}
+.ftdcard .fsub{margin-top:6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:.72rem;color:var(--muted)}
+.ftdcard .fsub b{color:var(--text);font-variant-numeric:tabular-nums}
+.chipsub{display:inline-flex;align-items:center;gap:5px;font-size:.66rem;font-weight:600;color:var(--gold);
+  background:rgba(232,184,75,.1);border:1px solid rgba(232,184,75,.3);border-radius:999px;padding:3px 9px}
+.ftdcard .fpie{font-size:.7rem;color:var(--muted);margin-top:7px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.ftdcard .fpie b{color:var(--gold);font-variant-numeric:tabular-nums}
+.ftdajuste{margin-left:auto;font-size:.68rem;font-weight:700;color:var(--muted);text-decoration:underline;flex:0 0 auto}
+/* Barra de dos tonos: sólido lo real, tenue lo ya cargado. */
+.barra.dos{position:relative}
+.barra.dos u{position:absolute;top:0;left:0;height:100%;background:rgba(232,184,75,.3);border-radius:99px}
+.barra.dos i{position:relative}
+
+/* --- asistente de FTD --- */
+.asismodal{padding:0;overflow:hidden}
+.asis .ahead{padding:20px 18px 0}
+.asis .apaso{font-size:.58rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:7px}
+.asis .ahead h4{font-family:'Archivo';font-size:1.15rem;font-weight:800;margin-bottom:4px;text-wrap:balance}
+.asis .asd{font-size:.78rem;color:var(--muted);margin-bottom:15px}
+.asis .asd b{color:var(--text)}
+.asis .abody{padding:0 18px 6px;display:flex;flex-direction:column;gap:12px}
+.asis .ayuda{font-size:.7rem;color:var(--muted);margin-top:6px;line-height:1.45}
+.asis .ayuda b{color:#b9c3ce}
+.asis .eco{font-size:.75rem;color:var(--muted);background:var(--surface2);border-left:2px solid var(--gold-dim);
+  border-radius:0 8px 8px 0;padding:9px 11px}
+.asis .eco b{color:var(--gold);font-variant-numeric:tabular-nums}
+.asis .abtn{background:var(--gold);color:#191204;font-family:'Archivo';font-weight:800;font-size:.92rem;
+  border-radius:12px;padding:13px;text-align:center;width:100%}
+.asis .abtn.quiet{background:none;border:1px solid var(--border);color:var(--muted);font-family:inherit;
+  font-weight:600;font-size:.8rem;padding:10px}
+.asis .abtn:disabled{opacity:.5}
+.atajos{display:flex;gap:6px;flex-wrap:wrap}
+.atajo{flex:1 0 auto;min-width:52px;text-align:center;font-family:'Archivo';font-weight:800;font-size:.92rem;
+  padding:10px 4px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);
+  font-variant-numeric:tabular-nums}
+.atajo.on{border-color:var(--gold);color:var(--gold);background:rgba(232,184,75,.1)}
+.desglose{display:flex;flex-direction:column;gap:7px;font-size:.78rem;color:var(--muted)}
+.desglose div{display:flex;justify-content:space-between;gap:10px}
+.desglose b{color:var(--text);font-variant-numeric:tabular-nums}
+.totalcard{background:linear-gradient(160deg,rgba(232,184,75,.16),rgba(232,184,75,.04));
+  border:1px solid rgba(232,184,75,.32);border-radius:12px;padding:15px;text-align:center}
+.totalcard .t{font-size:.58rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.totalcard .n{font-family:'Archivo';font-size:1.95rem;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums;line-height:1.25}
+.totalcard .d{font-size:.7rem;color:var(--muted)}
+.puntos{display:flex;gap:5px;justify-content:center;padding:16px 0 20px}
+.puntos i{width:6px;height:6px;border-radius:99px;background:var(--border);transition:width .2s}
+.puntos i.on{background:var(--gold);width:18px}
 
 /* --- tarjeta de venta --- */
 .card.vt{padding:12px}

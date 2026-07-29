@@ -82,6 +82,9 @@
   <input class="buscar" id="buscar" placeholder="Buscar cliente…">
 
   <div id="vistaCliente">
+    <!-- Bloque de FTD del mes. Vive aquí, no en Ventas, porque es donde el
+         agente pasa el día. Lo pinta ftd.js. -->
+    <div id="ftdPanel"></div>
     <div class="stats" id="stats"></div>
     <div class="filtros" id="filtros"></div>
     <div class="ordwrap"><span class="lbl">Orden</span><div class="ordseg" id="orden"></div></div>
@@ -246,7 +249,6 @@
   <!-- vista ventas: facturación, abonos y comisiones -->
   <div id="vistaVentas" class="hidden">
     <div id="vtHero"></div>
-    <div id="vtFtd"></div>
     <div class="filtros" id="vtPeriodos"></div>
     <div id="vtLista"></div>
     <p class="vtlegal">Estas cifras son una guía para ver la comisión en tiempo real, calculada
@@ -386,6 +388,9 @@
       <div style="flex:1"><label>Ingreso a la Comunidad</label><input id="fComunidad" type="date"></div>
       <div style="flex:1"><label>Último upgrade</label><input id="fUpgrade" type="date"></div>
     </div></div>
+    <!-- Casilla de FTD ya contado. La llena ftd.js y solo aparece mientras
+         haya FTD declarados sin subir a la plataforma. -->
+    <div class="frow hidden" id="ftdChkRow"></div>
     <button class="convert hidden" id="btnConvertir">⬆ Convertir a Beca</button>
     <div class="frow"><label>Nota</label><textarea id="fNota" rows="3" placeholder="Contexto, acuerdos, resumen…"></textarea></div>
     <div class="profsec" id="fActividades"></div>
@@ -562,6 +567,9 @@
     </div>
   </div>
 </div>
+
+<!-- asistente de FTD: alta inicial, cierre del día 1 y ajuste. Lo llena ftd.js -->
+<div class="overlay" id="ftdOverlay"><div class="modal asismodal" id="ftdModal"></div></div>
 
 <!-- modal de venta (alta y edición) -->
 <div class="overlay" id="ventaOverlay">

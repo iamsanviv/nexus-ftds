@@ -119,6 +119,26 @@ Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
   que sobra se acumula como «base» para el mes siguiente. `ftd_base` se guarda
   en vez de derivarse: derivarla dejaría que un FTD registrado tarde moviera la
   comisión de meses ya pagados.
+
+### FTD reales vs. cargados (`ftd.js`)
+
+- **Tres números distintos, y confundirlos fue el defecto original**:
+  `cargados` (los que están en la plataforma), `reales` (los que el agente dice
+  que lleva, en `ftd_base.declarado`) y `sin subir` (la resta). **El que manda
+  para las metas es `reales`.** Se toma `max(declarado, cargados)` para que
+  subir de más no deje el número corto.
+- **La casilla «ya lo conté» no marca nada en `clientes`.** Desmarcarla sube
+  `declarado` en 1 y ya; al subir uno de los que faltaban, `cargados` sube solo
+  y «sin subir» baja. Por eso la casilla **solo aparece si hay deuda**: cuando
+  «sin subir» llega a 0 desaparece del formulario.
+- **La base se escribe a mano una sola vez**, para arrancar. Del mes siguiente
+  en adelante la siembra el cierre: `sobra = efectivos − meta alcanzada`.
+- **Un mes cerrado no se reabre** (`cerrado = true` bloquea el UPDATE en RLS,
+  salvo admin). Lo que se pagó, se pagó.
+- El bloque vive en **Personas**, no en Ventas: es donde el agente pasa el día.
+  Su comisión sigue sumando al encabezado de Ventas.
+- El cierre se ofrece **al entrar, si el mes anterior quedó sin cerrar** — no
+  estrictamente el día 1. Si se pospone, vuelve a aparecer.
 - **Los zooms son etapas con fecha y estado.** No mandan WhatsApp. Programar
   recordatorios sigue siendo cosa de Seguimiento.
 - **`productos.categoria` tiene tres valores**: `membresia`, `servicio` y
@@ -195,7 +215,8 @@ public/
     canal.js          «Mi WhatsApp»: estado y vinculación por agente
     salud.js          Alertas de canal caído + panel de agentes
     repaso.js         Repaso diario de asistencias
-    ventas.js         Ventas, abonos, comisiones y metas de FTD
+    ventas.js         Ventas, abonos y comisiones
+    ftd.js            Bloque de FTD en Personas, metas y cierre mensual
     stats.js, main.js
 sql/                  Migraciones documentadas (el estado real está en la base)
 ```
@@ -211,6 +232,15 @@ Flujo de dependencias sin ciclos. El estado mutable vive en un único objeto
 `mensajes_programados` y habla con un bridge por agente (`canales_wa`). Todo lo
 que se sabe de él es inferencia desde la base. Si algo depende de su
 comportamiento, decirlo en vez de asumirlo.
+
+## Decisiones de seguridad que se relajaron a propósito
+
+- **El agente escribe su propia `ftd_base`** (antes solo director y admin).
+  Hacía falta para que declare sus FTD reales y cierre su mes. Se acepta porque
+  **este panel no es la fuente de pago**: lo dice el aviso legal de la pantalla.
+  Si algún día se paga contra estos números, hay que devolver la escritura al
+  director. Queda como el único sitio donde alguien puede mover una cifra que
+  le afecta a él mismo.
 
 ## Pendientes conocidos
 

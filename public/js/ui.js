@@ -74,6 +74,10 @@ export function render() {
   $("abrirModal").classList.remove("hidden");
   $("buscar").placeholder = isLead ? "Buscar lead…" : "Buscar cliente…";
 
+  // Bloque de FTD del mes. Import dinámico por lo mismo que ventas.js y
+  // repaso.js: ftd.js necesita render() de aquí y no puede haber ciclo.
+  import("./ftd.js").then(m => m.renderBloqueFtd());
+
   const base = state.clientes.filter(c => isLead ? esLead(c) : !esLead(c));
   const pr = c => progreso(c);
 
@@ -459,6 +463,7 @@ $("abrirModal").onclick = () => {
   $("fMem").innerHTML = opcionesNivel(state.modulo === "leads" ? "Lead" : "Beca");
   $("fActividades").innerHTML = ""; $("btnConvertir").classList.add("hidden");
   renderDueno(state.me.id);
+  import("./ftd.js").then(m => m.pintarCasillaFtd());
   $("overlay").classList.add("open");
 };
 $("cerrarModal").onclick = cerrarM;
@@ -526,6 +531,8 @@ $("guardarBtn").onclick = async () => {
     const nuevo = await dbInsert({ ...datos, acc: {} });
     if (nuevo) {
       state.clientes.push(nuevo);
+      // Si el cliente NO estaba en los FTD ya declarados, sube el declarado.
+      await (await import("./ftd.js")).trasCrearCliente(nuevo);
       const qué = datos.mem === "Lead" ? "Lead" : "Cliente";
       toast(ajeno ? `${qué} agregado a nombre de ${deQuien} ✓` : `${qué} agregado ✓`);
     }

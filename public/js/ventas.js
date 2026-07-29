@@ -25,14 +25,13 @@ export function renderVentas() {
     $("vtHero").innerHTML = `<div class="vacio"><b>El módulo todavía no está instalado</b>
       Falta aplicar <code>sql/2026-07-29_07_ventas_y_comisiones.sql</code> en Supabase.
       <div class="vterr">${esc(state.ventasError || "")}</div></div>`;
-    $("vtFtd").innerHTML = ""; $("vtPeriodos").innerHTML = ""; $("vtLista").innerHTML = "";
+    $("vtPeriodos").innerHTML = ""; $("vtLista").innerHTML = "";
     $("abrirVenta").classList.add("hidden");
     return;
   }
   $("abrirVenta").classList.remove("hidden");
   renderPeriodos();
   renderHero();
-  renderFtd();
   renderLista();
 }
 
@@ -82,34 +81,8 @@ function renderHero() {
     </div>`;
 }
 
-function renderFtd() {
-  const f = comisionFtd(state.ventasPeriodo, yo());
-  const pctMeta = f.siguiente ? Math.min(100, Math.round(f.efectivos / f.siguiente * 100)) : 100;
-
-  $("vtFtd").innerHTML = `
-    <div class="vtftd">
-      <div class="fhead">
-        <span class="lbl">FTD de ${mesLegible(state.ventasPeriodo)}</span>
-        <span class="fpago ${f.pago ? "on" : ""}">${usd(f.pago)}</span>
-      </div>
-      <div class="fnum">
-        <b>${f.propios}</b> propios
-        ${f.base ? `<span>+ <b>${f.base}</b> de base</span>` : ""}
-        ${f.base ? `<span>= <b>${f.efectivos}</b> efectivos</span>` : ""}
-      </div>
-      <div class="barra ${f.pago ? "full" : ""}"><i style="width:${pctMeta}%"></i></div>
-      <div class="fpie">
-        ${f.meta ? `Meta de <b>${f.meta}</b> alcanzada · se paga ${usd(f.pago)}`
-                 : `<b>Todavía sin meta: no se paga nada</b>`}
-        ${f.siguiente ? ` · faltan <b>${f.faltan}</b> para ${f.siguiente} (${usd(metaPago(f.siguiente))})`
-                      : " · es la meta más alta"}
-        ${f.sobra ? (f.meta ? ` · sobran <b>${f.sobra}</b> para base del mes siguiente`
-                            : ` · los <b>${f.sobra}</b> pasan de base al mes siguiente`) : ""}
-      </div>
-    </div>`;
-}
-
-const metaPago = ftd => Number((state.metasFtd.find(m => m.ftd === ftd) || {}).pago || 0);
+// El bloque de FTD se mudó a Personas (ftd.js): es donde el agente pasa el día.
+// Aquí sigue contando su comisión dentro del total del encabezado.
 
 function renderLista() {
   const p = state.ventasPeriodo;
