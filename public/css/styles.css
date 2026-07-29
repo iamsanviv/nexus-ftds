@@ -703,14 +703,13 @@ body.segwide .tabinner{max-width:1180px}
 /* Reusa los tokens y las piezas de siempre (.card, .pill, .barra, .gtitle).
    Aquí solo se define lo que no existía. */
 
-/* --- encabezado: la comisión del mes --- */
-.vthero{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 15px;margin-bottom:10px;position:relative;overflow:hidden}
-.vthero::after{content:'';position:absolute;inset:0 0 auto auto;width:150px;height:150px;background:radial-gradient(circle at 72% 18%,rgba(232,184,75,.14),transparent 68%);pointer-events:none}
-.vthero .lbl{font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.vthero .big{font-family:'Archivo';font-size:2.1rem;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.15;margin:3px 0 2px}
-.vthero .cmp{font-size:.72rem;color:var(--muted)}
-.vthero .cmp .up{color:var(--ok);font-weight:700}
-.vthero .cmp .down{color:var(--bad);font-weight:700}
+/* --- alerta de cobro (arriba de la lista de ventas) --- */
+.vtalerta{display:flex;gap:9px;align-items:flex-start;margin-bottom:11px;padding:10px 12px;border-radius:var(--r);
+  font-size:.76rem;color:#f6b9bb;background:rgba(242,85,90,.09);border:1px solid rgba(242,85,90,.32)}
+.vtalerta .ic{flex:0 0 auto;width:17px;height:17px;border-radius:99px;background:var(--bad);color:#2a0709;
+  font-size:.66rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.vtalerta b{color:#fff;font-variant-numeric:tabular-nums}
+
 .hsplit{display:flex;gap:9px;margin-top:13px;padding-top:12px;border-top:1px solid var(--border)}
 .hsplit div{flex:1;min-width:0}
 .hsplit .n{font-family:'Archivo';font-weight:800;font-size:.92rem;font-variant-numeric:tabular-nums;display:block}
@@ -718,16 +717,117 @@ body.segwide .tabinner{max-width:1180px}
 .hsplit .k{color:var(--ok)} .hsplit .w{color:var(--muted)}
 .vtwarn{margin-top:11px;font-size:.7rem;color:var(--gold);background:rgba(232,184,75,.07);border:1px solid rgba(232,184,75,.25);border-radius:9px;padding:7px 9px}
 
-/* --- bloque de FTD --- */
-.vtftd{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px 14px;margin-bottom:12px}
-.vtftd .fhead{display:flex;align-items:center;gap:8px}
-.vtftd .lbl{flex:1;font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.vtftd .fpago{font-family:'Archivo';font-weight:800;font-size:1.05rem;font-variant-numeric:tabular-nums;color:var(--muted)}
-.vtftd .fpago.on{color:var(--ok)}
-.vtftd .fnum{font-size:.78rem;color:var(--muted);margin-top:5px;display:flex;gap:7px;flex-wrap:wrap}
-.vtftd .fnum b{color:var(--text);font-family:'Archivo';font-variant-numeric:tabular-nums}
-.vtftd .fpie{font-size:.7rem;color:var(--muted);margin-top:7px}
-.vtftd .fpie b{color:var(--gold);font-variant-numeric:tabular-nums}
+/* --- tarjeta dorada de meta ------------------------------------------------
+   La comparten el bloque de FTD (en Personas) y el de comisión por ventas (en
+   Ventas): son la misma idea —dónde vas contra lo que te propusiste— y tienen
+   que leerse como hermanas. Compacta: no más alta que una tarjeta de cliente. */
+.metacard{position:relative;overflow:hidden;margin-bottom:12px;padding:13px 14px;border-radius:var(--r);
+  background:linear-gradient(145deg,rgba(232,184,75,.13),rgba(232,184,75,.03) 58%,transparent),var(--surface);
+  border:1px solid rgba(232,184,75,.3);box-shadow:0 4px 20px rgba(232,184,75,.07)}
+.metacard::after{content:'';position:absolute;top:-40px;right:-30px;width:150px;height:150px;pointer-events:none;
+  background:radial-gradient(circle,rgba(232,184,75,.16),transparent 68%)}
+.metacard .fhead{display:flex;align-items:center;gap:8px}
+.metacard .lbl{flex:1;font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
+.metacard .fpago{font-family:'Archivo';font-weight:800;font-size:1.05rem;font-variant-numeric:tabular-nums;color:var(--muted)}
+.metacard .fpago.on{color:var(--ok)}
+.metacard .fbig{display:flex;align-items:baseline;gap:8px;margin-top:5px;flex-wrap:wrap}
+.metacard .fbig b{font-family:'Archivo';font-size:1.75rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.metacard .fbig span{font-size:.78rem;color:var(--muted)}
+.metacard .fsub{margin-top:6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:.72rem;color:var(--muted)}
+.metacard .fsub b{color:var(--text);font-variant-numeric:tabular-nums}
+.metacard .fsub .up{color:var(--ok);font-weight:700}
+.metacard .fsub .down{color:var(--bad);font-weight:700}
+.chipsub{display:inline-flex;align-items:center;gap:5px;font-size:.66rem;font-weight:600;color:var(--gold);
+  background:rgba(232,184,75,.1);border:1px solid rgba(232,184,75,.3);border-radius:999px;padding:3px 9px}
+.metacard .fpie{font-size:.7rem;color:var(--muted);margin-top:7px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.metacard .fpie b{color:var(--gold);font-variant-numeric:tabular-nums}
+.metacard .fpie .ok{color:var(--ok)}
+.ftdajuste{margin-left:auto;font-size:.68rem;font-weight:700;color:var(--muted);text-decoration:underline;flex:0 0 auto}
+/* La meta se toca para cambiarla. Punteada y no subrayada entera, para que se
+   lea como parte de la frase y no como un botón metido a la fuerza. */
+.metalink{color:var(--gold);font-weight:700;font-size:inherit;font-family:inherit;
+  border-bottom:1px dashed rgba(232,184,75,.55);padding:0 1px;font-variant-numeric:tabular-nums}
+.metalink:hover{border-bottom-style:solid;background:rgba(232,184,75,.09)}
+
+/* La barra y, al final, la meta: sin el número el porcentaje no dice contra qué. */
+.barrawrap{display:flex;align-items:center;gap:9px;margin-top:10px}
+.barrawrap .barra{flex:1;margin-top:0}
+.metafin{flex:0 0 auto;font-family:'Archivo';font-weight:800;font-size:.78rem;color:var(--gold);
+  font-variant-numeric:tabular-nums;opacity:.85}
+
+/* La base va en línea aparte y en tono menor: suma para la comisión pero NO
+   para la meta del mes, y mezclarlas hacía creer que ya se había cumplido. */
+.metacard .fcom{margin-top:7px;padding-top:7px;border-top:1px dashed rgba(232,184,75,.22);
+  font-size:.68rem;color:var(--muted);line-height:1.45}
+.metacard .fcom b{color:#b9c3ce;font-variant-numeric:tabular-nums}
+.metacard .fcom span{opacity:.75}
+
+/* El total de las dos comisiones, discreto y abajo a la derecha: se consulta,
+   no se mira. Las dos comisiones viven separadas justo arriba. */
+.totalmes{margin-top:9px;text-align:right;font-size:.66rem;color:var(--muted);opacity:.8}
+.totalmes b{color:var(--gold);font-variant-numeric:tabular-nums;font-weight:700}
+
+/* Barra de dos tonos: sólido lo real, tenue lo ya cargado. */
+.barra.dos{position:relative}
+.barra.dos u{position:absolute;top:0;left:0;height:100%;background:rgba(232,184,75,.3);border-radius:99px}
+.barra.dos i{position:relative}
+
+/* --- asistente de FTD --- */
+.asismodal{padding:0;overflow:hidden}
+.asis .ahead{padding:20px 18px 0}
+.asis .apaso{font-size:.58rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:7px}
+.asis .ahead h4{font-family:'Archivo';font-size:1.15rem;font-weight:800;margin-bottom:4px;text-wrap:balance}
+.asis .asd{font-size:.78rem;color:var(--muted);margin-bottom:15px}
+.asis .asd b{color:var(--text)}
+.asis .abody{padding:0 18px 6px;display:flex;flex-direction:column;gap:12px}
+.asis .ayuda{font-size:.7rem;color:var(--muted);margin-top:6px;line-height:1.45}
+.asis .ayuda b{color:#b9c3ce}
+.asis .eco{font-size:.75rem;color:var(--muted);background:var(--surface2);border-left:2px solid var(--gold-dim);
+  border-radius:0 8px 8px 0;padding:9px 11px}
+.asis .eco b{color:var(--gold);font-variant-numeric:tabular-nums}
+.asis .abtn{background:var(--gold);color:#191204;font-family:'Archivo';font-weight:800;font-size:.92rem;
+  border-radius:12px;padding:13px;text-align:center;width:100%}
+.asis .abtn.quiet{background:none;border:1px solid var(--border);color:var(--muted);font-family:inherit;
+  font-weight:600;font-size:.8rem;padding:10px}
+.asis .abtn:disabled{opacity:.5}
+.atajos{display:flex;gap:6px;flex-wrap:wrap}
+.atajo{flex:1 0 auto;min-width:52px;text-align:center;font-family:'Archivo';font-weight:800;font-size:.92rem;
+  padding:10px 4px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);
+  font-variant-numeric:tabular-nums}
+.atajo.on{border-color:var(--gold);color:var(--gold);background:rgba(232,184,75,.1)}
+
+/* Deslizador de meta libre. La regla global de `input` le pone fondo, borde y
+   padding: hay que devolverlo a cero o el control no se dibuja. */
+.metaslider{margin-top:10px}
+.metaslider input[type=range]{-webkit-appearance:none;appearance:none;width:100%;
+  background:transparent;border:none;padding:0;height:26px;cursor:pointer}
+.metaslider input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:99px;
+  background:linear-gradient(90deg,var(--gold-dim),var(--gold) var(--pct,50%),var(--surface2) var(--pct,50%))}
+.metaslider input[type=range]::-moz-range-track{height:6px;border-radius:99px;background:var(--surface2)}
+.metaslider input[type=range]::-moz-range-progress{height:6px;border-radius:99px;
+  background:linear-gradient(90deg,var(--gold-dim),var(--gold))}
+.metaslider input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:20px;height:20px;margin-top:-7px;border-radius:99px;background:var(--gold);
+  border:2px solid #191204;box-shadow:0 2px 8px rgba(232,184,75,.45)}
+.metaslider input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:99px;
+  background:var(--gold);border:2px solid #191204;box-shadow:0 2px 8px rgba(232,184,75,.45)}
+.slval{font-size:.73rem;color:var(--muted);text-align:center;margin-top:3px}
+.slval b{color:var(--gold);font-variant-numeric:tabular-nums}
+.desglose{display:flex;flex-direction:column;gap:7px;font-size:.78rem;color:var(--muted)}
+.desglose div{display:flex;justify-content:space-between;gap:10px}
+.desglose b{color:var(--text);font-variant-numeric:tabular-nums}
+/* Aclaración de la base: cuelga de la línea de arriba, no es una fila más. */
+.desglose .conbase{margin-top:-3px;padding-left:11px;font-size:.68rem;opacity:.8;
+  border-left:1px dashed rgba(232,184,75,.3)}
+.desglose .conbase b{color:#b9c3ce}
+.totalcard{background:linear-gradient(160deg,rgba(232,184,75,.16),rgba(232,184,75,.04));
+  border:1px solid rgba(232,184,75,.32);border-radius:12px;padding:15px;text-align:center}
+.totalcard .t{font-size:.58rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.totalcard .n{font-family:'Archivo';font-size:1.95rem;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums;line-height:1.25}
+.totalcard .d{font-size:.7rem;color:var(--muted)}
+.puntos{display:flex;gap:5px;justify-content:center;padding:16px 0 20px}
+.puntos i{width:6px;height:6px;border-radius:99px;background:var(--border);transition:width .2s}
+.puntos i.on{background:var(--gold);width:18px}
 
 /* --- tarjeta de venta --- */
 .card.vt{padding:12px}
@@ -745,6 +845,19 @@ body.segwide .tabinner{max-width:1180px}
 .card.vt .pct b{color:var(--text)}
 .card.vt .pct b.ok,.card.vt .pct .ok{color:var(--ok)}
 .vtsin{font-size:.62rem;font-weight:700;color:var(--gold);background:rgba(232,184,75,.09);border:1px dashed rgba(232,184,75,.4);padding:1px 7px;border-radius:6px}
+
+/* Alertas por fecha de pago. El filo izquierdo permite barrer la lista con la
+   vista sin leer fechas; el chip da el detalle. */
+.card.vt.al-vencida{border-left:3px solid var(--bad)}
+.card.vt.al-hoy{border-left:3px solid var(--gold)}
+.card.vt.al-pronto{border-left:3px solid var(--gold-dim)}
+.card.vt.al-sinfecha{border-left:3px solid var(--border)}
+.alchip{font-size:.63rem;font-weight:700;padding:2px 8px;border-radius:6px;white-space:nowrap}
+.alchip.vencida{background:rgba(242,85,90,.15);color:var(--bad)}
+.alchip.hoy{background:rgba(232,184,75,.16);color:var(--gold)}
+.alchip.pronto{background:rgba(232,184,75,.09);color:#c8a44a}
+.alchip.sinfecha{background:var(--surface2);color:var(--muted)}
+.alchip.ok{background:none;color:var(--muted);padding-left:0}
 
 /* «Por causar» de facturación y de comisión, debajo de cada venta. */
 .vtpend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:.7rem;color:var(--muted)}
@@ -767,10 +880,17 @@ body.segwide .tabinner{max-width:1180px}
 
 /* --- abonos --- */
 .abonos{margin-top:10px;padding-top:9px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:5px}
-.abonos .ab{display:flex;align-items:center;gap:8px;font-size:.72rem;color:var(--muted)}
-.abonos .ab .tk{color:var(--ok)}
-.abonos .ab .f{font-variant-numeric:tabular-nums}
-.abonos .ab .m{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--text);font-weight:600}
+/* Fila de abono editable: fecha, monto y borrar. Se corrige en el sitio porque
+   un dedazo no debería obligar a borrar la venta entera. */
+.abonos .ab{display:flex;align-items:center;gap:7px}
+.abonos .ab .abf,.abonos .ab .abm{font-size:.72rem;padding:6px 8px;border-radius:8px;
+  font-variant-numeric:tabular-nums;background:transparent;border:1px solid transparent;color:var(--muted)}
+.abonos .ab .abf{flex:0 0 auto;width:auto;color-scheme:dark}
+.abonos .ab .abm{flex:1;min-width:0;text-align:right;color:var(--text);font-weight:600}
+.abonos .ab .abf:hover,.abonos .ab .abm:hover{border-color:var(--border);background:var(--surface2)}
+.abonos .ab .abf:focus,.abonos .ab .abm:focus{border-color:transparent;background:var(--surface2)}
+.abonos .ab .abx{flex:0 0 auto;color:var(--muted);font-size:.72rem;padding:5px 7px;border-radius:7px;line-height:1}
+.abonos .ab .abx:hover{color:var(--bad);background:rgba(242,85,90,.1)}
 .card.vt .mini{display:flex;gap:6px;margin-top:8px}
 .card.vt .mini .abin{flex:1;font-size:.8rem;padding:8px 10px;border-radius:9px;font-variant-numeric:tabular-nums}
 .card.vt .mini .go{flex:0 0 auto;background:var(--gold);color:#191204;font-weight:800;font-size:.78rem;border-radius:9px;padding:8px 15px}
@@ -822,5 +942,5 @@ body.segwide .tabinner{max-width:1180px}
 
 @media (max-width:420px){
   .f3{grid-template-columns:1fr}
-  .vthero .big{font-size:1.8rem}
+  .metacard .fbig b{font-size:1.5rem}
 }

@@ -11,10 +11,11 @@ import {
   state, $, esc, fmtF, hoyISO, toast, esLead, norm,
   usd, periodoDe, periodoAntes, mesLegible,
   pagado, saldo, estaSaldada, fechaSaldo, comisionSinDefinir,
-  resumenVentas, comisionFtd,
+  resumenVentas, comisionFtd, metasDe, alertaPago, alertasDelMes,
 } from "./state.js";
 import {
-  cargarVentas, vInsert, vPatch, vDelete, abInsert, notaInsert, notaDelete,
+  cargarVentas, vInsert, vPatch, vDelete, abInsert, abPatch, abDelete,
+  notaInsert, notaDelete,
 } from "./data.js";
 
 const yo = () => state.me?.id;
@@ -25,14 +26,13 @@ export function renderVentas() {
     $("vtHero").innerHTML = `<div class="vacio"><b>El módulo todavía no está instalado</b>
       Falta aplicar <code>sql/2026-07-29_07_ventas_y_comisiones.sql</code> en Supabase.
       <div class="vterr">${esc(state.ventasError || "")}</div></div>`;
-    $("vtFtd").innerHTML = ""; $("vtPeriodos").innerHTML = ""; $("vtLista").innerHTML = "";
+    $("vtPeriodos").innerHTML = ""; $("vtLista").innerHTML = "";
     $("abrirVenta").classList.add("hidden");
     return;
   }
   $("abrirVenta").classList.remove("hidden");
   renderPeriodos();
   renderHero();
-  renderFtd();
   renderLista();
 }
 
@@ -55,61 +55,76 @@ function renderHero() {
   const p = state.ventasPeriodo;
   const r = resumenVentas(p, yo());
   const f = comisionFtd(p, yo());
+  const m = metasDe(p, yo());
+  const metaV = m?.metaVentas || 0;
+  // Las dos comisiones van SEPARADAS: esta tarjeta es solo la de ventas. El
+  // total con FTD baja a la esquina, discreto, para no volver a mezclarlas.
   const total = r.causada + f.pago;
+  const pct = metaV ? Math.min(100, Math.round(r.causada / metaV * 100)) : 0;
 
-  // Comparativo con el mes anterior: la misma cuenta, un periodo atrás.
+  // Comparativo con el mes anterior, solo de ventas.
   const ant = periodoAntes(p);
-  const totalAnt = resumenVentas(ant, yo()).causada + comisionFtd(ant, yo()).pago;
-  let cmp = `Sin nada con qué comparar en ${mesLegible(ant)}`;
-  if (totalAnt > 0) {
-    const d = Math.round((total - totalAnt) / totalAnt * 100);
-    const s = d >= 0 ? "up" : "down";
-    cmp = `<span class="${s}">${d >= 0 ? "▲" : "▼"} ${Math.abs(d)}%</span> frente a ${mesLegible(ant)} (${usd(totalAnt)})`;
-  }
+  const antV = resumenVentas(ant, yo()).causada;
+  const cmp = antV > 0
+    ? (() => { const d = Math.round((r.causada - antV) / antV * 100);
+        return `<span class="${d >= 0 ? "up" : "down"}">${d >= 0 ? "▲" : "▼"} ${Math.abs(d)}%</span>
+                frente a ${mesLegible(ant)} (${usd(antV)})`; })()
+    : "";
 
   $("vtHero").innerHTML = `
-    <div class="vthero">
-      <span class="lbl">Comisión de ${mesLegible(p)}</span>
-      <div class="big">${usd(total)}</div>
-      <div class="cmp">${cmp}</div>
+    <div class="metacard">
+      <div class="fhead"><span class="lbl">Comisión por ventas de ${mesLegible(p)}</span></div>
+
+      <div class="fbig"><b>${usd(r.causada)}</b>
+        <span>${metaV ? `de tu meta de <button class="metalink" id="vtMeta">${usd(metaV)}</button>`
+                      : "causada este mes"}</span></div>
+      ${cmp ? `<div class="fsub">${cmp}</div>` : ""}
+
+      ${metaV ? `
+      <div class="barrawrap">
+        <div class="barra ${pct >= 100 ? "full" : ""}"><i style="width:${pct}%"></i></div>
+        <span class="metafin">${usd(metaV)}</span>
+      </div>
+      <div class="fpie">${pct >= 100
+        ? `<span class="ok">✓ Cumpliste tu meta de ventas</span>`
+        : `Te faltan <b>${usd(metaV - r.causada)}</b> para tu meta`}</div>`
+      : `<div class="fpie"><button class="metalink" id="vtMeta">Ponte una meta de ventas</button></div>`}
+
       <div class="hsplit">
         <div><span class="n k">${usd(r.facturado)}</span><span class="t">Facturado</span></div>
         <div><span class="n">${usd(r.porFacturar)}</span><span class="t">Por facturar</span></div>
         <div><span class="n w">${usd(r.porCausar)}</span><span class="t">Por causar</span></div>
       </div>
+
       ${r.sinDefinir ? `<div class="vtwarn">${r.sinDefinir} venta${r.sinDefinir === 1 ? "" : "s"}
         sin comisión definida: no suman a «por causar».</div>` : ""}
-    </div>`;
+
+      <div class="totalmes">Total del mes con FTD (${usd(f.pago)}) · <b>${usd(total)}</b></div>
+    </div>
+    ${avisoAlertas()}`;
+
+  // El asistente de metas vive en ftd.js; import dinámico para no crear ciclo.
+  $("vtMeta").onclick = async () =>
+    (await import("./ftd.js")).abrirAsistente("metas");
 }
 
-function renderFtd() {
-  const f = comisionFtd(state.ventasPeriodo, yo());
-  const pctMeta = f.siguiente ? Math.min(100, Math.round(f.efectivos / f.siguiente * 100)) : 100;
-
-  $("vtFtd").innerHTML = `
-    <div class="vtftd">
-      <div class="fhead">
-        <span class="lbl">FTD de ${mesLegible(state.ventasPeriodo)}</span>
-        <span class="fpago ${f.pago ? "on" : ""}">${usd(f.pago)}</span>
-      </div>
-      <div class="fnum">
-        <b>${f.propios}</b> propios
-        ${f.base ? `<span>+ <b>${f.base}</b> de base</span>` : ""}
-        ${f.base ? `<span>= <b>${f.efectivos}</b> efectivos</span>` : ""}
-      </div>
-      <div class="barra ${f.pago ? "full" : ""}"><i style="width:${pctMeta}%"></i></div>
-      <div class="fpie">
-        ${f.meta ? `Meta de <b>${f.meta}</b> alcanzada · se paga ${usd(f.pago)}`
-                 : `<b>Todavía sin meta: no se paga nada</b>`}
-        ${f.siguiente ? ` · faltan <b>${f.faltan}</b> para ${f.siguiente} (${usd(metaPago(f.siguiente))})`
-                      : " · es la meta más alta"}
-        ${f.sobra ? (f.meta ? ` · sobran <b>${f.sobra}</b> para base del mes siguiente`
-                            : ` · los <b>${f.sobra}</b> pasan de base al mes siguiente`) : ""}
-      </div>
-    </div>`;
+// Aviso de cobro. Solo aparece si hay algo vencido o venciendo hoy: si sale
+// siempre, deja de mirarse.
+function avisoAlertas() {
+  const a = alertasDelMes(yo());
+  if (!a.vencidas && !a.hoy) return "";
+  const partes = [];
+  if (a.vencidas) partes.push(`<b>${a.vencidas}</b> vencida${a.vencidas === 1 ? "" : "s"}`);
+  if (a.hoy) partes.push(`<b>${a.hoy}</b> vence${a.hoy === 1 ? "" : "n"} hoy`);
+  return `<div class="vtalerta">
+    <span class="ic">!</span>
+    <span>${partes.join(" · ")} — <b>${usd(a.monto)}</b> por cobrar${
+      a.pronto ? `. ${a.pronto === 1 ? "Otra vence" : `Otras ${a.pronto} vencen`} esta semana.` : "."}</span>
+  </div>`;
 }
 
-const metaPago = ftd => Number((state.metasFtd.find(m => m.ftd === ftd) || {}).pago || 0);
+// El bloque de FTD se mudó a Personas (ftd.js): es donde el agente pasa el día.
+// Aquí sigue contando su comisión dentro del total del encabezado.
 
 function renderLista() {
   const p = state.ventasPeriodo;
@@ -126,10 +141,19 @@ function renderLista() {
       + arr.map(tarjeta).join("")
     : "";
 
+  // Por urgencia de cobro: lo vencido arriba, lo que no tiene fecha al final.
+  // A igual urgencia, primero lo que vence antes.
+  const porUrgencia = (a, b) => {
+    const oa = alertaPago(a)?.orden ?? 9, ob = alertaPago(b)?.orden ?? 9;
+    return oa - ob || (a.fecha_pago || "9999").localeCompare(b.fecha_pago || "9999");
+  };
+
+  // Lo que falta que paguen va PRIMERO: es donde hay que poner la energía.
+  // Lo ya causado es historia y baja al final.
   const html =
-    sec("Comisión ya causada", causadas, usd(causadas.reduce((s, v) => s + v.comision, 0)))
-    + sec("Falta que paguen", vivas.filter(v => v.tipo === "agendado"))
-    + sec("Posibles", vivas.filter(v => v.tipo === "posible"))
+    sec("Falta que paguen", vivas.filter(v => v.tipo === "agendado").sort(porUrgencia))
+    + sec("Posibles", vivas.filter(v => v.tipo === "posible").sort(porUrgencia))
+    + sec("Comisión ya causada", causadas, usd(causadas.reduce((s, v) => s + v.comision, 0)))
     + sec("Perdidas", perdidas);
 
   $("vtLista").innerHTML = html || `<div class="vacio"><b>Nada en ${mesLegible(p)}</b>
@@ -152,8 +176,13 @@ function tarjeta(v) {
     ? `<span class="vtsin">comisión sin definir</span>`
     : `<b class="${lista ? "ok" : ""}">${usd(v.comision)}</b>`;
 
+  // La alerta pinta el filo izquierdo de la tarjeta, para poder barrer la lista
+  // con la vista sin leer fechas.
+  const al = alertaPago(v);
+  const filo = al && al.nivel !== "ok" ? ` al-${al.nivel}` : "";
+
   return `
-  <div class="card vt ${abierta ? "open" : ""}" data-v="${v.id}">
+  <div class="card vt${filo} ${abierta ? "open" : ""}" data-v="${v.id}">
     <div class="crow vthead">
       <span class="nombre">${esc(v.cliente_nombre)}</span>
       ${v.es_upgrade ? `<span class="vtup">Upgrade</span>` : ""}
@@ -169,7 +198,7 @@ function tarjeta(v) {
       ${lista
         ? `<span class="ok">✓ Saldada ${fmtF(fechaSaldo(v))}</span> <span>· comisión</span> ${comEtiqueta}`
         : `<b>${usd(ab)}</b> <span>de</span> <b>${usd(v.valor)}</b>`}
-      ${v.fecha_pago && !lista ? `<span>· pago ${fmtF(v.fecha_pago)}</span>` : ""}
+      ${al && !lista ? `<span class="alchip ${al.nivel}">${al.texto}</span>` : ""}
     </div>
 
     ${lista || muerta ? "" : `
@@ -183,9 +212,16 @@ function tarjeta(v) {
 }
 
 function cuerpo(v, sal, notas) {
-  const abonos = (v.abonos || []).map(a =>
-    `<div class="ab"><span class="tk">✓</span><span class="f">${fmtF(a.fecha)}</span>
-       <span class="m">${usd(a.monto)}</span></div>`).join("");
+  // Los abonos se pueden corregir en el sitio: un dedazo no debería obligar a
+  // borrar la venta entera. La fecha es editable porque decide en qué mes se
+  // causa la comisión.
+  const abonos = (v.abonos || []).map(a => `
+    <div class="ab">
+      <input class="abf" type="date" value="${a.fecha}" data-ab="${a.id}" title="Fecha del abono">
+      <input class="abm" type="number" min="0" step="1" value="${a.monto}" data-ab="${a.id}"
+             inputmode="decimal" title="Monto del abono">
+      <button class="abx" data-abdel="${a.id}" title="Borrar este abono">✕</button>
+    </div>`).join("");
 
   const zoom = (lbl, fecha, est) => {
     const cls = est === "hecha" ? "ok" : est === "no_asistio" ? "no" : fecha ? "now" : "";
@@ -252,6 +288,37 @@ function engancharLista() {
     if (!(monto > 0)) return toast("⚠ El abono tiene que ser mayor que cero");
     b.disabled = true;
     await abonar(id, monto);
+  });
+
+  // Corregir un abono. `change` y no `input`: se guarda al salir del campo, no
+  // en cada tecla, que si no cada dígito sería una escritura a la base.
+  L.querySelectorAll(".abm, .abf").forEach(inp => inp.onchange = async () => {
+    const id = inp.dataset.ab;
+    const v = state.ventas.find(x => (x.abonos || []).some(a => a.id === id));
+    const a = v.abonos.find(x => x.id === id);
+    const esMonto = inp.classList.contains("abm");
+
+    if (esMonto && !(Number(inp.value) > 0)) {
+      toast("⚠ Un abono no puede ser cero. Bórralo con la ✕.");
+      inp.value = a.monto;
+      return;
+    }
+    const campos = esMonto ? { monto: Number(inp.value) } : { fecha: inp.value };
+    if (!(await abPatch(id, campos))) { inp.value = esMonto ? a.monto : a.fecha; return; }
+    Object.assign(a, campos);
+    toast("Abono corregido ✓");
+    renderVentas();
+  });
+
+  L.querySelectorAll("[data-abdel]").forEach(b => b.onclick = async () => {
+    const id = b.dataset.abdel;
+    const v = state.ventas.find(x => (x.abonos || []).some(a => a.id === id));
+    const a = v.abonos.find(x => x.id === id);
+    if (!confirm(`¿Borrar el abono de ${usd(a.monto)} del ${fmtF(a.fecha)}?`)) return;
+    if (!(await abDelete(id))) return;
+    v.abonos = v.abonos.filter(x => x.id !== id);
+    toast("Abono borrado");
+    renderVentas();
   });
 
   L.querySelectorAll("[data-pago]").forEach(b => b.onclick = async () => {

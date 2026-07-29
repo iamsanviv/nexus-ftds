@@ -110,6 +110,11 @@ Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
 - **«Saldada» no se marca, se deduce** (abonos ≥ valor). La comisión se causa en
   el mes del abono que completó el valor. Ni «saldada» ni el total de comisión
   se guardan: una sola verdad.
+- **Cada abono se corrige en su fila** (monto y fecha editables, ✕ para borrar).
+  Hacía falta porque un abono de más dejaba la venta saldada, y saldada la
+  tarjeta no muestra ningún control: quedaba sin salida. La fecha es editable
+  porque decide en qué mes se causa la comisión. Poner cero no vale — para eso
+  está la ✕, que es lo que de verdad se quiere decir.
 - **Upgrade**: cobra la diferencia de precio y comisiona un **monto fijo**
   (`parametros.comision_upgrade`), no la comisión del producto — el pago inicial
   ya comisionó en su momento. **De Beca a membresía NO es upgrade**: la beca es
@@ -119,6 +124,37 @@ Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
   que sobra se acumula como «base» para el mes siguiente. `ftd_base` se guarda
   en vez de derivarse: derivarla dejaría que un FTD registrado tarde moviera la
   comisión de meses ya pagados.
+
+### FTD reales vs. cargados (`ftd.js`)
+
+- **Tres números distintos, y confundirlos fue el defecto original**:
+  `cargados` (los que están en la plataforma), `reales` (los que el agente dice
+  que lleva, en `ftd_base.declarado`) y `sin subir` (la resta). **El que manda
+  para las metas es `reales`.** Se toma `max(declarado, cargados)` para que
+  subir de más no deje el número corto.
+- **La casilla «ya lo conté» no marca nada en `clientes`.** Desmarcarla sube
+  `declarado` en 1 y ya; al subir uno de los que faltaban, `cargados` sube solo
+  y «sin subir» baja. Por eso la casilla **solo aparece si hay deuda**: cuando
+  «sin subir» llega a 0 desaparece del formulario.
+- **La base se escribe a mano una sola vez**, para arrancar. Del mes siguiente
+  en adelante la siembra el cierre: `sobra = efectivos − meta alcanzada`.
+- **La meta que el agente se pone se mide SIN la base** (`progresoMeta`), y la
+  comisión SÍ la cuenta (`comisionFtd`). Son dos cosas distintas y mezclarlas
+  le decía «meta cumplida» a alguien que llegó con base y no hizo nada este
+  mes — justo lo contrario de para lo que sirve una meta. En la tarjeta la base
+  va en una línea aparte que dice que no cuenta para la meta.
+- **Un mes cerrado no se reabre** (`cerrado = true` bloquea el UPDATE en RLS,
+  salvo admin). Lo que se pagó, se pagó.
+- **La meta del agente es libre**, no una de las cinco de la tabla: se elige con
+  deslizador (1 → la meta más alta) y los atajos son solo eso, atajos. Por eso
+  `pagoDeMeta(n)` busca **la mayor meta que `n` alcanza**, no coincidencia
+  exacta: con una meta de 70 la búsqueda exacta devolvía $0.
+- Al arrastrar el deslizador **no se vuelve a pintar el paso**, solo la lectura
+  y qué atajo queda marcado: repintar mata el gesto a mitad de arrastre.
+- El bloque vive en **Personas**, no en Ventas: es donde el agente pasa el día.
+  Su comisión sigue sumando al encabezado de Ventas.
+- El cierre se ofrece **al entrar, si el mes anterior quedó sin cerrar** — no
+  estrictamente el día 1. Si se pospone, vuelve a aparecer.
 - **Los zooms son etapas con fecha y estado.** No mandan WhatsApp. Programar
   recordatorios sigue siendo cosa de Seguimiento.
 - **`productos.categoria` tiene tres valores**: `membresia`, `servicio` y
@@ -129,8 +165,30 @@ Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
   encuentra a «César».
 - Se venden solo clientes **propios**, por lo mismo que la regla de envíos: la
   venta quedaría a nombre de quien la registra.
+- **Las dos comisiones van separadas**: la de FTD en su tarjeta de Personas y la
+  de ventas en la suya. Mezclarlas en un solo número escondía cuál de las dos
+  estaba floja. El total de ambas va discreto, abajo a la derecha (`.totalmes`).
+- **La lista empieza por «Falta que paguen»**, ordenada por urgencia de cobro.
+  Lo ya causado es historia y baja al final.
 - El panel lleva un **aviso legal obligatorio**: son cifras de guía, no un dato
   oficial de Nexus para reclamar pagos.
+
+### Alertas por fecha de pago
+
+`alertaPago(v)` clasifica cada venta viva y da el `orden` de cobro:
+
+| nivel | cuándo | se ve |
+|---|---|---|
+| `vencida` | `fecha_pago` ya pasó | filo rojo + chip «Vencida hace N días» |
+| `hoy` | vence hoy | filo dorado |
+| `pronto` | faltan ≤ `ALERTA_PRONTO` (3) días | filo dorado tenue |
+| `ok` | más lejos | sin filo, solo la fecha |
+| `sinfecha` | no tiene `fecha_pago` | filo gris, va de último |
+
+- El **aviso rojo de arriba solo sale si hay vencidas o vence algo hoy**. Si
+  saliera siempre, dejaría de mirarse.
+- Los días se restan **en UTC** (`fecha + "T00:00:00Z"`). Con fechas locales, en
+  Colombia (UTC−5) el mismo día daba distinto según la hora.
 
 ---
 
@@ -195,7 +253,8 @@ public/
     canal.js          «Mi WhatsApp»: estado y vinculación por agente
     salud.js          Alertas de canal caído + panel de agentes
     repaso.js         Repaso diario de asistencias
-    ventas.js         Ventas, abonos, comisiones y metas de FTD
+    ventas.js         Ventas, abonos y comisiones
+    ftd.js            Bloque de FTD en Personas, metas y cierre mensual
     stats.js, main.js
 sql/                  Migraciones documentadas (el estado real está en la base)
 ```
@@ -212,12 +271,22 @@ Flujo de dependencias sin ciclos. El estado mutable vive en un único objeto
 que se sabe de él es inferencia desde la base. Si algo depende de su
 comportamiento, decirlo en vez de asumirlo.
 
+## Decisiones de seguridad que se relajaron a propósito
+
+- **El agente escribe su propia `ftd_base`** (antes solo director y admin).
+  Hacía falta para que declare sus FTD reales y cierre su mes. Se acepta porque
+  **este panel no es la fuente de pago**: lo dice el aviso legal de la pantalla.
+  Si algún día se paga contra estos números, hay que devolver la escritura al
+  director. Queda como el único sitio donde alguien puede mover una cifra que
+  le afecta a él mismo.
+
 ## Pendientes conocidos
 
-- **La migración de ventas NO está aplicada.** `sql/2026-07-29_07…` está escrito
-  y probado en el navegador con datos inyectados, pero el MCP de Supabase daba
-  «permission denied» ese día: falta correrlo y **probar el RLS simulando
-  sesiones**, que es como se valida aquí. El bloque de pruebas ya está escrito.
+- **Falta probar el RLS de ventas y FTD simulando sesiones.** Las dos
+  migraciones (07 y 08) están aplicadas, pero sus bloques de pruebas nunca se
+  corrieron: no está verificado que un agente no vea las ventas de otro, ni que
+  no pueda escribir la `ftd_base` ajena o reabrir un mes cerrado. El SQL ya está
+  escrito en los dos archivos; solo falta poner los UUID reales.
 - **Faltan valores de comisión**: `parametros.comision_upgrade` y once productos
   quedaron en 0 («por confirmar» en la lista del 29/07). Mientras sigan en cero,
   esas ventas se registran pero no suman.
