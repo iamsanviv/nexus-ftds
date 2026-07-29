@@ -795,6 +795,24 @@ body.segwide .tabinner{max-width:1180px}
   padding:10px 4px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);
   font-variant-numeric:tabular-nums}
 .atajo.on{border-color:var(--gold);color:var(--gold);background:rgba(232,184,75,.1)}
+
+/* Deslizador de meta libre. La regla global de `input` le pone fondo, borde y
+   padding: hay que devolverlo a cero o el control no se dibuja. */
+.metaslider{margin-top:10px}
+.metaslider input[type=range]{-webkit-appearance:none;appearance:none;width:100%;
+  background:transparent;border:none;padding:0;height:26px;cursor:pointer}
+.metaslider input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:99px;
+  background:linear-gradient(90deg,var(--gold-dim),var(--gold) var(--pct,50%),var(--surface2) var(--pct,50%))}
+.metaslider input[type=range]::-moz-range-track{height:6px;border-radius:99px;background:var(--surface2)}
+.metaslider input[type=range]::-moz-range-progress{height:6px;border-radius:99px;
+  background:linear-gradient(90deg,var(--gold-dim),var(--gold))}
+.metaslider input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:20px;height:20px;margin-top:-7px;border-radius:99px;background:var(--gold);
+  border:2px solid #191204;box-shadow:0 2px 8px rgba(232,184,75,.45)}
+.metaslider input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:99px;
+  background:var(--gold);border:2px solid #191204;box-shadow:0 2px 8px rgba(232,184,75,.45)}
+.slval{font-size:.73rem;color:var(--muted);text-align:center;margin-top:3px}
+.slval b{color:var(--gold);font-variant-numeric:tabular-nums}
 .desglose{display:flex;flex-direction:column;gap:7px;font-size:.78rem;color:var(--muted)}
 .desglose div{display:flex;justify-content:space-between;gap:10px}
 .desglose b{color:var(--text);font-variant-numeric:tabular-nums}

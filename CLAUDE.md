@@ -145,6 +145,12 @@ Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
   va en una línea aparte que dice que no cuenta para la meta.
 - **Un mes cerrado no se reabre** (`cerrado = true` bloquea el UPDATE en RLS,
   salvo admin). Lo que se pagó, se pagó.
+- **La meta del agente es libre**, no una de las cinco de la tabla: se elige con
+  deslizador (1 → la meta más alta) y los atajos son solo eso, atajos. Por eso
+  `pagoDeMeta(n)` busca **la mayor meta que `n` alcanza**, no coincidencia
+  exacta: con una meta de 70 la búsqueda exacta devolvía $0.
+- Al arrastrar el deslizador **no se vuelve a pintar el paso**, solo la lectura
+  y qué atajo queda marcado: repintar mata el gesto a mitad de arrastre.
 - El bloque vive en **Personas**, no en Ventas: es donde el agente pasa el día.
   Su comisión sigue sumando al encabezado de Ventas.
 - El cierre se ofrece **al entrar, si el mes anterior quedó sin cerrar** — no

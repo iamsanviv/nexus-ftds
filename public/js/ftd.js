@@ -101,7 +101,13 @@ export function renderBloqueFtd() {
   revisarRituales();
 }
 
-const pagoDeMeta = n => Number((state.metasFtd.find(m => m.ftd === n) || {}).pago || 0);
+// Lo que paga una meta cualquiera: la mayor meta REAL que ese número alcanza.
+// No puede ser coincidencia exacta — desde que la meta se elige con deslizador,
+// un 70 no está en la tabla y habría mostrado $0.
+const pagoDeMeta = n => {
+  const alc = [...state.metasFtd].reverse().find(m => n >= m.ftd);
+  return alc ? Number(alc.pago) : 0;
+};
 
 /* ================= ASISTENTE ================= */
 // Un solo overlay con pasos. `modo`:
@@ -200,7 +206,22 @@ function pasoCierre() {
     </div>`;
 }
 
+// Tope del deslizador: la meta más alta que paga. Más arriba no cambia nada.
+const topeMeta = () => state.metasFtd.length
+  ? Math.max(...state.metasFtd.map(m => m.ftd)) : 150;
+
+// Qué significa el número elegido, en plata. Se actualiza al arrastrar.
+function textoMeta(n) {
+  const alc = [...state.metasFtd].reverse().find(m => n >= m.ftd);
+  const sig = state.metasFtd.find(m => m.ftd > n);
+  if (!alc) return `<b>${n}</b> FTD · todavía no paga${
+    sig ? `; la primera es ${sig.ftd} (${usd(sig.pago)})` : ""}`;
+  return `<b>${n}</b> FTD · paga <b>${usd(alc.pago)}</b>${
+    n === alc.ftd ? "" : ` (la meta de ${alc.ftd})`}`;
+}
+
 function pasoMetas() {
+  const tope = topeMeta();
   const atajos = state.metasFtd.map(m =>
     `<button class="atajo ${m.ftd === asis.metaFtd ? "on" : ""}" data-ftd="${m.ftd}">${m.ftd}</button>`).join("");
   return `
@@ -210,6 +231,12 @@ function pasoMetas() {
       <div class="abody">
         <div class="frow"><label>Meta de FTD</label>
           <div class="atajos">${atajos}</div>
+          <div class="metaslider">
+            <input type="range" id="asMetaRange" min="1" max="${tope}"
+                   value="${Math.min(asis.metaFtd, tope)}" step="1"
+                   aria-label="Meta de FTD del mes">
+            <div class="slval" id="asMetaVal"></div>
+          </div>
         </div>
         <div class="frow"><label>Meta de comisión por ventas (USD)</label>
           <input id="asMetaVentas" type="number" min="0" step="10" value="${asis.metaVentas || ""}"
@@ -230,7 +257,7 @@ function pasoTotal() {
                "Con lo que acabas de decirme.")}
       <div class="abody">
         <div class="desglose">
-          <div><span>Meta de ${asis.metaFtd} FTD</span><b>${usd(pago)}</b></div>
+          <div><span>Meta de ${asis.metaFtd} FTD</span><b>${pago ? usd(pago) : "no paga"}</b></div>
           <div><span>Meta de comisión por ventas</span><b>${usd(asis.metaVentas || 0)}</b></div>
         </div>
         <div class="totalcard">
@@ -279,10 +306,25 @@ function engancharPaso(cual) {
   ["asDeclarado", "asBase", "asFinal"].forEach(id => { if ($(id)) $(id).oninput = eco; });
   eco();
 
-  $("ftdModal").querySelectorAll(".atajo").forEach(b => b.onclick = () => {
-    asis.metaFtd = Number(b.dataset.ftd);
-    pintarPaso();
-  });
+  // Deslizador y atajos son la misma cifra por dos caminos. Al arrastrar NO se
+  // vuelve a pintar el paso: eso mataría el arrastre a mitad de gesto. Solo se
+  // refresca la lectura y qué atajo queda marcado.
+  const range = $("asMetaRange");
+  if (range) {
+    const refrescar = () => {
+      asis.metaFtd = Number(range.value);
+      $("asMetaVal").innerHTML = textoMeta(asis.metaFtd);
+      range.style.setProperty("--pct", (asis.metaFtd / Number(range.max) * 100) + "%");
+      $("ftdModal").querySelectorAll(".atajo").forEach(b =>
+        b.classList.toggle("on", Number(b.dataset.ftd) === asis.metaFtd));
+    };
+    range.oninput = refrescar;
+    $("ftdModal").querySelectorAll(".atajo").forEach(b => b.onclick = () => {
+      range.value = b.dataset.ftd;
+      refrescar();
+    });
+    refrescar();
+  }
 
   if ($("asSaltar")) $("asSaltar").onclick = cerrarAsistente;
   $("asSeguir").onclick = () => avanzar(cual);
