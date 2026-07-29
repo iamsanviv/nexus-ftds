@@ -280,6 +280,7 @@
 
     <div class="mgrp">
       <button class="mrow" id="btnCanal"><span class="mi">💬</span>Mi WhatsApp<span class="wstate" id="canalEstado">…</span></button>
+      <button class="mrow" id="btnPass"><span class="mi">🔑</span>Cambiar mi contraseña<span class="mc">›</span></button>
     </div>
 
     <div class="mgrp">
@@ -564,6 +565,24 @@
         </div>
         <button class="masenviar" id="masEnviar">Enviar mensaje</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- cambiar contraseña (con sesión abierta: no manda ningún correo) -->
+<div class="overlay" id="passOverlay">
+  <div class="modal">
+    <h2>🔑 Cambiar mi contraseña</h2>
+    <div class="frow"><label>Contraseña nueva</label>
+      <input id="pass1" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+    </div>
+    <div class="frow"><label>Repítela</label>
+      <input id="pass2" type="password" autocomplete="new-password" placeholder="La misma otra vez">
+    </div>
+    <div class="autherr" id="passErr"></div>
+    <div class="mbtns">
+      <button class="cancelar" id="passCancelar">Cancelar</button>
+      <button class="guardar" id="passGuardar">Cambiar contraseña</button>
     </div>
   </div>
 </div>
