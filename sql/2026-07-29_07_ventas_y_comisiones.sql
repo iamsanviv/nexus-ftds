@@ -35,10 +35,13 @@
 -- es un upgrade y cobrar solo la diferencia de precio.
 -- ───────────────────────────────────────────────────────────────────────────
 
+-- `categoria` agrupa el selector del formulario. Los bots van aparte de los
+-- demás servicios porque son once de dieciséis productos: mezclados, tapaban
+-- todo lo demás en la lista.
 create table if not exists public.productos (
   id        text primary key,
   nombre    text not null,
-  categoria text not null check (categoria in ('membresia','servicio')),
+  categoria text not null check (categoria in ('membresia','servicio','bot')),
   precio    numeric(12,2) not null check (precio >= 0),
   comision  numeric(12,2) not null default 0 check (comision >= 0),
   nivel     int,                      -- solo membresías; null en servicios
@@ -56,17 +59,27 @@ insert into public.productos (id, nombre, categoria, precio, comision, nivel, or
   ('vip',            'VIP',                    'membresia', 300, 0,   2, 30),
   ('vip_promo',      'VIP (promoción)',        'membresia', 220, 55,  2, 31),
 
-  ('bot_ia_45',      'Bot IA (45 días)',       'servicio',   30, 10, null, 40),
-  ('trader_vip',     'Trader VIP',             'servicio',  270, 50, null, 41),
-  ('bot_ia_vit',     'Bot IA (Vitalicio)',     'servicio',  400, 0,  null, 42),
-  ('gopro_anual',    'Bot GoPro (Anual)',      'servicio',  415, 0,  null, 43),
-  ('gopro_vit',      'Bot GoPro (Vitalicio)',  'servicio',  615, 0,  null, 44),
-  ('gopro_vip',      'Bot GoPro (Servicios VIP)','servicio',135, 0,  null, 45),
-  ('gotraders_anual','Bot GoTraders (Anual)',  'servicio',  415, 0,  null, 46),
-  ('gotraders_vit',  'Bot GoTraders (Vitalicio)','servicio',615, 0,  null, 47),
-  ('gold_anual',     'Bot Gold (Anual)',       'servicio',  335, 0,  null, 48),
-  ('gold_vit',       'Bot Gold (Vitalicio)',   'servicio',  375, 0,  null, 49)
+  ('trader_vip',     'Trader VIP',             'servicio',  270, 50, null, 40),
+
+  ('bot_ia_45',      'Bot IA (45 días)',       'bot',        30, 10, null, 50),
+  ('bot_ia_vit',     'Bot IA (Vitalicio)',     'bot',       400, 0,  null, 51),
+  ('gopro_anual',    'Bot GoPro (Anual)',      'bot',       415, 0,  null, 52),
+  ('gopro_vit',      'Bot GoPro (Vitalicio)',  'bot',       615, 0,  null, 53),
+  ('gopro_vip',      'Bot GoPro (Servicios VIP)','bot',     135, 0,  null, 54),
+  ('gotraders_anual','Bot GoTraders (Anual)',  'bot',       415, 0,  null, 55),
+  ('gotraders_vit',  'Bot GoTraders (Vitalicio)','bot',     615, 0,  null, 56),
+  ('gold_anual',     'Bot Gold (Anual)',       'bot',       335, 0,  null, 57),
+  ('gold_vit',       'Bot Gold (Vitalicio)',   'bot',       375, 0,  null, 58)
 on conflict (id) do nothing;   -- no pisa precios que ya hayan ajustado
+
+-- Si la migración ya se corrió con los bots dentro de 'servicio', reclasifícalos.
+-- El `check` de arriba hay que ampliarlo antes, o el update falla.
+alter table public.productos drop constraint if exists productos_categoria_check;
+alter table public.productos add  constraint productos_categoria_check
+  check (categoria in ('membresia','servicio','bot'));
+
+update public.productos set categoria = 'bot'
+ where categoria = 'servicio' and nombre like 'Bot %';
 
 alter table public.productos enable row level security;
 

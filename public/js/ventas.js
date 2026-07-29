@@ -8,7 +8,7 @@
 // `mensajes_programados`: programar recordatorios sigue viviendo en Seguimiento
 // y aquí no se duplica esa maquinaria.
 import {
-  state, $, esc, fmtF, hoyISO, toast, esLead,
+  state, $, esc, fmtF, hoyISO, toast, esLead, norm,
   usd, periodoDe, periodoAntes, mesLegible,
   pagado, saldo, estaSaldada, fechaSaldo, comisionSinDefinir,
   resumenVentas, comisionFtd,
@@ -380,18 +380,78 @@ function calcular() {
   }
 }
 
+/* ---------- selectores con búsqueda ---------- */
+// Sin dependencias: un input que filtra una lista. `norm()` es la misma que usa
+// el buscador de Personas, así que "cesar" encuentra a "César".
+const GRUPOS = [
+  ["membresia", "Membresías"],
+  ["servicio",  "Servicios"],
+  // Once de dieciséis productos son bots: mezclados con los servicios tapaban
+  // todo lo demás, así que van en su propio grupo.
+  ["bot",       "Bots automáticos"],
+];
+
+function pintarClientes(filtro = "") {
+  const q = norm(filtro);
+  const cs = misClientes().filter(c => !q || norm(c.nombre).includes(q));
+  const sel = $("vfCliente").value;
+  $("vfListaCliente").innerHTML = cs.length
+    ? cs.map(c => `<button type="button" class="pkop ${c.id === sel ? "on" : ""}" data-id="${c.id}"
+         data-nom="${esc(c.nombre)}"><span class="nm">${esc(c.nombre)}</span>
+         <span class="badge b-${c.mem}">${c.mem}</span></button>`).join("")
+    : `<div class="pkvacio">Ningún cliente tuyo se llama así.</div>`;
+}
+
+function pintarProductos(filtro = "") {
+  const q = norm(filtro);
+  const hit = p => !q || norm(p.nombre).includes(q);
+  const sel = $("vfProducto").value;
+  const fila = (id, nom, extra) => `<button type="button" class="pkop ${id === sel ? "on" : ""}"
+      data-id="${id}" data-nom="${esc(nom)}"><span class="nm">${esc(nom)}</span>${extra}</button>`;
+
+  let html = GRUPOS.map(([cat, titulo]) => {
+    const ps = state.productos.filter(p => p.categoria === cat && hit(p));
+    if (!ps.length) return "";
+    return `<div class="pkgrupo">${titulo}</div>` + ps.map(p =>
+      fila(p.id, p.nombre, `<span class="pr">${usd(p.precio)}</span>`)).join("");
+  }).join("");
+
+  // "Otro" siempre disponible: es la salida para vender algo fuera de la lista.
+  if (!q || norm("otro a mano").includes(q)) {
+    html += `<div class="pkgrupo">Fuera del catálogo</div>` + fila("__otro", "Otro (a mano)", "");
+  }
+  $("vfListaProducto").innerHTML = html || `<div class="pkvacio">Nada coincide con «${esc(filtro)}».</div>`;
+}
+
+// Cablea un selector: escribir filtra, elegir cierra y avisa.
+function engancharPick(inputId, listaId, hiddenId, pintar, alElegir) {
+  const inp = $(inputId), lista = $(listaId);
+  const abrir = () => { pintar(inp.value === inp.dataset.nom ? "" : inp.value); lista.classList.remove("hidden"); };
+
+  inp.onfocus = () => { inp.select(); abrir(); };
+  inp.oninput = () => { pintar(inp.value); lista.classList.remove("hidden"); };
+  lista.onclick = e => {
+    const b = e.target.closest(".pkop");
+    if (!b) return;
+    $(hiddenId).value = b.dataset.id;
+    inp.value = b.dataset.nom;
+    inp.dataset.nom = b.dataset.nom;   // para saber que el texto es una selección
+    lista.classList.add("hidden");
+    alElegir();
+  };
+}
+
+// Cerrar las listas al tocar fuera; si no, quedan abiertas tapando el formulario.
+$("ventaOverlay").addEventListener("click", e => {
+  if (!e.target.closest(".vtpick")) {
+    $("vfListaCliente").classList.add("hidden");
+    $("vfListaProducto").classList.add("hidden");
+  }
+});
+
 export function abrirVenta(v = null) {
   state.ventaEdit = v;
   $("vTitulo").textContent = v ? "Editar venta" : "Nueva venta";
-
-  $("vfCliente").innerHTML = `<option value="">Elige…</option>` + misClientes()
-    .map(c => `<option value="${c.id}">${esc(c.nombre)} · ${c.mem}</option>`).join("");
-  const porCat = cat => state.productos.filter(p => p.categoria === cat)
-    .map(p => `<option value="${p.id}">${esc(p.nombre)} · ${usd(p.precio)}</option>`).join("");
-  $("vfProducto").innerHTML = `<option value="">Elige…</option>`
-    + `<optgroup label="Membresías">${porCat("membresia")}</optgroup>`
-    + `<optgroup label="Servicios">${porCat("servicio")}</optgroup>`
-    + `<option value="__otro">Otro (a mano)</option>`;
 
   const set = (id, val) => $(id).value = val ?? "";
   set("vfCliente", v?.cliente_id); set("vfProducto", v?.producto_id || (v ? "__otro" : ""));
@@ -408,18 +468,29 @@ export function abrirVenta(v = null) {
   $("vfPagoRow").classList.toggle("hidden", !!v);
   $("vfOtroRow").classList.toggle("hidden", !!v?.producto_id || !v);
 
-  $("ventaOverlay").classList.add("open");
-  if (v) calcularSiVacio();
-}
-const calcularSiVacio = () => {};   // al editar no se recalcula: manda lo guardado
+  // Texto visible de los selectores. Al editar salen con lo ya elegido.
+  const ponTexto = (inputId, texto) => {
+    const i = $(inputId);
+    i.value = texto; i.dataset.nom = texto;
+  };
+  ponTexto("vfBuscaCliente", v?.cliente_nombre || "");
+  ponTexto("vfBuscaProducto", v ? (v.producto_id ? v.producto_nombre : "Otro (a mano)") : "");
+  $("vfListaCliente").classList.add("hidden");
+  $("vfListaProducto").classList.add("hidden");
+  pintarClientes(); pintarProductos();
 
-$("vfCliente").onchange = () => { if (!state.ventaEdit) calcular(); };
-$("vfProducto").onchange = () => {
+  $("ventaOverlay").classList.add("open");
+}
+
+// Al EDITAR no se recalcula solo: manda lo que ya quedó guardado, que puede
+// haberse ajustado a mano. Solo se recalcula si cambian cliente o producto.
+engancharPick("vfBuscaCliente", "vfListaCliente", "vfCliente", pintarClientes, calcular);
+engancharPick("vfBuscaProducto", "vfListaProducto", "vfProducto", pintarProductos, () => {
   const otro = $("vfProducto").value === "__otro";
   $("vfOtroRow").classList.toggle("hidden", !otro);
   if (otro) { $("vfHint").classList.add("hidden"); return; }
   calcular();
-};
+});
 // Si se marca «ya pagó», el abono inicial sobra: lo cubre el total.
 $("vfPagada").onchange = () => {
   $("vfAbono").disabled = $("vfPagada").checked;

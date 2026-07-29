@@ -121,6 +121,12 @@ Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
   comisión de meses ya pagados.
 - **Los zooms son etapas con fecha y estado.** No mandan WhatsApp. Programar
   recordatorios sigue siendo cosa de Seguimiento.
+- **`productos.categoria` tiene tres valores**: `membresia`, `servicio` y
+  `bot`. Los bots van aparte porque son nueve de dieciséis productos y
+  mezclados con los servicios tapaban todo lo demás en el selector.
+- Cliente y producto se eligen con **buscador**, no con `<select>`: son 200+
+  clientes. Filtra con `norm()`, la misma de Personas, así que «cesar»
+  encuentra a «César».
 - Se venden solo clientes **propios**, por lo mismo que la regla de envíos: la
   venta quedaría a nombre de quien la registra.
 - El panel lleva un **aviso legal obligatorio**: son cifras de guía, no un dato

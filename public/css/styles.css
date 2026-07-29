@@ -802,6 +802,19 @@ body.segwide .tabinner{max-width:1180px}
 .frow label.chkline{display:flex;align-items:center;gap:9px;font-size:.85rem;color:var(--text);cursor:pointer;text-transform:none;letter-spacing:0;margin-bottom:0;font-weight:400}
 .chkline input{width:18px;height:18px;flex:0 0 auto;accent-color:var(--gold)}
 
+/* --- selector con búsqueda (cliente y producto) --- */
+.vtpick{position:relative}
+.vtpick .pkin{width:100%}
+.pklist{margin-top:5px;max-height:230px;overflow-y:auto;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:4px}
+.pkgrupo{font-size:.58rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding:9px 9px 5px}
+.pkop{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:9px 9px;border-radius:8px;font-size:.85rem}
+.pkop:hover,.pkop:focus-visible{background:rgba(232,184,75,.08);outline:none}
+.pkop.on{background:rgba(232,184,75,.13);box-shadow:inset 0 0 0 1px rgba(232,184,75,.4)}
+.pkop .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pkop .pr{flex:0 0 auto;font-family:'Archivo';font-weight:800;font-variant-numeric:tabular-nums;font-size:.82rem;color:var(--muted)}
+.pkop.on .pr{color:var(--gold)}
+.pkvacio{padding:14px 10px;font-size:.78rem;color:var(--muted);text-align:center}
+
 /* --- aviso legal: obligatorio, no es un adorno --- */
 .vtlegal{font-size:.7rem;color:var(--muted);line-height:1.5;margin-top:20px;padding:11px 13px;border:1px dashed var(--border);border-radius:var(--r)}
 .vtlegal b{color:#b9c3ce}

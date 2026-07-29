@@ -568,12 +568,22 @@
   <div class="modal">
     <h2 id="vTitulo">Nueva venta</h2>
 
+    <!-- Selectores con búsqueda: un input que filtra la lista de abajo. El
+         valor real vive en el hidden; la lista se arma en ventas.js. -->
     <div class="frow"><label>Cliente</label>
-      <select id="vfCliente"></select>
+      <div class="vtpick" id="pkCliente">
+        <input class="pkin" id="vfBuscaCliente" placeholder="Escribe un nombre…" autocomplete="off">
+        <div class="pklist hidden" id="vfListaCliente"></div>
+      </div>
+      <input type="hidden" id="vfCliente">
     </div>
 
     <div class="frow"><label>Qué compra</label>
-      <select id="vfProducto"></select>
+      <div class="vtpick" id="pkProducto">
+        <input class="pkin" id="vfBuscaProducto" placeholder="Membresía, servicio o bot…" autocomplete="off">
+        <div class="pklist hidden" id="vfListaProducto"></div>
+      </div>
+      <input type="hidden" id="vfProducto">
     </div>
 
     <div class="frow hidden" id="vfOtroRow"><label>Nombre de lo que vende</label>
