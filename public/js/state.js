@@ -214,6 +214,29 @@ export function comisionFtd(periodo, ownerId) {
   };
 }
 
+// Progreso hacia la META QUE EL AGENTE SE PUSO. Se mide SOLO con los FTD de
+// este mes: la base NO cuenta.
+//
+// Es deliberado y no es lo mismo que la comisión. La base sí sirve para cobrar
+// —para eso se acumula—, pero si además contara para la meta personal, alguien
+// que llegó con 31 de base vería «meta cumplida» sin haber hecho nada este mes,
+// y eso lo desactiva justo de lo que la meta pretende activarlo.
+export function progresoMeta(periodo, ownerId) {
+  const f = comisionFtd(periodo, ownerId);
+  const m = metasDe(periodo, ownerId);
+  // Sin meta propia se usa la siguiente de comisión, solo como referencia.
+  const meta = m?.metaFtd || f.siguiente || 0;
+  return {
+    meta,
+    hechos: f.reales,                                  // sin base, a propósito
+    faltan: Math.max(0, meta - f.reales),
+    cumplida: meta > 0 && f.reales >= meta,
+    pct: meta ? Math.min(100, Math.round(f.reales / meta * 100)) : 0,
+    pctCargados: meta ? Math.min(100, Math.round(f.cargados / meta * 100)) : 0,
+    propia: !!m?.metaFtd,
+  };
+}
+
 // Metas que el agente se puso para el mes. El total NO se guarda: es el pago de
 // la meta de FTD más la meta de comisión por ventas, y derivarlo evita que las
 // tres cifras se contradigan.

@@ -739,7 +739,14 @@ body.segwide .tabinner{max-width:1180px}
   background:rgba(232,184,75,.1);border:1px solid rgba(232,184,75,.3);border-radius:999px;padding:3px 9px}
 .ftdcard .fpie{font-size:.7rem;color:var(--muted);margin-top:7px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
 .ftdcard .fpie b{color:var(--gold);font-variant-numeric:tabular-nums}
+.ftdcard .fpie .ok{color:var(--ok)}
 .ftdajuste{margin-left:auto;font-size:.68rem;font-weight:700;color:var(--muted);text-decoration:underline;flex:0 0 auto}
+/* La base va en una línea aparte y en tono menor: suma para la comisión, pero
+   NO para la meta del mes, y mezclarlas hacía creer que ya se había cumplido. */
+.ftdcard .fcom{margin-top:7px;padding-top:7px;border-top:1px dashed rgba(232,184,75,.22);
+  font-size:.68rem;color:var(--muted);line-height:1.45}
+.ftdcard .fcom b{color:#b9c3ce;font-variant-numeric:tabular-nums}
+.ftdcard .fcom span{opacity:.75}
 /* Barra de dos tonos: sólido lo real, tenue lo ya cargado. */
 .barra.dos{position:relative}
 .barra.dos u{position:absolute;top:0;left:0;height:100%;background:rgba(232,184,75,.3);border-radius:99px}

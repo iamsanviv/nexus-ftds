@@ -10,7 +10,7 @@
 //   sin subir → su tarea pendiente
 import {
   state, $, esc, hoyISO, toast, usd, mesLegible, periodoAntes,
-  comisionFtd, metasDe, periodoSinCerrar, ftdDelMes,
+  comisionFtd, metasDe, progresoMeta, periodoSinCerrar, ftdDelMes,
 } from "./state.js";
 import { cargarVentas, guardarFtd, guardarMeta } from "./data.js";
 
@@ -43,10 +43,10 @@ export function renderBloqueFtd() {
 
   const p = mesActual();
   const f = comisionFtd(p, yo());
-  const metas = metasDe(p, yo());
-  const meta = metas?.metaFtd || f.siguiente || 0;
-  const pctReal = meta ? Math.min(100, Math.round(f.efectivos / meta * 100)) : 0;
-  const pctCarga = meta ? Math.min(100, Math.round((f.cargados + f.base) / meta * 100)) : 0;
+  // Dos cosas distintas y separadas a propósito:
+  //   g → la meta que se puso, medida SOLO con los FTD del mes (sin base)
+  //   f → la comisión, que sí cuenta la base porque para eso se acumula
+  const g = progresoMeta(p, yo());
 
   cont.innerHTML = `
     <div class="ftdcard">
@@ -59,22 +59,25 @@ export function renderBloqueFtd() {
 
       <div class="fsub">
         <span><b>${f.cargados}</b> cargados</span>
-        ${f.base ? `<span>· <b>${f.base}</b> de base</span>` : ""}
         ${f.sinSubir ? `<button class="chipsub" id="ftdSinSubir">↑ ${f.sinSubir} sin subir</button>` : ""}
       </div>
 
-      <div class="barra dos">
-        <u style="width:${pctCarga}%"></u><i style="width:${pctReal}%"></i>
+      <div class="barra dos ${g.cumplida ? "full" : ""}">
+        <u style="width:${g.pctCargados}%"></u><i style="width:${g.pct}%"></i>
       </div>
 
       <div class="fpie">
-        ${f.meta
-          ? `Meta de <b>${f.meta}</b> alcanzada · se paga ${usd(f.pago)}`
-          : meta ? `Te faltan <b>${Math.max(0, meta - f.efectivos)}</b> para la meta de <b>${meta}</b>${
-              pagoDeMeta(meta) ? ` (${usd(pagoDeMeta(meta))})` : ""}`
-                 : "Sin meta puesta todavía"}
+        ${g.meta
+          ? (g.cumplida
+              ? `<span class="ok">✓ Cumpliste tu meta de <b>${g.meta}</b></span>`
+              : `Te faltan <b>${g.faltan}</b> para ${g.propia ? "tu meta" : "la meta"} de <b>${g.meta}</b>`)
+          : "Sin meta puesta todavía"}
         <button class="ftdajuste" id="ftdAjustar">${f.declaro ? "Ajustar" : "Poner mis números"}</button>
       </div>
+
+      ${f.base ? `<div class="fcom">Aparte, tus <b>${f.base}</b> de base suman
+        <b>${f.efectivos}</b> para la comisión${f.meta ? `: pagan ${usd(f.pago)}` : ""}.
+        <span>No cuentan para tu meta del mes.</span></div>` : ""}
     </div>`;
 
   const chip = $("ftdSinSubir");
@@ -244,8 +247,11 @@ function engancharPaso(cual) {
       const b = $("asBase") ? Number($("asBase").value) || 0 : asis.base;
       const cargados = ftdDelMes(asis.periodo, yo());
       const falta = Math.max(0, d - cargados);
-      e.innerHTML = `Quedan <b>${d + b}</b> efectivos${
-        falta ? ` · <b>${falta}</b> por subir a la plataforma` : " · todo cargado ✓"}`;
+      // Se dicen por separado: los del mes son los que cuentan para la meta;
+      // la base solo suma para la comisión.
+      e.innerHTML = `<b>${d}</b> FTD este mes${
+        falta ? ` · <b>${falta}</b> por subir a la plataforma` : " · todo cargado ✓"}${
+        b ? `<br>Con tus <b>${b}</b> de base sumas <b>${d + b}</b> para la comisión.` : ""}`;
     } else if (cual === "cierre") {
       const d = Number($("asFinal").value) || 0;
       const b = state.ftdBase[`${yo()}|${asis.periodoCierre}`]?.base || 0;

@@ -133,6 +133,11 @@ Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
   «sin subir» llega a 0 desaparece del formulario.
 - **La base se escribe a mano una sola vez**, para arrancar. Del mes siguiente
   en adelante la siembra el cierre: `sobra = efectivos − meta alcanzada`.
+- **La meta que el agente se pone se mide SIN la base** (`progresoMeta`), y la
+  comisión SÍ la cuenta (`comisionFtd`). Son dos cosas distintas y mezclarlas
+  le decía «meta cumplida» a alguien que llegó con base y no hizo nada este
+  mes — justo lo contrario de para lo que sirve una meta. En la tarjeta la base
+  va en una línea aparte que dice que no cuenta para la meta.
 - **Un mes cerrado no se reabre** (`cerrado = true` bloquea el UPDATE en RLS,
   salvo admin). Lo que se pagó, se pagó.
 - El bloque vive en **Personas**, no en Ventas: es donde el agente pasa el día.
