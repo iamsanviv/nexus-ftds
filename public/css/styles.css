@@ -853,10 +853,17 @@ body.segwide .tabinner{max-width:1180px}
 
 /* --- abonos --- */
 .abonos{margin-top:10px;padding-top:9px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:5px}
-.abonos .ab{display:flex;align-items:center;gap:8px;font-size:.72rem;color:var(--muted)}
-.abonos .ab .tk{color:var(--ok)}
-.abonos .ab .f{font-variant-numeric:tabular-nums}
-.abonos .ab .m{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--text);font-weight:600}
+/* Fila de abono editable: fecha, monto y borrar. Se corrige en el sitio porque
+   un dedazo no debería obligar a borrar la venta entera. */
+.abonos .ab{display:flex;align-items:center;gap:7px}
+.abonos .ab .abf,.abonos .ab .abm{font-size:.72rem;padding:6px 8px;border-radius:8px;
+  font-variant-numeric:tabular-nums;background:transparent;border:1px solid transparent;color:var(--muted)}
+.abonos .ab .abf{flex:0 0 auto;width:auto;color-scheme:dark}
+.abonos .ab .abm{flex:1;min-width:0;text-align:right;color:var(--text);font-weight:600}
+.abonos .ab .abf:hover,.abonos .ab .abm:hover{border-color:var(--border);background:var(--surface2)}
+.abonos .ab .abf:focus,.abonos .ab .abm:focus{border-color:transparent;background:var(--surface2)}
+.abonos .ab .abx{flex:0 0 auto;color:var(--muted);font-size:.72rem;padding:5px 7px;border-radius:7px;line-height:1}
+.abonos .ab .abx:hover{color:var(--bad);background:rgba(242,85,90,.1)}
 .card.vt .mini{display:flex;gap:6px;margin-top:8px}
 .card.vt .mini .abin{flex:1;font-size:.8rem;padding:8px 10px;border-radius:9px;font-variant-numeric:tabular-nums}
 .card.vt .mini .go{flex:0 0 auto;background:var(--gold);color:#191204;font-weight:800;font-size:.78rem;border-radius:9px;padding:8px 15px}

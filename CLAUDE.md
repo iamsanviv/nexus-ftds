@@ -110,6 +110,11 @@ Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
 - **«Saldada» no se marca, se deduce** (abonos ≥ valor). La comisión se causa en
   el mes del abono que completó el valor. Ni «saldada» ni el total de comisión
   se guardan: una sola verdad.
+- **Cada abono se corrige en su fila** (monto y fecha editables, ✕ para borrar).
+  Hacía falta porque un abono de más dejaba la venta saldada, y saldada la
+  tarjeta no muestra ningún control: quedaba sin salida. La fecha es editable
+  porque decide en qué mes se causa la comisión. Poner cero no vale — para eso
+  está la ✕, que es lo que de verdad se quiere decir.
 - **Upgrade**: cobra la diferencia de precio y comisiona un **monto fijo**
   (`parametros.comision_upgrade`), no la comisión del producto — el pago inicial
   ya comisionó en su momento. **De Beca a membresía NO es upgrade**: la beca es

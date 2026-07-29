@@ -175,6 +175,14 @@ export async function abInsert(venta_id, monto, fecha) {
   return { ...data, monto: Number(data.monto) };
 }
 
+// Corregir un abono mal puesto. El monto y la fecha son lo único editable: la
+// fecha importa porque decide en qué mes se causa la comisión.
+export async function abPatch(id, campos) {
+  const { error } = await SB.from("abonos").update(campos).eq("id", id);
+  if (error) { toast("⚠ " + error.message); return false; }
+  return true;
+}
+
 export async function abDelete(id) {
   const { error } = await SB.from("abonos").delete().eq("id", id);
   if (error) { toast("⚠ " + error.message); return false; }

@@ -14,7 +14,8 @@ import {
   resumenVentas, comisionFtd, metasDe, alertaPago, alertasDelMes,
 } from "./state.js";
 import {
-  cargarVentas, vInsert, vPatch, vDelete, abInsert, notaInsert, notaDelete,
+  cargarVentas, vInsert, vPatch, vDelete, abInsert, abPatch, abDelete,
+  notaInsert, notaDelete,
 } from "./data.js";
 
 const yo = () => state.me?.id;
@@ -206,9 +207,16 @@ function tarjeta(v) {
 }
 
 function cuerpo(v, sal, notas) {
-  const abonos = (v.abonos || []).map(a =>
-    `<div class="ab"><span class="tk">✓</span><span class="f">${fmtF(a.fecha)}</span>
-       <span class="m">${usd(a.monto)}</span></div>`).join("");
+  // Los abonos se pueden corregir en el sitio: un dedazo no debería obligar a
+  // borrar la venta entera. La fecha es editable porque decide en qué mes se
+  // causa la comisión.
+  const abonos = (v.abonos || []).map(a => `
+    <div class="ab">
+      <input class="abf" type="date" value="${a.fecha}" data-ab="${a.id}" title="Fecha del abono">
+      <input class="abm" type="number" min="0" step="1" value="${a.monto}" data-ab="${a.id}"
+             inputmode="decimal" title="Monto del abono">
+      <button class="abx" data-abdel="${a.id}" title="Borrar este abono">✕</button>
+    </div>`).join("");
 
   const zoom = (lbl, fecha, est) => {
     const cls = est === "hecha" ? "ok" : est === "no_asistio" ? "no" : fecha ? "now" : "";
@@ -275,6 +283,37 @@ function engancharLista() {
     if (!(monto > 0)) return toast("⚠ El abono tiene que ser mayor que cero");
     b.disabled = true;
     await abonar(id, monto);
+  });
+
+  // Corregir un abono. `change` y no `input`: se guarda al salir del campo, no
+  // en cada tecla, que si no cada dígito sería una escritura a la base.
+  L.querySelectorAll(".abm, .abf").forEach(inp => inp.onchange = async () => {
+    const id = inp.dataset.ab;
+    const v = state.ventas.find(x => (x.abonos || []).some(a => a.id === id));
+    const a = v.abonos.find(x => x.id === id);
+    const esMonto = inp.classList.contains("abm");
+
+    if (esMonto && !(Number(inp.value) > 0)) {
+      toast("⚠ Un abono no puede ser cero. Bórralo con la ✕.");
+      inp.value = a.monto;
+      return;
+    }
+    const campos = esMonto ? { monto: Number(inp.value) } : { fecha: inp.value };
+    if (!(await abPatch(id, campos))) { inp.value = esMonto ? a.monto : a.fecha; return; }
+    Object.assign(a, campos);
+    toast("Abono corregido ✓");
+    renderVentas();
+  });
+
+  L.querySelectorAll("[data-abdel]").forEach(b => b.onclick = async () => {
+    const id = b.dataset.abdel;
+    const v = state.ventas.find(x => (x.abonos || []).some(a => a.id === id));
+    const a = v.abonos.find(x => x.id === id);
+    if (!confirm(`¿Borrar el abono de ${usd(a.monto)} del ${fmtF(a.fecha)}?`)) return;
+    if (!(await abDelete(id))) return;
+    v.abonos = v.abonos.filter(x => x.id !== id);
+    toast("Abono borrado");
+    renderVentas();
   });
 
   L.querySelectorAll("[data-pago]").forEach(b => b.onclick = async () => {
