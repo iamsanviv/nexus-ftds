@@ -74,9 +74,11 @@ export function renderBloqueFtd() {
       <div class="fpie">
         ${g.meta
           ? (g.cumplida
-              ? `<span class="ok">✓ Cumpliste tu meta de <b>${g.meta}</b></span>`
-              : `Te faltan <b>${g.faltan}</b> para ${g.propia ? "tu meta" : "la meta"} de <b>${g.meta}</b>`)
-          : "Sin meta puesta todavía"}
+              ? `<span class="ok">✓ Cumpliste tu meta de
+                   <button class="metalink" id="ftdMeta">${g.meta}</button></span>`
+              : `Te faltan <b>${g.faltan}</b> para ${g.propia ? "tu meta" : "la meta"} de
+                   <button class="metalink" id="ftdMeta">${g.meta}</button>`)
+          : `<button class="metalink" id="ftdMeta">Ponte una meta</button>`}
         <button class="ftdajuste" id="ftdAjustar">${f.declaro ? "Ajustar" : "Poner mis números"}</button>
       </div>
 
@@ -91,6 +93,9 @@ export function renderBloqueFtd() {
   if (chip) chip.onclick = () => toast(
     `Llevas ${f.reales} FTD pero solo ${f.cargados} están cargados. Sube los ${f.sinSubir} que faltan cuando puedas.`);
   $("ftdAjustar").onclick = () => abrirAsistente("ajuste");
+  // La meta es tocable: el asistente promete que se puede cambiar cuando sea, y
+  // "Ajustar" solo abre los números del mes.
+  $("ftdMeta").onclick = () => abrirAsistente("metas");
 
   // Momento natural para el ritual: el agente acaba de llegar a Personas.
   revisarRituales();
@@ -132,7 +137,8 @@ const haCerradoAlguno = () =>
   Object.entries(state.ftdBase).some(([k, v]) => k.startsWith(yo() + "|") && v.cerrado);
 
 function pasos() {
-  if (asis.modo === "ajuste") return ["numeros"];
+  if (asis.modo === "ajuste") return ["numeros"];      // solo los FTD del mes
+  if (asis.modo === "metas")  return ["metas", "total"];  // solo lo que se propone
   if (asis.modo === "cierre") return ["cierre", "metas", "total"];
   return ["numeros", "metas", "total"];
 }
@@ -232,8 +238,9 @@ function pasoTotal() {
           <div class="n">${usd(total)}</div>
           <div class="d">es tu meta de comisión total de ${mesLegible(asis.periodo)}</div>
         </div>
-        <div class="ayuda">Puedes cambiarlas cuando quieras desde el bloque de FTD en Personas.</div>
-        <button class="abtn" id="asSeguir">Empezar</button>
+        <div class="ayuda">Para cambiarlas, toca la meta en la tarjeta de FTD (Personas)
+          o en la de comisión por ventas.</div>
+        <button class="abtn" id="asSeguir">${asis.modo === "inicio" ? "Empezar" : "Guardar metas"}</button>
       </div>
     </div>`;
 }

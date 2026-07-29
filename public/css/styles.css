@@ -743,6 +743,11 @@ body.segwide .tabinner{max-width:1180px}
 .metacard .fpie b{color:var(--gold);font-variant-numeric:tabular-nums}
 .metacard .fpie .ok{color:var(--ok)}
 .ftdajuste{margin-left:auto;font-size:.68rem;font-weight:700;color:var(--muted);text-decoration:underline;flex:0 0 auto}
+/* La meta se toca para cambiarla. Punteada y no subrayada entera, para que se
+   lea como parte de la frase y no como un botón metido a la fuerza. */
+.metalink{color:var(--gold);font-weight:700;font-size:inherit;font-family:inherit;
+  border-bottom:1px dashed rgba(232,184,75,.55);padding:0 1px;font-variant-numeric:tabular-nums}
+.metalink:hover{border-bottom-style:solid;background:rgba(232,184,75,.09)}
 
 /* La barra y, al final, la meta: sin el número el porcentaje no dice contra qué. */
 .barrawrap{display:flex;align-items:center;gap:9px;margin-top:10px}

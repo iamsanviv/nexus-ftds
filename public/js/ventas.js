@@ -76,7 +76,8 @@ function renderHero() {
       <div class="fhead"><span class="lbl">Comisión por ventas de ${mesLegible(p)}</span></div>
 
       <div class="fbig"><b>${usd(r.causada)}</b>
-        <span>${metaV ? `de tu meta de ${usd(metaV)}` : "causada este mes"}</span></div>
+        <span>${metaV ? `de tu meta de <button class="metalink" id="vtMeta">${usd(metaV)}</button>`
+                      : "causada este mes"}</span></div>
       ${cmp ? `<div class="fsub">${cmp}</div>` : ""}
 
       ${metaV ? `
@@ -87,7 +88,7 @@ function renderHero() {
       <div class="fpie">${pct >= 100
         ? `<span class="ok">✓ Cumpliste tu meta de ventas</span>`
         : `Te faltan <b>${usd(metaV - r.causada)}</b> para tu meta`}</div>`
-      : `<div class="fpie">Sin meta de ventas puesta todavía</div>`}
+      : `<div class="fpie"><button class="metalink" id="vtMeta">Ponte una meta de ventas</button></div>`}
 
       <div class="hsplit">
         <div><span class="n k">${usd(r.facturado)}</span><span class="t">Facturado</span></div>
@@ -101,6 +102,10 @@ function renderHero() {
       <div class="totalmes">Total del mes con FTD (${usd(f.pago)}) · <b>${usd(total)}</b></div>
     </div>
     ${avisoAlertas()}`;
+
+  // El asistente de metas vive en ftd.js; import dinámico para no crear ciclo.
+  $("vtMeta").onclick = async () =>
+    (await import("./ftd.js")).abrirAsistente("metas");
 }
 
 // Aviso de cobro. Solo aparece si hay algo vencido o venciendo hoy: si sale
