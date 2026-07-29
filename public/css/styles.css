@@ -698,3 +698,129 @@ body.segwide .tabinner{max-width:1180px}
   .masmodal .pane{overflow-y:auto;min-height:0;padding:18px 20px}
   .masmodal .pane.aud{border-left:1px solid var(--border)}
 }
+
+/* ═══════════════ MÓDULO DE VENTAS ═══════════════ */
+/* Reusa los tokens y las piezas de siempre (.card, .pill, .barra, .gtitle).
+   Aquí solo se define lo que no existía. */
+
+/* --- encabezado: la comisión del mes --- */
+.vthero{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 15px;margin-bottom:10px;position:relative;overflow:hidden}
+.vthero::after{content:'';position:absolute;inset:0 0 auto auto;width:150px;height:150px;background:radial-gradient(circle at 72% 18%,rgba(232,184,75,.14),transparent 68%);pointer-events:none}
+.vthero .lbl{font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.vthero .big{font-family:'Archivo';font-size:2.1rem;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.15;margin:3px 0 2px}
+.vthero .cmp{font-size:.72rem;color:var(--muted)}
+.vthero .cmp .up{color:var(--ok);font-weight:700}
+.vthero .cmp .down{color:var(--bad);font-weight:700}
+.hsplit{display:flex;gap:9px;margin-top:13px;padding-top:12px;border-top:1px solid var(--border)}
+.hsplit div{flex:1;min-width:0}
+.hsplit .n{font-family:'Archivo';font-weight:800;font-size:.92rem;font-variant-numeric:tabular-nums;display:block}
+.hsplit .t{font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.hsplit .k{color:var(--ok)} .hsplit .w{color:var(--muted)}
+.vtwarn{margin-top:11px;font-size:.7rem;color:var(--gold);background:rgba(232,184,75,.07);border:1px solid rgba(232,184,75,.25);border-radius:9px;padding:7px 9px}
+
+/* --- bloque de FTD --- */
+.vtftd{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px 14px;margin-bottom:12px}
+.vtftd .fhead{display:flex;align-items:center;gap:8px}
+.vtftd .lbl{flex:1;font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.vtftd .fpago{font-family:'Archivo';font-weight:800;font-size:1.05rem;font-variant-numeric:tabular-nums;color:var(--muted)}
+.vtftd .fpago.on{color:var(--ok)}
+.vtftd .fnum{font-size:.78rem;color:var(--muted);margin-top:5px;display:flex;gap:7px;flex-wrap:wrap}
+.vtftd .fnum b{color:var(--text);font-family:'Archivo';font-variant-numeric:tabular-nums}
+.vtftd .fpie{font-size:.7rem;color:var(--muted);margin-top:7px}
+.vtftd .fpie b{color:var(--gold);font-variant-numeric:tabular-nums}
+
+/* --- tarjeta de venta --- */
+.card.vt{padding:12px}
+.card.vt .vthead{cursor:pointer}
+.card.vt.open{box-shadow:inset 0 0 0 1px rgba(232,184,75,.22)}
+.vtprod{font-size:.62rem;font-weight:700;color:var(--muted);background:var(--surface2);border:1px solid var(--border);padding:2px 8px;border-radius:999px;flex:0 0 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38%}
+.vtup{font-size:.54rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--vip);background:rgba(176,124,232,.16);padding:3px 7px;border-radius:6px;flex:0 0 auto}
+.tipo{font-size:.54rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:3px 8px;border-radius:6px;flex:0 0 auto}
+.tipo.ag{background:rgba(78,203,141,.14);color:var(--ok)}
+.tipo.po{background:rgba(142,154,168,.16);color:var(--muted)}
+.tipo.pe{background:rgba(242,85,90,.14);color:var(--bad)}
+.plata{font-family:'Archivo';font-weight:800;font-variant-numeric:tabular-nums;font-size:.95rem;flex:0 0 auto}
+.barra.full i{background:linear-gradient(90deg,#2f7f57,var(--ok))}
+.card.vt .pct{display:flex;gap:5px;flex-wrap:wrap;align-items:baseline}
+.card.vt .pct b{color:var(--text)}
+.card.vt .pct b.ok,.card.vt .pct .ok{color:var(--ok)}
+.vtsin{font-size:.62rem;font-weight:700;color:var(--gold);background:rgba(232,184,75,.09);border:1px dashed rgba(232,184,75,.4);padding:1px 7px;border-radius:6px}
+
+/* «Por causar» de facturación y de comisión, debajo de cada venta. */
+.vtpend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:.7rem;color:var(--muted)}
+.vtpend b{color:var(--text);font-variant-numeric:tabular-nums}
+
+/* --- notas apiladas por cliente: plegadas para no comerse la pantalla --- */
+.vtnotas{margin-top:10px;font-size:.72rem}
+.vtnotas summary{cursor:pointer;color:var(--gold);font-weight:600;list-style:none}
+.vtnotas summary::-webkit-details-marker{display:none}
+.vtnotas summary::before{content:'\25B8\00a0';display:inline-block;transition:transform .15s}
+.vtnotas[open] summary::before{transform:rotate(90deg)}
+.vtnotas summary span{color:var(--muted);font-weight:400}
+.vtnotas .nt{display:flex;gap:8px;align-items:flex-start;margin-top:7px;padding-left:12px;color:#b9c3ce}
+.vtnotas .nt .f{color:var(--muted);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.vtnotas .nt .tx{flex:1;white-space:pre-wrap}
+.vtnotas .ntdel{color:var(--muted);font-size:.7rem;flex:0 0 auto}
+.vtnota-add{display:flex;gap:6px;margin-top:9px}
+.vtnota-add .ntin{flex:1;font-size:.75rem;padding:7px 9px;border-radius:9px}
+.vtnota-add .ntgo{flex:0 0 auto;font-size:.72rem;font-weight:700;color:var(--muted);border:1px solid var(--border);border-radius:9px;padding:7px 12px}
+
+/* --- abonos --- */
+.abonos{margin-top:10px;padding-top:9px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:5px}
+.abonos .ab{display:flex;align-items:center;gap:8px;font-size:.72rem;color:var(--muted)}
+.abonos .ab .tk{color:var(--ok)}
+.abonos .ab .f{font-variant-numeric:tabular-nums}
+.abonos .ab .m{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--text);font-weight:600}
+.card.vt .mini{display:flex;gap:6px;margin-top:8px}
+.card.vt .mini .abin{flex:1;font-size:.8rem;padding:8px 10px;border-radius:9px;font-variant-numeric:tabular-nums}
+.card.vt .mini .go{flex:0 0 auto;background:var(--gold);color:#191204;font-weight:800;font-size:.78rem;border-radius:9px;padding:8px 15px}
+
+/* --- los tres zooms --- */
+.card.vt .pasos{display:flex;gap:6px;margin-top:11px;padding-top:10px;border-top:1px solid var(--border)}
+.card.vt .paso{flex:1;font-size:.56rem;text-align:center;color:var(--muted)}
+.card.vt .paso .dot{width:19px;height:19px;margin:0 auto 4px;border-radius:7px;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:800}
+.card.vt .paso.ok .dot{background:var(--ok);border-color:var(--ok);color:#0a2418}
+.card.vt .paso.ok{color:var(--text)}
+.card.vt .paso.now .dot{border-color:var(--gold);color:var(--gold);border-style:dashed}
+.card.vt .paso.now{color:var(--gold);font-weight:700}
+.card.vt .paso.no .dot{border-color:var(--bad);color:var(--bad)}
+.card.vt .paso .fz{display:block;font-variant-numeric:tabular-nums;opacity:.8}
+
+.card.vt .acciones{display:flex;gap:7px;margin-top:11px;padding-top:10px;border-top:1px solid var(--border)}
+.card.vt .act{flex:1;text-align:center;font-size:.72rem;font-weight:600;border:1px solid var(--border);border-radius:9px;padding:8px 4px;color:var(--muted)}
+.card.vt .act.pay{border-color:rgba(78,203,141,.45);color:var(--ok)}
+.card.vt .act.del{border-color:rgba(242,85,90,.35);color:var(--bad)}
+
+/* --- modal de venta --- */
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.f3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
+.vthint{font-size:.74rem;color:var(--gold);background:rgba(232,184,75,.07);border:1px solid rgba(232,184,75,.25);border-radius:10px;padding:9px 11px;margin-bottom:11px;display:flex;gap:8px;align-items:flex-start}
+.vthint .ic{flex:0 0 auto;font-weight:800}
+.frow.chk{margin-bottom:9px}
+/* `.frow label` (0,1,1) le gana a `.chkline` (0,1,0) y lo dejaba en mayúsculas
+   de etiqueta. Se nombra el elemento para empatar la especificidad y ganar. */
+.frow label.chkline{display:flex;align-items:center;gap:9px;font-size:.85rem;color:var(--text);cursor:pointer;text-transform:none;letter-spacing:0;margin-bottom:0;font-weight:400}
+.chkline input{width:18px;height:18px;flex:0 0 auto;accent-color:var(--gold)}
+
+/* --- selector con búsqueda (cliente y producto) --- */
+.vtpick{position:relative}
+.vtpick .pkin{width:100%}
+.pklist{margin-top:5px;max-height:230px;overflow-y:auto;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:4px}
+.pkgrupo{font-size:.58rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding:9px 9px 5px}
+.pkop{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:9px 9px;border-radius:8px;font-size:.85rem}
+.pkop:hover,.pkop:focus-visible{background:rgba(232,184,75,.08);outline:none}
+.pkop.on{background:rgba(232,184,75,.13);box-shadow:inset 0 0 0 1px rgba(232,184,75,.4)}
+.pkop .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pkop .pr{flex:0 0 auto;font-family:'Archivo';font-weight:800;font-variant-numeric:tabular-nums;font-size:.82rem;color:var(--muted)}
+.pkop.on .pr{color:var(--gold)}
+.pkvacio{padding:14px 10px;font-size:.78rem;color:var(--muted);text-align:center}
+
+/* --- aviso legal: obligatorio, no es un adorno --- */
+.vtlegal{font-size:.7rem;color:var(--muted);line-height:1.5;margin-top:20px;padding:11px 13px;border:1px dashed var(--border);border-radius:var(--r)}
+.vtlegal b{color:#b9c3ce}
+.vterr{font-size:.68rem;color:var(--bad);margin-top:8px;font-family:ui-monospace,monospace;word-break:break-word}
+
+@media (max-width:420px){
+  .f3{grid-template-columns:1fr}
+  .vthero .big{font-size:1.8rem}
+}
