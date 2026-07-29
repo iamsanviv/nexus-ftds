@@ -816,6 +816,10 @@ body.segwide .tabinner{max-width:1180px}
 .desglose{display:flex;flex-direction:column;gap:7px;font-size:.78rem;color:var(--muted)}
 .desglose div{display:flex;justify-content:space-between;gap:10px}
 .desglose b{color:var(--text);font-variant-numeric:tabular-nums}
+/* Aclaración de la base: cuelga de la línea de arriba, no es una fila más. */
+.desglose .conbase{margin-top:-3px;padding-left:11px;font-size:.68rem;opacity:.8;
+  border-left:1px dashed rgba(232,184,75,.3)}
+.desglose .conbase b{color:#b9c3ce}
 .totalcard{background:linear-gradient(160deg,rgba(232,184,75,.16),rgba(232,184,75,.04));
   border:1px solid rgba(232,184,75,.32);border-radius:12px;padding:15px;text-align:center}
 .totalcard .t{font-size:.58rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}

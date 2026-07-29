@@ -210,14 +210,28 @@ function pasoCierre() {
 const topeMeta = () => state.metasFtd.length
   ? Math.max(...state.metasFtd.map(m => m.ftd)) : 150;
 
+// Lo que pagaría cumplir una meta de `n` FTD.
+//
+// La META es solo del mes (sin base, por eso el agente se la puso). La
+// COMISIÓN sí cuenta la base, porque para eso se acumula. Son dos cuentas
+// distintas sobre el mismo número y hay que decirlo, o el agente ve una cifra
+// que no le cuadra con la tabla de metas.
+function pagoDeLaMeta(n) {
+  const base = asis ? asis.base || 0 : 0;
+  const efectivos = n + base;
+  const alc = [...state.metasFtd].reverse().find(m => efectivos >= m.ftd) || null;
+  const sig = state.metasFtd.find(m => m.ftd > efectivos) || null;
+  return { base, efectivos, pago: alc ? Number(alc.pago) : 0, meta: alc ? alc.ftd : 0, sig };
+}
+
 // Qué significa el número elegido, en plata. Se actualiza al arrastrar.
 function textoMeta(n) {
-  const alc = [...state.metasFtd].reverse().find(m => n >= m.ftd);
-  const sig = state.metasFtd.find(m => m.ftd > n);
-  if (!alc) return `<b>${n}</b> FTD · todavía no paga${
-    sig ? `; la primera es ${sig.ftd} (${usd(sig.pago)})` : ""}`;
-  return `<b>${n}</b> FTD · paga <b>${usd(alc.pago)}</b>${
-    n === alc.ftd ? "" : ` (la meta de ${alc.ftd})`}`;
+  const p = pagoDeLaMeta(n);
+  const conBase = p.base ? `<b>${n}</b> + <b>${p.base}</b> de base = <b>${p.efectivos}</b>` : `<b>${n}</b> FTD`;
+  if (!p.pago) return `${conBase} · todavía no paga${
+    p.sig ? `; la primera meta es ${p.sig.ftd} (${usd(p.sig.pago)})` : ""}`;
+  return `${conBase} · paga <b>${usd(p.pago)}</b>${
+    p.efectivos === p.meta ? "" : ` (la meta de ${p.meta})`}`;
 }
 
 function pasoMetas() {
@@ -249,7 +263,8 @@ function pasoMetas() {
 }
 
 function pasoTotal() {
-  const pago = pagoDeMeta(asis.metaFtd);
+  const p = pagoDeLaMeta(asis.metaFtd);
+  const pago = p.pago;
   const total = pago + Number(asis.metaVentas || 0);
   return `
     <div class="asis">
@@ -258,6 +273,8 @@ function pasoTotal() {
       <div class="abody">
         <div class="desglose">
           <div><span>Meta de ${asis.metaFtd} FTD</span><b>${pago ? usd(pago) : "no paga"}</b></div>
+          ${p.base ? `<div class="conbase"><span>con tus ${p.base} de base son
+            <b>${p.efectivos}</b> para la comisión</span></div>` : ""}
           <div><span>Meta de comisión por ventas</span><b>${usd(asis.metaVentas || 0)}</b></div>
         </div>
         <div class="totalcard">
@@ -265,6 +282,8 @@ function pasoTotal() {
           <div class="n">${usd(total)}</div>
           <div class="d">es tu meta de comisión total de ${mesLegible(asis.periodo)}</div>
         </div>
+        ${p.base ? `<div class="ayuda">Ojo: tu meta sigue siendo de
+          <b>${asis.metaFtd} FTD este mes</b>. La base solo suma para calcular la comisión.</div>` : ""}
         <div class="ayuda">Para cambiarlas, toca la meta en la tarjeta de FTD (Personas)
           o en la de comisión por ventas.</div>
         <button class="abtn" id="asSeguir">${asis.modo === "inicio" ? "Empezar" : "Guardar metas"}</button>
