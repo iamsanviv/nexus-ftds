@@ -154,8 +154,30 @@ Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
   encuentra a «César».
 - Se venden solo clientes **propios**, por lo mismo que la regla de envíos: la
   venta quedaría a nombre de quien la registra.
+- **Las dos comisiones van separadas**: la de FTD en su tarjeta de Personas y la
+  de ventas en la suya. Mezclarlas en un solo número escondía cuál de las dos
+  estaba floja. El total de ambas va discreto, abajo a la derecha (`.totalmes`).
+- **La lista empieza por «Falta que paguen»**, ordenada por urgencia de cobro.
+  Lo ya causado es historia y baja al final.
 - El panel lleva un **aviso legal obligatorio**: son cifras de guía, no un dato
   oficial de Nexus para reclamar pagos.
+
+### Alertas por fecha de pago
+
+`alertaPago(v)` clasifica cada venta viva y da el `orden` de cobro:
+
+| nivel | cuándo | se ve |
+|---|---|---|
+| `vencida` | `fecha_pago` ya pasó | filo rojo + chip «Vencida hace N días» |
+| `hoy` | vence hoy | filo dorado |
+| `pronto` | faltan ≤ `ALERTA_PRONTO` (3) días | filo dorado tenue |
+| `ok` | más lejos | sin filo, solo la fecha |
+| `sinfecha` | no tiene `fecha_pago` | filo gris, va de último |
+
+- El **aviso rojo de arriba solo sale si hay vencidas o vence algo hoy**. Si
+  saliera siempre, dejaría de mirarse.
+- Los días se restan **en UTC** (`fecha + "T00:00:00Z"`). Con fechas locales, en
+  Colombia (UTC−5) el mismo día daba distinto según la hora.
 
 ---
 
@@ -249,10 +271,11 @@ comportamiento, decirlo en vez de asumirlo.
 
 ## Pendientes conocidos
 
-- **La migración de ventas NO está aplicada.** `sql/2026-07-29_07…` está escrito
-  y probado en el navegador con datos inyectados, pero el MCP de Supabase daba
-  «permission denied» ese día: falta correrlo y **probar el RLS simulando
-  sesiones**, que es como se valida aquí. El bloque de pruebas ya está escrito.
+- **Falta probar el RLS de ventas y FTD simulando sesiones.** Las dos
+  migraciones (07 y 08) están aplicadas, pero sus bloques de pruebas nunca se
+  corrieron: no está verificado que un agente no vea las ventas de otro, ni que
+  no pueda escribir la `ftd_base` ajena o reabrir un mes cerrado. El SQL ya está
+  escrito en los dos archivos; solo falta poner los UUID reales.
 - **Faltan valores de comisión**: `parametros.comision_upgrade` y once productos
   quedaron en 0 («por confirmar» en la lista del 29/07). Mientras sigan en cero,
   esas ventas se registran pero no suman.

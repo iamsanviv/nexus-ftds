@@ -11,7 +11,7 @@ import {
   state, $, esc, fmtF, hoyISO, toast, esLead, norm,
   usd, periodoDe, periodoAntes, mesLegible,
   pagado, saldo, estaSaldada, fechaSaldo, comisionSinDefinir,
-  resumenVentas, comisionFtd,
+  resumenVentas, comisionFtd, metasDe, alertaPago, alertasDelMes,
 } from "./state.js";
 import {
   cargarVentas, vInsert, vPatch, vDelete, abInsert, notaInsert, notaDelete,
@@ -54,31 +54,67 @@ function renderHero() {
   const p = state.ventasPeriodo;
   const r = resumenVentas(p, yo());
   const f = comisionFtd(p, yo());
+  const m = metasDe(p, yo());
+  const metaV = m?.metaVentas || 0;
+  // Las dos comisiones van SEPARADAS: esta tarjeta es solo la de ventas. El
+  // total con FTD baja a la esquina, discreto, para no volver a mezclarlas.
   const total = r.causada + f.pago;
+  const pct = metaV ? Math.min(100, Math.round(r.causada / metaV * 100)) : 0;
 
-  // Comparativo con el mes anterior: la misma cuenta, un periodo atrás.
+  // Comparativo con el mes anterior, solo de ventas.
   const ant = periodoAntes(p);
-  const totalAnt = resumenVentas(ant, yo()).causada + comisionFtd(ant, yo()).pago;
-  let cmp = `Sin nada con qué comparar en ${mesLegible(ant)}`;
-  if (totalAnt > 0) {
-    const d = Math.round((total - totalAnt) / totalAnt * 100);
-    const s = d >= 0 ? "up" : "down";
-    cmp = `<span class="${s}">${d >= 0 ? "▲" : "▼"} ${Math.abs(d)}%</span> frente a ${mesLegible(ant)} (${usd(totalAnt)})`;
-  }
+  const antV = resumenVentas(ant, yo()).causada;
+  const cmp = antV > 0
+    ? (() => { const d = Math.round((r.causada - antV) / antV * 100);
+        return `<span class="${d >= 0 ? "up" : "down"}">${d >= 0 ? "▲" : "▼"} ${Math.abs(d)}%</span>
+                frente a ${mesLegible(ant)} (${usd(antV)})`; })()
+    : "";
 
   $("vtHero").innerHTML = `
-    <div class="vthero">
-      <span class="lbl">Comisión de ${mesLegible(p)}</span>
-      <div class="big">${usd(total)}</div>
-      <div class="cmp">${cmp}</div>
+    <div class="metacard">
+      <div class="fhead"><span class="lbl">Comisión por ventas de ${mesLegible(p)}</span></div>
+
+      <div class="fbig"><b>${usd(r.causada)}</b>
+        <span>${metaV ? `de tu meta de ${usd(metaV)}` : "causada este mes"}</span></div>
+      ${cmp ? `<div class="fsub">${cmp}</div>` : ""}
+
+      ${metaV ? `
+      <div class="barrawrap">
+        <div class="barra ${pct >= 100 ? "full" : ""}"><i style="width:${pct}%"></i></div>
+        <span class="metafin">${usd(metaV)}</span>
+      </div>
+      <div class="fpie">${pct >= 100
+        ? `<span class="ok">✓ Cumpliste tu meta de ventas</span>`
+        : `Te faltan <b>${usd(metaV - r.causada)}</b> para tu meta`}</div>`
+      : `<div class="fpie">Sin meta de ventas puesta todavía</div>`}
+
       <div class="hsplit">
         <div><span class="n k">${usd(r.facturado)}</span><span class="t">Facturado</span></div>
         <div><span class="n">${usd(r.porFacturar)}</span><span class="t">Por facturar</span></div>
         <div><span class="n w">${usd(r.porCausar)}</span><span class="t">Por causar</span></div>
       </div>
+
       ${r.sinDefinir ? `<div class="vtwarn">${r.sinDefinir} venta${r.sinDefinir === 1 ? "" : "s"}
         sin comisión definida: no suman a «por causar».</div>` : ""}
-    </div>`;
+
+      <div class="totalmes">Total del mes con FTD (${usd(f.pago)}) · <b>${usd(total)}</b></div>
+    </div>
+    ${avisoAlertas()}`;
+}
+
+// Aviso de cobro. Solo aparece si hay algo vencido o venciendo hoy: si sale
+// siempre, deja de mirarse.
+function avisoAlertas() {
+  const a = alertasDelMes(yo());
+  if (!a.vencidas && !a.hoy) return "";
+  const partes = [];
+  if (a.vencidas) partes.push(`<b>${a.vencidas}</b> vencida${a.vencidas === 1 ? "" : "s"}`);
+  if (a.hoy) partes.push(`<b>${a.hoy}</b> vence${a.hoy === 1 ? "" : "n"} hoy`);
+  return `<div class="vtalerta">
+    <span class="ic">!</span>
+    <span>${partes.join(" · ")} — <b>${usd(a.monto)}</b> por cobrar${
+      a.pronto ? `. ${a.pronto === 1 ? "Otra vence" : `Otras ${a.pronto} vencen`} esta semana.` : "."}</span>
+  </div>`;
 }
 
 // El bloque de FTD se mudó a Personas (ftd.js): es donde el agente pasa el día.
@@ -99,10 +135,19 @@ function renderLista() {
       + arr.map(tarjeta).join("")
     : "";
 
+  // Por urgencia de cobro: lo vencido arriba, lo que no tiene fecha al final.
+  // A igual urgencia, primero lo que vence antes.
+  const porUrgencia = (a, b) => {
+    const oa = alertaPago(a)?.orden ?? 9, ob = alertaPago(b)?.orden ?? 9;
+    return oa - ob || (a.fecha_pago || "9999").localeCompare(b.fecha_pago || "9999");
+  };
+
+  // Lo que falta que paguen va PRIMERO: es donde hay que poner la energía.
+  // Lo ya causado es historia y baja al final.
   const html =
-    sec("Comisión ya causada", causadas, usd(causadas.reduce((s, v) => s + v.comision, 0)))
-    + sec("Falta que paguen", vivas.filter(v => v.tipo === "agendado"))
-    + sec("Posibles", vivas.filter(v => v.tipo === "posible"))
+    sec("Falta que paguen", vivas.filter(v => v.tipo === "agendado").sort(porUrgencia))
+    + sec("Posibles", vivas.filter(v => v.tipo === "posible").sort(porUrgencia))
+    + sec("Comisión ya causada", causadas, usd(causadas.reduce((s, v) => s + v.comision, 0)))
     + sec("Perdidas", perdidas);
 
   $("vtLista").innerHTML = html || `<div class="vacio"><b>Nada en ${mesLegible(p)}</b>
@@ -125,8 +170,13 @@ function tarjeta(v) {
     ? `<span class="vtsin">comisión sin definir</span>`
     : `<b class="${lista ? "ok" : ""}">${usd(v.comision)}</b>`;
 
+  // La alerta pinta el filo izquierdo de la tarjeta, para poder barrer la lista
+  // con la vista sin leer fechas.
+  const al = alertaPago(v);
+  const filo = al && al.nivel !== "ok" ? ` al-${al.nivel}` : "";
+
   return `
-  <div class="card vt ${abierta ? "open" : ""}" data-v="${v.id}">
+  <div class="card vt${filo} ${abierta ? "open" : ""}" data-v="${v.id}">
     <div class="crow vthead">
       <span class="nombre">${esc(v.cliente_nombre)}</span>
       ${v.es_upgrade ? `<span class="vtup">Upgrade</span>` : ""}
@@ -142,7 +192,7 @@ function tarjeta(v) {
       ${lista
         ? `<span class="ok">✓ Saldada ${fmtF(fechaSaldo(v))}</span> <span>· comisión</span> ${comEtiqueta}`
         : `<b>${usd(ab)}</b> <span>de</span> <b>${usd(v.valor)}</b>`}
-      ${v.fecha_pago && !lista ? `<span>· pago ${fmtF(v.fecha_pago)}</span>` : ""}
+      ${al && !lista ? `<span class="alchip ${al.nivel}">${al.texto}</span>` : ""}
     </div>
 
     ${lista || muerta ? "" : `

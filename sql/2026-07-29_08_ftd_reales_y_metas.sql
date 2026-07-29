@@ -1,8 +1,12 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Nexus · FTD reales, metas del agente y cierre mensual — 29 de julio de 2026
 --
--- ⚠ ESTADO: NO APLICADO. Correr después de `2026-07-29_07…`, que crea
--- `ftd_base`. Idempotente.
+-- ESTADO: APLICADO EN PRODUCCIÓN el 29/07/2026. Va después de
+-- `2026-07-29_07…`, que crea `ftd_base`. Idempotente.
+--
+-- PENDIENTE: el bloque de pruebas de RLS del punto 4 todavía no se ha corrido.
+-- Hasta que se corra, no está verificado que un agente no pueda escribir la
+-- `ftd_base` de otro ni reabrir un mes cerrado.
 --
 -- EL PROBLEMA QUE RESUELVE
 --

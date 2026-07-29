@@ -170,6 +170,44 @@ export function resumenVentas(periodo, ownerId) {
   return { facturado, causada, porFacturar, porCausar, sinDefinir };
 }
 
+/* ---------- alertas por fecha de pago ---------- */
+// Días entre dos fechas ISO. Se hace en UTC a propósito: `new Date("2026-08-01")`
+// se interpreta como medianoche UTC y en Colombia (UTC−5) restar con fechas
+// locales daba un día de diferencia según la hora a la que se mirara.
+const dias = (desde, hasta) => {
+  const d = new Date(desde + "T00:00:00Z"), h = new Date(hasta + "T00:00:00Z");
+  return Math.round((h - d) / 86400000);
+};
+
+// Umbrales del sistema de alertas. Están aquí y no repartidos por el render
+// para poder moverlos en un solo sitio.
+export const ALERTA_PRONTO = 3;   // días para considerar que "vence pronto"
+
+// Una venta viva con fecha de pago genera alerta. `orden` es la prioridad de
+// cobro: lo vencido primero, lo que no tiene fecha al final.
+export function alertaPago(v, hoy = hoyISO()) {
+  if (v.estado === "perdida" || estaSaldada(v)) return null;
+  if (!v.fecha_pago) return { nivel: "sinfecha", texto: "Sin fecha de pago", orden: 4 };
+
+  const d = dias(hoy, v.fecha_pago);
+  if (d < 0)  return { nivel: "vencida", orden: 0,
+    texto: `Vencida hace ${-d} ${-d === 1 ? "día" : "días"}` };
+  if (d === 0) return { nivel: "hoy", orden: 1, texto: "Vence hoy" };
+  if (d <= ALERTA_PRONTO) return { nivel: "pronto", orden: 2,
+    texto: `Vence en ${d} ${d === 1 ? "día" : "días"}` };
+  return { nivel: "ok", orden: 3, texto: `Vence el ${fmtF(v.fecha_pago)}` };
+}
+
+// Resumen para el aviso de arriba: cuántas y cuánto hay que perseguir.
+export function alertasDelMes(ownerId) {
+  const vivas = state.ventas.filter(v =>
+    v.owner_id === ownerId && v.estado === "abierta" && !estaSaldada(v));
+  const con = n => vivas.filter(v => alertaPago(v)?.nivel === n);
+  const vencidas = con("vencida"), hoyv = con("hoy"), pronto = con("pronto");
+  const monto = [...vencidas, ...hoyv].reduce((s, v) => s + saldo(v), 0);
+  return { vencidas: vencidas.length, hoy: hoyv.length, pronto: pronto.length, monto };
+}
+
 // FTD del mes. NO se cuentan por `membresia = 'Beca'`: ese es el nivel de HOY, y
 // al subir alguien a VIP desaparecería de los meses ya cerrados y pagados. Se
 // cuentan por `comunidad_desde`, que no se mueve nunca — todo el que hoy es Oro

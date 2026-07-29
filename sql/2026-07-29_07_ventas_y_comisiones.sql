@@ -1,14 +1,15 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Nexus · Ventas, abonos y comisiones — 29 de julio de 2026
 --
--- ⚠ ESTADO: **NO APLICADO**. Escrito sin acceso a la base (el MCP de Supabase
--- respondió "permission denied" a list_tables y execute_sql ese día), así que
--- NO se pudo verificar contra el esquema real ni probar el RLS simulando
--- sesiones, que es como se prueba aquí. Antes de darlo por bueno:
---   1. correrlo completo en el SQL Editor,
---   2. correr el bloque de PRUEBAS del final y comparar con lo esperado,
---   3. volver a este archivo y cambiar este encabezado.
--- Es idempotente: se puede correr de nuevo sin efectos secundarios.
+-- ESTADO: APLICADO EN PRODUCCIÓN el 29/07/2026. Idempotente.
+--
+-- Se escribió sin acceso a la base (el MCP de Supabase respondió "permission
+-- denied" ese día), así que las firmas de `puede_ver_de`, `mi_rol` y `aprobado`
+-- se verificaron a mano antes de correrlo, contra `pg_proc`.
+--
+-- PENDIENTE: el bloque de PRUEBAS del punto 8 todavía no se ha corrido. Hasta
+-- que se corra, el aislamiento entre agentes no está verificado simulando
+-- sesiones, que es como se valida en este proyecto.
 --
 -- Módulo nuevo y aditivo: no toca ninguna tabla, política ni función que ya
 -- exista. Si algo sale mal, se borra con el bloque de ROLLBACK del final y el
