@@ -7,6 +7,7 @@ import "./seguimiento.js";
 import "./masivo.js";  // compositor de mensaje masivo
 import "./canal.js";   // "Mi WhatsApp": estado y vinculación del canal del agente
 import "./salud.js";   // avisos de canal caído + panel de agentes del director
+import "./ventas.js";  // ventas, abonos y comisiones
 import { boot } from "./auth.js"; // engancha login y revisa la sesión
 
 boot();

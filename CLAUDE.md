@@ -94,6 +94,36 @@ que no lo agregó. Filtrar por lo que el RLS deja ver **no** es suficiente aquí
 Las etiquetas de la interfaz deben coincidir con esto. Ya estuvieron cruzadas
 una vez (el registro decía «10 min» y el editor «15 min después»).
 
+### Ventas y comisiones (`ventas.js`)
+
+Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
+
+- **La comisión es un monto fijo por producto**, no un porcentaje ($789 → $200).
+  Se **congela** en la venta al crearla: va al revés que las imágenes del
+  catálogo (que se resuelven vigentes al enviar) porque una comisión pactada no
+  puede cambiar retroactivamente. `productos` es el valor por defecto al crear,
+  no la fuente de verdad de lo ya vendido.
+- **`comision = 0` significa SIN DEFINIR**, no «no comisiona». La interfaz lo
+  marca y esa venta **no suma**: mejor un hueco visible que una cifra inventada.
+- **Facturado = recaudado.** Para la empresa facturar es cobrar, así que no hay
+  columna de facturación: es la suma de abonos y punto.
+- **«Saldada» no se marca, se deduce** (abonos ≥ valor). La comisión se causa en
+  el mes del abono que completó el valor. Ni «saldada» ni el total de comisión
+  se guardan: una sola verdad.
+- **Upgrade**: cobra la diferencia de precio y comisiona un **monto fijo**
+  (`parametros.comision_upgrade`), no la comisión del producto — el pago inicial
+  ya comisionó en su momento.
+- **Los FTD no se pagan uno por uno**: solo si se alcanza una meta mensual. Lo
+  que sobra se acumula como «base» para el mes siguiente. `ftd_base` se guarda
+  en vez de derivarse: derivarla dejaría que un FTD registrado tarde moviera la
+  comisión de meses ya pagados.
+- **Los zooms son etapas con fecha y estado.** No mandan WhatsApp. Programar
+  recordatorios sigue siendo cosa de Seguimiento.
+- Se venden solo clientes **propios**, por lo mismo que la regla de envíos: la
+  venta quedaría a nombre de quien la registra.
+- El panel lleva un **aviso legal obligatorio**: son cifras de guía, no un dato
+  oficial de Nexus para reclamar pagos.
+
 ---
 
 ## Trampas que ya costaron caro
@@ -120,6 +150,21 @@ una vez (el registro decía «10 min» y el editor «15 min después»).
 - **`progreso()` solo recorre el catálogo.** Por eso las llaves extra en
   `acc`/`conf` y el mapa `clientes.puntuales` no ensucian los porcentajes.
 - **El CSV solo INSERTA**, nunca actualiza. No hay riesgo de que pise datos.
+- **Contar FTD por `membresia = 'Beca'` está mal.** `membresia` es el nivel de
+  HOY: en cuanto alguien sube a VIP desaparecería de los FTD de meses ya
+  cerrados y pagados. Se cuentan por **`comunidad_desde`**, que no se mueve
+  nunca — todo el que hoy es Oro entró en su momento como FTD.
+- **Al calcular un upgrade, usar el PRECIO DE LISTA del nivel que tiene, no lo
+  que pagó.** Si su venta anterior ya era un upgrade, su monto es una
+  diferencia, y encadenar diferencias regala un descuento que nadie concedió.
+- **Cuidado con la especificidad al reusar `.frow`.** `.frow label` (0,1,1) le
+  gana a cualquier clase suelta (0,1,0): la casilla «Ya pagó completo» salía en
+  mayúsculas de etiqueta. Se arregló nombrando el elemento (`.frow
+  label.chkline`), no subiendo a `!important`.
+- **`.tabbar` y `.overlay` comparten `z-index: 30`.** Funciona solo porque en
+  `index.html` la barra va ANTES de los overlays. Al montar un banco de pruebas
+  que los agregue en otro orden, la barra tapa el modal: es artefacto del banco,
+  no del producto.
 
 ---
 
@@ -142,6 +187,7 @@ public/
     canal.js          «Mi WhatsApp»: estado y vinculación por agente
     salud.js          Alertas de canal caído + panel de agentes
     repaso.js         Repaso diario de asistencias
+    ventas.js         Ventas, abonos, comisiones y metas de FTD
     stats.js, main.js
 sql/                  Migraciones documentadas (el estado real está en la base)
 ```
@@ -159,6 +205,18 @@ que se sabe de él es inferencia desde la base. Si algo depende de su
 comportamiento, decirlo en vez de asumirlo.
 
 ## Pendientes conocidos
+
+- **La migración de ventas NO está aplicada.** `sql/2026-07-29_07…` está escrito
+  y probado en el navegador con datos inyectados, pero el MCP de Supabase daba
+  «permission denied» ese día: falta correrlo y **probar el RLS simulando
+  sesiones**, que es como se valida aquí. El bloque de pruebas ya está escrito.
+- **Faltan valores de comisión**: `parametros.comision_upgrade` y once productos
+  quedaron en 0 («por confirmar» en la lista del 29/07). Mientras sigan en cero,
+  esas ventas se registran pero no suman.
+- **Meta mensual de facturación** (distinta de las metas de FTD): pedida el
+  29/07 y aplazada a propósito hasta que lo demás funcione.
+- **Guardar la base de FTD al cerrar el mes** no tiene interfaz todavía: la app
+  la calcula y la muestra, pero escribirla en `ftd_base` es manual.
 
 - **Apagar «Confirm email»** en Supabase → Authentication. Con la aprobación
   manual ese paso sobra y provoca `email rate limit exceeded` al probar.

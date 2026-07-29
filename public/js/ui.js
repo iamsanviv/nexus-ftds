@@ -23,6 +23,22 @@ export function render() {
   // el resto de la app (las demás vistas son listas y se leen mejor angostas).
   document.body.classList.toggle("segwide", state.vista === "seguimiento");
 
+  // Ventas vive en ventas.js y se dibuja solo. El import es dinámico por lo
+  // mismo que el de repaso.js: ventas.js importa render() de aquí, y hacerlo
+  // estático en los dos sentidos crearía un ciclo.
+  $("vistaVentas").classList.toggle("hidden", state.vista !== "ventas");
+  if (state.vista === "ventas") {
+    $("vistaCliente").classList.add("hidden");
+    $("vistaServicio").classList.add("hidden");
+    $("vistaSeguimiento").classList.add("hidden");
+    $("vistaMas").classList.add("hidden");
+    $("abrirModal").classList.add("hidden");
+    $("buscar").classList.add("hidden");
+    import("./ventas.js").then(m => m.renderVentas());
+    return;
+  }
+  $("abrirVenta").classList.add("hidden");
+
   if (state.vista === "mas") {
     $("vistaCliente").classList.add("hidden");
     $("vistaServicio").classList.add("hidden");
@@ -245,13 +261,14 @@ export const iniciales = n => (n || "?").trim().split(/\s+/).slice(0, 2).map(w =
 function renderShell() {
   const V = state.vista;
   const isLead = state.modulo === "leads";
-  const titulos = { cliente: isLead ? "Leads" : "Personas", servicio: "Servicios", seguimiento: "Seguimiento", mas: "Más" };
+  const titulos = { cliente: isLead ? "Leads" : "Personas", servicio: "Servicios", seguimiento: "Seguimiento", ventas: "Ventas", mas: "Más" };
   $("viewTitle").textContent = titulos[V] || "Seguimiento";
   let sub = "";
   if (V === "cliente" || V === "servicio") {
     const n = state.clientes.filter(c => isLead ? esLead(c) : !esLead(c)).length;
     sub = isLead ? `${n} lead${n === 1 ? "" : "s"}` : `${n} en la comunidad`;
   } else if (V === "seguimiento") sub = "Actividades y mensajes automáticos";
+  else if (V === "ventas") sub = "Facturación y comisiones";
   else sub = "Cuenta y herramientas";
   $("viewSub").textContent = sub;
 
