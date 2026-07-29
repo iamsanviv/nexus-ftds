@@ -297,7 +297,12 @@ comportamiento, decirlo en vez de asumirlo.
 
 - **Apagar «Confirm email»** en Supabase → Authentication. Con la aprobación
   manual ese paso sobra y provoca `email rate limit exceeded` al probar.
-  Configurar SMTP propio antes de cobrar (el «olvidé mi contraseña» lo necesita).
+- **«Olvidé mi contraseña» necesita SMTP propio.** El de Supabase es de
+  desarrollo y limita a unos pocos correos por hora. Cambiar la contraseña
+  desde dentro (Más → Cambiar mi contraseña) ya funciona: usa
+  `updateUser`, que va con la sesión abierta y **no manda ningún correo**.
+  Falta la pantalla de recuperación, que además necesita atender el enlace de
+  `type=recovery` al abrir la app.
 - **Bug de números de México en el worker**: `no LID found for 52…` con y sin el
   `1` tras el código de país. Causó el 18 % de fallos de un agente.
 - **El CSV no lleva las asistencias puntuales** (`clientes.puntuales`).
