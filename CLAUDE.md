@@ -413,6 +413,14 @@ contra `ventas`. Funciona, y se comprobó que no filtra.
   sirve», a cada cliente, sin un error en ningún lado. Ahora solo rechaza vacío.
 - **La `anon key` es pública.** Toda validación que importe va en RLS o en el
   worker. Lo que esté solo en el navegador no es un límite, es una sugerencia.
+- **Tres listas describen qué archivo se puede adjuntar, y tienen que decir lo
+  mismo**: el `accept` del `<input>`, `TIPOS_OK` en `masivo.js` y
+  `allowed_mime_types` del bucket `mensajes`. Cuando se separan, el selector
+  deja elegir un archivo que el Storage rechaza y el agente ve un error en
+  inglés («mime type video/quicktime is not supported») que no le dice qué
+  hacer. Pasó al agregar video. Lo mismo con el tamaño: `MAX_VIDEO_MB` y
+  `file_size_limit` del bucket son el mismo número (16 MB) — la pantalla llegó a
+  ofrecer 16 cuando el bucket aceptaba 10.
 - **Tres columnas de imagen en `mensajes_programados`**, y solo dos sirven:
   - `imagen_url` → **muerta**, 0 filas en toda la tabla.
   - `media_url` → funciona, incluso en invitaciones (hay envíos exitosos con
@@ -533,9 +541,8 @@ comportamiento, decirlo en vez de asumirlo.
   verdad.** Sube al mismo `media_url` que la imagen, con el mismo mecanismo —y
   el worker no vive en este repo, así que no hay forma de probar desde acá si
   lo manda como video de WhatsApp o si repite el fallo de la nota de voz.
-  Límite de 16 MB puesto a ciegas (es el que usa la Cloud API de Meta, no algo
-  medido de este bridge). **Probar con un envío real antes de confiar en él
-  para una campaña grande.**
+  **Probar con un envío real antes de confiar en él para una campaña grande**, y
+  ojo con el `.mov` del iPhone: se sube, pero WhatsApp nativamente maneja MP4.
 - **El CSV no lleva las asistencias puntuales** (`clientes.puntuales`).
 - **Cobro por uso**: la medición ya existe (`mensajes_programados` por
   `owner_id`). Falta tabla de suscripción, cuota **aplicada en el worker** (no

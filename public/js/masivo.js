@@ -12,12 +12,19 @@ let masFiltro = "todos";    // filtro de membresía
 let masImg = null;          // URL del adjunto subido (imagen o video), o null
 let masImgTipo = null;      // "imagen" | "video" — para la vista previa y el nombre de la campaña
 
-// WhatsApp comprime video pesado desde la app, pero un bridge que lo manda tal
-// cual puede fallar o demorar minutos en subir/enviar a cada destinatario.
-// 16 MB es el límite que usa la propia Cloud API de Meta para medios salientes:
-// no hay garantía de que ESTE bridge (no vive en este repo) se comporte igual,
-// pero es la cota más razonable que hay para no adivinar a ciegas.
+// 16 MB es el tope de la Cloud API de Meta para medios salientes, y es también
+// el `file_size_limit` del bucket `mensajes`. Los dos números TIENEN que ser el
+// mismo: si la pantalla ofrece más de lo que el Storage acepta, el archivo se
+// sube hasta el final para morir con un error en inglés que no dice nada.
 const MAX_VIDEO_MB = 16;
+
+// Esta lista tiene que decir lo MISMO que `allowed_mime_types` del bucket y que
+// el `accept` del input. Son tres sitios que describen la misma regla: cuando
+// se separan, el selector deja elegir un archivo que el Storage rechaza.
+const TIPOS_OK = [
+  "image/jpeg", "image/png", "image/webp", "image/gif",
+  "video/mp4", "video/quicktime", "video/webm",
+];
 let masCuando = "ahora";    // ahora | prog
 let segmentos = [];         // segmentos guardados
 
@@ -347,21 +354,42 @@ $("masImgFile").onchange = async () => {
   const file = $("masImgFile").files[0];
   if (!file) return;
   const esVideo = file.type.startsWith("video/");
-  // Se corta ANTES de subir: dejar que un archivo de 300 MB llegue al Storage
-  // para recién ahí avisar que no sirve es la peor versión de este error.
-  if (esVideo && file.size > MAX_VIDEO_MB * 1024 * 1024) {
-    toast(`⚠ El video pesa más de ${MAX_VIDEO_MB} MB — comprímelo o recórtalo antes de subirlo`);
-    $("masImgFile").value = "";
+  const limpiar = () => { $("masImgFile").value = ""; };
+
+  // Las dos comprobaciones se hacen ANTES de subir. El Storage las repite —es
+  // él quien manda—, pero su error llega en inglés y sin contexto: el agente
+  // veía «mime type video/quicktime is not supported» y no tenía cómo saber que
+  // eso significaba «convierte el video a MP4».
+  if (!TIPOS_OK.includes(file.type)) {
+    $("masImgEstado").textContent = file.type.startsWith("video/")
+      ? `⚠ Ese formato de video no sirve (${file.type}). Usa MP4.`
+      : `⚠ Ese tipo de archivo no se puede enviar (${file.type || "desconocido"})`;
+    limpiar();
     return;
   }
+  if (file.size > MAX_VIDEO_MB * 1024 * 1024) {
+    const mb = (file.size / 1024 / 1024).toFixed(1);
+    $("masImgEstado").textContent =
+      `⚠ Pesa ${mb} MB y el tope es ${MAX_VIDEO_MB} MB — comprímelo o recórtalo`;
+    limpiar();
+    return;
+  }
+
   $("masImgEstado").textContent = esVideo ? "Subiendo video…" : "Subiendo…";
   try {
     const url = await subirImagenMensaje(file);
     setImg(url, esVideo ? "video" : "imagen");
     $("masImgEstado").textContent = esVideo ? "✓ Video listo" : "✓ Imagen lista";
   } catch (err) {
-    $("masImgEstado").textContent = "⚠ " + err.message;
-  } finally { $("masImgFile").value = ""; }
+    // Red de seguridad por si las listas se vuelven a separar: el mensaje del
+    // Storage se traduce en vez de mostrarse crudo.
+    const m = (err.message || "").toLowerCase();
+    $("masImgEstado").textContent =
+        m.includes("mime type") ? "⚠ Ese formato no se puede enviar. Usa MP4 o una imagen."
+      : m.includes("maximum allowed size") || m.includes("payload too large")
+        ? `⚠ El archivo supera el tope de ${MAX_VIDEO_MB} MB`
+      : "⚠ " + err.message;
+  } finally { limpiar(); }
 };
 $("masImgDel").onclick = () => { setImg(null); $("masImgEstado").textContent = ""; };
 

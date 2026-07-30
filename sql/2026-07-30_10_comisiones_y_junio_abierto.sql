@@ -136,3 +136,28 @@ create index if not exists segmentos_clave_idx
 -- Se ELIMINA en vez de dejarla sin uso: una columna muerta que sigue ahí es
 -- exactamente la trampa de `mensajes_programados.imagen_url`.
 alter table public.actividades drop column if exists rastrear;
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- ANEXO 3 · El bucket `mensajes` acepta video (31/07)
+-- (migración `bucket_mensajes_acepta_video_y_sube_a_16mb`)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Los videos se rechazaban por DOS motivos y solo se veía el primero:
+--   1. `allowed_mime_types` no tenía video/mp4 ni video/quicktime. El único
+--      video permitido era webm, y estaba ahí por la grabación de notas de voz.
+--      De ahí el «mime type video/quicktime is not supported» con un .mov.
+--   2. `file_size_limit` era 10 MB mientras la pantalla ofrecía 16. El archivo
+--      de la prueba pesaba 9 MB, así que ese tope no llegó a saltar — habría
+--      aparecido después, con otro error, pareciendo un problema nuevo.
+--
+-- LECCIÓN: el `accept` del input, `TIPOS_OK` en masivo.js y este
+-- `allowed_mime_types` son tres sitios que describen la misma regla.
+update storage.buckets
+   set allowed_mime_types = array[
+         'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+         'audio/webm', 'audio/mp4', 'audio/ogg', 'audio/mpeg', 'audio/aac', 'audio/x-m4a',
+         'video/webm', 'video/mp4', 'video/quicktime'
+       ],
+       file_size_limit = 16 * 1024 * 1024
+ where id = 'mensajes';
