@@ -8,6 +8,18 @@
 export const SUPABASE_URL  = "https://cizjalpqscqftxtbdlmw.supabase.co";
 export const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpemphbHBxc2NxZnR4dGJkbG13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTY0NzgsImV4cCI6MjA5Njg3MjQ3OH0.XINBRXlgO5Mxtx-1bX8Y8pzTGWWDLL1mMjLSHyk1wAI";
 
+// Dominio desde el que se arman los enlaces rastreados que salen por WhatsApp.
+//
+// Es una CONSTANTE y no `location.origin` a propósito: si un agente abriera el
+// panel desde una URL de preview, sus clientes recibirían enlaces de preview
+// que nadie va a mantener vivos. El dominio del enlace tiene que ser una
+// decisión, no un accidente de dónde se cargó la app.
+//
+// Si algún día se compra un dominio propio, se cambia SOLO acá — y ojo: los
+// enlaces ya enviados apuntan al viejo y se mueren. Cambiarlo es cosa de
+// hacerlo entre actividades, nunca con seguimientos en curso.
+export const BASE_URL = "https://nexus-ftds.nexus-pro.workers.dev";
+
 // Jerarquía de niveles (mayor número = nivel más alto).
 // "Lead" es quien aún no hace parte de la Comunidad (no tiene membresía).
 export const NIVEL = { Lead: 0, Beca: 1, VIP: 2, Platino: 3, Oro: 4 };

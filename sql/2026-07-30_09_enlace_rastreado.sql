@@ -2,9 +2,10 @@
 -- Nexus · Enlace rastreado por persona («trigger link»)
 -- 30 de julio de 2026
 --
--- ESTADO: APLICADO EN PRODUCCIÓN (migraciones `enlace_rastreado_por_persona` y
--- `ventana_de_asistencia_del_enlace_rastreado`). Este archivo refleja el
--- resultado FINAL de las dos: la función que está en la base es la de abajo.
+-- ESTADO: APLICADO EN PRODUCCIÓN (migraciones `enlace_rastreado_por_persona`,
+-- `ventana_de_asistencia_del_enlace_rastreado` y
+-- `abrir_enlace_sin_atar_el_guardia_al_largo_del_token`). Este archivo refleja
+-- el resultado FINAL de las tres: la función que está en la base es la de abajo.
 --
 -- QUÉ RESUELVE
 -- Saber quién entró a la actividad sin preguntárselo a cincuenta personas. A
@@ -64,8 +65,15 @@ alter table public.actividades
 --
 -- SECURITY DEFINER y ejecutable por `anon`: quien abre el enlace es el cliente,
 -- que no tiene sesión. No devuelve NADA del cliente ni del agente, solo la URL,
--- y lo único que hay que adivinar es el token (16 caracteres al azar de un
--- alfabeto de 32 → 80 bits).
+-- y lo único que hay que adivinar es el token (10 caracteres al azar de un
+-- alfabeto de 32 → 50 bits, ~1 en mil billones).
+--
+-- El guardia de entrada rechaza SOLO lo vacío. Antes decía `length(t) < 10`,
+-- atado al largo que tenían los tokens en ese momento: cuando se acortaron para
+-- que el enlace cupiera mejor en WhatsApp, siguió funcionando de casualidad. Con
+-- un carácter menos habría devuelto null para TODOS, o sea «este enlace ya no
+-- sirve» a cada cliente, sin un error en ninguna parte. El largo del token es
+-- una decisión de la interfaz y no puede romper la base.
 -- ───────────────────────────────────────────────────────────────────────────
 create or replace function public.abrir_enlace(t text)
 returns text
@@ -82,7 +90,7 @@ declare
   hoy       text := to_char((now() at time zone 'America/Bogota')::date, 'YYYY-MM-DD');
   base      jsonb;
 begin
-  if t is null or length(t) < 10 then return null; end if;
+  if coalesce(t, '') = '' then return null; end if;
 
   select s.id, s.cliente_id, s.actividad_id, s.enlace as enlace_seg,
          s.inicio as inicio_seg,

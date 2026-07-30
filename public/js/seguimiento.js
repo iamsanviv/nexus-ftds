@@ -9,6 +9,7 @@ import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { avisarSiCanalCaido } from "./salud.js";
 import { subirImagenMensaje } from "./data.js";
+import { BASE_URL } from "./config.js";
 
 /* ---------- plantillas ---------- */
 // Tipos de mensaje programado (5 por persona). NO incluye invitacion_extra:
@@ -163,21 +164,42 @@ let segImg = null;        // URL de la imagen subida para esta actividad
 // persona en esta actividad: sobrevive a que los mensajes se reprogramen si
 // cambia la hora.
 //
+// EL LARGO IMPORTA: este enlace se ve entero en el mensaje de WhatsApp, y uno
+// largo y raro parece spam. El total queda en 53 caracteres:
+//
+//   https://nexus-ftds.nexus-pro.workers.dev / i ? 4k7mqx2rvb
+//   └──── 40, fijo, es el dominio ─────────┘ └─ 13 nuestros ─┘
+//
+// De ahí salen las tres decisiones de abajo. Lo único que queda por recortar es
+// el dominio, y eso ya no es código: sería comprar uno corto.
+//
 // Alfabeto sin los caracteres que se confunden al dictar un enlace por teléfono
-// (l, o, 0, 1). 16 caracteres de 32 posibles = 80 bits: no se adivina.
+// (l, o, 0, 1).
 const ALF_TOKEN = "abcdefghijkmnpqrstuvwxyz23456789";
+
+// 10 caracteres de 32 posibles = 50 bits. Adivinar uno es ~1 en mil billones,
+// de sobra para lo poco que se gana (una asistencia falsa y un enlace de Zoom
+// que de todos modos va en el mensaje).
+//
+// El piso no lo pone la seguridad sino las COLISIONES: `clic_token` es único, y
+// dos iguales tumbarían el lote entero de `programar()` con un error que no
+// dice nada. Con 8 caracteres, a ~100 mil enlaces al año, eso pasaría como una
+// vez cada dos años. Con 10 no pasa nunca. Los 2 caracteres extra son ruido al
+// lado del dominio; el error misterioso no lo sería.
+const LARGO_TOKEN = 10;
 const nuevoToken = () => {
-  const b = new Uint8Array(16);
+  const b = new Uint8Array(LARGO_TOKEN);
   crypto.getRandomValues(b);
   // 256 es múltiplo exacto de 32, así que el módulo no introduce sesgo.
   return [...b].map(x => ALF_TOKEN[x % ALF_TOKEN.length]).join("");
 };
 
-// `/i.html` y no `/i`: el worker sirve con `not_found_handling` en modo SPA, así
-// que si Cloudflare no resolviera la extensión por su cuenta, `/i` devolvería el
-// index.html y la persona vería la app en vez de la sala, sin ningún error a la
-// vista. Con la extensión explícita no hay ambigüedad.
-const urlRastreada = tok => `${location.origin}/i.html?t=${tok}`;
+// Dos recortes más, de 3 caracteres cada uno:
+//   · `/i` en vez de `/i.html` — Cloudflare resuelve la extensión sola
+//     (`html_handling` en wrangler.toml lo deja explícito, no implícito).
+//   · `?token` en vez de `?t=token` — el token es lo único que viaja, así que
+//     no necesita nombre.
+const urlRastreada = tok => `${BASE_URL}/i?${tok}`;
 
 // El rastreo es lo predeterminado; las actividades creadas antes de esta función
 // tienen la columna en nulo y también cuentan como encendidas (la base pone

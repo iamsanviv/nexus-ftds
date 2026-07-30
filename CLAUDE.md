@@ -99,8 +99,30 @@ que no lo agregó. Filtrar por lo que el RLS deja ver **no** es suficiente aquí
 ### Enlace rastreado (saber quién entró)
 
 Cada seguimiento nace con un `clic_token`, y el mensaje del enlace manda
-`…/i.html?t=<token>` en vez de la URL de Zoom. Al abrirlo, la RPC
-`abrir_enlace(t)` registra el clic, marca asistencia y redirige.
+`…/i?<token>` en vez de la URL de Zoom. Al abrirlo, la RPC `abrir_enlace(t)`
+registra el clic, marca asistencia y redirige.
+
+- **El largo del enlace es un requisito, no un detalle.** Va entero en un
+  mensaje de WhatsApp y uno largo y raro parece spam. Quedó en 53 caracteres:
+  `https://nexus-ftds.nexus-pro.workers.dev/i?4k7mqx2rvb`. De ahí, **40 son el
+  dominio**: lo único que falta por recortar ya no es código, sería comprar uno
+  corto. Los tres recortes fueron `/i` en vez de `/i.html`, `?tok` en vez de
+  `?t=tok`, y el token de 10 en vez de 16.
+- **El token es de 10 y el piso no lo pone la seguridad, lo ponen las
+  colisiones.** 50 bits sobran para lo poco que se gana adivinando uno. Pero
+  `clic_token` es único: dos iguales tumban el lote entero de `programar()` con
+  un error que no explica nada. Con 8 caracteres eso pasaría ~1 vez cada dos
+  años a 100 mil enlaces/año; con 10, nunca.
+- **El dominio sale de `BASE_URL` (`config.js`), no de `location.origin`.** Con
+  `location.origin`, un agente que abriera el panel desde una URL de preview le
+  mandaría a sus clientes enlaces de preview. Cambiar `BASE_URL` **mata los
+  enlaces ya enviados**: se hace entre actividades, nunca con seguimientos vivos.
+- **`html_handling` en `wrangler.toml` sostiene el enlace corto.** Es el valor
+  por defecto de Cloudflare, pero va escrito: si `/i` dejara de resolver a
+  `i.html`, `not_found_handling` serviría el `index.html` y el cliente vería el
+  panel de agentes en mitad de la clase, sin error en ninguna parte. Por eso
+  `index.html` lleva además una red de tres líneas que reenvía `/i` a `/i.html`.
+  Un default implícito no puede sostener algo que falla así de callado.
 
 - **El token va en el seguimiento, no en el mensaje**: identifica a la persona
   en esa actividad y sobrevive a que los mensajes se reprogramen.
@@ -297,6 +319,11 @@ contra `ventas`. Funciona, y se comprobó que no filtra.
     admin) porque el admin ya no ve los mensajes de los demás.
   Ponerles `security_invoker = true` no da un error: simplemente devuelven cero
   filas y el panel del admin queda en blanco. Verificado que hoy filtran bien.
+- **Una validación en la base no puede estar atada a algo que decide la
+  interfaz.** `abrir_enlace()` empezó con `length(t) < 10`, copiado del largo
+  que tenían los tokens ese día. Al acortarlos siguió andando de casualidad: con
+  un carácter menos, TODOS los enlaces habrían devuelto «este enlace ya no
+  sirve», a cada cliente, sin un error en ningún lado. Ahora solo rechaza vacío.
 - **La `anon key` es pública.** Toda validación que importe va en RLS o en el
   worker. Lo que esté solo en el navegador no es un límite, es una sugerencia.
 - **Tres columnas de imagen en `mensajes_programados`**, y solo dos sirven:
@@ -343,7 +370,8 @@ public/
                       de alguien que quiere entrar a una clase que ya empezó.
   css/styles.css      Todos los estilos
   js/
-    config.js         Credenciales de Supabase + NIVEL
+    config.js         Credenciales de Supabase + NIVEL + BASE_URL (dominio de
+                      los enlaces rastreados)
     supabase.js       Cliente
     state.js          Estado compartido + utilidades + lógica de negocio
     data.js           Consultas y escrituras (sin render)

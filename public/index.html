@@ -6,6 +6,19 @@
 <title>Seguimiento FTDs y Ventas</title>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
+<script>
+// RED DE SEGURIDAD DEL ENLACE RASTREADO — va antes que todo lo demás.
+//
+// Los enlaces que salen por WhatsApp son `…/i?token`. Cloudflare debería
+// resolver `/i` a `i.html`, pero si algún día dejara de hacerlo,
+// `not_found_handling = "single-page-application"` serviría ESTE archivo: el
+// cliente tocaría su enlace en mitad de una clase y vería el panel de agentes,
+// sin un solo error en pantalla ni en el registro. Nadie se enteraría.
+//
+// Tres líneas para que ese fallo no pueda ocurrir en silencio. Si estamos en
+// /i (o /i/) y no somos i.html, es que la red se activó: se reenvía al puente.
+if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.search);
+</script>
 </head>
 <body>
 

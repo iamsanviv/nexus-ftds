@@ -84,7 +84,12 @@ function destinoValido(u) {
   catch { return false; }
 }
 
-const token = new URLSearchParams(location.search).get("t");
+// El token viaja como la query ENTERA, sin nombre de parámetro: `?4k7mqx2rvb`
+// en vez de `?t=4k7mqx2rvb`. Son dos caracteres menos en un enlace que la
+// persona ve completo en su WhatsApp. Se acepta igual la forma con `t=` por si
+// queda algún enlace viejo dando vueltas.
+const q = decodeURIComponent(location.search.slice(1));
+const token = q.startsWith("t=") ? q.slice(2) : q;
 
 if (!token) {
   mostrar({ ico: "🔗", mal: true, tit: "Enlace incompleto",

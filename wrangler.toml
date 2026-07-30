@@ -4,4 +4,13 @@ compatibility_date = "2026-06-01"
 # Sirve la carpeta /public como sitio estático.
 [assets]
 directory = "./public"
+
+# `/i` tiene que servir `i.html`, que es el puente del enlace rastreado. Este es
+# el valor por defecto de Cloudflare, pero acá va ESCRITO porque de él depende
+# que el enlace más corto funcione: si dejara de resolverse, `not_found_handling`
+# se lo llevaría al index.html y cada cliente que toca su enlace en mitad de una
+# clase vería el panel de agentes en vez de la sala, sin ningún error a la vista.
+# Un default implícito no debería sostener algo que falla así de callado.
+html_handling = "auto-trailing-slash"
+
 not_found_handling = "single-page-application"
