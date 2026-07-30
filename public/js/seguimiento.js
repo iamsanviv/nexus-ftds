@@ -276,8 +276,13 @@ async function guardarActividad() {
       compartida: state.me.role === "director" && $("segCompartir").checked,
     };
     if (actEdit) {
+      const cambioHora = new Date(actEdit.inicio).getTime() !== inicio.getTime();
       const { error } = await SB.from("actividades").update(datos).eq("id", actEdit.id);
       if (error) throw error;
+      let reprog = null;
+      if (cambioHora) {
+        reprog = await reprogramarPorHora(actEdit.id, inicio.toISOString(), nombreAct, enlace);
+      }
       // Propaga el enlace nuevo a los mensajes de "enlace" aún pendientes de los
       // seguimientos activos de esta actividad (por eso el link no se congela).
       const { data: segs } = await SB.from("seguimientos")
@@ -288,9 +293,11 @@ async function guardarActividad() {
           .update({ enlace_url: enlace || null })
           .in("seguimiento_id", ids).eq("tipo", "enlace").eq("estado", "pendiente");
       }
-      toast(enlace
-        ? "✓ Actividad actualizada · enlace aplicado a los mensajes pendientes"
-        : "✓ Actividad actualizada");
+      const notas = [];
+      if (enlace) notas.push("enlace aplicado a los pendientes");
+      if (reprog && reprog.movidos) notas.push(`${reprog.movidos} mensaje(s) reprogramado(s)`);
+      if (reprog && reprog.cancelados) notas.push(`${reprog.cancelados} ya no alcanzaban y se cancelaron`);
+      toast("✓ Actividad actualizada" + (notas.length ? " · " + notas.join(" · ") : ""));
       if (actSel && actSel.id === actEdit.id) ocultarProg();
       salirEdicion();
     } else {
@@ -356,7 +363,8 @@ async function cargarActividades() {
         <button class="pmark" data-prog="${a.id}">📨 Programar</button>
         ${mia ? `
         <button class="pmark" data-edit="${a.id}" title="Editar actividad">✎</button>
-        <button class="pmark off" data-delact="${a.id}" title="Eliminar actividad">✕</button>` : ""}
+        <button class="pmark off" data-delact="${a.id}" title="Eliminar actividad">✕</button>`
+        : `<button class="pmark off" data-cancelact="${a.id}" title="Cancelar los seguimientos que tú programaste">✕ Mis seguimientos</button>`}
       </div>
     </article>`; }).join("");
 
@@ -368,10 +376,35 @@ async function cargarActividades() {
     const a = actividades.find(x => x.id === b.dataset.edit);
     if (a) entrarEdicion(a);
   });
+  // En una actividad compartida no se puede borrar la actividad (es del
+  // director), pero sí desmontar lo que uno mismo programó sobre ella.
+  $("segActividades").querySelectorAll("[data-cancelact]").forEach(b => b.onclick = async () => {
+    const id = b.dataset.cancelact;
+    const n = await contarSeguimientosDe(id);
+    if (!n) { toast("No tienes seguimientos activos en esta actividad"); return; }
+    if (!confirm(`¿Cancelar tus ${n} seguimiento(s) de esta actividad?\n\n`
+               + `No se enviarán los mensajes pendientes. La actividad sigue ahí.`)) return;
+    b.disabled = true;
+    const cancelados = await cancelarSeguimientosDe(id);
+    toast(`${cancelados} seguimiento(s) cancelado(s)`);
+    renderActivos(); renderLogs();
+    b.disabled = false;
+  });
+
   $("segActividades").querySelectorAll("[data-delact]").forEach(b => b.onclick = async () => {
-    if (!confirm("¿Eliminar esta actividad? (no cancela seguimientos ya programados)")) return;
-    const { error } = await SB.from("actividades").delete().eq("id", b.dataset.delact);
-    if (error) { toast("⚠ " + error.message); return; }
+    const id = b.dataset.delact;
+    // Se cancela ANTES de borrar: si se borra primero, los seguimientos
+    // quedan huérfanos y ya no hay por dónde alcanzarlos.
+    const n = await contarSeguimientosDe(id);
+    const aviso = n
+      ? `¿Eliminar esta actividad?\n\nSe cancelarán también ${n} seguimiento(s) activo(s) y sus mensajes pendientes.`
+      : "¿Eliminar esta actividad?";
+    if (!confirm(aviso)) return;
+    b.disabled = true;
+    const cancelados = await cancelarSeguimientosDe(id);
+    const { error } = await SB.from("actividades").delete().eq("id", id);
+    if (error) { toast("⚠ " + error.message); b.disabled = false; return; }
+    if (cancelados) toast(`Actividad eliminada · ${cancelados} seguimiento(s) cancelado(s)`);
     if (actSel && actSel.id === b.dataset.delact) ocultarProg();
     if (actEdit && actEdit.id === b.dataset.delact) salirEdicion();
     await cargarActividades();
@@ -812,6 +845,97 @@ function renderSegmentos() {
   cont.querySelectorAll("[data-segdel]").forEach(el => el.onclick = () => {
     if (confirm("¿Eliminar este segmento?")) eliminarSegmento(el.dataset.segdel);
   });
+}
+
+/* ================= CANCELAR EN BLOQUE ================= */
+// Cancela los seguimientos activos de una actividad y sus mensajes pendientes.
+// El RLS decide el alcance solo: un agente cancela los suyos; un director,
+// además, los de sus agentes. No hace falta filtrar aquí por dueño.
+// Devuelve cuántos seguimientos se cancelaron.
+async function cancelarSeguimientosDe(actividadId) {
+  const { data: segs } = await SB.from("seguimientos")
+    .select("id").eq("actividad_id", actividadId).eq("estado", "activo");
+  const ids = (segs || []).map(s => s.id);
+  if (!ids.length) return 0;
+  await SB.from("mensajes_programados")
+    .update({ estado: "cancelado" }).in("seguimiento_id", ids).eq("estado", "pendiente");
+  await SB.from("seguimientos").update({ estado: "cancelado" }).in("id", ids);
+  return ids.length;
+}
+
+// Cuántos seguimientos activos tiene una actividad, dentro de lo que quien
+// pregunta puede ver. Sirve para decir en el aviso qué se va a cancelar.
+async function contarSeguimientosDe(actividadId) {
+  const { count } = await SB.from("seguimientos")
+    .select("id", { count: "exact", head: true })
+    .eq("actividad_id", actividadId).eq("estado", "activo");
+  return count || 0;
+}
+
+/* ================= CAMBIO DE HORA ================= */
+// Si se mueve la hora de una actividad, los mensajes pendientes quedan mal en
+// dos sentidos: saldrían a la hora vieja Y el texto anunciaría una hora que ya
+// no es («en 1 hora empieza X (7:00 p. m.)»). Se corrigen ambos.
+//
+// La invitación no se re-temporiza —su hora es cuándo invitas, no cuándo
+// empieza— pero su texto sí menciona la hora, así que se regenera igual.
+//
+// El texto solo se regenera en los seguimientos PROPIOS: los de un agente se
+// escribieron con SUS plantillas, y sobreescribirlos con las del director le
+// cambiaría la redacción a alguien más. A esos solo se les corrige la hora.
+async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace) {
+  const { data: segs } = await SB.from("seguimientos")
+    .select("id, owner_id, clientes(nombre)")
+    .eq("actividad_id", actividadId).eq("estado", "activo");
+  if (!segs || !segs.length) return { movidos: 0, cancelados: 0 };
+
+  const info = new Map(segs.map(s =>
+    [s.id, { mio: s.owner_id === state.me.id, nombre: s.clientes?.nombre || "" }]));
+
+  const { data: msgs } = await SB.from("mensajes_programados")
+    .select("id, tipo, seguimiento_id")
+    .in("seguimiento_id", [...info.keys()]).eq("estado", "pendiente");
+  if (!msgs || !msgs.length) return { movidos: 0, cancelados: 0 };
+
+  const t = new Date(nuevoInicioISO).getTime();
+  const nuevaHora = {
+    rec_60:       new Date(t - 60 * 60000),
+    rec_15:       new Date(t - 15 * 60000),
+    enlace:       new Date(t),
+    confirmacion: new Date(t + 10 * 60000),
+  };
+  const ahora = Date.now();
+
+  // Un texto por seguimiento (no por mensaje): así el sorteo de snippets sale
+  // una sola vez por persona, igual que al programar.
+  const textos = new Map();
+  for (const [id, d] of info) {
+    if (d.mio && d.nombre) textos.set(id, plantillas(d.nombre, nombreAct, nuevoInicioISO, enlace, false));
+  }
+
+  const aCancelar = [];
+  const tareas = [];
+  for (const m of msgs) {
+    const tpl = textos.get(m.seguimiento_id);
+    const cuando = nuevaHora[m.tipo];
+    const campos = {};
+    if (tpl && tpl[m.tipo]) campos.texto = tpl[m.tipo];
+    if (cuando) {
+      // Si con la hora nueva ese recordatorio ya quedó en el pasado, no se
+      // programa hacia atrás: se cancela.
+      if (cuando.getTime() <= ahora) { aCancelar.push(m.id); continue; }
+      campos.enviar_en = cuando.toISOString();
+    }
+    if (Object.keys(campos).length)
+      tareas.push(SB.from("mensajes_programados").update(campos).eq("id", m.id));
+  }
+
+  // En tandas para no abrir cien peticiones a la vez.
+  for (let i = 0; i < tareas.length; i += 20) await Promise.all(tareas.slice(i, i + 20));
+  if (aCancelar.length) {
+    await SB.from("mensajes_programados").update({ estado: "cancelado" }).in("id", aCancelar);
+  }
+  return { movidos: tareas.length, cancelados: aCancelar.length };
 }
 
 /* ================= SEGUIMIENTOS ACTIVOS ================= */

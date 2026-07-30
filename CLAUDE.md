@@ -81,6 +81,30 @@ que no lo agregó. Filtrar por lo que el RLS deja ver **no** es suficiente aquí
 - La lista muestra **lo propio + lo compartido por mi director**. Nunca lo de
   mis agentes: eso es supervisión y vive en «Agentes y canales».
 
+### Ciclo de vida de una actividad
+
+- **Borrarla cancela sus seguimientos** activos y sus mensajes pendientes. Se
+  cancela *antes* de borrar: al revés quedan huérfanos y ya no hay por dónde
+  alcanzarlos. El aviso dice cuántos se van a cancelar.
+- En una actividad **compartida** el agente no puede borrarla (no es suya) pero
+  tiene «✕ Mis seguimientos» para desmontar lo que él programó.
+- **Cambiar la hora reprograma los mensajes pendientes**: recalcula `enviar_en`
+  y regenera el texto (que anuncia la hora). Los recordatorios que con la hora
+  nueva quedarían en el pasado se cancelan en vez de programarse hacia atrás.
+  La invitación no se re-temporiza —su hora es cuándo invitas— pero su texto sí
+  se regenera. El texto solo se regenera en seguimientos **propios**: los de un
+  agente se escribieron con *sus* plantillas y sobreescribirlos con las del
+  director le cambiaría la redacción a otra persona.
+
+### Políticas por comando, no `FOR ALL`
+
+`seguimientos` y `mensajes_programados` tenían una política `FOR ALL` cuyo
+`WITH CHECK (owner_id = auth.uid())` —puesto para la regla de oro del INSERT— se
+aplicaba también al UPDATE. Efecto: el director veía los seguimientos de sus
+agentes pero no podía tocarlos, y propagar el enlace en una actividad compartida
+**no hacía nada en silencio**. Ahora están separadas: crear sigue siendo solo
+para uno mismo; actualizar y borrar siguen el alcance de la jerarquía.
+
 ### Mensajes programados (tiempos reales)
 
 | tipo | cuándo sale |
