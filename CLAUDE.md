@@ -197,6 +197,24 @@ Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
 - El panel lleva un **aviso legal obligatorio**: son cifras de guía, no un dato
   oficial de Nexus para reclamar pagos.
 
+### RLS de ventas y FTD: probado
+
+Se corrió el 27/07 simulando sesiones (dos agentes del mismo director), en una
+transacción revertida. Los siete casos pasan:
+
+| prueba | resultado |
+|---|---|
+| agente ve ventas propia + ajena | 1 de 2 → solo la suya |
+| agente ve abonos de venta ajena | 0 filas |
+| agente edita venta ajena | sin efecto |
+| agente escribe `ftd_base` ajena | sin efecto |
+| agente reabre su mes cerrado | sin efecto |
+| agente crea producto (precios) | bloqueado |
+| director ve las ventas de sus agentes | 2 de 2 |
+
+`abonos` no tiene `owner_id`: hereda el alcance por `venta_id` con un `exists`
+contra `ventas`. Funciona, y se comprobó que no filtra.
+
 ### Alertas por fecha de pago
 
 `alertaPago(v)` clasifica cada venta viva y da el `orden` de cobro:
@@ -224,9 +242,21 @@ Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
   un mensaje que señalaba a la política de UPDATE cuando la culpable era la de
   SELECT. Por eso rechazar marca `rechazado_en` en vez de romper el vínculo, y
   por eso **mover un agente de director queda reservado al admin**.
-- **`is_director()` no se puede revocar de `authenticated`.** Las políticas RLS
-  la invocan; sin `EXECUTE`, el agente pierde acceso hasta a sus propios
-  clientes. Probado y revertido.
+- **A los helpers de RLS no se les puede revocar `EXECUTE` de `authenticated`.**
+  Vale para `is_director()`, `mi_rol()`, `es_admin()`, `puede_ver_de()` y
+  `aprobado()`: las políticas las invocan, y sin permiso el agente pierde
+  acceso hasta a sus propios clientes (`permission denied for function`).
+  Probado y revertido. El linter las marca como aviso; es un falso positivo:
+  solo revelan algo del que llama, y para `anon` devuelven null o false.
+- **Las dos vistas SECURITY DEFINER son deliberadas — no ponerles
+  `security_invoker`.** El linter las marca como ERROR, pero:
+  - `clientes_directorio` **tiene** que saltar el RLS de `clientes`: es la única
+    forma de que el admin vea nombres ajenos. El filtro real es su
+    `where es_admin()`.
+  - `salud_canales` decide su alcance adentro (propio / mis agentes / todo si es
+    admin) porque el admin ya no ve los mensajes de los demás.
+  Ponerles `security_invoker = true` no da un error: simplemente devuelven cero
+  filas y el panel del admin queda en blanco. Verificado que hoy filtran bien.
 - **La `anon key` es pública.** Toda validación que importe va en RLS o en el
   worker. Lo que esté solo en el navegador no es un límite, es una sugerencia.
 - **Tres columnas de imagen en `mensajes_programados`**, y solo dos sirven:
@@ -306,11 +336,6 @@ comportamiento, decirlo en vez de asumirlo.
 
 ## Pendientes conocidos
 
-- **Falta probar el RLS de ventas y FTD simulando sesiones.** Las dos
-  migraciones (07 y 08) están aplicadas, pero sus bloques de pruebas nunca se
-  corrieron: no está verificado que un agente no vea las ventas de otro, ni que
-  no pueda escribir la `ftd_base` ajena o reabrir un mes cerrado. El SQL ya está
-  escrito en los dos archivos; solo falta poner los UUID reales.
 - **Faltan valores de comisión**: `parametros.comision_upgrade` y once productos
   quedaron en 0 («por confirmar» en la lista del 29/07). Mientras sigan en cero,
   esas ventas se registran pero no suman.
