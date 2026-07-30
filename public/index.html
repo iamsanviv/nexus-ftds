@@ -82,6 +82,9 @@
   <input class="buscar" id="buscar" placeholder="Buscar cliente…">
 
   <div id="vistaCliente">
+    <!-- Bloque de FTD del mes. Vive aquí, no en Ventas, porque es donde el
+         agente pasa el día. Lo pinta ftd.js. -->
+    <div id="ftdPanel"></div>
     <div class="stats" id="stats"></div>
     <div class="filtros" id="filtros"></div>
     <div class="ordwrap"><span class="lbl">Orden</span><div class="ordseg" id="orden"></div></div>
@@ -243,6 +246,16 @@
     </div><!-- /seggrid -->
   </div>
 
+  <!-- vista ventas: facturación, abonos y comisiones -->
+  <div id="vistaVentas" class="hidden">
+    <div id="vtHero"></div>
+    <div class="filtros" id="vtPeriodos"></div>
+    <div id="vtLista"></div>
+    <p class="vtlegal">Estas cifras son una guía para ver la comisión en tiempo real, calculada
+      sobre lo que cada agente registra aquí. <b>No son un dato oficial de Nexus ni sirven para
+      reclamar un pago.</b></p>
+  </div>
+
   <!-- vista más (cuenta y herramientas) -->
   <div id="vistaMas" class="hidden">
     <div class="prof">
@@ -267,6 +280,7 @@
 
     <div class="mgrp">
       <button class="mrow" id="btnCanal"><span class="mi">💬</span>Mi WhatsApp<span class="wstate" id="canalEstado">…</span></button>
+      <button class="mrow" id="btnPass"><span class="mi">🔑</span>Cambiar mi contraseña<span class="mc">›</span></button>
     </div>
 
     <div class="mgrp">
@@ -275,6 +289,7 @@
   </div>
 
   <button class="fab" id="abrirModal">+ Cliente</button>
+  <button class="fab hidden" id="abrirVenta">+ Venta</button>
 
   <!-- barra de pestañas inferior -->
   <nav class="tabbar"><div class="tabinner">
@@ -287,6 +302,9 @@
     <button class="tab" data-v="seguimiento" id="btnSeg">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M21 4L3 11l6 2.5L11 20l3-6 7-10z"/></svg>
       Seguimiento</button>
+    <button class="tab" data-v="ventas" id="tabVentas">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18"/><path d="M16.5 7.5c0-1.7-2-2.5-4.5-2.5s-4.5.8-4.5 2.8S9.5 11 12 11.5s4.5 1 4.5 3-2 2.7-4.5 2.7-4.5-.9-4.5-2.6"/></svg>
+      Ventas</button>
     <button class="tab" data-v="mas" id="tabMas">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></svg>
       Más</button>
@@ -371,6 +389,9 @@
       <div style="flex:1"><label>Ingreso a la Comunidad</label><input id="fComunidad" type="date"></div>
       <div style="flex:1"><label>Último upgrade</label><input id="fUpgrade" type="date"></div>
     </div></div>
+    <!-- Casilla de FTD ya contado. La llena ftd.js y solo aparece mientras
+         haya FTD declarados sin subir a la plataforma. -->
+    <div class="frow hidden" id="ftdChkRow"></div>
     <button class="convert hidden" id="btnConvertir">⬆ Convertir a Beca</button>
     <div class="frow"><label>Nota</label><textarea id="fNota" rows="3" placeholder="Contexto, acuerdos, resumen…"></textarea></div>
     <div class="profsec" id="fActividades"></div>
@@ -544,6 +565,101 @@
         </div>
         <button class="masenviar" id="masEnviar">Enviar mensaje</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- cambiar contraseña (con sesión abierta: no manda ningún correo) -->
+<div class="overlay" id="passOverlay">
+  <div class="modal">
+    <h2>🔑 Cambiar mi contraseña</h2>
+    <div class="frow"><label>Contraseña nueva</label>
+      <input id="pass1" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+    </div>
+    <div class="frow"><label>Repítela</label>
+      <input id="pass2" type="password" autocomplete="new-password" placeholder="La misma otra vez">
+    </div>
+    <div class="autherr" id="passErr"></div>
+    <div class="mbtns">
+      <button class="cancelar" id="passCancelar">Cancelar</button>
+      <button class="guardar" id="passGuardar">Cambiar contraseña</button>
+    </div>
+  </div>
+</div>
+
+<!-- asistente de FTD: alta inicial, cierre del día 1 y ajuste. Lo llena ftd.js -->
+<div class="overlay" id="ftdOverlay"><div class="modal asismodal" id="ftdModal"></div></div>
+
+<!-- modal de venta (alta y edición) -->
+<div class="overlay" id="ventaOverlay">
+  <div class="modal">
+    <h2 id="vTitulo">Nueva venta</h2>
+
+    <!-- Selectores con búsqueda: un input que filtra la lista de abajo. El
+         valor real vive en el hidden; la lista se arma en ventas.js. -->
+    <div class="frow"><label>Cliente</label>
+      <div class="vtpick" id="pkCliente">
+        <input class="pkin" id="vfBuscaCliente" placeholder="Escribe un nombre…" autocomplete="off">
+        <div class="pklist hidden" id="vfListaCliente"></div>
+      </div>
+      <input type="hidden" id="vfCliente">
+    </div>
+
+    <div class="frow"><label>Qué compra</label>
+      <div class="vtpick" id="pkProducto">
+        <input class="pkin" id="vfBuscaProducto" placeholder="Membresía, servicio o bot…" autocomplete="off">
+        <div class="pklist hidden" id="vfListaProducto"></div>
+      </div>
+      <input type="hidden" id="vfProducto">
+    </div>
+
+    <div class="frow hidden" id="vfOtroRow"><label>Nombre de lo que vende</label>
+      <input id="vfOtro" placeholder="Ej: Mentoría personalizada">
+    </div>
+
+    <!-- Aviso de upgrade o de comisión sin definir. Lo llena calcular(). -->
+    <div class="vthint hidden" id="vfHint"></div>
+
+    <div class="f2">
+      <div class="frow"><label>Monto (USD)</label>
+        <input id="vfValor" type="number" min="0" step="1" inputmode="decimal">
+      </div>
+      <div class="frow"><label>Comisión (USD)</label>
+        <input id="vfComision" type="number" min="0" step="1" inputmode="decimal">
+      </div>
+    </div>
+
+    <!-- Solo al crear: si ya está creada, los abonos se manejan en la tarjeta. -->
+    <div id="vfPagoRow">
+      <div class="frow chk">
+        <label class="chkline"><input type="checkbox" id="vfPagada"> Ya pagó completo</label>
+      </div>
+      <div class="frow"><label>Abono inicial (opcional)</label>
+        <input id="vfAbono" type="number" min="0" step="1" inputmode="decimal" placeholder="0">
+      </div>
+    </div>
+
+    <div class="f2">
+      <div class="frow"><label>Qué tan firme</label>
+        <select id="vfTipo">
+          <option value="agendado">Agendado</option>
+          <option value="posible">Posible</option>
+        </select>
+      </div>
+      <div class="frow"><label>Fecha de pago</label>
+        <input id="vfFechaPago" type="date">
+      </div>
+    </div>
+
+    <div class="f3">
+      <div class="frow"><label>Zoom presentación</label><input id="vfPres" type="date"></div>
+      <div class="frow"><label>Zoom 1 a 1</label><input id="vfUno" type="date"></div>
+      <div class="frow"><label>Zoom de cierre</label><input id="vfCierre" type="date"></div>
+    </div>
+
+    <div class="mbtns">
+      <button class="cancelar" id="vCancelar">Cancelar</button>
+      <button class="guardar" id="vGuardar">Guardar venta</button>
     </div>
   </div>
 </div>

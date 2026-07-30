@@ -108,6 +108,122 @@ export async function subirImagenMensaje(file) {
   return SB.storage.from("mensajes").getPublicUrl(path).data.publicUrl;
 }
 
+/* ═══════════════ VENTAS, ABONOS Y NOTAS ═══════════════ */
+
+// Carga todo lo del módulo de ventas de una sola vez. Los abonos vienen
+// anidados en su venta (PostgREST resuelve la relación), así no hay que
+// cruzarlos a mano ni hacer una consulta por venta.
+//
+// Si la migración de ventas todavía no se aplicó, las tablas no existen y esto
+// falla. En vez de tumbar la app entera, devuelve `instalado: false` y la vista
+// muestra un aviso: el resto del sistema tiene que seguir funcionando igual.
+export async function cargarVentas() {
+  try {
+    const [prod, par, met, ven, base, notas, mag] = await Promise.all([
+      SB.from("productos").select("*").eq("activo", true).order("orden"),
+      SB.from("parametros").select("clave,valor"),
+      SB.from("metas_ftd").select("*").order("ftd"),
+      SB.from("ventas").select("*, abonos(*)").order("creado_en", { ascending: false }),
+      SB.from("ftd_base").select("*"),
+      SB.from("notas_cliente").select("*").order("creado_en", { ascending: false }),
+      SB.from("metas_agente").select("*"),
+    ]);
+    const err = prod.error || par.error || met.error || ven.error || base.error || notas.error || mag.error;
+    if (err) throw err;
+
+    state.productos = prod.data || [];
+    state.parametros = Object.fromEntries((par.data || []).map(p => [p.clave, Number(p.valor)]));
+    state.metasFtd = met.data || [];
+    state.ventas = (ven.data || []).map(mapVenta);
+    state.ftdBase = Object.fromEntries((base.data || []).map(b => [`${b.owner_id}|${b.periodo}`,
+      { base: b.base, declarado: b.declarado, cerrado: b.cerrado }]));
+    state.metasAgente = Object.fromEntries((mag.data || []).map(m => [`${m.owner_id}|${m.periodo}`, m]));
+    state.notas = {};
+    (notas.data || []).forEach(n => (state.notas[n.cliente_id] ||= []).push(n));
+    state.ventasOk = true;
+  } catch (e) {
+    state.ventasOk = false;
+    state.ventasError = e.message || String(e);
+  }
+}
+
+const mapVenta = r => ({ ...r, valor: Number(r.valor), comision: Number(r.comision),
+  abonos: (r.abonos || []).map(a => ({ ...a, monto: Number(a.monto) }))
+                          .sort((a, b) => a.fecha.localeCompare(b.fecha)) });
+
+export async function vInsert(campos) {
+  const { data, error } = await SB.from("ventas").insert(campos).select("*, abonos(*)").single();
+  if (error) { toast("⚠ " + error.message); return null; }
+  return mapVenta(data);
+}
+
+export async function vPatch(id, campos) {
+  const { error } = await SB.from("ventas").update(campos).eq("id", id);
+  if (error) { toast("⚠ " + error.message); return false; }
+  return true;
+}
+
+export async function vDelete(id) {
+  const { error } = await SB.from("ventas").delete().eq("id", id);
+  if (error) { toast("⚠ " + error.message); return false; }
+  return true;
+}
+
+export async function abInsert(venta_id, monto, fecha) {
+  const { data, error } = await SB.from("abonos").insert({ venta_id, monto, fecha }).select().single();
+  if (error) { toast("⚠ " + error.message); return null; }
+  return { ...data, monto: Number(data.monto) };
+}
+
+// Corregir un abono mal puesto. El monto y la fecha son lo único editable: la
+// fecha importa porque decide en qué mes se causa la comisión.
+export async function abPatch(id, campos) {
+  const { error } = await SB.from("abonos").update(campos).eq("id", id);
+  if (error) { toast("⚠ " + error.message); return false; }
+  return true;
+}
+
+export async function abDelete(id) {
+  const { error } = await SB.from("abonos").delete().eq("id", id);
+  if (error) { toast("⚠ " + error.message); return false; }
+  return true;
+}
+
+// Declaración de FTD y cierre de mes. `upsert` porque la fila del periodo puede
+// no existir todavía: la primera vez que un agente declara, la crea.
+export async function guardarFtd(owner_id, periodo, campos) {
+  const { data, error } = await SB.from("ftd_base")
+    .upsert({ owner_id, periodo, ...campos }, { onConflict: "owner_id,periodo" })
+    .select().single();
+  if (error) { toast("⚠ " + error.message); return null; }
+  state.ftdBase[`${owner_id}|${periodo}`] =
+    { base: data.base, declarado: data.declarado, cerrado: data.cerrado };
+  return data;
+}
+
+export async function guardarMeta(owner_id, periodo, meta_ftd, meta_ventas) {
+  const { data, error } = await SB.from("metas_agente")
+    .upsert({ owner_id, periodo, meta_ftd, meta_ventas }, { onConflict: "owner_id,periodo" })
+    .select().single();
+  if (error) { toast("⚠ " + error.message); return null; }
+  state.metasAgente[`${owner_id}|${periodo}`] = data;
+  return data;
+}
+
+// Las notas se APILAN por cliente (tabla propia), a diferencia de
+// `clientes.nota`, que es un solo texto que se sobrescribe. Las dos conviven.
+export async function notaInsert(cliente_id, texto) {
+  const { data, error } = await SB.from("notas_cliente").insert({ cliente_id, texto }).select().single();
+  if (error) { toast("⚠ " + error.message); return null; }
+  return data;
+}
+
+export async function notaDelete(id) {
+  const { error } = await SB.from("notas_cliente").delete().eq("id", id);
+  if (error) { toast("⚠ " + error.message); return false; }
+  return true;
+}
+
 // Nota de voz para masivos: se sube tal como la grabó el navegador (webm/m4a);
 // el worker la convierte a ogg/opus al enviar para que WhatsApp la muestre
 // como nota de voz (PTT). La extensión importa: el worker detecta audio por ella.

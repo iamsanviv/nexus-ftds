@@ -172,4 +172,52 @@ $("auBtn").onclick = async () => {
   }
 };
 
+/* ---------- cambiar contraseña (con sesión abierta) ---------- */
+// `updateUser` NO manda correo: usa la sesión que ya existe. Por eso esto
+// funciona sin SMTP propio, a diferencia del «olvidé mi contraseña», que sí lo
+// necesita y por ahora choca con el límite del SMTP de desarrollo de Supabase.
+const passErr = m => {
+  const e = $("passErr");
+  e.textContent = m; e.classList.toggle("show", !!m);
+};
+
+// Supabase responde en inglés y aquí todo va en español. Se traducen los que de
+// verdad pueden salir en esta pantalla; lo demás se muestra tal cual, que es
+// mejor que un «error desconocido» que no deja ni buscarlo.
+function traducirAuth(msg) {
+  const m = (msg || "").toLowerCase();
+  if (m.includes("should be different")) return "La contraseña nueva tiene que ser distinta de la actual.";
+  if (m.includes("at least") || m.includes("too short")) return "La contraseña es demasiado corta.";
+  if (m.includes("session") && m.includes("missing")) return "Se cerró tu sesión. Vuelve a entrar e inténtalo otra vez.";
+  if (m.includes("rate limit")) return "Demasiados intentos seguidos. Espera un momento.";
+  if (m.includes("weak") || m.includes("pwned") || m.includes("compromis"))
+    return "Esa contraseña aparece en filtraciones conocidas. Usa otra.";
+  return msg;
+}
+
+function cerrarPass() {
+  $("passOverlay").classList.remove("open");
+  $("pass1").value = ""; $("pass2").value = ""; passErr("");
+}
+
+$("btnPass").onclick = () => { cerrarPass(); $("passOverlay").classList.add("open"); $("pass1").focus(); };
+$("passCancelar").onclick = cerrarPass;
+$("passOverlay").onclick = e => { if (e.target.id === "passOverlay") cerrarPass(); };
+
+$("passGuardar").onclick = async () => {
+  const a = $("pass1").value, b = $("pass2").value;
+  if (a.length < 8) return passErr("La contraseña necesita al menos 8 caracteres.");
+  if (a !== b) return passErr("Las dos contraseñas no son iguales.");
+
+  const btn = $("passGuardar");
+  btn.disabled = true; btn.textContent = "Cambiando…";
+  const { error } = await SB.auth.updateUser({ password: a });
+  btn.disabled = false; btn.textContent = "Cambiar contraseña";
+
+  if (error) return passErr(traducirAuth(error.message));
+  cerrarPass();
+  // La sesión sigue abierta: cambiar la contraseña no echa a nadie.
+  toast("🔑 Contraseña cambiada");
+};
+
 $("btnLogout").onclick = async () => { await SB.auth.signOut(); location.reload(); };

@@ -20,6 +20,22 @@ export const state = {
   cliEdit: null,
   srvEdit: null,
   signupMode: false,
+
+  /* ---- módulo de ventas ---- */
+  ventas: [],
+  productos: [],
+  parametros: {},        // { comision_upgrade: 0 }
+  metasFtd: [],          // [{ ftd, pago }] ordenadas
+  ftdBase: {},           // { "<owner>|<YYYY-MM>": { base, declarado, cerrado } }
+  metasAgente: {},       // { "<owner>|<YYYY-MM>": { meta_ftd, meta_ventas } }
+  notas: {},             // { <cliente_id>: [nota, …] } más recientes primero
+  // false mientras la migración de ventas no esté aplicada; la vista lo avisa
+  // en vez de dejar la pantalla en blanco.
+  ventasOk: false,
+  ventasError: "",
+  ventasPeriodo: new Date().toISOString().slice(0, 7),   // "YYYY-MM"
+  ventaEdit: null,
+  ventasAbiertas: new Set(),
 };
 
 /* ---------- utilidades DOM ---------- */
@@ -95,3 +111,187 @@ export const siguiente = c => {
   const req = todos().find(s => esRequerido(c.mem, s) && !c.acc[s.id]);
   return req || todos().find(s => !c.acc[s.id]);
 };
+
+/* ---------- ventas, abonos y comisiones ---------- */
+// Todo en dólares. Sin decimales cuando son redondos, que es el caso normal.
+export const usd = n => "$" + (Number(n) || 0).toLocaleString("en-US",
+  { minimumFractionDigits: Number.isInteger(Number(n)) ? 0 : 2, maximumFractionDigits: 2 });
+
+export const periodoDe = iso => (iso || "").slice(0, 7);
+export const mesLegible = p => {
+  const M = ["enero","febrero","marzo","abril","mayo","junio",
+             "julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const [a, m] = (p || "").split("-");
+  return m ? `${M[+m - 1]} ${a}` : p;
+};
+// El periodo anterior a "2026-01" es "2025-12": no se puede restar sobre el texto.
+export const periodoAntes = p => {
+  const [a, m] = (p || "").split("-").map(Number);
+  const d = new Date(a, m - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+export const pagado = v => (v.abonos || []).reduce((s, a) => s + a.monto, 0);
+export const saldo  = v => Math.max(0, v.valor - pagado(v));
+// "Saldada" no es un estado que alguien marque: se deduce de los abonos. Así no
+// puede haber dos verdades que se contradigan.
+export const estaSaldada = v => v.estado !== "perdida" && v.valor > 0 && pagado(v) >= v.valor;
+
+// Fecha en que la venta quedó saldada = la del abono que completó el valor.
+// Es la que decide en qué mes se causa la comisión.
+export function fechaSaldo(v) {
+  let acc = 0;
+  for (const a of v.abonos || []) { acc += a.monto; if (acc >= v.valor) return a.fecha; }
+  return null;
+}
+
+// comision = 0 significa SIN DEFINIR, no "no comisiona". Esas ventas se marcan
+// en la interfaz y NO suman: más vale un hueco visible que una cifra inventada.
+export const comisionSinDefinir = v => !(v.comision > 0);
+
+// Resumen de un periodo para un agente. `facturado` es lo RECAUDADO: para la
+// empresa facturar es cobrar, así que no hay dos cifras distintas.
+export function resumenVentas(periodo, ownerId) {
+  const mias = state.ventas.filter(v => v.owner_id === ownerId);
+  const vivas = mias.filter(v => v.estado !== "perdida" && !estaSaldada(v));
+
+  const facturado = mias.reduce((s, v) =>
+    s + (v.abonos || []).filter(a => periodoDe(a.fecha) === periodo)
+                        .reduce((t, a) => t + a.monto, 0), 0);
+
+  const causada = mias.filter(v => estaSaldada(v) && periodoDe(fechaSaldo(v)) === periodo)
+                      .reduce((s, v) => s + v.comision, 0);
+
+  // Pendientes: no son del periodo, son lo que hay vivo ahora mismo.
+  const porFacturar = vivas.reduce((s, v) => s + saldo(v), 0);
+  const porCausar   = vivas.reduce((s, v) => s + v.comision, 0);
+  const sinDefinir  = vivas.filter(comisionSinDefinir).length;
+
+  return { facturado, causada, porFacturar, porCausar, sinDefinir };
+}
+
+/* ---------- alertas por fecha de pago ---------- */
+// Días entre dos fechas ISO. Se hace en UTC a propósito: `new Date("2026-08-01")`
+// se interpreta como medianoche UTC y en Colombia (UTC−5) restar con fechas
+// locales daba un día de diferencia según la hora a la que se mirara.
+const dias = (desde, hasta) => {
+  const d = new Date(desde + "T00:00:00Z"), h = new Date(hasta + "T00:00:00Z");
+  return Math.round((h - d) / 86400000);
+};
+
+// Umbrales del sistema de alertas. Están aquí y no repartidos por el render
+// para poder moverlos en un solo sitio.
+export const ALERTA_PRONTO = 3;   // días para considerar que "vence pronto"
+
+// Una venta viva con fecha de pago genera alerta. `orden` es la prioridad de
+// cobro: lo vencido primero, lo que no tiene fecha al final.
+export function alertaPago(v, hoy = hoyISO()) {
+  if (v.estado === "perdida" || estaSaldada(v)) return null;
+  if (!v.fecha_pago) return { nivel: "sinfecha", texto: "Sin fecha de pago", orden: 4 };
+
+  const d = dias(hoy, v.fecha_pago);
+  if (d < 0)  return { nivel: "vencida", orden: 0,
+    texto: `Vencida hace ${-d} ${-d === 1 ? "día" : "días"}` };
+  if (d === 0) return { nivel: "hoy", orden: 1, texto: "Vence hoy" };
+  if (d <= ALERTA_PRONTO) return { nivel: "pronto", orden: 2,
+    texto: `Vence en ${d} ${d === 1 ? "día" : "días"}` };
+  return { nivel: "ok", orden: 3, texto: `Vence el ${fmtF(v.fecha_pago)}` };
+}
+
+// Resumen para el aviso de arriba: cuántas y cuánto hay que perseguir.
+export function alertasDelMes(ownerId) {
+  const vivas = state.ventas.filter(v =>
+    v.owner_id === ownerId && v.estado === "abierta" && !estaSaldada(v));
+  const con = n => vivas.filter(v => alertaPago(v)?.nivel === n);
+  const vencidas = con("vencida"), hoyv = con("hoy"), pronto = con("pronto");
+  const monto = [...vencidas, ...hoyv].reduce((s, v) => s + saldo(v), 0);
+  return { vencidas: vencidas.length, hoy: hoyv.length, pronto: pronto.length, monto };
+}
+
+// FTD del mes. NO se cuentan por `membresia = 'Beca'`: ese es el nivel de HOY, y
+// al subir alguien a VIP desaparecería de los meses ya cerrados y pagados. Se
+// cuentan por `comunidad_desde`, que no se mueve nunca — todo el que hoy es Oro
+// entró en su momento como FTD.
+export const ftdDelMes = (periodo, ownerId) =>
+  state.clientes.filter(c => c.owner_id === ownerId && periodoDe(c.comunidadDesde) === periodo).length;
+
+// Los FTD no se pagan uno por uno sino por meta mensual alcanzada. Lo que sobra
+// de la meta se acumula como "base" y ayuda el mes siguiente.
+//
+// Hay TRES números distintos y confundirlos fue el defecto original:
+//   cargados  → los que están en la plataforma (clientes con comunidad_desde)
+//   reales    → los que el agente dice que lleva de verdad (`declarado`)
+//   sin subir → la diferencia, o sea su tarea pendiente
+//
+// El que manda para las metas es `reales`. Se toma el mayor entre lo declarado
+// y lo cargado: si sube más de los que declaró, el número lo sigue en vez de
+// quedarse corto.
+export function comisionFtd(periodo, ownerId) {
+  const cargados = ftdDelMes(periodo, ownerId);
+  const fila = state.ftdBase[`${ownerId}|${periodo}`] || {};
+  const base = fila.base || 0;
+  const reales = fila.declarado != null ? Math.max(fila.declarado, cargados) : cargados;
+  const efectivos = reales + base;
+
+  const metas = state.metasFtd;
+  const alcanzada = [...metas].reverse().find(m => efectivos >= m.ftd) || null;
+  const siguiente = metas.find(m => m.ftd > efectivos) || null;
+
+  return {
+    cargados, reales, base, efectivos,
+    sinSubir: Math.max(0, reales - cargados),
+    declaro: fila.declarado != null,
+    cerrado: !!fila.cerrado,
+    meta: alcanzada ? alcanzada.ftd : 0,
+    pago: alcanzada ? Number(alcanzada.pago) : 0,
+    siguiente: siguiente ? siguiente.ftd : null,
+    faltan: siguiente ? siguiente.ftd - efectivos : 0,
+    // Lo que sobra pasa al mes siguiente como base. Se calcula siempre, pero
+    // escribirlo es un acto explícito del cierre: lo que se pagó, se pagó.
+    sobra: efectivos - (alcanzada ? alcanzada.ftd : 0),
+  };
+}
+
+// Progreso hacia la META QUE EL AGENTE SE PUSO. Se mide SOLO con los FTD de
+// este mes: la base NO cuenta.
+//
+// Es deliberado y no es lo mismo que la comisión. La base sí sirve para cobrar
+// —para eso se acumula—, pero si además contara para la meta personal, alguien
+// que llegó con 31 de base vería «meta cumplida» sin haber hecho nada este mes,
+// y eso lo desactiva justo de lo que la meta pretende activarlo.
+export function progresoMeta(periodo, ownerId) {
+  const f = comisionFtd(periodo, ownerId);
+  const m = metasDe(periodo, ownerId);
+  // Sin meta propia se usa la siguiente de comisión, solo como referencia.
+  const meta = m?.metaFtd || f.siguiente || 0;
+  return {
+    meta,
+    hechos: f.reales,                                  // sin base, a propósito
+    faltan: Math.max(0, meta - f.reales),
+    cumplida: meta > 0 && f.reales >= meta,
+    pct: meta ? Math.min(100, Math.round(f.reales / meta * 100)) : 0,
+    pctCargados: meta ? Math.min(100, Math.round(f.cargados / meta * 100)) : 0,
+    propia: !!m?.metaFtd,
+  };
+}
+
+// Metas que el agente se puso para el mes. El total NO se guarda: es el pago de
+// la meta de FTD más la meta de comisión por ventas, y derivarlo evita que las
+// tres cifras se contradigan.
+export function metasDe(periodo, ownerId) {
+  const m = state.metasAgente[`${ownerId}|${periodo}`];
+  if (!m) return null;
+  const pagoFtd = Number((state.metasFtd.find(x => x.ftd === m.meta_ftd) || {}).pago || 0);
+  const metaVentas = Number(m.meta_ventas) || 0;
+  return { metaFtd: m.meta_ftd, metaVentas, pagoFtd, total: pagoFtd + metaVentas };
+}
+
+// El mes anterior quedó sin cerrar? Es lo que dispara el ritual del día 1.
+export function periodoSinCerrar(ownerId) {
+  const hoy = hoyISO().slice(0, 7);
+  const ant = periodoAntes(hoy);
+  const fila = state.ftdBase[`${ownerId}|${ant}`];
+  // Solo tiene sentido cerrar un mes en el que hubo actividad.
+  const hubo = ftdDelMes(ant, ownerId) > 0 || (fila && fila.declarado != null);
+  return hubo && !(fila && fila.cerrado) ? ant : null;
+}

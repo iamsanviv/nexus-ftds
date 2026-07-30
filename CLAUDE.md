@@ -118,6 +118,102 @@ para uno mismo; actualizar y borrar siguen el alcance de la jerarquía.
 Las etiquetas de la interfaz deben coincidir con esto. Ya estuvieron cruzadas
 una vez (el registro decía «10 min» y el editor «15 min después»).
 
+### Ventas y comisiones (`ventas.js`)
+
+Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
+
+- **La comisión es un monto fijo por producto**, no un porcentaje ($789 → $200).
+  Se **congela** en la venta al crearla: va al revés que las imágenes del
+  catálogo (que se resuelven vigentes al enviar) porque una comisión pactada no
+  puede cambiar retroactivamente. `productos` es el valor por defecto al crear,
+  no la fuente de verdad de lo ya vendido.
+- **`comision = 0` significa SIN DEFINIR**, no «no comisiona». La interfaz lo
+  marca y esa venta **no suma**: mejor un hueco visible que una cifra inventada.
+- **Facturado = recaudado.** Para la empresa facturar es cobrar, así que no hay
+  columna de facturación: es la suma de abonos y punto.
+- **«Saldada» no se marca, se deduce** (abonos ≥ valor). La comisión se causa en
+  el mes del abono que completó el valor. Ni «saldada» ni el total de comisión
+  se guardan: una sola verdad.
+- **Cada abono se corrige en su fila** (monto y fecha editables, ✕ para borrar).
+  Hacía falta porque un abono de más dejaba la venta saldada, y saldada la
+  tarjeta no muestra ningún control: quedaba sin salida. La fecha es editable
+  porque decide en qué mes se causa la comisión. Poner cero no vale — para eso
+  está la ✕, que es lo que de verdad se quiere decir.
+- **Upgrade**: cobra la diferencia de precio y comisiona un **monto fijo**
+  (`parametros.comision_upgrade`), no la comisión del producto — el pago inicial
+  ya comisionó en su momento. **De Beca a membresía NO es upgrade**: la beca es
+  gratis, así que no hay pago inicial que descontar ni comisión ya cobrada. Se
+  cobra precio completo. El upgrade empieza en VIP (nivel 2).
+- **Los FTD no se pagan uno por uno**: solo si se alcanza una meta mensual. Lo
+  que sobra se acumula como «base» para el mes siguiente. `ftd_base` se guarda
+  en vez de derivarse: derivarla dejaría que un FTD registrado tarde moviera la
+  comisión de meses ya pagados.
+
+### FTD reales vs. cargados (`ftd.js`)
+
+- **Tres números distintos, y confundirlos fue el defecto original**:
+  `cargados` (los que están en la plataforma), `reales` (los que el agente dice
+  que lleva, en `ftd_base.declarado`) y `sin subir` (la resta). **El que manda
+  para las metas es `reales`.** Se toma `max(declarado, cargados)` para que
+  subir de más no deje el número corto.
+- **La casilla «ya lo conté» no marca nada en `clientes`.** Desmarcarla sube
+  `declarado` en 1 y ya; al subir uno de los que faltaban, `cargados` sube solo
+  y «sin subir» baja. Por eso la casilla **solo aparece si hay deuda**: cuando
+  «sin subir» llega a 0 desaparece del formulario.
+- **La base se escribe a mano una sola vez**, para arrancar. Del mes siguiente
+  en adelante la siembra el cierre: `sobra = efectivos − meta alcanzada`.
+- **La meta que el agente se pone se mide SIN la base** (`progresoMeta`), y la
+  comisión SÍ la cuenta (`comisionFtd`). Son dos cosas distintas y mezclarlas
+  le decía «meta cumplida» a alguien que llegó con base y no hizo nada este
+  mes — justo lo contrario de para lo que sirve una meta. En la tarjeta la base
+  va en una línea aparte que dice que no cuenta para la meta.
+- **Un mes cerrado no se reabre** (`cerrado = true` bloquea el UPDATE en RLS,
+  salvo admin). Lo que se pagó, se pagó.
+- **La meta del agente es libre**, no una de las cinco de la tabla: se elige con
+  deslizador (1 → la meta más alta) y los atajos son solo eso, atajos. Por eso
+  `pagoDeMeta(n)` busca **la mayor meta que `n` alcanza**, no coincidencia
+  exacta: con una meta de 70 la búsqueda exacta devolvía $0.
+- Al arrastrar el deslizador **no se vuelve a pintar el paso**, solo la lectura
+  y qué atajo queda marcado: repintar mata el gesto a mitad de arrastre.
+- El bloque vive en **Personas**, no en Ventas: es donde el agente pasa el día.
+  Su comisión sigue sumando al encabezado de Ventas.
+- El cierre se ofrece **al entrar, si el mes anterior quedó sin cerrar** — no
+  estrictamente el día 1. Si se pospone, vuelve a aparecer.
+- **Los zooms son etapas con fecha y estado.** No mandan WhatsApp. Programar
+  recordatorios sigue siendo cosa de Seguimiento.
+- **`productos.categoria` tiene tres valores**: `membresia`, `servicio` y
+  `bot`. Los bots van aparte porque son nueve de dieciséis productos y
+  mezclados con los servicios tapaban todo lo demás en el selector.
+- Cliente y producto se eligen con **buscador**, no con `<select>`: son 200+
+  clientes. Filtra con `norm()`, la misma de Personas, así que «cesar»
+  encuentra a «César».
+- Se venden solo clientes **propios**, por lo mismo que la regla de envíos: la
+  venta quedaría a nombre de quien la registra.
+- **Las dos comisiones van separadas**: la de FTD en su tarjeta de Personas y la
+  de ventas en la suya. Mezclarlas en un solo número escondía cuál de las dos
+  estaba floja. El total de ambas va discreto, abajo a la derecha (`.totalmes`).
+- **La lista empieza por «Falta que paguen»**, ordenada por urgencia de cobro.
+  Lo ya causado es historia y baja al final.
+- El panel lleva un **aviso legal obligatorio**: son cifras de guía, no un dato
+  oficial de Nexus para reclamar pagos.
+
+### Alertas por fecha de pago
+
+`alertaPago(v)` clasifica cada venta viva y da el `orden` de cobro:
+
+| nivel | cuándo | se ve |
+|---|---|---|
+| `vencida` | `fecha_pago` ya pasó | filo rojo + chip «Vencida hace N días» |
+| `hoy` | vence hoy | filo dorado |
+| `pronto` | faltan ≤ `ALERTA_PRONTO` (3) días | filo dorado tenue |
+| `ok` | más lejos | sin filo, solo la fecha |
+| `sinfecha` | no tiene `fecha_pago` | filo gris, va de último |
+
+- El **aviso rojo de arriba solo sale si hay vencidas o vence algo hoy**. Si
+  saliera siempre, dejaría de mirarse.
+- Los días se restan **en UTC** (`fecha + "T00:00:00Z"`). Con fechas locales, en
+  Colombia (UTC−5) el mismo día daba distinto según la hora.
+
 ---
 
 ## Trampas que ya costaron caro
@@ -144,6 +240,21 @@ una vez (el registro decía «10 min» y el editor «15 min después»).
 - **`progreso()` solo recorre el catálogo.** Por eso las llaves extra en
   `acc`/`conf` y el mapa `clientes.puntuales` no ensucian los porcentajes.
 - **El CSV solo INSERTA**, nunca actualiza. No hay riesgo de que pise datos.
+- **Contar FTD por `membresia = 'Beca'` está mal.** `membresia` es el nivel de
+  HOY: en cuanto alguien sube a VIP desaparecería de los FTD de meses ya
+  cerrados y pagados. Se cuentan por **`comunidad_desde`**, que no se mueve
+  nunca — todo el que hoy es Oro entró en su momento como FTD.
+- **Al calcular un upgrade, usar el PRECIO DE LISTA del nivel que tiene, no lo
+  que pagó.** Si su venta anterior ya era un upgrade, su monto es una
+  diferencia, y encadenar diferencias regala un descuento que nadie concedió.
+- **Cuidado con la especificidad al reusar `.frow`.** `.frow label` (0,1,1) le
+  gana a cualquier clase suelta (0,1,0): la casilla «Ya pagó completo» salía en
+  mayúsculas de etiqueta. Se arregló nombrando el elemento (`.frow
+  label.chkline`), no subiendo a `!important`.
+- **`.tabbar` y `.overlay` comparten `z-index: 30`.** Funciona solo porque en
+  `index.html` la barra va ANTES de los overlays. Al montar un banco de pruebas
+  que los agregue en otro orden, la barra tapa el modal: es artefacto del banco,
+  no del producto.
 
 ---
 
@@ -166,6 +277,8 @@ public/
     canal.js          «Mi WhatsApp»: estado y vinculación por agente
     salud.js          Alertas de canal caído + panel de agentes
     repaso.js         Repaso diario de asistencias
+    ventas.js         Ventas, abonos y comisiones
+    ftd.js            Bloque de FTD en Personas, metas y cierre mensual
     stats.js, main.js
 sql/                  Migraciones documentadas (el estado real está en la base)
 ```
@@ -182,11 +295,38 @@ Flujo de dependencias sin ciclos. El estado mutable vive en un único objeto
 que se sabe de él es inferencia desde la base. Si algo depende de su
 comportamiento, decirlo en vez de asumirlo.
 
+## Decisiones de seguridad que se relajaron a propósito
+
+- **El agente escribe su propia `ftd_base`** (antes solo director y admin).
+  Hacía falta para que declare sus FTD reales y cierre su mes. Se acepta porque
+  **este panel no es la fuente de pago**: lo dice el aviso legal de la pantalla.
+  Si algún día se paga contra estos números, hay que devolver la escritura al
+  director. Queda como el único sitio donde alguien puede mover una cifra que
+  le afecta a él mismo.
+
 ## Pendientes conocidos
+
+- **Falta probar el RLS de ventas y FTD simulando sesiones.** Las dos
+  migraciones (07 y 08) están aplicadas, pero sus bloques de pruebas nunca se
+  corrieron: no está verificado que un agente no vea las ventas de otro, ni que
+  no pueda escribir la `ftd_base` ajena o reabrir un mes cerrado. El SQL ya está
+  escrito en los dos archivos; solo falta poner los UUID reales.
+- **Faltan valores de comisión**: `parametros.comision_upgrade` y once productos
+  quedaron en 0 («por confirmar» en la lista del 29/07). Mientras sigan en cero,
+  esas ventas se registran pero no suman.
+- **Meta mensual de facturación** (distinta de las metas de FTD): pedida el
+  29/07 y aplazada a propósito hasta que lo demás funcione.
+- **Guardar la base de FTD al cerrar el mes** no tiene interfaz todavía: la app
+  la calcula y la muestra, pero escribirla en `ftd_base` es manual.
 
 - **Apagar «Confirm email»** en Supabase → Authentication. Con la aprobación
   manual ese paso sobra y provoca `email rate limit exceeded` al probar.
-  Configurar SMTP propio antes de cobrar (el «olvidé mi contraseña» lo necesita).
+- **«Olvidé mi contraseña» necesita SMTP propio.** El de Supabase es de
+  desarrollo y limita a unos pocos correos por hora. Cambiar la contraseña
+  desde dentro (Más → Cambiar mi contraseña) ya funciona: usa
+  `updateUser`, que va con la sesión abierta y **no manda ningún correo**.
+  Falta la pantalla de recuperación, que además necesita atender el enlace de
+  `type=recovery` al abrir la app.
 - **Bug de números de México en el worker**: `no LID found for 52…` con y sin el
   `1` tras el código de país. Causó el 18 % de fallos de un agente.
 - **El CSV no lleva las asistencias puntuales** (`clientes.puntuales`).
