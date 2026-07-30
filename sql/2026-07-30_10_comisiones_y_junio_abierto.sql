@@ -116,3 +116,23 @@ create index if not exists segmentos_clave_idx
 -- UNA entrada con la unión de las personas (5 de 3+3 con una repetida), y la
 -- política `segmentos_upd` (owner_id = auth.uid()) cubre la fusión — se revisó
 -- antes de escribir el update, porque sin política habría fallado en silencio.
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- ANEXO 2 · El rastreo se decide al programar, no al crear la actividad
+-- (migración `quitar_actividades_rastrear_la_decision_es_por_tanda`)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- A una lista de confianza se le rastrea y a un público frío se le manda el
+-- zoom.us tal cual, y la misma actividad puede querer las dos cosas en tandas
+-- distintas. La casilla se movió al bloque de programación.
+--
+-- Con eso `actividades.rastrear` deja de tener sentido: la verdad de quién
+-- lleva enlace rastreado ya está escrita persona por persona en si su
+-- seguimiento tiene `clic_token`. Se comprobó antes de quitarla que las 35
+-- filas estuvieran en `true` — nadie la apagó nunca, así que no había ninguna
+-- decisión guardada que perder.
+--
+-- Se ELIMINA en vez de dejarla sin uso: una columna muerta que sigue ahí es
+-- exactamente la trampa de `mensajes_programados.imagen_url`.
+alter table public.actividades drop column if exists rastrear;

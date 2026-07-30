@@ -150,9 +150,16 @@ registra el clic, marca asistencia y redirige.
   `''` (existe pero la sala no tiene enlace todavía) y la URL. Con un solo
   `null` para los dos primeros, la persona veía «enlace inválido» cuando lo que
   pasaba era que el asesor no había pegado la sala.
-- **Se puede apagar por actividad** (`actividades.rastrear`, por defecto sí):
-  cambiar un `zoom.us` reconocible por un enlace nuestro resta confianza y es
-  señal de spam, y aquí ya hubo un número restringido.
+- **Se decide al PROGRAMAR, no al crear la actividad** (casilla en el bloque de
+  programación, encendida por defecto y que vuelve a encenderse en cada tanda).
+  A una lista de confianza se le rastrea; a un público frío que ya desconfía se
+  le manda el `zoom.us` tal cual —cambiarlo resta confianza y es señal de spam,
+  y aquí ya hubo un número restringido—, y la misma actividad puede querer las
+  dos cosas en tandas distintas.
+- **Tener `clic_token` ES la respuesta**, persona por persona: no hay ninguna
+  bandera aparte que consultar. Por eso `actividades.rastrear` se eliminó en vez
+  de dejarla sin uso — una columna muerta que sigue ahí es la trampa de
+  `imagen_url` otra vez.
 - Lo que **no** puede saber, y está dicho en pantalla: un clic es que abrió, no
   que se quedó; si reenvía el mensaje el clic queda a nombre de quien lo
   recibió; quien entre con un enlace que ya tenía no genera clic; y el agente

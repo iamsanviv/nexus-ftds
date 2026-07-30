@@ -210,13 +210,6 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         <div class="frow"><label>Fecha</label><input type="date" id="segFecha"></div>
         <div class="frow"><label>Hora (Colombia)</label><input type="time" id="segHora"></div>
         <div class="frow wide"><label>Enlace de la sala <span class="opt">(opcional — puedes agregarlo luego)</span></label><input id="segLink" placeholder="https://…"></div>
-        <!-- Enlace rastreado: cada persona recibe una URL propia que registra el
-             clic y la lleva a la sala. Se puede apagar porque cambiar un
-             zoom.us reconocible por un enlace nuestro resta confianza. -->
-        <div class="frow wide">
-          <label class="segtoggle"><input type="checkbox" id="segRastrear" checked> Saber quién entra al enlace</label>
-          <div class="msgshelp">Cada persona recibe un enlace propio que la lleva a la misma sala. Quien lo abra queda marcado como asistente, sin tener que preguntárselo. Apágalo si prefieres que vean el enlace de Zoom tal cual.</div>
-        </div>
       </div>
       <div class="segformbtns">
         <button class="authbtn" id="segCrearAct">Guardar actividad</button>
@@ -244,6 +237,12 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <div id="segFiltros" class="segfiltros"></div>
       <label class="segtoggle"><input type="checkbox" id="segIncAsis"> Incluir a quienes ya asistieron (para reinvitar)</label>
       <label class="segtoggle"><input type="checkbox" id="segSinInv"> No enviar invitación — ya los invité por llamada o por otro mensaje</label>
+      <!-- Enlace rastreado. Va acá y no en el formulario de la actividad porque
+           la decisión es de esta tanda: a una lista de confianza se le rastrea,
+           y a un público frío que ya desconfía se le manda el zoom.us tal cual.
+           La misma actividad puede querer las dos cosas. -->
+      <label class="segtoggle"><input type="checkbox" id="segRastrear" checked> Saber quién entra al enlace</label>
+      <div class="msgshelp" id="segRastrearAyuda">Cada persona recibe un enlace propio que la lleva a la misma sala. Quien lo abra queda marcado como asistente, sin tener que preguntárselo. Apágalo si prefieres que vean el enlace de Zoom tal cual.</div>
       <div class="segselbar">
         <span id="segSelCount" class="segselcount"></span>
         <button class="pill" id="segMarcarVis">✓ Marcar visibles</button>

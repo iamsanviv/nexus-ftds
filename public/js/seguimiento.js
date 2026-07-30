@@ -175,9 +175,9 @@ function renderNovedad() {
       <button class="alertax" id="segNovedadX" title="Entendido, no mostrar más">✕</button>
       <div class="at">✨ Nuevo: sabes quién entró, sin preguntar</div>
       <div class="ax">
-        Al crear una actividad verás la casilla <b>«Saber quién entra al enlace»</b>,
-        ya encendida. Cada quien recibe un enlace propio a la misma sala, y
-        <b>quien lo abra queda marcado como asistente</b>.
+        Al programar los mensajes verás la casilla <b>«Saber quién entra al
+        enlace»</b>, ya encendida. Cada quien recibe un enlace propio a la misma
+        sala, y <b>quien lo abra queda marcado como asistente</b>.
         <div class="axnota">
           Verán un enlace nuestro, no el de Zoom — apaga la casilla si prefieres
           el de Zoom. Solo cuenta <b>dentro de la hora</b> siguiente al inicio.
@@ -250,10 +250,12 @@ const nuevoToken = () => {
 //     no necesita nombre.
 const urlRastreada = tok => `${BASE_URL}/i?${tok}`;
 
-// El rastreo es lo predeterminado; las actividades creadas antes de esta función
-// tienen la columna en nulo y también cuentan como encendidas (la base pone
-// `true` por defecto, pero no se asume que el select la trajo).
-const rastreaEnlace = a => !!a && a.rastrear !== false;
+// El rastreo es una decisión DE ESTA TANDA, no de la actividad: a una lista de
+// confianza se le rastrea y a un público frío se le manda el zoom.us tal cual,
+// y la misma actividad puede querer las dos cosas en momentos distintos.
+// Quién lleva enlace rastreado y quién no queda escrito, persona por persona,
+// en si su seguimiento tiene `clic_token`.
+let segRastrear = true;
 
 function renderForm() {
   $("segSrv").innerHTML = state.catalogo.map(g => `<optgroup label="${esc(g.g)}">` +
@@ -269,7 +271,6 @@ function renderForm() {
   // Compartir solo aplica si hay a quién: es cosa de directores.
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
   $("segCompartir").checked = true;
-  $("segRastrear").checked = true;
   setTipoActividad("cat");
 }
 
@@ -351,7 +352,6 @@ function entrarEdicion(a) {
   $("segImgEstado").textContent = "";
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
   $("segCompartir").checked = !!a.compartida;
-  $("segRastrear").checked = rastreaEnlace(a);
   $("segFecha").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   $("segHora").value = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   $("segLink").value = a.enlace;
@@ -412,7 +412,6 @@ async function guardarActividad() {
       // limpia en vez de arrastrar un texto que ya no se ve en pantalla.
       msg_invitacion: libre ? (($("segMsgInv").value || "").trim() || null) : null,
       compartida: state.me.role === "director" && $("segCompartir").checked,
-      rastrear: $("segRastrear").checked,
     };
     if (actEdit) {
       const cambioHora = new Date(actEdit.inicio).getTime() !== inicio.getTime();
@@ -425,32 +424,28 @@ async function guardarActividad() {
       // Propaga el enlace nuevo a los mensajes de "enlace" aún pendientes de los
       // seguimientos activos de esta actividad (por eso el link no se congela).
       //
-      // OJO: los seguimientos CON token llevan su propia URL rastreada, y
-      // pisarla con el enlace crudo apagaría el rastreo en silencio. Se decide
-      // por seguimiento, lo que además resuelve el caso contrario: apagar el
-      // rastreo de una actividad ya programada devuelve los pendientes al
-      // enlace de siempre.
+      // OJO: a los seguimientos CON token no se les toca el `enlace_url`. Su URL
+      // puente resuelve el enlace VIGENTE al abrirse —o sea el que se acaba de
+      // guardar—, así que ya apunta bien; pisarla con el enlace crudo apagaría
+      // el rastreo de esa persona en silencio.
+      //
+      // Desde que el rastreo se decide al programar y no en la actividad, tener
+      // token ES la respuesta: no hay que consultar ninguna otra bandera.
       const { data: segs } = await SB.from("seguimientos")
         .select("id, clic_token").eq("actividad_id", actEdit.id).eq("estado", "activo");
       const conTok = (segs || []).filter(s => s.clic_token);
       const sinTok = (segs || []).filter(s => !s.clic_token);
-      const ponerEnlace = async (lista, valor) => {
-        if (!lista.length) return;
+      if (sinTok.length) {
         await SB.from("mensajes_programados")
-          .update({ enlace_url: valor })
-          .in("seguimiento_id", lista.map(s => s.id))
+          .update({ enlace_url: enlace || null })
+          .in("seguimiento_id", sinTok.map(s => s.id))
           .eq("tipo", "enlace").eq("estado", "pendiente");
-      };
-      await ponerEnlace(sinTok, enlace || null);
-      // Con token y rastreo encendido NO se toca nada: su URL puente resuelve el
-      // enlace vigente al abrirse, o sea justo el que se acaba de guardar.
-      if (!datos.rastrear) await ponerEnlace(conTok, enlace || null);
+      }
 
       const notas = [];
       if (enlace && sinTok.length) notas.push("enlace aplicado a los pendientes");
-      if (enlace && conTok.length) notas.push(datos.rastrear
-        ? `${conTok.length} enlace(s) rastreado(s) ya apuntan al nuevo`
-        : `${conTok.length} seguimiento(s) quedaron sin rastreo`);
+      if (enlace && conTok.length)
+        notas.push(`${conTok.length} enlace(s) rastreado(s) ya apuntan al nuevo`);
       if (reprog && reprog.movidos) notas.push(`${reprog.movidos} mensaje(s) reprogramado(s)`);
       if (reprog && reprog.cancelados) notas.push(`${reprog.cancelados} ya no alcanzaban y se cancelaron`);
       toast("✓ Actividad actualizada" + (notas.length ? " · " + notas.join(" · ") : ""));
@@ -474,7 +469,7 @@ async function guardarActividad() {
 /* ================= LISTA de actividades ================= */
 async function cargarActividades() {
   const { data, error } = await SB.from("actividades")
-    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen, compartida, rastrear, msg_invitacion, owner_id")
+    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen, compartida, msg_invitacion, owner_id")
     .eq("estado", "activa")
     .order("inicio", { ascending: true });
   if (error) {
@@ -645,6 +640,11 @@ async function seleccionarActividad(a) {
   const iaRow = $("segIncAsis").closest("label");
   if (iaRow) iaRow.classList.toggle("hidden", esLibre(a));
   const si = $("segSinInv"); if (si) si.checked = false;
+  // Vuelve a encendido en cada actividad: es lo que se quiere casi siempre, y
+  // dejarlo apagado de la tanda anterior significaría perder el rastreo sin
+  // que nadie lo pidiera.
+  segRastrear = true;
+  const ra = $("segRastrear"); if (ra) ra.checked = true;
   const tr = $("segTardeRow"); if (tr) tr.classList.add("hidden");
   const tt = $("segTardeToggle"); if (tt) { tt.classList.remove("on"); tt.classList.remove("hidden"); }
   $("segProgTitulo").innerHTML = `Programar para <b>${esc(a.nombre)}</b> · ${fechaHoraCO(a.inicio)}`;
@@ -759,7 +759,8 @@ async function revisarCanal() {
 // darse cuenta de que olvidó (o dejó puesto) el modo «sin invitación».
 const etiquetaProgramar = () =>
   !canalListo ? "Vincula tu WhatsApp para programar"
-  : segSinInvitacion ? "Programar sin invitación" : "Programar mensajes";
+  : segSinInvitacion ? "Programar sin invitación"
+  : !segRastrear ? "Programar sin rastrear el enlace" : "Programar mensajes";
 const refrescarBotonProgramar = () => {
   const b = $("segProgramar");
   b.textContent = etiquetaProgramar();
@@ -816,7 +817,7 @@ async function programar() {
     // 1) un seguimiento por persona (copia los datos de la actividad).
     // Si la actividad rastrea, cada uno nace con su token: es lo que después
     // permite decir QUIÉN entró, y no solo cuántos.
-    const rastrear = rastreaEnlace(actSel);
+    const rastrear = segRastrear;
     const segRows = seleccion.map(c => ({
       cliente_id: c.id, actividad_id: actSel.id, actividad: actSel.nombre,
       inicio: actSel.inicio, enlace: actSel.enlace,
@@ -1507,6 +1508,8 @@ $("segSinInv").onchange = e => {
   }
   refrescarBotonProgramar();
 };
+
+$("segRastrear").onchange = e => { segRastrear = e.target.checked; refrescarBotonProgramar(); };
 
 // Guardar la selección actual como segmento permanente (Req 3).
 $("segGuardarSeg").onclick = guardarSegmentoManual;
