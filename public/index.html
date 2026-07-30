@@ -121,6 +121,8 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <button class="sgbtn primary" id="segNuevaAct">＋ Nueva actividad</button>
     </div>
 
+    <!-- aviso de novedad: se cierra y no vuelve (lo llena seguimiento.js) -->
+    <div id="segNovedad" class="hidden"></div>
     <!-- aviso de canal caído / mensajes fallando (lo llena salud.js) -->
     <div id="segAlerta" class="hidden"></div>
     <!-- aviso de WhatsApp sin vincular: se puede usar todo menos enviar -->

@@ -144,6 +144,48 @@ function resetPlantillas() {
   toast("Restaurado. Toca «Guardar mensajes» para aplicar.");
 }
 
+/* ================= AVISO DE NOVEDAD ================= */
+// Un aviso que NO se puede cerrar termina como el de Majo: se queda ahí para
+// siempre y deja de mirarse, y de paso tapa los avisos que sí importan (canal
+// caído, mensajes fallando). Este se cierra y no vuelve.
+//
+// La marca va en localStorage y no en la base: es una preferencia de lectura,
+// no un dato del negocio. No merece una tabla, ni una migración, ni RLS. Lo
+// peor que pasa si alguien entra desde otro navegador es que lo lea dos veces.
+//
+// La clave lleva versión: para anunciar lo siguiente se sube el número y el
+// aviso reaparece, sin tocar nada más.
+const NOVEDAD = "enlace-rastreado-v1";
+const claveNovedad = () => `nexus.novedad.${state.me.id}.${NOVEDAD}`;
+
+function renderNovedad() {
+  const cont = $("segNovedad");
+  if (localStorage.getItem(claveNovedad())) {
+    cont.classList.add("hidden"); cont.innerHTML = ""; return;
+  }
+  cont.innerHTML = `
+    <div class="alerta nueva">
+      <button class="alertax" id="segNovedadX" title="Entendido, no mostrar más">✕</button>
+      <div class="at">✨ Nuevo: sabes quién entró, sin preguntar</div>
+      <div class="ax">
+        Al crear una actividad verás la casilla <b>«Saber quién entra al enlace»</b>,
+        ya encendida. Cada quien recibe un enlace propio a la misma sala, y
+        <b>quien lo abra queda marcado como asistente</b>.
+        <div class="axnota">
+          Verán un enlace nuestro, no el de Zoom — apaga la casilla si prefieres
+          el de Zoom. Solo cuenta <b>dentro de la hora</b> siguiente al inicio.
+          Un clic dice que entró, no que se quedó. Y si abres el enlace de
+          alguien para probar, <b>le marcas su asistencia</b>.
+        </div>
+      </div>
+    </div>`;
+  cont.classList.remove("hidden");
+  $("segNovedadX").onclick = () => {
+    localStorage.setItem(claveNovedad(), new Date().toISOString());
+    renderNovedad();
+  };
+}
+
 /* ================= FORMULARIO crear / editar actividad ================= */
 const pad = n => String(n).padStart(2, "0");
 
@@ -1256,6 +1298,7 @@ $("btnSeg").onclick = async () => {
   // El registro es consulta, no acción: en celular arranca plegado para no
   // llenar la pantalla; en escritorio va desplegado en su propio riel.
   $("segLogSec").open = window.matchMedia("(min-width:900px)").matches;
+  renderNovedad();
   salirEdicion(); ocultarProg(); cargarPlantillas(); cargarActividades();
   cargarSegmentos(); renderActivos(); renderLogs();
   // Si el canal está caído o los mensajes vienen fallando, avisarlo arriba

@@ -158,6 +158,19 @@ registra el clic, marca asistencia y redirige.
   recibió; quien entre con un enlace que ya tenía no genera clic; y el agente
   que abra el enlace para probarlo le marca asistencia a ese cliente.
 
+### Avisos de novedad
+
+`renderNovedad()` en `seguimiento.js`. **Se cierra y no vuelve**, porque un aviso
+permanente termina como el de canal caído de Majo: se queda ahí para siempre,
+deja de mirarse y tapa los que sí piden acción. Va en verde (`.alerta.nueva`)
+justo por eso: si compartiera color con «canal caído», una buena noticia
+gritaría igual que un problema.
+
+La marca va en `localStorage` con la clave `nexus.novedad.<uid>.<version>` — es
+una preferencia de lectura, no un dato del negocio: no merece tabla, migración
+ni RLS. Para anunciar lo siguiente se sube la constante `NOVEDAD` y reaparece,
+sin tocar nada más.
+
 ### Políticas por comando, no `FOR ALL`
 
 `seguimientos` y `mensajes_programados` tenían una política `FOR ALL` cuyo

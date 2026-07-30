@@ -618,6 +618,20 @@ body.segwide .tabinner{max-width:1180px}
 .alerta.mal .at{color:var(--bad)}
 .alerta.ojo .at{color:var(--gold)}
 .alerta .ax{font-size:.83rem;color:var(--text);line-height:1.5}
+/* Aviso de novedad: verde en vez de rojo/dorado, porque no hay nada que
+   atender. Si compartiera el color con «canal caído», una buena noticia
+   estaría gritando igual que un problema. */
+.alerta.nueva{background:rgba(78,203,141,.07);border-color:rgba(78,203,141,.38);
+  position:relative;padding-right:40px}
+.alerta.nueva .at{color:var(--ok)}
+/* La nota de advertencias va más discreta que el anuncio: se lee después, y
+   solo si la persona quiere el detalle. */
+.alerta .axnota{font-size:.78rem;color:var(--muted);line-height:1.5;margin-top:8px;
+  padding-top:8px;border-top:1px solid rgba(255,255,255,.07)}
+.alertax{position:absolute;top:9px;right:10px;width:26px;height:26px;border-radius:8px;
+  color:var(--muted);font-size:.85rem;line-height:1;display:flex;align-items:center;
+  justify-content:center}
+.alertax:hover{background:rgba(255,255,255,.07);color:var(--text)}
 .alerta .ae{font-size:.75rem;color:var(--muted);margin-top:7px;word-break:break-word;
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 
