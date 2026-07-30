@@ -174,6 +174,21 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
           <input id="segLibre" placeholder="Ej: Lanzamiento de membresías" autocomplete="off">
           <div class="msgshelp">No entra al catálogo ni cuenta para el progreso de nadie. Úsalo para cosas de una sola vez.</div>
         </div>
+        <!-- Invitación propia de esta actividad. Plegada: la mayoría de las
+             veces la plantilla del agente sirve, y desplegar cinco mensajes
+             convertiría el formulario en un muro de texto. Solo la invitación:
+             los recordatorios y el enlace son iguales en todas partes. -->
+        <div class="frow wide hidden" id="segMsgInvRow">
+          <button type="button" class="tbtn" id="segMsgInvBtn">✎ Personalizar la invitación</button>
+          <div id="segMsgInvBox" class="hidden">
+            <textarea id="segMsgInv" rows="4" placeholder="Escribe la invitación de esta actividad…"></textarea>
+            <div class="msgshelp">Etiquetas: <code>{nombre}</code> <code>{actividad}</code>
+              <code>{hora}</code>. Variantes al azar con <code>{hola|buenas|qué más}</code>.
+              Déjalo vacío para usar tu plantilla de siempre.</div>
+            <div class="prevmsg" id="segMsgInvPrev"></div>
+            <button type="button" class="tbtn" id="segMsgInvQuitar" style="color:var(--bad)">Quitar y usar mi plantilla</button>
+          </div>
+        </div>
         <div class="frow wide">
           <label>Imagen de la invitación <span class="opt">(opcional)</span></label>
           <div class="imgfield">

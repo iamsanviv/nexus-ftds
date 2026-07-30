@@ -621,6 +621,28 @@ body.segwide .tabinner{max-width:1180px}
 /* Aviso de novedad: verde en vez de rojo/dorado, porque no hay nada que
    atender. Si compartiera el color con «canal caído», una buena noticia
    estaría gritando igual que un problema. */
+/* Historial de invitados, plegado. Ocho chips con nombre de actividad empujaban
+   la lista de personas —lo que el agente vino a hacer— fuera de la pantalla. */
+.segacc{margin:6px 0 4px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)}
+.segacc summary{display:flex;align-items:center;gap:8px;padding:8px 11px;cursor:pointer;
+  list-style:none;font-size:.72rem;font-weight:800;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted)}
+.segacc summary::-webkit-details-marker{display:none}
+.segacc summary::after{content:"▾";margin-left:auto;font-size:.78rem;transition:transform .15s}
+.segacc[open] summary::after{transform:rotate(180deg)}
+.segacc summary .pcn{background:var(--surface);border:1px solid var(--border);
+  border-radius:999px;padding:1px 7px;font-size:.7rem;color:var(--text)}
+.segaccbody{padding:2px 9px 9px;display:flex;flex-wrap:wrap;gap:6px}
+
+/* Editor de la invitación propia de una actividad. */
+#segMsgInvBtn.on{border-color:var(--gold-dim);color:var(--gold)}
+#segMsgInv{width:100%;min-height:88px;font-family:inherit;font-size:.86rem;line-height:1.5;
+  margin-bottom:6px;resize:vertical}
+.prevmsg{background:var(--surface2);border:1px solid var(--border);border-radius:10px;
+  padding:9px 11px;font-size:.83rem;line-height:1.5;color:var(--text);
+  white-space:pre-wrap;margin-bottom:8px;min-height:1px}
+.prevmsg:empty{display:none}
+
 /* Corrección de un mes cerrado (excepción de junio). Discreto: es una tarea
    puntual, no algo que el agente vaya a hacer todos los días. */
 .cmaviso{margin-top:10px;padding-top:9px;border-top:1px solid var(--border);

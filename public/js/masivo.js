@@ -3,7 +3,7 @@
 // que no llegue idéntico (más seguro). Crea una "campaña" y N mensajes en cola.
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, norm, resolverSnippets } from "./state.js";
-import { subirImagenMensaje, subirAudioMensaje } from "./data.js";
+import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento } from "./data.js";
 import { canalVinculado } from "./canal.js";
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
@@ -59,10 +59,15 @@ function renderSegs() {
   const guardados = segmentos.filter(s => s.definicion?.tipo !== "historial");
   const historial = segmentos.filter(s => s.definicion?.tipo === "historial");
   const chip = (s, hist) =>
-    `<button class="pill segchip ${hist ? "hist" : ""}" data-seg="${s.id}">${hist ? "🕘" : "◆"} ${esc(s.nombre)} · ${idsDeSegmento(s).length}</button>`;
+    `<button class="pill segchip ${hist ? "hist" : ""}" data-seg="${s.id}">${hist ? "" : "◆ "}${esc(s.nombre)} · ${idsDeSegmento(s).length}</button>`;
+  // Plegados, por lo mismo que en Seguimiento: ocupaban más que la lista de
+  // destinatarios, que es lo que de verdad se viene a mirar acá.
   $("masSegs").innerHTML =
     guardados.map(s => chip(s, false)).join("") +
-    historial.map(s => chip(s, true)).join("");
+    (historial.length ? `<details class="segacc">
+      <summary>Invitados recientes<span class="pcn">${historial.length}</span></summary>
+      <div class="segaccbody">${historial.map(s => chip(s, true)).join("")}</div>
+    </details>` : "");
   $("masSegs").querySelectorAll("[data-seg]").forEach(b => b.onclick = () => {
     const s = segmentos.find(x => x.id === b.dataset.seg);
     const ids = idsDeSegmento(s);
@@ -215,8 +220,15 @@ async function abrir() {
   $("masCuandoSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.cuando === "ahora"));
   renderFiltros(); renderLista(); renderCuando();
   $("masOverlay").classList.add("open");
-  const { data } = await SB.from("segmentos").select("id, nombre, definicion").order("created_at", { ascending: false });
-  segmentos = data || []; renderSegs();
+  await cargarSegs();
+}
+
+// Estaba escrito dos veces, en línea, y ahora hace falta una tercera al enviar.
+async function cargarSegs() {
+  const { data } = await SB.from("segmentos")
+    .select("id, nombre, definicion").order("created_at", { ascending: false });
+  segmentos = data || [];
+  renderSegs();
 }
 
 async function enviar() {
@@ -265,6 +277,18 @@ async function enviar() {
     }));
     const { error: e2 } = await SB.from("mensajes_programados").insert(rows);
     if (e2) throw e2;
+
+    // El historial también se alimenta desde acá. Antes solo lo escribía
+    // Seguimiento, así que una selección armada en Masivo no se podía
+    // reutilizar al programar una actividad — solo funcionaba al revés.
+    // Se unifica por campaña: reenviar la misma campaña engorda esa entrada en
+    // vez de crear otra.
+    await guardarHistorialSegmento({
+      clienteIds: sel.map(c => c.id),
+      nombre: `✉ ${camp.nombre}`,
+      clave: `cam:${camp.id}`,
+    });
+    await cargarSegs();
 
     toast(`✓ ${sel.length} mensaje(s) ${masCuando === "prog" ? "programado(s)" : "en cola"} · salen en goteo`);
     $("masOverlay").classList.remove("open");
@@ -329,8 +353,7 @@ $("masGuardarSeg").onclick = async () => {
   const { error } = await SB.from("segmentos").insert({ nombre: nombre.trim(), definicion: { ids: [...masSel] } });
   if (error) { toast("⚠ " + error.message); return; }
   toast(`Segmento «${nombre.trim()}» guardado`);
-  const { data } = await SB.from("segmentos").select("id, nombre, definicion").order("created_at", { ascending: false });
-  segmentos = data || []; renderSegs();
+  await cargarSegs();
 };
 
 $("masEnviar").onclick = enviar;

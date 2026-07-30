@@ -108,6 +108,67 @@ export async function subirImagenMensaje(file) {
   return SB.storage.from("mensajes").getPublicUrl(path).data.publicUrl;
 }
 
+/* ═══════════════ HISTORIAL DE INVITADOS (segmentos) ═══════════════ */
+// Vive acá, y no en seguimiento.js, porque lo alimentan DOS sitios: programar
+// una actividad y enviar un masivo. Antes solo lo escribía Seguimiento, así que
+// las selecciones hechas en Masivo no se podían reutilizar en las actividades
+// —solo al revés—, que es justo lo que no tenía sentido.
+const MAX_HISTORIAL = 8;
+
+// Se UNIFICA por `clave`, no se apila una entrada por guardado.
+//
+// El agente programa de a poquitos, según le van confirmando: si cada tanda
+// creara su propia entrada, una sola actividad se comía el historial entero y
+// además dejaba ocho versiones incompletas de la misma lista. Con la clave, las
+// tandas se funden en una entrada que va creciendo.
+//
+// La unión es acumulativa a propósito: quien ya entró a la lista se queda,
+// aunque en la tanda siguiente no se le haya vuelto a marcar.
+export async function guardarHistorialSegmento({ clienteIds, nombre, clave }) {
+  if (!clienteIds || !clienteIds.length) return;
+  try {
+    const previo = clave
+      ? (await SB.from("segmentos").select("id, definicion")
+          .eq("owner_id", state.me.id)
+          .eq("definicion->>clave", clave)
+          .limit(1)).data?.[0]
+      : null;
+
+    if (previo) {
+      const union = [...new Set([...(previo.definicion.cliente_ids || []), ...clienteIds])];
+      await SB.from("segmentos")
+        .update({
+          nombre,
+          definicion: { ...previo.definicion, cliente_ids: union },
+          // Se sube al tope de «recientes»: la actividad que se está armando
+          // ahora es la que el agente va a querer volver a tocar.
+          created_at: new Date().toISOString(),
+        })
+        .eq("id", previo.id);
+      return;
+    }
+
+    await SB.from("segmentos").insert({
+      owner_id: state.me.id, nombre,
+      definicion: { tipo: "historial", cliente_ids: clienteIds, clave },
+    });
+
+    // Poda: solo los MAX_HISTORIAL más recientes de tipo historial. Se hace
+    // únicamente al CREAR uno nuevo; al unificar no crece la cuenta.
+    const { data } = await SB.from("segmentos")
+      .select("id, definicion, created_at")
+      .eq("owner_id", state.me.id)
+      .order("created_at", { ascending: false });
+    const sobran = (data || [])
+      .filter(s => s.definicion?.tipo === "historial")
+      .slice(MAX_HISTORIAL);
+    if (sobran.length) await SB.from("segmentos").delete().in("id", sobran.map(s => s.id));
+  } catch (e) {
+    // Guardar el historial es una comodidad: que falle no puede tumbar una
+    // programación ni un envío que ya salieron bien.
+  }
+}
+
 /* ═══════════════ VENTAS, ABONOS Y NOTAS ═══════════════ */
 
 // Carga todo lo del módulo de ventas de una sola vez. Los abonos vienen

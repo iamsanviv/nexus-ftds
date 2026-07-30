@@ -8,7 +8,7 @@ import { state, $, esc, toast, todos, hoyISO, resolverSnippets } from "./state.j
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { avisarSiCanalCaido } from "./salud.js";
-import { subirImagenMensaje } from "./data.js";
+import { subirImagenMensaje, guardarHistorialSegmento } from "./data.js";
 import { BASE_URL } from "./config.js";
 
 /* ---------- plantillas ---------- */
@@ -57,13 +57,20 @@ function aplicar(tpl, { nombre, actividad, hora, enlace }) {
 // esta actividad usa la variante "extra" (sin saludo) para no repetir el hola.
 // El mensaje de "enlace" conserva el token {enlace} sin resolver: el worker pone
 // el enlace vigente al enviar (así se puede agregar/cambiar después de programar).
-function plantillas(nombre, actividad, inicioISO, enlace, yaInvitado) {
+//
+// msgInv: texto propio de la actividad. Si viene, MANDA sobre la plantilla del
+// agente y también sobre la variante "extra" — quien escribió una invitación a
+// mano para un lanzamiento quiere que salga esa, no otra.
+function plantillas(nombre, actividad, inicioISO, enlace, yaInvitado, msgInv) {
   const base = { nombre: nombre.trim().split(/\s+/)[0], actividad, hora: horaCO(inicioISO) };
   const out = {};
   for (const t of TIPOS) {
     const clave = (t === "invitacion" && yaInvitado) ? "invitacion_extra" : t;
     const linkVal = t === "enlace" ? "{enlace}" : (enlace || "");   // enlace: token; resto: resuelto
-    out[t] = aplicar(plantillasUsuario[clave] || PLANTILLAS_DEF[clave], { ...base, enlace: linkVal });
+    const tpl = (t === "invitacion" && msgInv && msgInv.trim())
+      ? msgInv
+      : (plantillasUsuario[clave] || PLANTILLAS_DEF[clave]);
+    out[t] = aplicar(tpl, { ...base, enlace: linkVal });
   }
   return out;
 }
@@ -257,6 +264,7 @@ function renderForm() {
   $("segLink").value = "";
   $("segLibre").value = "";
   setImgActividad(null);
+  setMsgInvitacion(null);
   $("segImgEstado").textContent = "";
   // Compartir solo aplica si hay a quién: es cosa de directores.
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
@@ -282,9 +290,38 @@ function setTipoActividad(tipo) {
     b.classList.toggle("on", b.dataset.tipo === tipo));
   $("segSrvRow").classList.toggle("hidden", tipo !== "cat");
   $("segLibreRow").classList.toggle("hidden", tipo !== "libre");
+  // Solo en las puntuales: una del catálogo es recurrente y su invitación es
+  // justo la que el agente ya dejó escrita en sus plantillas.
+  $("segMsgInvRow").classList.toggle("hidden", tipo !== "libre");
   $("segImgAyuda").textContent = tipo === "libre"
     ? "Una actividad puntual no tiene servicio del cual heredar imagen: si no subes una, la invitación va sin imagen."
     : "Si no subes ninguna, se usa la del servicio del catálogo.";
+}
+
+// Invitación propia de la actividad. `null` = usar la plantilla del agente.
+// El editor arranca plegado y solo se despliega al tocarlo: la mayoría de las
+// veces no se toca, y desplegado se come el formulario.
+function setMsgInvitacion(texto) {
+  const hay = !!(texto && texto.trim());
+  $("segMsgInv").value = texto || "";
+  $("segMsgInvBox").classList.toggle("hidden", !hay);
+  $("segMsgInvBtn").textContent = hay ? "✎ Editando la invitación" : "✎ Personalizar la invitación";
+  $("segMsgInvBtn").classList.toggle("on", hay);
+  renderPrevInvitacion();
+}
+
+// Vista previa con datos de ejemplo, igual que el editor de plantillas: los
+// snippets se sortean y las etiquetas se llenan, así el agente ve el mensaje
+// como le va a llegar a alguien antes de guardar.
+function renderPrevInvitacion() {
+  const prev = $("segMsgInvPrev");
+  if (!prev) return;
+  const txt = ($("segMsgInv").value || "").trim();
+  const nombreAct = $("segLibre").value.trim() || "la actividad";
+  const hora = $("segHora").value
+    ? horaCO(new Date(`2026-01-01T${$("segHora").value}:00`).toISOString())
+    : "7:00 p. m.";
+  prev.textContent = txt ? aplicar(txt, { nombre: "Ana", actividad: nombreAct, hora, enlace: "" }) : "";
 }
 
 function setImgActividad(url) {
@@ -310,6 +347,7 @@ function entrarEdicion(a) {
     if ([...$("segSrv").options].some(o => o.value === a.servicio_id)) $("segSrv").value = a.servicio_id;
   }
   setImgActividad(a.imagen);
+  setMsgInvitacion(a.msg_invitacion);
   $("segImgEstado").textContent = "";
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
   $("segCompartir").checked = !!a.compartida;
@@ -370,6 +408,9 @@ async function guardarActividad() {
       nombre: nombreAct,
       inicio: inicio.toISOString(), enlace,
       imagen: segImg,
+      // Solo las puntuales llevan invitación propia; si se cambia de tipo, se
+      // limpia en vez de arrastrar un texto que ya no se ve en pantalla.
+      msg_invitacion: libre ? (($("segMsgInv").value || "").trim() || null) : null,
       compartida: state.me.role === "director" && $("segCompartir").checked,
       rastrear: $("segRastrear").checked,
     };
@@ -379,7 +420,7 @@ async function guardarActividad() {
       if (error) throw error;
       let reprog = null;
       if (cambioHora) {
-        reprog = await reprogramarPorHora(actEdit.id, inicio.toISOString(), nombreAct, enlace);
+        reprog = await reprogramarPorHora(actEdit.id, inicio.toISOString(), nombreAct, enlace, datos.msg_invitacion);
       }
       // Propaga el enlace nuevo a los mensajes de "enlace" aún pendientes de los
       // seguimientos activos de esta actividad (por eso el link no se congela).
@@ -433,7 +474,7 @@ async function guardarActividad() {
 /* ================= LISTA de actividades ================= */
 async function cargarActividades() {
   const { data, error } = await SB.from("actividades")
-    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen, compartida, rastrear, owner_id")
+    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen, compartida, rastrear, msg_invitacion, owner_id")
     .eq("estado", "activa")
     .order("inicio", { ascending: true });
   if (error) {
@@ -821,7 +862,8 @@ async function programar() {
     };
     for (const seg of segs) {
       const c = seleccion.find(x => x.id === seg.cliente_id);
-      const tpl = plantillas(c.nombre, actSel.nombre, actSel.inicio, actSel.enlace, yaInvitados.has(c.tel));
+      const tpl = plantillas(c.nombre, actSel.nombre, actSel.inicio, actSel.enlace,
+        yaInvitados.has(c.tel), actSel.msg_invitacion);
       for (const [tipo, cuando] of tiempos()) {
         if (tipo !== "invitacion" && cuando <= ahora) continue; // ya pasó
         const fila = {
@@ -889,7 +931,7 @@ async function programar() {
     }
 
     // Guarda la selección en el historial de segmentos (automático).
-    await guardarSegmentoHistorial(seleccion.map(c => c.id), actSel.nombre);
+    await guardarSegmentoHistorial(seleccion.map(c => c.id), actSel.id, actSel.nombre);
 
     const nota = segSinInvitacion
       ? " · sin invitación (empieza en los recordatorios)"
@@ -914,7 +956,6 @@ async function programar() {
 // definicion = { tipo:"historial"|"guardado", cliente_ids:[...], actividad:"..." }
 // El historial es automático y rota (se conservan los N más recientes);
 // los "guardados" son permanentes y no rotan.
-const MAX_HISTORIAL = 8;
 let segmentos = [];   // cache de los segmentos del agente
 
 async function cargarSegmentos() {
@@ -925,24 +966,16 @@ async function cargarSegmentos() {
   segmentos = error ? [] : (data || []);
 }
 
-// Guarda la selección como entrada de historial y poda las más viejas.
-async function guardarSegmentoHistorial(clienteIds, actividad) {
-  if (!clienteIds.length) return;
-  try {
-    await SB.from("segmentos").insert({
-      owner_id: state.me.id,
-      nombre: `${actividad} · ${fechaHoraCO(new Date().toISOString())}`,
-      definicion: { tipo: "historial", cliente_ids: clienteIds, actividad },
-    });
-    await cargarSegmentos();
-    // Poda: deja solo los MAX_HISTORIAL más recientes de tipo historial.
-    const hist = segmentos.filter(s => s.definicion?.tipo === "historial");
-    const sobran = hist.slice(MAX_HISTORIAL);
-    if (sobran.length) {
-      await SB.from("segmentos").delete().in("id", sobran.map(s => s.id));
-      await cargarSegmentos();
-    }
-  } catch (e) { /* el guardado de historial nunca debe romper la programación */ }
+// La entrada del historial se unifica POR ACTIVIDAD (`clave`), no por tanda: el
+// agente programa de a poquitos según le van confirmando, y una entrada por
+// tanda llenaba el historial de versiones incompletas de la misma lista.
+async function guardarSegmentoHistorial(clienteIds, actividadId, actividadNombre) {
+  await guardarHistorialSegmento({
+    clienteIds,
+    nombre: actividadNombre,
+    clave: `act:${actividadId}`,
+  });
+  await cargarSegmentos();
 }
 
 // Guarda la selección ACTUAL como segmento permanente, con nombre.
@@ -1004,11 +1037,15 @@ function renderSegmentos() {
     </span>`;
   };
 
+  // Los recientes van plegados: son ocho chips con nombre largo que empujaban
+  // la lista de personas —lo que el agente vino a hacer— fuera de la pantalla.
   cont.innerHTML =
     (guardados.length ? `<div class="pstitle" style="margin:0 0 4px">⭐ Segmentos guardados</div>` : "") +
     guardados.map(s => chip(s, false)).join("") +
-    (historial.length ? `<div class="pstitle" style="margin:8px 0 4px">🕘 Recientes</div>` : "") +
-    historial.map(s => chip(s, true)).join("");
+    (historial.length ? `<details class="segacc">
+      <summary>Invitados recientes<span class="pcn">${historial.length}</span></summary>
+      <div class="segaccbody">${historial.map(s => chip(s, true)).join("")}</div>
+    </details>` : "");
 
   cont.querySelectorAll("[data-seg]").forEach(el => el.onclick = () => {
     const s = segmentos.find(x => x.id === el.dataset.seg);
@@ -1055,7 +1092,7 @@ async function contarSeguimientosDe(actividadId) {
 // El texto solo se regenera en los seguimientos PROPIOS: los de un agente se
 // escribieron con SUS plantillas, y sobreescribirlos con las del director le
 // cambiaría la redacción a alguien más. A esos solo se les corrige la hora.
-async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace) {
+async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace, msgInv) {
   const { data: segs } = await SB.from("seguimientos")
     .select("id, owner_id, clientes(nombre)")
     .eq("actividad_id", actividadId).eq("estado", "activo");
@@ -1082,7 +1119,7 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
   // una sola vez por persona, igual que al programar.
   const textos = new Map();
   for (const [id, d] of info) {
-    if (d.mio && d.nombre) textos.set(id, plantillas(d.nombre, nombreAct, nuevoInicioISO, enlace, false));
+    if (d.mio && d.nombre) textos.set(id, plantillas(d.nombre, nombreAct, nuevoInicioISO, enlace, false, msgInv));
   }
 
   const aCancelar = [];
@@ -1496,6 +1533,24 @@ $("segImgFile").onchange = async () => {
   } finally { $("segImgFile").value = ""; }
 };
 $("segImgDel").onclick = () => { setImgActividad(null); $("segImgEstado").textContent = ""; };
+
+/* ---------- invitación propia de la actividad ---------- */
+// Al abrirlo vacío se siembra con la plantilla del agente: es más fácil retocar
+// un texto que ya existe que escribir uno desde cero mirando una caja en blanco.
+$("segMsgInvBtn").onclick = () => {
+  const box = $("segMsgInvBox");
+  const abrir = box.classList.contains("hidden");
+  box.classList.toggle("hidden", !abrir);
+  if (abrir && !$("segMsgInv").value.trim()) {
+    $("segMsgInv").value = plantillasUsuario.invitacion || PLANTILLAS_DEF.invitacion;
+    renderPrevInvitacion();
+  }
+  if (abrir) $("segMsgInv").focus();
+};
+$("segMsgInv").oninput = renderPrevInvitacion;
+$("segHora").addEventListener("change", renderPrevInvitacion);
+$("segLibre").addEventListener("input", renderPrevInvitacion);
+$("segMsgInvQuitar").onclick = () => setMsgInvitacion(null);
 // ＋ Nueva actividad: abre el formulario plegado (o lo cierra si ya estaba).
 $("segNuevaAct").onclick = () => {
   if (!$("segFormPanel").classList.contains("hidden")) { salirEdicion(); return; }

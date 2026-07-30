@@ -89,3 +89,30 @@ create policy "ftd_base_upd" on public.ftd_base
 --
 -- Los dos del medio son los que importan: se abrió UN mes, no la puerta.
 -- ───────────────────────────────────────────────────────────────────────────
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- ANEXO · Invitación propia por actividad + historial agrupado
+-- (migración `mensaje_de_invitacion_propio_por_actividad`)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Las plantillas de `plantillas_seguimiento` son del AGENTE y valen para todo
+-- lo que programa. Un lanzamiento suele necesitar su propio texto, y cambiarle
+-- la plantilla para una sola actividad le rompería las demás. Nulo = usar la
+-- del agente. Solo la INVITACIÓN: los recordatorios, el enlace y la
+-- confirmación son iguales en todas partes.
+alter table public.actividades
+  add column if not exists msg_invitacion text;
+
+-- El historial de invitados se unifica por `definicion->>'clave'`
+-- (`act:<actividad_id>` o `cam:<campana_id>`) en vez de apilar una entrada por
+-- tanda: el agente programa de a poquitos según le confirman, y así una sola
+-- actividad se comía el historial con versiones incompletas de la misma lista.
+create index if not exists segmentos_clave_idx
+  on public.segmentos ((definicion ->> 'clave'))
+  where definicion ->> 'clave' is not null;
+
+-- Comprobado en transacción revertida: dos tandas sobre la misma clave dejan
+-- UNA entrada con la unión de las personas (5 de 3+3 con una repetida), y la
+-- política `segmentos_upd` (owner_id = auth.uid()) cubre la fusión — se revisó
+-- antes de escribir el update, porque sin política habría fallado en silencio.

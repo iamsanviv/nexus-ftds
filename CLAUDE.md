@@ -158,6 +158,42 @@ registra el clic, marca asistencia y redirige.
   recibió; quien entre con un enlace que ya tenía no genera clic; y el agente
   que abra el enlace para probarlo le marca asistencia a ese cliente.
 
+### Historial de invitados (segmentos)
+
+Vive en `data.js` (`guardarHistorialSegmento`) porque lo alimentan **dos**
+sitios: programar una actividad y enviar un masivo. Antes solo lo escribía
+Seguimiento, así que una selección armada en Masivo no se podía reutilizar al
+programar — y al revés sí, que es lo que no tenía sentido.
+
+- **Se unifica por `clave`, no se apila una entrada por guardado.** El agente
+  programa de a poquitos según le van confirmando; una entrada por tanda se
+  comía el historial con ocho versiones incompletas de la misma lista. La clave
+  es `act:<actividad_id>` o `cam:<campana_id>`, y hay índice parcial para ella.
+- La unión es **acumulativa**: quien ya entró se queda aunque en la tanda
+  siguiente no se le vuelva a marcar.
+- Van **plegados** en un `<details>`, en Seguimiento y en Masivo: ocho chips con
+  nombre de actividad empujaban fuera de pantalla la lista de personas, que es a
+  lo que el agente vino.
+- La poda a `MAX_HISTORIAL` solo corre al **crear** uno nuevo; al unificar no
+  crece la cuenta.
+
+### Mensaje de invitación propio de una actividad
+
+`actividades.msg_invitacion`. Nulo = la plantilla del agente, que es lo de
+siempre. Las plantillas de `plantillas_seguimiento` son **del agente** y valen
+para todo lo que programa; un lanzamiento suele necesitar su propio texto, y
+cambiarle la plantilla para una sola actividad le rompería las demás.
+
+- **Solo la invitación, y solo en las puntuales.** Una del catálogo es
+  recurrente y su invitación es justo la que ya está escrita. Los recordatorios,
+  el enlace y la confirmación son iguales en todas partes.
+- **El editor va plegado detrás de un botón.** Desplegar el texto de cinco
+  mensajes convertía el formulario en un muro.
+- Al abrirlo vacío **se siembra con la plantilla del agente**: retocar un texto
+  existente es más fácil que escribir mirando una caja en blanco.
+- Manda sobre `invitacion_extra`: quien escribió una invitación a mano quiere
+  que salga esa.
+
 ### Avisos de novedad
 
 `renderNovedad()` en `seguimiento.js`. **Se cierra y no vuelve**, porque un aviso
