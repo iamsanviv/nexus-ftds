@@ -180,6 +180,13 @@
         <div class="frow"><label>Fecha</label><input type="date" id="segFecha"></div>
         <div class="frow"><label>Hora (Colombia)</label><input type="time" id="segHora"></div>
         <div class="frow wide"><label>Enlace de la sala <span class="opt">(opcional — puedes agregarlo luego)</span></label><input id="segLink" placeholder="https://…"></div>
+        <!-- Enlace rastreado: cada persona recibe una URL propia que registra el
+             clic y la lleva a la sala. Se puede apagar porque cambiar un
+             zoom.us reconocible por un enlace nuestro resta confianza. -->
+        <div class="frow wide">
+          <label class="segtoggle"><input type="checkbox" id="segRastrear" checked> Saber quién entra al enlace</label>
+          <div class="msgshelp">Cada persona recibe un enlace propio que la lleva a la misma sala. Quien lo abra queda marcado como asistente, sin tener que preguntárselo. Apágalo si prefieres que vean el enlace de Zoom tal cual.</div>
+        </div>
       </div>
       <div class="segformbtns">
         <button class="authbtn" id="segCrearAct">Guardar actividad</button>

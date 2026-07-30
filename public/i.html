@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Entrando a la sala…</title>
+<!-- Esta página es un puente, no contenido: que no la indexe nadie. -->
+<meta name="robots" content="noindex,nofollow">
+<style>
+  :root{
+    --bg:#0b0f14; --card:#121821; --line:#20293a;
+    --txt:#e8eef7; --dim:#93a2b8; --acc:#f0c419; --err:#ff6b6b;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--txt);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    display:grid; place-items:center; padding:24px;
+  }
+  .caja{
+    width:100%; max-width:380px; background:var(--card);
+    border:1px solid var(--line); border-radius:18px;
+    padding:32px 24px; text-align:center;
+  }
+  .spin{
+    width:38px; height:38px; margin:0 auto 20px;
+    border:3px solid var(--line); border-top-color:var(--acc);
+    border-radius:50%; animation:g .8s linear infinite;
+  }
+  @keyframes g{to{transform:rotate(360deg)}}
+  .ico{font-size:2.2rem; line-height:1; margin-bottom:14px}
+  h1{font-size:1.12rem; margin:0 0 8px; font-weight:650}
+  p{font-size:.9rem; color:var(--dim); margin:0; line-height:1.5}
+  .btn{
+    display:inline-block; margin-top:20px; padding:12px 22px;
+    background:var(--acc); color:#151a10; border-radius:11px;
+    font-weight:650; font-size:.95rem; text-decoration:none;
+  }
+  .hidden{display:none}
+  .mal h1{color:var(--err)}
+</style>
+</head>
+<body>
+  <main class="caja" id="caja">
+    <div class="spin" id="spin"></div>
+    <div class="ico hidden" id="ico"></div>
+    <h1 id="tit">Abriendo la sala…</h1>
+    <p id="sub">Un segundo, te estamos llevando.</p>
+    <!-- Respaldo manual: en los navegadores dentro de WhatsApp la redirección
+         automática a veces se queda esperando, y ahí la persona necesita algo
+         que tocar en vez de una rueda girando. -->
+    <a class="btn hidden" id="ir" href="#" rel="noopener">Entrar ahora</a>
+  </main>
+
+<script type="module">
+// Puente del enlace rastreado. Toma el token de ?t=, le pide a la base el
+// destino (y de paso queda registrado el clic) y redirige.
+//
+// La redirección se hace ACÁ, en el navegador, y no en el servidor, porque los
+// bots que arman la previsualización del enlace en WhatsApp no ejecutan
+// JavaScript: así una previsualización no cuenta como que la persona entró.
+//
+// Se habla con Supabase por `fetch` en vez de cargar el SDK: esta página está
+// en el camino de alguien que quiere entrar a una clase que ya empezó, y cada
+// kilobyte es una décima de segundo de espera.
+import { SUPABASE_URL, SUPABASE_ANON } from "./js/config.js";
+
+const $ = id => document.getElementById(id);
+
+function mostrar({ ico, tit, sub, url, mal }) {
+  $("spin").classList.add("hidden");
+  if (ico) { $("ico").textContent = ico; $("ico").classList.remove("hidden"); }
+  $("tit").textContent = tit;
+  $("sub").textContent = sub;
+  if (mal) $("caja").classList.add("mal");
+  if (url) { $("ir").href = url; $("ir").classList.remove("hidden"); }
+}
+
+// Solo http/https. El enlace lo escribe un agente a mano, así que un `javascript:`
+// mal pegado (o pegado con mala intención) no debería llegar a ejecutarse.
+function destinoValido(u) {
+  try { const p = new URL(u); return p.protocol === "http:" || p.protocol === "https:"; }
+  catch { return false; }
+}
+
+const token = new URLSearchParams(location.search).get("t");
+
+if (!token) {
+  mostrar({ ico: "🔗", mal: true, tit: "Enlace incompleto",
+    sub: "Este enlace le falta un pedazo. Escríbele a tu asesor y te manda uno nuevo." });
+} else {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/abrir_enlace`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        apikey: SUPABASE_ANON,
+        authorization: `Bearer ${SUPABASE_ANON}`,
+      },
+      body: JSON.stringify({ t: token }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    // La función devuelve tres cosas distintas a propósito:
+    //   null → el token no existe
+    //   ""   → existe, pero la actividad todavía no tiene sala
+    //   url  → a dónde ir
+    const destino = await r.json();
+
+    if (destino === null) {
+      mostrar({ ico: "🔗", mal: true, tit: "Este enlace ya no sirve",
+        sub: "Puede ser de una actividad que se canceló. Escríbele a tu asesor." });
+    } else if (!destino) {
+      // El clic ya quedó registrado: el agente ve que la persona intentó entrar.
+      mostrar({ ico: "⏳", tit: "La sala todavía no está lista",
+        sub: "Tu asesor aún no ha publicado el enlace. Ya sabe que estás pendiente: "
+           + "vuelve a abrir este mismo enlace en un momento." });
+    } else if (!destinoValido(destino)) {
+      mostrar({ ico: "⚠️", mal: true, tit: "El enlace de la sala está mal escrito",
+        sub: "Avísale a tu asesor para que lo corrija." });
+    } else {
+      mostrar({ tit: "¡Listo, entrando!", sub: "Si no abre solo, toca el botón.", url: destino });
+      location.replace(destino);
+    }
+  } catch (err) {
+    // Sin internet o base caída: se le da el mensaje y se le deja reintentar,
+    // en vez de dejarlo mirando la rueda para siempre.
+    mostrar({ ico: "📡", mal: true, tit: "No pudimos abrir la sala",
+      sub: "Revisa tu conexión y vuelve a tocar el enlace. Si sigue igual, escríbele a tu asesor." });
+    console.error(err);
+  }
+}
+</script>
+</body>
+</html>

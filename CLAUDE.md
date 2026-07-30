@@ -96,6 +96,46 @@ que no lo agregó. Filtrar por lo que el RLS deja ver **no** es suficiente aquí
   agente se escribieron con *sus* plantillas y sobreescribirlos con las del
   director le cambiaría la redacción a otra persona.
 
+### Enlace rastreado (saber quién entró)
+
+Cada seguimiento nace con un `clic_token`, y el mensaje del enlace manda
+`…/i.html?t=<token>` en vez de la URL de Zoom. Al abrirlo, la RPC
+`abrir_enlace(t)` registra el clic, marca asistencia y redirige.
+
+- **El token va en el seguimiento, no en el mensaje**: identifica a la persona
+  en esa actividad y sobrevive a que los mensajes se reprogramen.
+- **La redirección se hace en el navegador**, no en el servidor. Los bots que
+  arman la previsualización del enlace en WhatsApp no ejecutan JS, así que una
+  previsualización no cuenta como clic. Es la razón de que `i.html` sea una
+  página con `<script>` y no una respuesta 302.
+- **Devuelve el enlace *vigente* de la actividad**, no la copia del seguimiento.
+  Efecto secundario bueno: con rastreo ya **no hay que propagar** el enlace a
+  los mensajes pendientes cuando se agrega la sala después; se resuelve al
+  hacer clic. Por eso `guardarActividad()` **no debe pisar** el `enlace_url` de
+  los seguimientos con token — hacerlo apagaría el rastreo en silencio.
+- **Ventana de asistencia: una hora desde el inicio.** El mensaje del enlace
+  sale a la hora de arranque, así que un clic dentro de esa hora es alguien
+  entrando; más tarde es alguien abriendo el mensaje al otro día, y marcarle
+  asistencia sería inventarla. Fuera de la ventana **redirige igual** (sí quiere
+  entrar) pero no toca `acc`.
+- **La regla vive en un solo sitio, en lo que significa cada columna**:
+  `clics` son todas las aperturas; `clic_en` es la primera que **contó**.
+  Entonces `clics > 0` con `clic_en` nulo *es* «abrió tarde», y la interfaz solo
+  traduce a chips en vez de repetir el cálculo de la ventana.
+- **No sobreescribe una asistencia puesta a mano**: si el agente ya la confirmó
+  en el repaso, su fecha manda.
+- Devuelve **tres cosas distintas a propósito**: `null` (token inexistente),
+  `''` (existe pero la sala no tiene enlace todavía) y la URL. Con un solo
+  `null` para los dos primeros, la persona veía «enlace inválido» cuando lo que
+  pasaba era que el asesor no había pegado la sala.
+- **Se puede apagar por actividad** (`actividades.rastrear`, por defecto sí):
+  cambiar un `zoom.us` reconocible por un enlace nuestro resta confianza y es
+  señal de spam, y aquí ya hubo un número restringido.
+- Lo que **no** puede saber, y está dicho en pantalla: un clic es que abrió, no
+  que se quedó; si reenvía el mensaje el clic queda a nombre de quien lo
+  recibió; quien entre con un enlace que ya tenía no genera clic; y el agente
+  que abra el enlace para probarlo le marca asistencia a ese cliente.
+
 ### Políticas por comando, no `FOR ALL`
 
 `seguimientos` y `mensajes_programados` tenían una política `FOR ALL` cuyo
@@ -112,7 +152,7 @@ para uno mismo; actualizar y borrar siguen el alcance de la jerarquía.
 | `invitacion` | al programar (o diferida con «Más tarde»); **omitible** |
 | `rec_60` | inicio − 60 min |
 | `rec_15` | inicio − **15** min |
-| `enlace` | inicio |
+| `enlace` | inicio; con rastreo, `enlace_url` es **distinto por persona** |
 | `confirmacion` | inicio + **10** min |
 
 Las etiquetas de la interfaz deben coincidir con esto. Ya estuvieron cruzadas
@@ -280,7 +320,12 @@ contra `ventas`. Funciona, y se comprobó que no filtra.
 - **Cuidado con la especificidad al reusar `.frow`.** `.frow label` (0,1,1) le
   gana a cualquier clase suelta (0,1,0): la casilla «Ya pagó completo» salía en
   mayúsculas de etiqueta. Se arregló nombrando el elemento (`.frow
-  label.chkline`), no subiendo a `!important`.
+  label.chkline`), no subiendo a `!important`. **Volvió a pasar** con
+  `.segtoggle` dentro del formulario de actividad: «Compartir con mi equipo»
+  llevaba meses saliendo como título de campo y nadie lo había visto hasta
+  montar el banco de pruebas. Mismo arreglo (`.frow label.segtoggle`), y ojo
+  con resetear **todo** lo que impone `.frow label` (mayúsculas, tamaño,
+  `letter-spacing`, `font-weight`, `margin`), no solo el `text-transform`.
 - **`.tabbar` y `.overlay` comparten `z-index: 30`.** Funciona solo porque en
   `index.html` la barra va ANTES de los overlays. Al montar un banco de pruebas
   que los agregue en otro orden, la barra tapa el modal: es artefacto del banco,
@@ -293,6 +338,9 @@ contra `ventas`. Funciona, y se comprobó que no filtra.
 ```
 public/
   index.html          Marcado de la app (login, vistas, modales)
+  i.html              Puente del enlace rastreado: registra el clic y redirige.
+                      Página aparte y sin el SDK a propósito: está en el camino
+                      de alguien que quiere entrar a una clase que ya empezó.
   css/styles.css      Todos los estilos
   js/
     config.js         Credenciales de Supabase + NIVEL

@@ -153,6 +153,37 @@ const esLibre = a => !a || !a.servicio_id;
 let segTipoAct = "cat";   // "cat" (del catálogo) | "libre" (puntual)
 let segImg = null;        // URL de la imagen subida para esta actividad
 
+/* ---------- enlace rastreado ("trigger link") ---------- */
+// Cada seguimiento lleva un token propio. El mensaje del enlace no manda la URL
+// de Zoom sino `/i.html?t=<token>`: al abrirla se registra el clic, se marca la
+// asistencia y se redirige a la sala. Así se sabe quién entró sin preguntárselo
+// a cincuenta personas una por una.
+//
+// El token va en el SEGUIMIENTO y no en el mensaje porque identifica a la
+// persona en esta actividad: sobrevive a que los mensajes se reprogramen si
+// cambia la hora.
+//
+// Alfabeto sin los caracteres que se confunden al dictar un enlace por teléfono
+// (l, o, 0, 1). 16 caracteres de 32 posibles = 80 bits: no se adivina.
+const ALF_TOKEN = "abcdefghijkmnpqrstuvwxyz23456789";
+const nuevoToken = () => {
+  const b = new Uint8Array(16);
+  crypto.getRandomValues(b);
+  // 256 es múltiplo exacto de 32, así que el módulo no introduce sesgo.
+  return [...b].map(x => ALF_TOKEN[x % ALF_TOKEN.length]).join("");
+};
+
+// `/i.html` y no `/i`: el worker sirve con `not_found_handling` en modo SPA, así
+// que si Cloudflare no resolviera la extensión por su cuenta, `/i` devolvería el
+// index.html y la persona vería la app en vez de la sala, sin ningún error a la
+// vista. Con la extensión explícita no hay ambigüedad.
+const urlRastreada = tok => `${location.origin}/i.html?t=${tok}`;
+
+// El rastreo es lo predeterminado; las actividades creadas antes de esta función
+// tienen la columna en nulo y también cuentan como encendidas (la base pone
+// `true` por defecto, pero no se asume que el select la trajo).
+const rastreaEnlace = a => !!a && a.rastrear !== false;
+
 function renderForm() {
   $("segSrv").innerHTML = state.catalogo.map(g => `<optgroup label="${esc(g.g)}">` +
     g.items.map(s => `<option value="${s.id}">${esc(s.n)}</option>`).join("") +
@@ -166,6 +197,7 @@ function renderForm() {
   // Compartir solo aplica si hay a quién: es cosa de directores.
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
   $("segCompartir").checked = true;
+  $("segRastrear").checked = true;
   setTipoActividad("cat");
 }
 
@@ -217,6 +249,7 @@ function entrarEdicion(a) {
   $("segImgEstado").textContent = "";
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
   $("segCompartir").checked = !!a.compartida;
+  $("segRastrear").checked = rastreaEnlace(a);
   $("segFecha").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   $("segHora").value = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   $("segLink").value = a.enlace;
@@ -274,6 +307,7 @@ async function guardarActividad() {
       inicio: inicio.toISOString(), enlace,
       imagen: segImg,
       compartida: state.me.role === "director" && $("segCompartir").checked,
+      rastrear: $("segRastrear").checked,
     };
     if (actEdit) {
       const cambioHora = new Date(actEdit.inicio).getTime() !== inicio.getTime();
@@ -285,16 +319,33 @@ async function guardarActividad() {
       }
       // Propaga el enlace nuevo a los mensajes de "enlace" aún pendientes de los
       // seguimientos activos de esta actividad (por eso el link no se congela).
+      //
+      // OJO: los seguimientos CON token llevan su propia URL rastreada, y
+      // pisarla con el enlace crudo apagaría el rastreo en silencio. Se decide
+      // por seguimiento, lo que además resuelve el caso contrario: apagar el
+      // rastreo de una actividad ya programada devuelve los pendientes al
+      // enlace de siempre.
       const { data: segs } = await SB.from("seguimientos")
-        .select("id").eq("actividad_id", actEdit.id).eq("estado", "activo");
-      const ids = (segs || []).map(s => s.id);
-      if (ids.length) {
+        .select("id, clic_token").eq("actividad_id", actEdit.id).eq("estado", "activo");
+      const conTok = (segs || []).filter(s => s.clic_token);
+      const sinTok = (segs || []).filter(s => !s.clic_token);
+      const ponerEnlace = async (lista, valor) => {
+        if (!lista.length) return;
         await SB.from("mensajes_programados")
-          .update({ enlace_url: enlace || null })
-          .in("seguimiento_id", ids).eq("tipo", "enlace").eq("estado", "pendiente");
-      }
+          .update({ enlace_url: valor })
+          .in("seguimiento_id", lista.map(s => s.id))
+          .eq("tipo", "enlace").eq("estado", "pendiente");
+      };
+      await ponerEnlace(sinTok, enlace || null);
+      // Con token y rastreo encendido NO se toca nada: su URL puente resuelve el
+      // enlace vigente al abrirse, o sea justo el que se acaba de guardar.
+      if (!datos.rastrear) await ponerEnlace(conTok, enlace || null);
+
       const notas = [];
-      if (enlace) notas.push("enlace aplicado a los pendientes");
+      if (enlace && sinTok.length) notas.push("enlace aplicado a los pendientes");
+      if (enlace && conTok.length) notas.push(datos.rastrear
+        ? `${conTok.length} enlace(s) rastreado(s) ya apuntan al nuevo`
+        : `${conTok.length} seguimiento(s) quedaron sin rastreo`);
       if (reprog && reprog.movidos) notas.push(`${reprog.movidos} mensaje(s) reprogramado(s)`);
       if (reprog && reprog.cancelados) notas.push(`${reprog.cancelados} ya no alcanzaban y se cancelaron`);
       toast("✓ Actividad actualizada" + (notas.length ? " · " + notas.join(" · ") : ""));
@@ -318,7 +369,7 @@ async function guardarActividad() {
 /* ================= LISTA de actividades ================= */
 async function cargarActividades() {
   const { data, error } = await SB.from("actividades")
-    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen, compartida, owner_id")
+    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen, compartida, rastrear, owner_id")
     .eq("estado", "activa")
     .order("inicio", { ascending: true });
   if (error) {
@@ -344,8 +395,32 @@ async function cargarActividades() {
     </div>`;
     return;
   }
+  // Cuántos de los que se programaron ya abrieron su enlace. Es la razón de ser
+  // del rastreo, así que va en la tarjeta y no escondido en el registro.
+  // Solo cuentan los seguimientos CON token: los de antes del rastreo (o de una
+  // actividad con el rastreo apagado) no tienen nada que informar, y meterlos en
+  // el denominador diría «0 de 30 entraron» de algo que nunca se midió.
+  const entradas = new Map();   // actividad_id → { n, entraron, tarde }
+  {
+    const { data: segs } = await SB.from("seguimientos")
+      .select("actividad_id, clic_token, clic_en, clics")
+      .in("actividad_id", actividades.map(a => a.id))
+      .neq("estado", "cancelado");
+    for (const s of segs || []) {
+      if (!s.clic_token) continue;
+      const e = entradas.get(s.actividad_id) || { n: 0, entraron: 0, tarde: 0 };
+      e.n++;
+      // «Tarde» se cuenta aparte y NO suma a los que entraron: abrir el mensaje
+      // al otro día no es haber asistido, pero sí dice que el mensaje llegó.
+      if (s.clic_en) e.entraron++;
+      else if (s.clics) e.tarde++;
+      entradas.set(s.actividad_id, e);
+    }
+  }
+
   $("segActividades").innerHTML = actividades.map(a => {
     const mia = esMia(a);
+    const ent = entradas.get(a.id);
     return `
     <article class="actcard">
       <div class="am">
@@ -357,6 +432,12 @@ async function cargarActividades() {
           ${a.enlace
             ? `<span class="achip ok">Enlace listo</span>`
             : `<span class="achip miss">Falta el enlace</span>`}
+          ${ent ? `<span class="achip ${ent.entraron ? "ok" : ""}"
+            title="Abrieron su enlace dentro de la hora siguiente al inicio. Un clic dice que entró, no que se quedó."
+            >👆 ${ent.entraron}/${ent.n} entraron</span>` : ""}
+          ${ent && ent.tarde ? `<span class="achip"
+            title="Abrieron el enlace más de una hora después: no cuenta como asistencia"
+            >${ent.tarde} tarde</span>` : ""}
         </div>
       </div>
       <div class="ab">
@@ -622,12 +703,17 @@ async function programar() {
   const btn = $("segProgramar");
   btn.disabled = true; btn.textContent = "Programando…";
   try {
-    // 1) un seguimiento por persona (copia los datos de la actividad)
+    // 1) un seguimiento por persona (copia los datos de la actividad).
+    // Si la actividad rastrea, cada uno nace con su token: es lo que después
+    // permite decir QUIÉN entró, y no solo cuántos.
+    const rastrear = rastreaEnlace(actSel);
     const segRows = seleccion.map(c => ({
       cliente_id: c.id, actividad_id: actSel.id, actividad: actSel.nombre,
       inicio: actSel.inicio, enlace: actSel.enlace,
+      clic_token: rastrear ? nuevoToken() : null,
     }));
-    const { data: segs, error: e1 } = await SB.from("seguimientos").insert(segRows).select("id, cliente_id");
+    const { data: segs, error: e1 } = await SB.from("seguimientos")
+      .insert(segRows).select("id, cliente_id, clic_token");
     if (e1) throw e1;
 
     // ¿Quiénes ya recibieron una invitación HOY (otra actividad)? Para no
@@ -685,7 +771,14 @@ async function programar() {
           else if (actSel.servicio_id) fila.servicio_id = actSel.servicio_id;
         }
         // El enlace se resuelve al enviar (el texto conserva el token {enlace}).
-        if (tipo === "enlace") fila.enlace_url = actSel.enlace || null;
+        // Con rastreo, cada persona recibe SU url puente en vez de la de Zoom:
+        // el clic queda a su nombre y el destino se resuelve vigente al abrirlo,
+        // así que da igual que la sala todavía no esté puesta.
+        if (tipo === "enlace") {
+          fila.enlace_url = seg.clic_token
+            ? urlRastreada(seg.clic_token)
+            : (actSel.enlace || null);
+        }
         msgs.push(fila);
       }
     }
@@ -724,7 +817,8 @@ async function programar() {
       ? " · sin invitación (empieza en los recordatorios)"
       : (segInvitarTarde && segInvitarTarde > ahora)
         ? ` · invitación sale ${fechaHoraCO(cuandoInv.toISOString())}` : "";
-    toast(`✓ ${segs.length} seguimiento(s) · ${msgs.length} mensaje(s) programado(s)${nota}`);
+    toast(`✓ ${segs.length} seguimiento(s) · ${msgs.length} mensaje(s) programado(s)${nota}`
+        + (rastrear ? " · enlace rastreado" : ""));
     ocultarProg();
     renderActivos();
     renderLogs();
@@ -939,9 +1033,25 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
 }
 
 /* ================= SEGUIMIENTOS ACTIVOS ================= */
+// La ventana de asistencia (una hora desde el inicio) la decide la base, no
+// esta función: `clic_en` es el primer clic QUE CONTÓ, así que tener `clics`
+// con `clic_en` en nulo significa exactamente «abrió, pero ya tardísimo». Aquí
+// solo se traduce a palabras, sin repetir el cálculo.
+//
+// «Aún no entra» solo se dice DESPUÉS de la hora de inicio: antes de empezar no
+// es una noticia, es lo normal, y el aviso solo pondría nervioso al agente.
+function entradaChip(s) {
+  if (s.clic_en) return `<span class="achip ok" title="Abrió su enlace el ${
+    esc(fechaHoraCO(s.clic_en))}">👆 Entró</span>`;
+  if (s.clics) return `<span class="achip" title="Abrió su enlace más de una hora
+    después de que empezó: no cuenta como asistencia">👆 Abrió tarde</span>`;
+  if (!s.clic_token || new Date(s.inicio) > new Date()) return "";
+  return `<span class="achip miss" title="No ha abierto su enlace">Aún no entra</span>`;
+}
+
 async function renderActivos() {
   const { data, error } = await SB.from("seguimientos")
-    .select("id, cliente_id, actividad_id, actividad, inicio, estado, clientes(nombre)")
+    .select("id, cliente_id, actividad_id, actividad, inicio, estado, clic_token, clic_en, clics, clientes(nombre)")
     .eq("estado", "activo")
     .order("inicio", { ascending: true });
   if (error) { $("segActivos").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
@@ -971,6 +1081,7 @@ async function renderActivos() {
         <h4>${esc(s.clientes?.nombre || "(cliente)")}</h4>
         <div class="ameta">
           <span class="atime">${esc(s.actividad)} · <b>${fechaHoraCO(s.inicio)}</b></span>
+          ${entradaChip(s)}
         </div>
       </div>
       <div class="ab">
