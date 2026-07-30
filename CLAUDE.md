@@ -460,8 +460,10 @@ comportamiento, decirlo en vez de asumirlo.
   tienen su comisión confirmada (30/07). Los bots comisionan **el 30 % del
   precio**, pero se guarda el MONTO: si cambia el precio de un bot hay que
   recalcularlo a mano (`sql/2026-07-30_10_...`).
-- **Junio 2026 está abierto a propósito** para que cada agente corrija sus
-  cifras: quedaron malas y sembraron la base de julio. Es una excepción acotada
+- **Junio 2026 está abierto a propósito** para que cada agente corrija **su
+  base** (los FTD que traía acumulados de antes): quedó mal y, al cerrarse el
+  mes, sembró la base de julio. Los `declarado` de junio NO se tocan — ese mes
+  está cerrado y pagado. Es una excepción acotada
   —el periodo va escrito en la política `ftd_base_upd` y en `PERIODO_ABIERTO`
   (`ftd.js`)— y hay que **quitarla de los dos lados** cuando esté cuadrado.
 - **Meta mensual de facturación** (distinta de las metas de FTD): pedida el

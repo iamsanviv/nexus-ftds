@@ -96,8 +96,8 @@ export function renderBloqueFtd() {
         <span>No cuentan para tu meta del mes.</span></div>` : ""}
 
       ${state.ftdBase[`${yo()}|${PERIODO_ABIERTO}`] ? `<div class="cmaviso">
-        <button class="metalink" id="ftdCorregirMes">Corregir ${mesLegible(PERIODO_ABIERTO)}</button>
-        <span>quedó con cifras que no cuadran y de ahí salió tu base.</span>
+        <button class="metalink" id="ftdCorregirMes">Corregir la base de ${mesLegible(PERIODO_ABIERTO)}</button>
+        <span>si quedó mal, tu base de este mes salió de ahí.</span>
       </div>` : ""}
 
       <div class="totalmes">Total del mes con ventas (${usd(vent)}) · <b>${usd(f.pago + vent)}</b></div>
@@ -151,8 +151,12 @@ function abrirCorregirMes() {
   const cargados = ftdDelMes(p, yo());
   const baseSig = state.ftdBase[`${yo()}|${sig}`]?.base || 0;
 
+  // Los FTD declarados de ese mes NO se tocan acá: son un dato cerrado y ya
+  // pagado. Lo que se corrige es la base que el agente traía al entrar, que es
+  // lo que quedó mal. Se muestran igual porque el arrastre depende de los dos.
+  const d = fila.declarado ?? cargados;
+
   const pintar = () => {
-    const d = Number($("cmDeclarado")?.value ?? (fila.declarado ?? cargados)) || 0;
     const b = Number($("cmBase")?.value ?? (fila.base || 0)) || 0;
     const r = arrastre(d, b);
     const cambia = r.sobra !== baseSig;
@@ -172,45 +176,46 @@ function abrirCorregirMes() {
   // botones heredan su jerarquía y la pantalla no se siente de otro sistema.
   $("ftdModal").innerHTML = `
     <div class="asis">
-      ${cabeza("Corrección", `Corregir ${mesLegible(p)}`,
-        `${mesLegible(p)} está cerrado, pero quedó con cifras que no cuadran.
-         Corrige las tuyas: nadie más puede tocarlas, ni tú las de otro.`)}
+      ${cabeza("Corrección", `Base de ${mesLegible(p)}`,
+        `La base con la que entraste a ${mesLegible(p)} quedó mal, y de ahí salió
+         tu base de ${mesLegible(sig)}. Corrige la tuya: nadie más puede tocarla,
+         ni tú la de otro.`)}
       <div class="abody">
-        <div class="frow"><label>FTD reales de ${mesLegible(p)}</label>
-          <input id="cmDeclarado" type="number" min="0" step="1" inputmode="numeric"
-                 value="${fila.declarado ?? cargados}"></div>
-        <div class="ayuda">Tienes <b>${cargados}</b> cargados en la plataforma ese mes.</div>
         <div class="frow"><label>Base que traía ${mesLegible(p)}</label>
           <input id="cmBase" type="number" min="0" step="1" inputmode="numeric"
                  value="${fila.base || 0}"></div>
+        <div class="ayuda">Son los FTD que traías acumulados <b>antes</b> de
+          ${mesLegible(p)}, no los que hiciste ese mes.</div>
+        <div class="cmfijo">Tus <b>${d}</b> FTD de ${mesLegible(p)} no se tocan:
+          ese mes ya está cerrado y pagado.</div>
         <div id="cmEfecto" class="cmefecto"></div>
         <button class="abtn" id="cmArrastrar"></button>
-        <button class="abtn quiet" id="cmSolo">Guardar solo ${mesLegible(p)}</button>
+        <button class="abtn quiet" id="cmSolo">Guardar solo la base de ${mesLegible(p)}</button>
         <button class="abtn quiet" id="cmCerrar">Cancelar</button>
       </div>
     </div>`;
   $("ftdOverlay").classList.add("open");
   pintar();
-  $("cmDeclarado").oninput = pintar;
   $("cmBase").oninput = pintar;
   $("cmCerrar").onclick = () => $("ftdOverlay").classList.remove("open");
 
   const guardar = async (tambienSiguiente) => {
-    const d = Number($("cmDeclarado").value) || 0;
     const b = Number($("cmBase").value) || 0;
     const r = arrastre(d, b);
     $("cmArrastrar").disabled = $("cmSolo").disabled = true;
-    // `cerrado` se manda en true a propósito: corregir no es reabrir. El mes
-    // sigue cerrado y esta pantalla es la única puerta, y solo mientras junio
-    // esté en la excepción.
-    const ok = await guardarFtd(yo(), p, { base: b, declarado: d, cerrado: true });
+    // Solo `base`. `declarado` no se manda: ese mes está cerrado y pagado, y
+    // reescribirlo con lo que hubiera en pantalla sería tocar una cifra que
+    // nadie pidió cambiar.
+    //
+    // `cerrado` se manda en true a propósito: corregir no es reabrir.
+    const ok = await guardarFtd(yo(), p, { base: b, cerrado: true });
     if (!ok) { $("cmArrastrar").disabled = $("cmSolo").disabled = false; return; }
     if (tambienSiguiente && !(await guardarFtd(yo(), sig, { base: r.sobra }))) {
       $("cmArrastrar").disabled = $("cmSolo").disabled = false; return;
     }
     toast(tambienSiguiente
-      ? `${mesLegible(p)} corregido · ${r.sobra} de base en ${mesLegible(sig)} ✓`
-      : `${mesLegible(p)} corregido ✓`);
+      ? `Base de ${mesLegible(p)} corregida · ${r.sobra} de base en ${mesLegible(sig)} ✓`
+      : `Base de ${mesLegible(p)} corregida ✓`);
     $("ftdOverlay").classList.remove("open");
     refrescar();
   };

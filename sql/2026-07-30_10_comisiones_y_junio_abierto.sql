@@ -47,9 +47,13 @@ update public.productos
 -- 2) JUNIO 2026, ABIERTO PARA QUE CADA AGENTE CORRIJA LO SUYO
 --
 -- La regla general no cambia: un mes cerrado no se reabre, lo que se pagó se
--- pagó. Pero junio quedó con cifras malas en varios agentes y esas cifras
--- SEMBRARON LA BASE DE JULIO al cerrarse, así que el error sigue vivo en el mes
--- en curso. Se abre un periodo concreto para que lo arreglen ellos mismos.
+-- pagó. Pero varios agentes entraron a junio con una BASE mal puesta —los FTD
+-- que ya traían acumulados de antes— y esa base, al cerrarse el mes, sembró la
+-- de julio. El error sigue vivo en el mes en curso. Se abre un periodo concreto
+-- para que lo arreglen ellos mismos.
+--
+-- Lo que se corrige es SOLO `base`. Los `declarado` de junio no se tocan: ese
+-- mes está cerrado y pagado. La pantalla ni siquiera los ofrece como campo.
 --
 -- El periodo va ESCRITO en la política, en vez de una columna «editable» o un
 -- parámetro configurable: así la excepción no se puede extender sin tocar el

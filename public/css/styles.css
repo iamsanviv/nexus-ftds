@@ -626,6 +626,10 @@ body.segwide .tabinner{max-width:1180px}
 .cmaviso{margin-top:10px;padding-top:9px;border-top:1px solid var(--border);
   font-size:.76rem;color:var(--muted);line-height:1.5}
 .cmaviso .metalink{font-size:.76rem}
+/* Dato de contexto que NO se edita: se ve como texto, no como campo, para que
+   nadie lo intente tocar. */
+.cmfijo{font-size:.78rem;color:var(--muted);background:var(--surface2);
+  border:1px solid var(--border);border-radius:9px;padding:8px 10px;margin-top:2px}
 .cmefecto{background:var(--surface2);border:1px solid var(--border);border-radius:11px;
   padding:11px 12px;margin:12px 0 4px}
 .cmres{font-size:.83rem;color:var(--text);line-height:1.6}
