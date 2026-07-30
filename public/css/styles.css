@@ -621,6 +621,18 @@ body.segwide .tabinner{max-width:1180px}
 /* Aviso de novedad: verde en vez de rojo/dorado, porque no hay nada que
    atender. Si compartiera el color con «canal caído», una buena noticia
    estaría gritando igual que un problema. */
+/* Corrección de un mes cerrado (excepción de junio). Discreto: es una tarea
+   puntual, no algo que el agente vaya a hacer todos los días. */
+.cmaviso{margin-top:10px;padding-top:9px;border-top:1px solid var(--border);
+  font-size:.76rem;color:var(--muted);line-height:1.5}
+.cmaviso .metalink{font-size:.76rem}
+.cmefecto{background:var(--surface2);border:1px solid var(--border);border-radius:11px;
+  padding:11px 12px;margin:12px 0 4px}
+.cmres{font-size:.83rem;color:var(--text);line-height:1.6}
+.cmres + .cmres{margin-top:5px;padding-top:5px;border-top:1px solid var(--border)}
+.cmdelta{color:var(--gold);font-size:.76rem;margin-left:6px}
+.cmigual{color:var(--muted);font-size:.76rem;margin-left:6px}
+
 /* Chip de «N entraron» que se puede tocar: se distingue del resto con el ›
    y el borde vivo, porque un chip normalmente no hace nada. */
 .achip.clicable{cursor:pointer;border-style:solid}

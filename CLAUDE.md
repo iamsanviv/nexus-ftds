@@ -456,9 +456,14 @@ comportamiento, decirlo en vez de asumirlo.
 
 ## Pendientes conocidos
 
-- **Faltan valores de comisión**: `parametros.comision_upgrade` y once productos
-  quedaron en 0 («por confirmar» en la lista del 29/07). Mientras sigan en cero,
-  esas ventas se registran pero no suman.
+- **Falta `parametros.comision_upgrade`**, todavía en 0. Los 16 productos ya
+  tienen su comisión confirmada (30/07). Los bots comisionan **el 30 % del
+  precio**, pero se guarda el MONTO: si cambia el precio de un bot hay que
+  recalcularlo a mano (`sql/2026-07-30_10_...`).
+- **Junio 2026 está abierto a propósito** para que cada agente corrija sus
+  cifras: quedaron malas y sembraron la base de julio. Es una excepción acotada
+  —el periodo va escrito en la política `ftd_base_upd` y en `PERIODO_ABIERTO`
+  (`ftd.js`)— y hay que **quitarla de los dos lados** cuando esté cuadrado.
 - **Meta mensual de facturación** (distinta de las metas de FTD): pedida el
   29/07 y aplazada a propósito hasta que lo demás funcione.
 - **Guardar la base de FTD al cerrar el mes** no tiene interfaz todavía: la app

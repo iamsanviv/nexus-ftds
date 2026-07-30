@@ -17,6 +17,15 @@ import { cargarVentas, guardarFtd, guardarMeta } from "./data.js";
 const yo = () => state.me?.id;
 const mesActual = () => hoyISO().slice(0, 7);
 
+// EXCEPCIÓN TEMPORAL. Junio quedó con cifras malas en varios agentes, y esas
+// cifras sembraron la base de julio. Se abre ese mes —y solo ese— para que cada
+// quien corrija lo suyo. El RLS lo permite igual de acotado: fuera de este
+// periodo un mes cerrado sigue sin reabrirse.
+//
+// Cuando junio esté cuadrado se quita de los dos lados: esta constante y la
+// política `ftd_base_upd`. Mientras exista, el botón está a la vista.
+const PERIODO_ABIERTO = "2026-06";
+
 // Los datos de ventas se cargaban solo al entrar a esa pestaña. Ahora el bloque
 // vive en Personas, así que hay que traerlos la primera vez que se pinta.
 let cargando = false;
@@ -86,6 +95,11 @@ export function renderBloqueFtd() {
         <b>${f.efectivos}</b> para la comisión${f.meta ? `: pagan ${usd(f.pago)}` : ""}.
         <span>No cuentan para tu meta del mes.</span></div>` : ""}
 
+      ${state.ftdBase[`${yo()}|${PERIODO_ABIERTO}`] ? `<div class="cmaviso">
+        <button class="metalink" id="ftdCorregirMes">Corregir ${mesLegible(PERIODO_ABIERTO)}</button>
+        <span>quedó con cifras que no cuadran y de ahí salió tu base.</span>
+      </div>` : ""}
+
       <div class="totalmes">Total del mes con ventas (${usd(vent)}) · <b>${usd(f.pago + vent)}</b></div>
     </div>`;
 
@@ -96,6 +110,8 @@ export function renderBloqueFtd() {
   // La meta es tocable: el asistente promete que se puede cambiar cuando sea, y
   // "Ajustar" solo abre los números del mes.
   $("ftdMeta").onclick = () => abrirAsistente("metas");
+  const corr = $("ftdCorregirMes");
+  if (corr) corr.onclick = abrirCorregirMes;
 
   // Momento natural para el ritual: el agente acaba de llegar a Personas.
   revisarRituales();
@@ -108,6 +124,99 @@ const pagoDeMeta = n => {
   const alc = [...state.metasFtd].reverse().find(m => n >= m.ftd);
   return alc ? Number(alc.pago) : 0;
 };
+
+/* ================= CORREGIR UN MES CERRADO (junio) ================= */
+// Junio no se corrige solo: sus números sembraron la base del mes siguiente al
+// cerrarse. Por eso este panel muestra las dos cosas —lo que se corrige y lo que
+// eso le hace a la base de julio— y deja aplicar el arrastre en el mismo gesto.
+// Sin eso, el agente arregla junio y el número malo sigue vivo en julio.
+function siguientePeriodo(p) {
+  const [a, m] = p.split("-").map(Number);
+  return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, "0")}`;
+}
+
+// Lo que junio le pasa a julio: los efectivos menos la meta que alcanzaron.
+// Misma cuenta que hace el cierre; se repite acá para poder mostrarla ANTES de
+// guardar, que es de lo que se trata el panel.
+function arrastre(declarado, base) {
+  const ef = declarado + base;
+  const alc = [...state.metasFtd].reverse().find(m => ef >= m.ftd) || null;
+  return { ef, meta: alc ? alc.ftd : 0, pago: alc ? Number(alc.pago) : 0,
+           sobra: ef - (alc ? alc.ftd : 0) };
+}
+
+function abrirCorregirMes() {
+  const p = PERIODO_ABIERTO, sig = siguientePeriodo(p);
+  const fila = state.ftdBase[`${yo()}|${p}`] || {};
+  const cargados = ftdDelMes(p, yo());
+  const baseSig = state.ftdBase[`${yo()}|${sig}`]?.base || 0;
+
+  const pintar = () => {
+    const d = Number($("cmDeclarado")?.value ?? (fila.declarado ?? cargados)) || 0;
+    const b = Number($("cmBase")?.value ?? (fila.base || 0)) || 0;
+    const r = arrastre(d, b);
+    const cambia = r.sobra !== baseSig;
+    $("cmEfecto").innerHTML = `
+      <div class="cmres">
+        <b>${d}</b> FTD ${b ? `+ <b>${b}</b> de base = <b>${r.ef}</b>` : ""}
+        ${r.meta ? `· alcanza la meta de <b>${r.meta}</b> (${usd(r.pago)})`
+                 : `· no alcanza la primera meta (${state.metasFtd[0]?.ftd ?? "—"})`}
+      </div>
+      <div class="cmres">Pasan <b>${r.sobra}</b> de base a ${mesLegible(sig)}
+        ${cambia ? `<span class="cmdelta">hoy tiene ${baseSig}</span>` : `<span class="cmigual">sin cambio</span>`}</div>`;
+    $("cmArrastrar").classList.toggle("hidden", !cambia);
+    $("cmArrastrar").textContent = `Guardar y poner ${r.sobra} de base en ${mesLegible(sig)}`;
+  };
+
+  // Misma estructura que los pasos del asistente (`.asis` > `.abody`): así los
+  // botones heredan su jerarquía y la pantalla no se siente de otro sistema.
+  $("ftdModal").innerHTML = `
+    <div class="asis">
+      ${cabeza("Corrección", `Corregir ${mesLegible(p)}`,
+        `${mesLegible(p)} está cerrado, pero quedó con cifras que no cuadran.
+         Corrige las tuyas: nadie más puede tocarlas, ni tú las de otro.`)}
+      <div class="abody">
+        <div class="frow"><label>FTD reales de ${mesLegible(p)}</label>
+          <input id="cmDeclarado" type="number" min="0" step="1" inputmode="numeric"
+                 value="${fila.declarado ?? cargados}"></div>
+        <div class="ayuda">Tienes <b>${cargados}</b> cargados en la plataforma ese mes.</div>
+        <div class="frow"><label>Base que traía ${mesLegible(p)}</label>
+          <input id="cmBase" type="number" min="0" step="1" inputmode="numeric"
+                 value="${fila.base || 0}"></div>
+        <div id="cmEfecto" class="cmefecto"></div>
+        <button class="abtn" id="cmArrastrar"></button>
+        <button class="abtn quiet" id="cmSolo">Guardar solo ${mesLegible(p)}</button>
+        <button class="abtn quiet" id="cmCerrar">Cancelar</button>
+      </div>
+    </div>`;
+  $("ftdOverlay").classList.add("open");
+  pintar();
+  $("cmDeclarado").oninput = pintar;
+  $("cmBase").oninput = pintar;
+  $("cmCerrar").onclick = () => $("ftdOverlay").classList.remove("open");
+
+  const guardar = async (tambienSiguiente) => {
+    const d = Number($("cmDeclarado").value) || 0;
+    const b = Number($("cmBase").value) || 0;
+    const r = arrastre(d, b);
+    $("cmArrastrar").disabled = $("cmSolo").disabled = true;
+    // `cerrado` se manda en true a propósito: corregir no es reabrir. El mes
+    // sigue cerrado y esta pantalla es la única puerta, y solo mientras junio
+    // esté en la excepción.
+    const ok = await guardarFtd(yo(), p, { base: b, declarado: d, cerrado: true });
+    if (!ok) { $("cmArrastrar").disabled = $("cmSolo").disabled = false; return; }
+    if (tambienSiguiente && !(await guardarFtd(yo(), sig, { base: r.sobra }))) {
+      $("cmArrastrar").disabled = $("cmSolo").disabled = false; return;
+    }
+    toast(tambienSiguiente
+      ? `${mesLegible(p)} corregido · ${r.sobra} de base en ${mesLegible(sig)} ✓`
+      : `${mesLegible(p)} corregido ✓`);
+    $("ftdOverlay").classList.remove("open");
+    refrescar();
+  };
+  $("cmArrastrar").onclick = () => guardar(true);
+  $("cmSolo").onclick = () => guardar(false);
+}
 
 /* ================= ASISTENTE ================= */
 // Un solo overlay con pasos. `modo`:
