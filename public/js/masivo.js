@@ -9,7 +9,15 @@ import { canalVinculado } from "./canal.js";
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
 let masSel = new Set();     // ids seleccionados
 let masFiltro = "todos";    // filtro de membresía
-let masImg = null;          // URL de imagen subida (o null)
+let masImg = null;          // URL del adjunto subido (imagen o video), o null
+let masImgTipo = null;      // "imagen" | "video" — para la vista previa y el nombre de la campaña
+
+// WhatsApp comprime video pesado desde la app, pero un bridge que lo manda tal
+// cual puede fallar o demorar minutos en subir/enviar a cada destinatario.
+// 16 MB es el límite que usa la propia Cloud API de Meta para medios salientes:
+// no hay garantía de que ESTE bridge (no vive en este repo) se comporte igual,
+// pero es la cota más razonable que hay para no adivinar a ciegas.
+const MAX_VIDEO_MB = 16;
 let masCuando = "ahora";    // ahora | prog
 let segmentos = [];         // segmentos guardados
 
@@ -201,19 +209,26 @@ function audPausa() {
   else if (rec.state === "paused") { rec.resume(); arrancarTimer(); $("masAudPause").textContent = "⏸ Pausar"; }
 }
 
-/* ---------- imagen ---------- */
-function setImg(url) {
+/* ---------- imagen / video ---------- */
+// Un solo adjunto a la vez: mismo campo `media_url` para los dos, y mostrar
+// imagen Y video juntos no tendría cómo enviarse. `tipo` solo decide cuál de
+// los dos elementos de previsualización se muestra.
+function setImg(url, tipo) {
   masImg = url || null;
-  const img = $("masImgPrev"), del = $("masImgDel");
-  if (url) { img.src = url; img.classList.remove("hidden"); del.classList.remove("hidden"); }
-  else { img.src = ""; img.classList.add("hidden"); del.classList.add("hidden"); }
+  masImgTipo = url ? tipo : null;
+  const img = $("masImgPrev"), vid = $("masVidPrev"), del = $("masImgDel");
+  img.classList.add("hidden"); vid.classList.add("hidden"); vid.pause?.();
+  img.src = ""; vid.src = "";
+  if (url && tipo === "video") { vid.src = url; vid.classList.remove("hidden"); del.classList.remove("hidden"); }
+  else if (url) { img.src = url; img.classList.remove("hidden"); del.classList.remove("hidden"); }
+  else { del.classList.add("hidden"); }
 }
 
 /* ---------- abrir / enviar ---------- */
 async function abrir() {
   masSel = new Set(); masFiltro = "todos"; masCuando = "ahora";
   $("masTexto").value = ""; $("masBuscar").value = ""; $("masBuscarX").classList.add("hidden");
-  setImg(null); $("masImgEstado").textContent = ""; renderPrev();
+  setImg(null, null); $("masImgEstado").textContent = ""; renderPrev();
   if (rec && rec.state !== "inactive") { recDescartar = true; rec.stop(); }
   limpiarAudio(); $("masAudEstado").textContent = "";
   $("masProgRow").classList.add("hidden");
@@ -240,8 +255,8 @@ async function enviar() {
   }
   const tpl = $("masTexto").value.trim();
   if (rec && rec.state !== "inactive") { toast("Termina la grabación primero (✔ Listo)"); return; }
-  if (!tpl && !masImg && !masAudio) { toast("Escribe un mensaje, agrega una imagen o graba una nota de voz"); return; }
-  if (masImg && masAudio) { toast("Imagen y nota de voz a la vez no: quita una de las dos"); return; }
+  if (!tpl && !masImg && !masAudio) { toast("Escribe un mensaje, agrega una imagen o video, o graba una nota de voz"); return; }
+  if (masImg && masAudio) { toast("Adjunto y nota de voz a la vez no: quita uno de los dos"); return; }
   const sel = pool().filter(c => masSel.has(c.id));
   if (!sel.length) { toast("No hay destinatarios seleccionados"); return; }
 
@@ -265,8 +280,9 @@ async function enviar() {
       $("masAudEstado").textContent = "✓ Nota de voz lista";
     }
 
+    const etiquetaAdjunto = masAudio ? "Nota de voz" : masImgTipo === "video" ? "Video" : "Imagen";
     const { data: camp, error: e1 } = await SB.from("campanas").insert({
-      nombre: (tpl || (masAudio ? "Nota de voz" : "Imagen")).slice(0, 60), texto: tpl || null, media_url: media,
+      nombre: (tpl || etiquetaAdjunto).slice(0, 60), texto: tpl || null, media_url: media,
       enviar_en: enviarEn.toISOString(), total: sel.length,
     }).select("id").single();
     if (e1) throw e1;
@@ -330,10 +346,19 @@ $("masImgPick").onclick = () => $("masImgFile").click();
 $("masImgFile").onchange = async () => {
   const file = $("masImgFile").files[0];
   if (!file) return;
-  $("masImgEstado").textContent = "Subiendo…";
+  const esVideo = file.type.startsWith("video/");
+  // Se corta ANTES de subir: dejar que un archivo de 300 MB llegue al Storage
+  // para recién ahí avisar que no sirve es la peor versión de este error.
+  if (esVideo && file.size > MAX_VIDEO_MB * 1024 * 1024) {
+    toast(`⚠ El video pesa más de ${MAX_VIDEO_MB} MB — comprímelo o recórtalo antes de subirlo`);
+    $("masImgFile").value = "";
+    return;
+  }
+  $("masImgEstado").textContent = esVideo ? "Subiendo video…" : "Subiendo…";
   try {
     const url = await subirImagenMensaje(file);
-    setImg(url); $("masImgEstado").textContent = "✓ Imagen lista";
+    setImg(url, esVideo ? "video" : "imagen");
+    $("masImgEstado").textContent = esVideo ? "✓ Video listo" : "✓ Imagen lista";
   } catch (err) {
     $("masImgEstado").textContent = "⚠ " + err.message;
   } finally { $("masImgFile").value = ""; }

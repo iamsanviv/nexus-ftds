@@ -530,16 +530,19 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     </div>
 
     <div class="frow">
-      <label>Imagen (opcional)</label>
+      <label>Imagen o video (opcional)</label>
       <div class="imgfield">
         <img id="masImgPrev" class="imgprev hidden" alt="">
+        <video id="masVidPrev" class="imgprev hidden" muted controls></video>
         <div class="imgbtns">
-          <input type="file" id="masImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
-          <button type="button" class="tbtn" id="masImgPick">Subir imagen</button>
+          <input type="file" id="masImgFile"
+                 accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime" class="hidden">
+          <button type="button" class="tbtn" id="masImgPick">Subir imagen o video</button>
           <button type="button" class="tbtn hidden" id="masImgDel" style="color:var(--bad)">Quitar</button>
           <span id="masImgEstado" class="imgestado"></span>
         </div>
       </div>
+      <div class="msgshelp">Video en MP4, hasta 16 MB — lo que más aguanta un envío masivo por WhatsApp sin fallar.</div>
     </div>
 
     <!-- Nota de voz: OCULTA por ahora. El audio llega como nota de voz pero al

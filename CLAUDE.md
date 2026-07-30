@@ -524,6 +524,18 @@ comportamiento, decirlo en vez de asumirlo.
   `type=recovery` al abrir la app.
 - **Bug de números de México en el worker**: `no LID found for 52…` con y sin el
   `1` tras el código de país. Causó el 18 % de fallos de un agente.
+- **La nota de voz en Masivo está oculta, no arreglada.** Sube bien al Storage
+  y el worker la manda, pero WhatsApp la recibe como «Este audio ya no está
+  disponible». Se probaron tres perfiles de opus, whatsmeow actualizada y el
+  bucket `ptt` del CDN; nada lo resolvió. El botón vive en `index.html` detrás
+  de un `hidden` (no se borró el código, para no perder el trabajo de grabar).
+- **Video en Masivo (agregado 31/07) no está verificado contra el worker de
+  verdad.** Sube al mismo `media_url` que la imagen, con el mismo mecanismo —y
+  el worker no vive en este repo, así que no hay forma de probar desde acá si
+  lo manda como video de WhatsApp o si repite el fallo de la nota de voz.
+  Límite de 16 MB puesto a ciegas (es el que usa la Cloud API de Meta, no algo
+  medido de este bridge). **Probar con un envío real antes de confiar en él
+  para una campaña grande.**
 - **El CSV no lleva las asistencias puntuales** (`clientes.puntuales`).
 - **Cobro por uso**: la medición ya existe (`mensajes_programados` por
   `owner_id`). Falta tabla de suscripción, cuota **aplicada en el worker** (no

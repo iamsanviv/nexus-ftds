@@ -99,7 +99,10 @@ export async function borrarImagenServicio(url) {
   if (m) await SB.storage.from(BUCKET_SRV).remove([m[1]]);
 }
 
-// Imagen para mensajes masivos: nombre único (no se pisan entre campañas).
+// Adjunto de un mensaje (imagen o video, masivo o de una actividad): nombre
+// único para que no se pisen entre campañas/actividades distintas. El nombre
+// se quedó en "Imagen" por historia, pero sube cualquier archivo tal cual:
+// el tipo lo decide `file.type`, no esta función.
 export async function subirImagenMensaje(file) {
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
   const path = `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
