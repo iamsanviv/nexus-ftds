@@ -621,6 +621,26 @@ body.segwide .tabinner{max-width:1180px}
 /* Aviso de novedad: verde en vez de rojo/dorado, porque no hay nada que
    atender. Si compartiera el color con «canal caído», una buena noticia
    estaría gritando igual que un problema. */
+/* Chip de «N entraron» que se puede tocar: se distingue del resto con el ›
+   y el borde vivo, porque un chip normalmente no hace nada. */
+.achip.clicable{cursor:pointer;border-style:solid}
+.achip.clicable:hover{filter:brightness(1.25)}
+.achip.ok.vacio{background:var(--surface2);border-color:var(--border);color:var(--muted)}
+
+/* Acordeón de actividades puntuales en el perfil. Plegado por defecto: se
+   acumulan con el tiempo y no se consultan casi nunca. */
+.punacc{margin-top:14px;border:1px solid var(--border);border-radius:11px;background:var(--surface2)}
+.punacc summary{display:flex;align-items:center;gap:9px;padding:10px 12px;cursor:pointer;
+  list-style:none;font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--muted)}
+.punacc summary::-webkit-details-marker{display:none}
+.punacc summary::after{content:"▾";margin-left:auto;font-size:.8rem;transition:transform .15s}
+.punacc[open] summary::after{transform:rotate(180deg)}
+.punacc summary .pcn{background:var(--surface);border:1px solid var(--border);border-radius:999px;
+  padding:1px 8px;font-size:.72rem;color:var(--text)}
+.punbody{padding:0 12px 8px}
+.punbody .actrow:last-child{border-bottom:none}
+
 .alerta.nueva{background:rgba(78,203,141,.07);border-color:rgba(78,203,141,.38);
   position:relative;padding-right:40px}
 .alerta.nueva .at{color:var(--ok)}

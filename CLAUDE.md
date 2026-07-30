@@ -171,6 +171,37 @@ una preferencia de lectura, no un dato del negocio: no merece tabla, migración
 ni RLS. Para anunciar lo siguiente se sube la constante `NOVEDAD` y reaparece,
 sin tocar nada más.
 
+### La asistencia no retrocede (invariante)
+
+`acc[servicio]` y `puntuales[act].acc` son la memoria de quién asistió. **Nada
+automático puede moverlas hacia atrás.** Solo el agente, a mano, desde el perfil
+o desde el ✕ de la vista por servicio.
+
+Tres reglas que lo sostienen, y las tres nacieron de un defecto real:
+
+- **Reinvitar a quien ya asistió no le toca NADA** (`programar()`): ni `acc` ni
+  `conf`. Se queda en «asistió» y el repaso no vuelve a preguntar por él.
+- **A quien todavía no ha asistido se le REFRESCA `conf` a hoy.** Antes solo se
+  escribía si estaba vacía, y esa fecha vieja era el problema: el repaso
+  preguntaba por la invitación de hace tres semanas y responder «no asistió»
+  borraba la invitación que se acababa de hacer.
+- **«No asistió» nunca destruye historial.** En una puntual hacía
+  `delete pun[actId]` —el registro ENTERO, con la asistencia adentro—; ahora
+  solo quita `conf`. En una del catálogo solo borra `conf` si no hay `acc`.
+
+`acc` y `conf` son **un valor por servicio**, no por actividad: un servicio
+recurrente no puede guardar «asistió en junio, invitado otra vez en julio». Por
+eso la regla es no preguntar dos veces en vez de intentar representarlo.
+
+### Quiénes entraron (panel de la actividad)
+
+El chip «N/M entraron» de la tarjeta se toca y abre la lista: entraron, abrieron
+tarde, y sin abrir — con la asistencia editable en los dos sentidos. Hace falta
+porque **el clic es buena señal pero no infalible**: quien ya tenía el enlace de
+antes entra sin generar clic, y quien lo abre desde otro teléfono figura como
+ausente. La fecha que se escribe es la del **inicio de la actividad**, no la de
+hoy: corregir el lunes una clase del viernes debe anotar el viernes.
+
 ### Políticas por comando, no `FOR ALL`
 
 `seguimientos` y `mensajes_programados` tenían una política `FOR ALL` cuyo

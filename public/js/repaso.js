@@ -58,6 +58,10 @@ function yaSePuedePreguntar(sid, f, hoy) {
 }
 
 // Invitados (conf) sin asistencia marcada (acc), míos, ya "preguntables".
+//
+// `!c.acc[s.id]` es la regla que importa: de quien YA ASISTIÓ no se pregunta
+// nunca más, aunque se le vuelva a invitar diez veces. Preguntar otra vez es
+// justo lo que abría la puerta a que una respuesta borrara la asistencia vieja.
 function pendientes() {
   const hoy = hoyISO();
   const items = [];
@@ -135,12 +139,19 @@ function abrir(items, marcarHecho) {
         toast(`✓ ${c.nombre.split(" ")[0]} asistió a «${s.n}»`);
       } else if (b.dataset.r === "no") {
         if (actId) {
-          // En una puntual no hay «por invitar» al que volver: se descarta la
-          // invitación entera para que no vuelva a preguntar.
-          delete c.pun[actId];
+          // Antes esto hacía `delete c.pun[actId]`, o sea borraba el registro
+          // ENTERO — incluida una asistencia anterior si la hubiera. Responder
+          // «no asistió» no puede destruir el historial de nadie. Ahora solo se
+          // quita la invitación: sin `conf` deja de preguntarse, y `acc` (si
+          // existe) se queda donde está.
+          const { conf, ...resto } = c.pun[actId] || {};
+          c.pun[actId] = resto;
           await dbPatch(c, { puntuales: c.pun });
           toast(`${c.nombre.split(" ")[0]} no asistió · anotado`);
-        } else {
+        } else if (!c.acc[s.id]) {
+          // El `if` es una red, no un adorno: `pendientes()` ya excluye a quien
+          // asistió, pero borrar `conf` de alguien que sí fue lo devolvería a
+          // «por invitar» y el estado se le habría corrido hacia atrás.
           delete c.conf[s.id];
           await dbPatch(c, { conf: c.conf });
           toast(`${c.nombre.split(" ")[0]} vuelve a «por invitar»`);

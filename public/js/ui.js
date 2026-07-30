@@ -426,14 +426,38 @@ function construirActividades(c) {
       items.map(s => `<div class="actrow"><span class="an">${esc(s.n)}</span><input type="date" data-sid="${s.id}" value="${c.acc[s.id]}"></div>`).join("")
     : `<div class="pstitle">Fechas de actividades</div><div class="naplica">Aún no ha tomado ningún servicio.</div>`;
 
+  // Acordeón: los lanzamientos y clases sueltas se acumulan con el tiempo y no
+  // se consultan casi nunca. Plegado, el perfil sigue cabiendo en una pantalla;
+  // desplegado, está la historia completa con fecha.
   if (pun.length) {
-    html += `<div class="pstitle" style="margin-top:14px">Actividades puntuales</div>` +
+    html += `<details class="punacc">
+      <summary><span class="pat">✦ Actividades puntuales</span><span class="pcn">${pun.length}</span></summary>
+      <div class="punbody">` +
       pun.map(([id, p]) => `<div class="actrow">
-        <span class="an">${esc(p.n || "actividad")}<span class="achip suelta" style="margin-left:7px">✦ Puntual</span></span>
+        <span class="an">${esc(p.n || "actividad")}</span>
         <input type="date" data-pid="${esc(id)}" value="${esc(p.acc)}">
-      </div>`).join("");
+        <button type="button" class="pmark off" data-punx="${esc(id)}"
+                title="Eliminar este registro">✕</button>
+      </div>`).join("") +
+      `</div></details>`;
   }
   $("fActividades").innerHTML = html;
+
+  // Eliminar un registro puntual. Pide confirmación con el nombre adentro: es
+  // la única forma de borrar una asistencia sin querer desde acá, y la lista
+  // puede tener varias parecidas.
+  $("fActividades").querySelectorAll("[data-punx]").forEach(b => b.onclick = async () => {
+    const id = b.dataset.punx;
+    const p = (c.pun || {})[id] || {};
+    if (!confirm(`¿Eliminar el registro de «${p.n || "esta actividad"}»?\n\n`
+               + `Se borra su asistencia del ${fmtF(p.acc)}. No se puede deshacer.`)) return;
+    delete c.pun[id];
+    if (await dbPatch(c, { puntuales: c.pun })) {
+      toast("Registro eliminado");
+      construirActividades(c);
+      render();
+    }
+  });
 }
 
 function cerrarM() {

@@ -496,9 +496,10 @@ async function cargarActividades() {
           ${a.enlace
             ? `<span class="achip ok">Enlace listo</span>`
             : `<span class="achip miss">Falta el enlace</span>`}
-          ${ent ? `<span class="achip ${ent.entraron ? "ok" : ""}"
-            title="Abrieron su enlace dentro de la hora siguiente al inicio. Un clic dice que entró, no que se quedó."
-            >👆 ${ent.entraron}/${ent.n} entraron</span>` : ""}
+          ${ent ? `<button class="achip ok clicable ${ent.entraron ? "" : "vacio"}"
+            data-entradas="${a.id}"
+            title="Ver quiénes entraron y quiénes no"
+            >👆 ${ent.entraron}/${ent.n} entraron ›</button>` : ""}
           ${ent && ent.tarde ? `<span class="achip"
             title="Abrieron el enlace más de una hora después: no cuenta como asistencia"
             >${ent.tarde} tarde</span>` : ""}
@@ -513,6 +514,10 @@ async function cargarActividades() {
       </div>
     </article>`; }).join("");
 
+  $("segActividades").querySelectorAll("[data-entradas]").forEach(b => b.onclick = () => {
+    const a = actividades.find(x => x.id === b.dataset.entradas);
+    if (a) abrirEntradas(a);
+  });
   $("segActividades").querySelectorAll("[data-prog]").forEach(b => b.onclick = () => {
     const a = actividades.find(x => x.id === b.dataset.prog);
     if (a) seleccionarActividad(a);
@@ -849,17 +854,26 @@ async function programar() {
     const { error: e2 } = await SB.from("mensajes_programados").insert(msgs);
     if (e2) throw e2;
 
-    // Marca a los seleccionados como "invitados" al servicio (si no lo estaban),
-    // así pasan de «por invitar» a «invitados» en la vista por servicio.
-    // NO se toca `acc`: quien ya asistió y es reinvitado conserva su asistencia.
+    // Marca a los seleccionados como "invitados" al servicio, así pasan de
+    // «por invitar» a «invitados» en la vista por servicio.
+    //
+    // REGLA DE ORO: a quien YA ASISTIÓ no se le toca nada. Ni `acc` ni `conf`.
+    // Reinvitar a alguien no puede moverle el estado hacia atrás por ningún
+    // motivo — se queda en «asistió» y el repaso no vuelve a preguntar por él.
+    //
+    // Y a quien todavía no ha asistido se le REFRESCA la fecha de invitación.
+    // Antes solo se escribía si estaba vacía, y esa fecha vieja era el problema:
+    // el repaso preguntaba por la invitación de hace tres semanas y, al
+    // responder «no asistió», borraba la invitación que se acababa de hacer hoy.
     const hoy = hoyISO();
     if (actSel.servicio_id) {
-      // Actividad del catálogo: `conf` va indexado por servicio.
+      // Actividad del catálogo: `acc` y `conf` van indexados por servicio.
+      const sid = actSel.servicio_id;
       for (const c of seleccion) {
-        if (!(c.conf || {})[actSel.servicio_id]) {
-          c.conf = { ...(c.conf || {}), [actSel.servicio_id]: hoy };
-          await SB.from("clientes").update({ conf: c.conf }).eq("id", c.id);
-        }
+        if ((c.acc || {})[sid]) continue;            // ya asistió: intocable
+        if ((c.conf || {})[sid] === hoy) continue;   // ya está al día
+        c.conf = { ...(c.conf || {}), [sid]: hoy };
+        await SB.from("clientes").update({ conf: c.conf }).eq("id", c.id);
       }
     } else {
       // Actividad puntual: se guarda en su propio mapa, con el nombre y la
@@ -1094,6 +1108,109 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
     await SB.from("mensajes_programados").update({ estado: "cancelado" }).in("id", aCancelar);
   }
   return { movidos: tareas.length, cancelados: aCancelar.length };
+}
+
+/* ================= QUIÉNES ENTRARON ================= */
+// Panel de la actividad: quién abrió su enlace y quién no, con la asistencia
+// editable a mano. El clic es una señal muy buena pero no infalible —quien ya
+// tenía el enlace de antes entra sin generar clic, y quien abre desde otro
+// teléfono aparece como que no entró—, así que el agente tiene que poder
+// corregir en los dos sentidos sin salir de aquí.
+//
+// La asistencia se escribe donde le corresponde a cada tipo de actividad: en
+// `acc[servicio]` las del catálogo, en `puntuales[actividad].acc` las puntuales.
+async function abrirEntradas(a) {
+  const sid = a.servicio_id;
+  $("repSub").textContent = "Cargando…";
+  $("repBody").innerHTML = `<div class="naplica">Un momento…</div>`;
+  $("repOverlay").classList.add("open");
+
+  const { data, error } = await SB.from("seguimientos")
+    .select("id, cliente_id, clic_token, clic_en, clics, clientes(nombre)")
+    .eq("actividad_id", a.id).neq("estado", "cancelado");
+  if (error) { $("repBody").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
+
+  const filas = (data || []).filter(s => s.clic_token);
+  const cerrar = () => $("repOverlay").classList.remove("open");
+  $("repCerrar").onclick = cerrar;
+  $("repOverlay").onclick = e => { if (e.target.id === "repOverlay") cerrar(); };
+
+  // ¿Está marcada la asistencia de esta persona a ESTA actividad?
+  const asistio = c => !c ? false
+    : sid ? !!(c.acc || {})[sid]
+          : !!((c.pun || {})[a.id] || {}).acc;
+
+  const pintar = () => {
+    const conCli = filas.map(s => ({ s, c: state.clientes.find(x => x.id === s.cliente_id) }));
+    const entraron = conCli.filter(({ s }) => s.clic_en);
+    const tarde    = conCli.filter(({ s }) => !s.clic_en && s.clics);
+    const nada     = conCli.filter(({ s }) => !s.clic_en && !s.clics);
+
+    const fila = ({ s, c }) => {
+      const nombre = s.clientes?.nombre || "(cliente)";
+      const marcada = asistio(c);
+      return `<div class="prow">
+        <div class="pl"><span class="pn">${esc(nombre)}</span>
+          ${s.clic_en ? `<span class="sfecha">abrió ${esc(fechaHoraCO(s.clic_en))}</span>`
+           : s.clics ? `<span class="pdate">abrió tarde · no cuenta</span>` : ""}
+        </div>
+        <div class="pr">
+          ${marcada
+            ? `<span class="pdate">✓ asistió</span>
+               <button class="pmark off" data-quitar="${s.cliente_id}" title="Quitar asistencia">✕</button>`
+            : `<button class="pmark" data-marcar="${s.cliente_id}">✓ Marcar asistencia</button>`}
+        </div></div>`;
+    };
+
+    const grupo = (titulo, lista, vacio) =>
+      `<div class="pstitle">${titulo} (${lista.length})</div>` +
+      (lista.length ? lista.map(fila).join("") : `<div class="naplica">${vacio}</div>`);
+
+    $("repSub").textContent = a.nombre;
+    $("repBody").innerHTML =
+        grupo("👆 Entraron", entraron, "Nadie ha abierto su enlace todavía.")
+      + (tarde.length ? grupo("Abrieron tarde · no cuenta como asistencia", tarde, "") : "")
+      + grupo("Sin abrir", nada, "Todos abrieron su enlace 🎉")
+      + `<div class="msgshelp" style="margin-top:12px">Un clic dice que abrió el enlace,
+          no que se quedó. Quien ya tenía el enlace de antes puede haber entrado sin
+          aparecer aquí: por eso puedes marcar y quitar la asistencia a mano.</div>`;
+
+    $("repBody").querySelectorAll("[data-marcar]").forEach(b => b.onclick = () => cambiar(b.dataset.marcar, true, b));
+    $("repBody").querySelectorAll("[data-quitar]").forEach(b => b.onclick = () => cambiar(b.dataset.quitar, false, b));
+  };
+
+  // Escribe la asistencia. La fecha es la del INICIO de la actividad, no la de
+  // hoy: si el agente corrige el lunes una clase del viernes, la asistencia es
+  // del viernes.
+  const fechaAct = () => {
+    const d = new Date(a.inicio);
+    const p = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  };
+
+  const cambiar = async (clienteId, marcar, btn) => {
+    const c = state.clientes.find(x => x.id === clienteId);
+    if (!c) { toast("Ese cliente ya no está en tu lista"); return; }
+    btn.disabled = true;
+    const campos = {};
+    if (sid) {
+      c.acc = { ...(c.acc || {}) };
+      if (marcar) c.acc[sid] = fechaAct(); else delete c.acc[sid];
+      campos.acc = c.acc;
+    } else {
+      c.pun = { ...(c.pun || {}) };
+      const prev = c.pun[a.id] || { n: a.nombre, i: a.inicio };
+      if (marcar) c.pun[a.id] = { ...prev, acc: fechaAct() };
+      else { const { acc, ...resto } = prev; c.pun[a.id] = resto; }
+      campos.puntuales = c.pun;
+    }
+    const { error } = await SB.from("clientes").update(campos).eq("id", c.id);
+    if (error) { toast("⚠ " + error.message); btn.disabled = false; return; }
+    toast(marcar ? `✓ ${c.nombre.split(" ")[0]} asistió` : `Asistencia quitada a ${c.nombre.split(" ")[0]}`);
+    pintar();
+  };
+
+  pintar();
 }
 
 /* ================= SEGUIMIENTOS ACTIVOS ================= */
