@@ -260,6 +260,14 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <button class="pill segguardar" id="segGuardarSeg">💾 Guardar esta selección como segmento</button>
     </div>
 
+    <!-- Envíos masivos en curso: el equivalente de «Seguimientos activos» para
+         lo que sale por Masivo. Hasta ahora una campaña se creaba y desaparecía
+         de la vista: no había forma de ver cómo iba ni de pararla. -->
+    <section class="segsec" id="segCampSec">
+      <div class="sechead"><h3>Envíos masivos</h3><span class="cnt" id="segCampCnt">0</span><span class="rule"></span></div>
+      <div id="segCampanas" class="acts"></div>
+    </section>
+
     <section class="segsec">
       <div class="sechead"><h3>Seguimientos activos</h3><span class="rule"></span></div>
       <div id="segActivos" class="acts"></div>

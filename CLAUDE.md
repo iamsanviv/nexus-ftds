@@ -165,6 +165,25 @@ registra el clic, marca asistencia y redirige.
   recibió; quien entre con un enlace que ya tenía no genera clic; y el agente
   que abra el enlace para probarlo le marca asistencia a ese cliente.
 
+### Envíos masivos: progreso y cancelación
+
+`campanas` se escribía y **nunca se leía**: un masivo salía y desaparecía de la
+vista. La sección «Envíos masivos» (en Seguimiento, al lado de «Seguimientos
+activos») muestra las 10 últimas con su barra de progreso y permite cancelar lo
+que falta por salir.
+
+- **El progreso no se guarda, se cuenta** desde `mensajes_programados` al
+  pintar. `campanas.total` es lo que se encoló; el estado real de cada mensaje
+  lo mueve el worker. Un contador propio sería una segunda verdad que se
+  desincroniza en cuanto falle un envío.
+- **Solo las propias** (`owner_id = auth.uid()`), aunque el RLS le deje a un
+  director ver las de sus agentes: cancelar el envío de otro es meterse en su
+  trabajo. Misma lógica que la regla de oro.
+- **Cancelar solo toca lo `pendiente`.** El aviso dice que lo ya enviado no se
+  puede recoger, porque es lo que la gente asume mal de un botón de cancelar.
+- Se refresca desde `masivo.js` con `import()` dinámico justo después de
+  encolar: el agente acaba de mandar y espera verlo ahí, no al recargar.
+
 ### Historial de invitados (segmentos)
 
 Vive en `data.js` (`guardarHistorialSegmento`) porque lo alimentan **dos**

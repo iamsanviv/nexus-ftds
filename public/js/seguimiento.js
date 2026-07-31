@@ -1251,6 +1251,108 @@ async function abrirEntradas(a) {
   pintar();
 }
 
+/* ================= ENVÍOS MASIVOS ================= */
+// Se exporta para que masivo.js lo refresque justo después de encolar: el
+// agente acaba de mandar y espera ver el envío ahí, no al recargar la página.
+// `campanas` se escribía y nunca se leía: un masivo salía y desaparecía de la
+// vista. El agente no tenía cómo saber cómo iba ni cómo pararlo, y son decenas
+// de mensajes saliendo desde su WhatsApp personal — justo donde más falta hace
+// poder frenar.
+//
+// El progreso NO se guarda en `campanas`: se cuenta desde `mensajes_programados`
+// al pintar. `campanas.total` es lo que se encoló, y el estado real de cada
+// mensaje lo mueve el worker. Guardar un contador aparte sería una segunda
+// verdad que se desincroniza en cuanto un envío falle.
+const CAMP_BADGE = {
+  enviado:   ["ok",   "✓"],
+  error:     ["err",  "⚠"],
+  pendiente: ["pend", "⏳"],
+  cancelado: ["can",  "✕"],
+};
+
+export async function renderCampanas() {
+  const cont = $("segCampanas");
+  if (!cont) return;
+
+  // Solo las propias: un director ve las campañas de sus agentes por RLS, pero
+  // cancelar el envío de otro desde acá sería meterse en su trabajo.
+  const { data: camps, error } = await SB.from("campanas")
+    .select("id, nombre, enviar_en, total, created_at")
+    .eq("owner_id", state.me.id)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (error) { cont.innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
+  if (!camps || !camps.length) {
+    $("segCampCnt").textContent = 0;
+    cont.innerHTML = `<div class="segempty">
+      <div class="eh">Todavía no has enviado masivos</div>
+      <p>Cuando envíes uno con «✉ Masivo», aquí ves cómo va y puedes cancelarlo.</p>
+    </div>`;
+    return;
+  }
+
+  // Un solo viaje para todas: traer los estados y contarlos acá sale más barato
+  // que una consulta de conteo por campaña.
+  const { data: msgs } = await SB.from("mensajes_programados")
+    .select("campana_id, estado")
+    .in("campana_id", camps.map(c => c.id));
+  const cuenta = new Map();
+  for (const m of msgs || []) {
+    const e = cuenta.get(m.campana_id) || {};
+    e[m.estado] = (e[m.estado] || 0) + 1;
+    cuenta.set(m.campana_id, e);
+  }
+
+  const vivas = camps.filter(c => (cuenta.get(c.id) || {}).pendiente > 0);
+  $("segCampCnt").textContent = vivas.length;
+
+  cont.innerHTML = camps.map(c => {
+    const n = cuenta.get(c.id) || {};
+    const pend = n.pendiente || 0;
+    const hechos = (n.enviado || 0) + (n.error || 0) + (n.cancelado || 0);
+    const total = hechos + pend || c.total || 0;
+    const pct = total ? Math.round(((n.enviado || 0) / total) * 100) : 0;
+    // Se reusa `.logbadge`, que ya tiene los cuatro estados con sus colores:
+    // el registro y esto hablan de lo mismo y deben verse igual.
+    const chips = ["enviado", "error", "pendiente", "cancelado"]
+      .filter(e => n[e])
+      .map(e => `<span class="logbadge ${CAMP_BADGE[e][0]}">${CAMP_BADGE[e][1]} ${n[e]}</span>`)
+      .join("");
+    return `
+    <article class="actcard">
+      <div class="am">
+        <h4>${esc(c.nombre || "(sin texto)")}</h4>
+        <div class="ameta">
+          <span class="atime">${fechaHoraCO(c.enviar_en)}</span>
+          ${chips}
+        </div>
+        <div class="campbarra"><i style="width:${pct}%"></i></div>
+        <div class="camppie">${n.enviado || 0} de ${total} enviados${
+          pend ? ` · <b>${pend} en cola</b>` : " · terminado"}</div>
+      </div>
+      <div class="ab">
+        ${pend ? `<button class="pmark off" data-campx="${c.id}">✕ Cancelar los ${pend}</button>` : ""}
+      </div>
+    </article>`;
+  }).join("");
+
+  cont.querySelectorAll("[data-campx]").forEach(b => b.onclick = async () => {
+    const c = camps.find(x => x.id === b.dataset.campx);
+    const pend = (cuenta.get(b.dataset.campx) || {}).pendiente || 0;
+    // Se dice que lo YA enviado no se puede recoger: es lo que la gente asume
+    // mal de un botón de cancelar, y aquí son mensajes que ya llegaron.
+    if (!confirm(`¿Cancelar los ${pend} mensaje(s) que faltan por salir de «${c?.nombre || "este envío"}»?\n\n`
+               + `Los que ya se enviaron no se pueden recoger.`)) return;
+    b.disabled = true;
+    const { error } = await SB.from("mensajes_programados")
+      .update({ estado: "cancelado" })
+      .eq("campana_id", b.dataset.campx).eq("estado", "pendiente");
+    if (error) { toast("⚠ " + error.message); b.disabled = false; return; }
+    toast(`${pend} mensaje(s) cancelado(s)`);
+    renderCampanas(); renderLogs();
+  });
+}
+
 /* ================= SEGUIMIENTOS ACTIVOS ================= */
 // La ventana de asistencia (una hora desde el inicio) la decide la base, no
 // esta función: `clic_en` es el primer clic QUE CONTÓ, así que tener `clics`
@@ -1455,7 +1557,7 @@ $("btnSeg").onclick = async () => {
   $("segLogSec").open = window.matchMedia("(min-width:900px)").matches;
   renderNovedad();
   salirEdicion(); ocultarProg(); cargarPlantillas(); cargarActividades();
-  cargarSegmentos(); renderActivos(); renderLogs();
+  cargarSegmentos(); renderActivos(); renderCampanas(); renderLogs();
   // Si el canal está caído o los mensajes vienen fallando, avisarlo arriba
   // en vez de dejar que el agente lo descubra días después.
   avisarSiCanalCaido();

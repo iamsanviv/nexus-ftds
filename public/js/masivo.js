@@ -317,6 +317,10 @@ async function enviar() {
 
     toast(`✓ ${sel.length} mensaje(s) ${masCuando === "prog" ? "programado(s)" : "en cola"} · salen en goteo`);
     $("masOverlay").classList.remove("open");
+    // Que el envío aparezca de una vez en «Envíos masivos», donde se ve el
+    // progreso y se puede cancelar. Se importa a demanda para no crear un ciclo
+    // con seguimiento.js, que ya importa cosas de acá.
+    import("./seguimiento.js").then(m => m.renderCampanas()).catch(() => {});
   } catch (err) {
     toast("⚠ " + err.message);
   } finally {

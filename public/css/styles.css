@@ -621,6 +621,15 @@ body.segwide .tabinner{max-width:1180px}
 /* Aviso de novedad: verde en vez de rojo/dorado, porque no hay nada que
    atender. Si compartiera el color con «canal caído», una buena noticia
    estaría gritando igual que un problema. */
+/* Progreso de un envío masivo. La barra es lo enviado sobre el total: el
+   agente necesita ver de un vistazo si ya salió todo o si todavía va a medias,
+   que es cuando cancelar sirve de algo. */
+.campbarra{height:5px;border-radius:999px;background:var(--surface2);
+  border:1px solid var(--border);overflow:hidden;margin:7px 0 5px;max-width:320px}
+.campbarra i{display:block;height:100%;background:var(--ok);transition:width .3s}
+.camppie{font-size:.75rem;color:var(--muted)}
+.camppie b{color:var(--gold)}
+
 /* Historial de invitados, plegado. Ocho chips con nombre de actividad empujaban
    la lista de personas —lo que el agente vino a hacer— fuera de la pantalla. */
 .segacc{margin:6px 0 4px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)}
