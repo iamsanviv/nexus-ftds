@@ -264,6 +264,21 @@ Tres reglas que lo sostienen, y las tres nacieron de un defecto real:
 recurrente no puede guardar «asistió en junio, invitado otra vez en julio». Por
 eso la regla es no preguntar dos veces en vez de intentar representarlo.
 
+### Asistencia de días pasados
+
+Al cambiar el día la actividad se marca `cerrada` y sale de «Actividades del
+día». El dato de quién entró **no se pierde** —vive en `seguimientos`— pero se
+quedaba sin ninguna puerta por donde consultarlo, y el repaso de asistencias se
+hace justo al día siguiente. La sección plegada «Asistencia de días pasados»
+(`renderPasadas`) es esa puerta: 7 días, y abre el mismo panel de entradas.
+
+- **Solo las que tienen algo que contar** (al menos un seguimiento con token):
+  una actividad cerrada sin rastreo llenaría la lista de tarjetas mudas.
+- **`renderPasadas()` corre DESPUÉS de `cargarActividades()`**, porque es esta
+  la que marca `cerrada` a las de ayer. Lanzadas a la vez, la actividad de
+  anoche seguiría figurando como activa y no saldría en ninguna de las dos
+  listas — justo el primer día que se abre el panel.
+
 ### Quiénes entraron (panel de la actividad)
 
 El chip «N/M entraron» de la tarjeta se toca y abre la lista: entraron, abrieron

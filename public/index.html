@@ -225,6 +225,16 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <div id="segActividades" class="acts"></div>
     </section>
 
+    <!-- Ya pasaron: al cambiar el día la actividad se cierra y sale de la lista
+         de arriba, pero el registro de quién entró sigue haciendo falta — el
+         repaso de asistencias se hace justo al día siguiente. Va plegado. -->
+    <details class="segsec logsec" id="segPasadasSec">
+      <summary>
+        <div class="sechead"><h3>Asistencia de días pasados</h3><span class="cnt" id="segPasadasCnt">0</span><span class="rule"></span><span class="chev">▸</span></div>
+      </summary>
+      <div id="segPasadas" class="acts"></div>
+    </details>
+
     <!-- bloque de programación: aparece al elegir una actividad -->
     <div id="segProgBloque" class="hidden">
       <div class="actsel" id="segProgTitulo"></div>

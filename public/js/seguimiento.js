@@ -467,6 +467,92 @@ async function guardarActividad() {
 }
 
 /* ================= LISTA de actividades ================= */
+// Cuántos de los que se programaron abrieron su enlace. Es la razón de ser del
+// rastreo, así que va en la tarjeta y no escondido en el registro.
+//
+// Solo cuentan los seguimientos CON token: los de antes del rastreo (o de una
+// tanda con el rastreo apagado) no tienen nada que informar, y meterlos en el
+// denominador diría «0 de 30 entraron» de algo que nunca se midió.
+async function contarEntradas(ids) {
+  const entradas = new Map();   // actividad_id → { n, entraron, tarde }
+  if (!ids.length) return entradas;
+  const { data: segs } = await SB.from("seguimientos")
+    .select("actividad_id, clic_token, clic_en, clics")
+    .in("actividad_id", ids)
+    .neq("estado", "cancelado");
+  for (const s of segs || []) {
+    if (!s.clic_token) continue;
+    const e = entradas.get(s.actividad_id) || { n: 0, entraron: 0, tarde: 0 };
+    e.n++;
+    // «Tarde» se cuenta aparte y NO suma a los que entraron: abrir el mensaje
+    // al otro día no es haber asistido, pero sí dice que el mensaje llegó.
+    if (s.clic_en) e.entraron++;
+    else if (s.clics) e.tarde++;
+    entradas.set(s.actividad_id, e);
+  }
+  return entradas;
+}
+
+/* ---------- actividades ya pasadas ---------- */
+// Al cambiar el día, una actividad se marca `cerrada` y sale de la lista. El
+// dato de quién entró NO se pierde —vive en `seguimientos`— pero se quedaba sin
+// ninguna puerta por donde consultarlo, y el repaso de asistencias se hace justo
+// al día siguiente. Esta sección es esa puerta.
+//
+// Van 7 días y no solo el anterior: cuesta lo mismo, y quien se ausenta un fin
+// de semana vuelve el lunes queriendo cuadrar el viernes.
+const DIAS_PASADAS = 7;
+
+async function renderPasadas() {
+  const cont = $("segPasadas");
+  if (!cont) return;
+  const desde = new Date(Date.now() - DIAS_PASADAS * 86400000).toISOString();
+
+  const { data, error } = await SB.from("actividades")
+    .select("id, servicio_id, nombre, inicio, enlace, owner_id")
+    .eq("estado", "cerrada")
+    .gte("inicio", desde)
+    .order("inicio", { ascending: false })
+    .limit(15);
+  if (error) { cont.innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
+
+  const pasadas = data || [];
+  const entradas = await contarEntradas(pasadas.map(a => a.id));
+  // Solo las que tienen algo que contar: una actividad cerrada sin rastreo no
+  // aporta nada acá y llenaría la lista de tarjetas mudas.
+  const conDatos = pasadas.filter(a => entradas.has(a.id));
+
+  $("segPasadasCnt").textContent = conDatos.length;
+  if (!conDatos.length) {
+    cont.innerHTML = `<div class="segempty">
+      <div class="eh">Nada de los últimos ${DIAS_PASADAS} días</div>
+      <p>Cuando una actividad con enlace rastreado termine, aquí sigues viendo quién entró.</p>
+    </div>`;
+    return;
+  }
+
+  cont.innerHTML = conDatos.map(a => {
+    const ent = entradas.get(a.id);
+    return `
+    <article class="actcard">
+      <div class="am campclic" data-pasada="${a.id}" title="Ver quiénes entraron">
+        <h4>${esc(a.nombre)} <span class="campver">›</span></h4>
+        <div class="ameta">
+          <span class="atime">${fechaHoraCO(a.inicio)}</span>
+          ${esLibre(a) ? `<span class="achip suelta">✦ Puntual</span>` : ""}
+          <span class="achip ok ${ent.entraron ? "" : "vacio"}">👆 ${ent.entraron}/${ent.n} entraron</span>
+          ${ent.tarde ? `<span class="achip">${ent.tarde} tarde</span>` : ""}
+        </div>
+      </div>
+    </article>`;
+  }).join("");
+
+  cont.querySelectorAll("[data-pasada]").forEach(el => el.onclick = () => {
+    const a = pasadas.find(x => x.id === el.dataset.pasada);
+    if (a) abrirEntradas(a);
+  });
+}
+
 async function cargarActividades() {
   const { data, error } = await SB.from("actividades")
     .select("id, servicio_id, nombre, inicio, enlace, estado, imagen, compartida, msg_invitacion, owner_id")
@@ -500,23 +586,7 @@ async function cargarActividades() {
   // Solo cuentan los seguimientos CON token: los de antes del rastreo (o de una
   // actividad con el rastreo apagado) no tienen nada que informar, y meterlos en
   // el denominador diría «0 de 30 entraron» de algo que nunca se midió.
-  const entradas = new Map();   // actividad_id → { n, entraron, tarde }
-  {
-    const { data: segs } = await SB.from("seguimientos")
-      .select("actividad_id, clic_token, clic_en, clics")
-      .in("actividad_id", actividades.map(a => a.id))
-      .neq("estado", "cancelado");
-    for (const s of segs || []) {
-      if (!s.clic_token) continue;
-      const e = entradas.get(s.actividad_id) || { n: 0, entraron: 0, tarde: 0 };
-      e.n++;
-      // «Tarde» se cuenta aparte y NO suma a los que entraron: abrir el mensaje
-      // al otro día no es haber asistido, pero sí dice que el mensaje llegó.
-      if (s.clic_en) e.entraron++;
-      else if (s.clics) e.tarde++;
-      entradas.set(s.actividad_id, e);
-    }
-  }
+  const entradas = await contarEntradas(actividades.map(a => a.id));
 
   $("segActividades").innerHTML = actividades.map(a => {
     const mia = esMia(a);
@@ -1647,7 +1717,12 @@ $("btnSeg").onclick = async () => {
   // llenar la pantalla; en escritorio va desplegado en su propio riel.
   $("segLogSec").open = window.matchMedia("(min-width:900px)").matches;
   renderNovedad();
-  salirEdicion(); ocultarProg(); cargarPlantillas(); cargarActividades();
+  salirEdicion(); ocultarProg(); cargarPlantillas();
+  // `renderPasadas` va DESPUÉS a propósito: es `cargarActividades` quien marca
+  // `cerrada` a las de ayer. Lanzadas a la vez, la actividad de anoche todavía
+  // figuraría como activa y no aparecería en ninguna de las dos listas — el
+  // primer día que se abre el panel, justo cuando más se necesita.
+  cargarActividades().then(renderPasadas);
   cargarSegmentos(); renderActivos(); renderCampanas(); renderLogs();
   // Si el canal está caído o los mensajes vienen fallando, avisarlo arriba
   // en vez de dejar que el agente lo descubra días después.
