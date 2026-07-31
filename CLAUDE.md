@@ -182,7 +182,16 @@ que falta por salir.
 - **Cancelar solo toca lo `pendiente`.** El aviso dice que lo ya enviado no se
   puede recoger, porque es lo que la gente asume mal de un botón de cancelar.
 - Se refresca desde `masivo.js` con `import()` dinámico justo después de
-  encolar: el agente acaba de mandar y espera verlo ahí, no al recargar.
+  encolar: el agente acaba de mandar y espera verlo ahí, no al recargar. Ese es
+  además el único momento en que la sección **se despliega sola**; el resto del
+  tiempo va plegada, entre «Seguimientos activos» y el registro.
+- **Al tocar una campaña se abre su detalle**: el texto que salió y persona por
+  persona en qué quedó. Los grupos van en orden de acción —fallaron, en cola,
+  les llegó— porque los cuatro fallidos son lo único que hay que recuperar a
+  mano y quedaban enterrados bajo diecinueve exitosos.
+- El texto se toma de `campanas`, no de un mensaje: cada mensaje lleva su
+  versión ya resuelta (nombre y snippets), y mostrar una al azar haría creer que
+  a todos les llegó exactamente esa. La pantalla lo dice.
 
 ### Historial de invitados (segmentos)
 

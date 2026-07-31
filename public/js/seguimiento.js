@@ -1270,9 +1270,13 @@ const CAMP_BADGE = {
   cancelado: ["can",  "✕"],
 };
 
-export async function renderCampanas() {
+export async function renderCampanas(abrir) {
   const cont = $("segCampanas");
   if (!cont) return;
+  // Se despliega solo cuando se acaba de enviar algo. El resto del tiempo queda
+  // plegado: son diez tarjetas con barra y nombre largo, y empujaban fuera de
+  // pantalla el registro, que es lo que se consulta a diario.
+  if (abrir) $("segCampSec").open = true;
 
   // Solo las propias: un director ve las campañas de sus agentes por RLS, pero
   // cancelar el envío de otro desde acá sería meterse en su trabajo.
@@ -1320,8 +1324,8 @@ export async function renderCampanas() {
       .join("");
     return `
     <article class="actcard">
-      <div class="am">
-        <h4>${esc(c.nombre || "(sin texto)")}</h4>
+      <div class="am campclic" data-campver="${c.id}" title="Ver a quién le llegó">
+        <h4>${esc(c.nombre || "(sin texto)")} <span class="campver">›</span></h4>
         <div class="ameta">
           <span class="atime">${fechaHoraCO(c.enviar_en)}</span>
           ${chips}
@@ -1335,6 +1339,11 @@ export async function renderCampanas() {
       </div>
     </article>`;
   }).join("");
+
+  cont.querySelectorAll("[data-campver]").forEach(el => el.onclick = () => {
+    const c = camps.find(x => x.id === el.dataset.campver);
+    if (c) abrirCampana(c);
+  });
 
   cont.querySelectorAll("[data-campx]").forEach(b => b.onclick = async () => {
     const c = camps.find(x => x.id === b.dataset.campx);
@@ -1351,6 +1360,88 @@ export async function renderCampanas() {
     toast(`${pend} mensaje(s) cancelado(s)`);
     renderCampanas(); renderLogs();
   });
+}
+
+// Detalle de una campaña: el texto que salió y persona por persona en qué
+// quedó. Sin esto, «19 de 23 enviados» no dice a QUIÉN le llegó ni por qué
+// fallaron los otros cuatro — que es lo único accionable de un envío fallido.
+async function abrirCampana(c) {
+  $("repSub").textContent = "Cargando…";
+  $("repBody").innerHTML = `<div class="naplica">Un momento…</div>`;
+  $("repOverlay").classList.add("open");
+  const cerrar = () => $("repOverlay").classList.remove("open");
+  $("repCerrar").onclick = cerrar;
+  $("repOverlay").onclick = e => { if (e.target.id === "repOverlay") cerrar(); };
+
+  // El texto se trae de la campaña, no de los mensajes: cada mensaje lleva su
+  // versión ya resuelta (nombre y snippets), y mostrar una al azar haría creer
+  // que a todos les llegó exactamente esa.
+  const [{ data: camp }, { data: msgs, error }] = await Promise.all([
+    SB.from("campanas").select("texto, media_url, total, enviar_en").eq("id", c.id).maybeSingle(),
+    SB.from("mensajes_programados")
+      .select("id, telefono, estado, texto, error, enviado_en, enviar_en")
+      .eq("campana_id", c.id).order("estado"),
+  ]);
+  if (error) { $("repBody").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
+
+  const porTel = new Map();
+  for (const cl of state.clientes) if (cl.tel) porTel.set(cl.tel, cl.nombre);
+
+  const pintar = (filas) => {
+    // Primero lo que pide acción y último lo que ya es historia: los que
+    // fallaron hay que recuperarlos a mano, y los que están en cola todavía se
+    // pueden parar. Con «les llegó» arriba, los cuatro fallidos quedaban
+    // enterrados debajo de diecinueve exitosos.
+    const grupos = [
+      ["error",     "⚠ Fallaron — hay que escribirles a mano"],
+      ["pendiente", "En cola"],
+      ["enviado",   "✓ Les llegó"],
+      ["cancelado", "Cancelados"],
+    ];
+    const fila = m => {
+      const nombre = porTel.get(m.telefono) || m.telefono;
+      const cuando = m.enviado_en || m.enviar_en;
+      return `<div class="prow">
+        <div class="pl"><span class="pn">${esc(nombre)}</span>
+          <span class="sfecha">${esc(fechaHoraCO(cuando))}</span></div>
+        ${m.estado === "error" && m.error
+          ? `<div class="logerr" title="${esc(m.error)}">${esc(m.error.slice(0, 90))}</div>` : ""}
+      </div>`;
+    };
+    const cuerpo = grupos.map(([e, titulo]) => {
+      const lista = filas.filter(m => m.estado === e);
+      if (!lista.length) return "";
+      return `<div class="pstitle">${titulo} (${lista.length})</div>` + lista.map(fila).join("");
+    }).join("");
+
+    const pend = filas.filter(m => m.estado === "pendiente").length;
+    $("repSub").textContent = c.nombre || "Envío masivo";
+    $("repBody").innerHTML = `
+      ${camp?.texto ? `<div class="pstitle">Mensaje que salió</div>
+        <div class="campmsg">${esc(camp.texto)}</div>
+        <div class="msgshelp">A cada persona le llegó con su nombre y con las
+          variantes <code>{a|b|c}</code> resueltas, así que el texto exacto
+          cambia de una a otra.</div>` : ""}
+      ${camp?.media_url ? `<div class="pstitle">Adjunto</div>
+        <img class="imgprev" src="${esc(camp.media_url)}" alt="">` : ""}
+      ${pend ? `<button class="pmark off campcancel" data-cancelar="1">✕ Cancelar los ${pend} que faltan</button>` : ""}
+      ${cuerpo || `<div class="naplica">Este envío no tiene mensajes.</div>`}`;
+
+    const btn = $("repBody").querySelector("[data-cancelar]");
+    if (btn) btn.onclick = async () => {
+      if (!confirm(`¿Cancelar los ${pend} mensaje(s) que faltan por salir?\n\n`
+                 + `Los que ya se enviaron no se pueden recoger.`)) return;
+      btn.disabled = true;
+      const { error: e2 } = await SB.from("mensajes_programados")
+        .update({ estado: "cancelado" }).eq("campana_id", c.id).eq("estado", "pendiente");
+      if (e2) { toast("⚠ " + e2.message); btn.disabled = false; return; }
+      toast(`${pend} mensaje(s) cancelado(s)`);
+      pintar(filas.map(m => m.estado === "pendiente" ? { ...m, estado: "cancelado" } : m));
+      renderCampanas(); renderLogs();
+    };
+  };
+
+  pintar(msgs || []);
 }
 
 /* ================= SEGUIMIENTOS ACTIVOS ================= */

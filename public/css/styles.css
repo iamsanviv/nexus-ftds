@@ -629,6 +629,16 @@ body.segwide .tabinner{max-width:1180px}
 .campbarra i{display:block;height:100%;background:var(--ok);transition:width .3s}
 .camppie{font-size:.75rem;color:var(--muted)}
 .camppie b{color:var(--gold)}
+/* La tarjeta se toca para ver a quién le llegó. El › lo anuncia: una tarjeta
+   normalmente no hace nada al tocarla. */
+.campclic{cursor:pointer}
+.campclic:hover h4{color:var(--gold)}
+.campver{color:var(--muted);font-weight:400}
+/* Texto de la campaña en el detalle: se respetan los saltos de línea, que en un
+   mensaje de WhatsApp son parte del mensaje. */
+.campmsg{background:var(--surface2);border:1px solid var(--border);border-radius:11px;
+  padding:11px 13px;font-size:.86rem;line-height:1.55;white-space:pre-wrap;color:var(--text)}
+.campcancel{margin:14px 0 4px}
 
 /* Historial de invitados, plegado. Ocho chips con nombre de actividad empujaban
    la lista de personas —lo que el agente vino a hacer— fuera de la pantalla. */

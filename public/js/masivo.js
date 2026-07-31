@@ -320,7 +320,7 @@ async function enviar() {
     // Que el envío aparezca de una vez en «Envíos masivos», donde se ve el
     // progreso y se puede cancelar. Se importa a demanda para no crear un ciclo
     // con seguimiento.js, que ya importa cosas de acá.
-    import("./seguimiento.js").then(m => m.renderCampanas()).catch(() => {});
+    import("./seguimiento.js").then(m => m.renderCampanas(true)).catch(() => {});
   } catch (err) {
     toast("⚠ " + err.message);
   } finally {
