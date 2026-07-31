@@ -272,8 +272,16 @@ quedaba sin ninguna puerta por donde consultarlo, y el repaso de asistencias se
 hace justo al día siguiente. La sección plegada «Asistencia de días pasados»
 (`renderPasadas`) es esa puerta: 7 días, y abre el mismo panel de entradas.
 
-- **Solo las que tienen algo que contar** (al menos un seguimiento con token):
-  una actividad cerrada sin rastreo llenaría la lista de tarjetas mudas.
+- **Entra si tiene rastreo, o si es PUNTUAL con gente programada.** La
+  asistencia a una puntual solo se puede revisar acá; la de una del catálogo
+  además vive en la vista por servicio, así que una del catálogo sin rastreo no
+  aporta nada y se deja fuera. En los dos casos hace falta al menos una persona
+  programada.
+- **El panel ya no filtra por token.** Desde que el rastreo se decide por tanda,
+  una misma actividad puede tener gente rastreada y gente sin rastrear: los
+  segundos van en su propio grupo («Sin enlace rastreado · márcalos a mano»),
+  sin fingir que «no entraron». `contarEntradas` devuelve `prog` (todos) y `n`
+  (solo con token) justo para poder distinguirlos.
 - **`renderPasadas()` corre DESPUÉS de `cargarActividades()`**, porque es esta
   la que marca `cerrada` a las de ayer. Lanzadas a la vez, la actividad de
   anoche seguiría figurando como activa y no saldría en ninguna de las dos

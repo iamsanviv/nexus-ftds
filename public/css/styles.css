@@ -682,7 +682,10 @@ body.segwide .tabinner{max-width:1180px}
    y el borde vivo, porque un chip normalmente no hace nada. */
 .achip.clicable{cursor:pointer;border-style:solid}
 .achip.clicable:hover{filter:brightness(1.25)}
-.achip.ok.vacio{background:var(--surface2);border-color:var(--border);color:var(--muted)}
+/* Chip apagado: la cifra existe pero no hay nada bueno que celebrar (nadie ha
+   entrado todavía, o la tanda salió sin rastreo). Va sin `.ok` a propósito para
+   que también sirva a los chips que nunca fueron verdes. */
+.achip.vacio{background:var(--surface2);border-color:var(--border);color:var(--muted)}
 
 /* Acordeón de actividades puntuales en el perfil. Plegado por defecto: se
    acumulan con el tiempo y no se consultan casi nunca. */

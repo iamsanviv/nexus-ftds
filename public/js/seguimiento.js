@@ -473,21 +473,26 @@ async function guardarActividad() {
 // Solo cuentan los seguimientos CON token: los de antes del rastreo (o de una
 // tanda con el rastreo apagado) no tienen nada que informar, y meterlos en el
 // denominador diría «0 de 30 entraron» de algo que nunca se midió.
+// `prog` cuenta a TODOS los programados y `n` solo a los que llevan token. Son
+// dos cifras distintas desde que el rastreo se decide por tanda: una misma
+// actividad puede tener gente rastreada y gente sin rastrear.
 async function contarEntradas(ids) {
-  const entradas = new Map();   // actividad_id → { n, entraron, tarde }
+  const entradas = new Map();   // actividad_id → { prog, n, entraron, tarde }
   if (!ids.length) return entradas;
   const { data: segs } = await SB.from("seguimientos")
     .select("actividad_id, clic_token, clic_en, clics")
     .in("actividad_id", ids)
     .neq("estado", "cancelado");
   for (const s of segs || []) {
-    if (!s.clic_token) continue;
-    const e = entradas.get(s.actividad_id) || { n: 0, entraron: 0, tarde: 0 };
-    e.n++;
-    // «Tarde» se cuenta aparte y NO suma a los que entraron: abrir el mensaje
-    // al otro día no es haber asistido, pero sí dice que el mensaje llegó.
-    if (s.clic_en) e.entraron++;
-    else if (s.clics) e.tarde++;
+    const e = entradas.get(s.actividad_id) || { prog: 0, n: 0, entraron: 0, tarde: 0 };
+    e.prog++;
+    if (s.clic_token) {
+      e.n++;
+      // «Tarde» se cuenta aparte y NO suma a los que entraron: abrir el mensaje
+      // al otro día no es haber asistido, pero sí dice que el mensaje llegó.
+      if (s.clic_en) e.entraron++;
+      else if (s.clics) e.tarde++;
+    }
     entradas.set(s.actividad_id, e);
   }
   return entradas;
@@ -518,9 +523,16 @@ async function renderPasadas() {
 
   const pasadas = data || [];
   const entradas = await contarEntradas(pasadas.map(a => a.id));
-  // Solo las que tienen algo que contar: una actividad cerrada sin rastreo no
-  // aporta nada acá y llenaría la lista de tarjetas mudas.
-  const conDatos = pasadas.filter(a => entradas.has(a.id));
+  // Entra si tiene rastreo (hay algo que informar) o si es PUNTUAL con gente
+  // programada: la asistencia a una puntual solo se puede revisar acá, mientras
+  // que la de una del catálogo además vive en la vista por servicio.
+  //
+  // En los dos casos hace falta al menos una persona programada: una actividad
+  // a la que nunca se le programó nada no tiene nada que mostrar.
+  const conDatos = pasadas.filter(a => {
+    const e = entradas.get(a.id);
+    return !!e && e.prog > 0 && (e.n > 0 || esLibre(a));
+  });
 
   $("segPasadasCnt").textContent = conDatos.length;
   if (!conDatos.length) {
@@ -540,8 +552,12 @@ async function renderPasadas() {
         <div class="ameta">
           <span class="atime">${fechaHoraCO(a.inicio)}</span>
           ${esLibre(a) ? `<span class="achip suelta">✦ Puntual</span>` : ""}
-          <span class="achip ok ${ent.entraron ? "" : "vacio"}">👆 ${ent.entraron}/${ent.n} entraron</span>
+          ${ent.n
+            ? `<span class="achip ok ${ent.entraron ? "" : "vacio"}">👆 ${ent.entraron}/${ent.n} entraron</span>`
+            : `<span class="achip">${ent.prog} invitado${ent.prog === 1 ? "" : "s"} · sin rastreo</span>`}
           ${ent.tarde ? `<span class="achip">${ent.tarde} tarde</span>` : ""}
+          ${ent.n && ent.n < ent.prog
+            ? `<span class="achip">${ent.prog - ent.n} sin rastreo</span>` : ""}
         </div>
       </div>
     </article>`;
@@ -602,10 +618,13 @@ async function cargarActividades() {
           ${a.enlace
             ? `<span class="achip ok">Enlace listo</span>`
             : `<span class="achip miss">Falta el enlace</span>`}
-          ${ent ? `<button class="achip ok clicable ${ent.entraron ? "" : "vacio"}"
+          ${ent && ent.n ? `<button class="achip ok clicable ${ent.entraron ? "" : "vacio"}"
             data-entradas="${a.id}"
             title="Ver quiénes entraron y quiénes no"
-            >👆 ${ent.entraron}/${ent.n} entraron ›</button>` : ""}
+            >👆 ${ent.entraron}/${ent.n} entraron ›</button>`
+           : ent && ent.prog ? `<button class="achip clicable vacio" data-entradas="${a.id}"
+            title="Esta tanda salió sin rastreo: marca la asistencia a mano"
+            >${ent.prog} invitado${ent.prog === 1 ? "" : "s"} · marcar a mano ›</button>` : ""}
           ${ent && ent.tarde ? `<span class="achip"
             title="Abrieron el enlace más de una hora después: no cuenta como asistencia"
             >${ent.tarde} tarde</span>` : ""}
@@ -1238,7 +1257,11 @@ async function abrirEntradas(a) {
     .eq("actividad_id", a.id).neq("estado", "cancelado");
   if (error) { $("repBody").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
 
-  const filas = (data || []).filter(s => s.clic_token);
+  // NO se filtra por token. Desde que el rastreo se decide por tanda, una misma
+  // actividad puede tener gente rastreada y gente sin rastrear, y a los segundos
+  // igual hay que poder marcarles la asistencia a mano — en una puntual este
+  // panel es el único sitio donde se puede.
+  const filas = data || [];
   const cerrar = () => $("repOverlay").classList.remove("open");
   $("repCerrar").onclick = cerrar;
   $("repOverlay").onclick = e => { if (e.target.id === "repOverlay") cerrar(); };
@@ -1250,9 +1273,13 @@ async function abrirEntradas(a) {
 
   const pintar = () => {
     const conCli = filas.map(s => ({ s, c: state.clientes.find(x => x.id === s.cliente_id) }));
-    const entraron = conCli.filter(({ s }) => s.clic_en);
-    const tarde    = conCli.filter(({ s }) => !s.clic_en && s.clics);
-    const nada     = conCli.filter(({ s }) => !s.clic_en && !s.clics);
+    const rastreados = conCli.filter(({ s }) => s.clic_token);
+    const entraron = rastreados.filter(({ s }) => s.clic_en);
+    const tarde    = rastreados.filter(({ s }) => !s.clic_en && s.clics);
+    const nada     = rastreados.filter(({ s }) => !s.clic_en && !s.clics);
+    // Sin token no hay nada que informar sobre ellos: se listan aparte, con su
+    // botón de marcar, y sin fingir que «no entraron».
+    const sinTok   = conCli.filter(({ s }) => !s.clic_token);
 
     const fila = ({ s, c }) => {
       const nombre = s.clientes?.nombre || "(cliente)";
@@ -1275,13 +1302,26 @@ async function abrirEntradas(a) {
       (lista.length ? lista.map(fila).join("") : `<div class="naplica">${vacio}</div>`);
 
     $("repSub").textContent = a.nombre;
-    $("repBody").innerHTML =
-        grupo("👆 Entraron", entraron, "Nadie ha abierto su enlace todavía.")
-      + (tarde.length ? grupo("Abrieron tarde · no cuenta como asistencia", tarde, "") : "")
-      + grupo("Sin abrir", nada, "Todos abrieron su enlace 🎉")
-      + `<div class="msgshelp" style="margin-top:12px">Un clic dice que abrió el enlace,
-          no que se quedó. Quien ya tenía el enlace de antes puede haber entrado sin
-          aparecer aquí: por eso puedes marcar y quitar la asistencia a mano.</div>`;
+    $("repBody").innerHTML = (!filas.length
+        ? `<div class="naplica">A esta actividad no le programaste a nadie.</div>`
+        : (rastreados.length
+            ? grupo("👆 Entraron", entraron, "Nadie ha abierto su enlace todavía.")
+              + (tarde.length ? grupo("Abrieron tarde · no cuenta como asistencia", tarde, "") : "")
+              + grupo("Sin abrir", nada, "Todos abrieron su enlace 🎉")
+            : "")
+          + (sinTok.length
+              ? grupo(rastreados.length ? "Sin enlace rastreado · márcalos a mano" : "Invitados",
+                      sinTok, "")
+              : ""))
+      + (rastreados.length
+          ? `<div class="msgshelp" style="margin-top:12px">Un clic dice que abrió el enlace,
+              no que se quedó. Quien ya tenía el enlace de antes puede haber entrado sin
+              aparecer aquí: por eso puedes marcar y quitar la asistencia a mano.</div>`
+          : filas.length
+            ? `<div class="msgshelp" style="margin-top:12px">Esta tanda salió sin enlace
+                rastreado, así que no hay forma de saber quién entró: la asistencia se
+                marca a mano.</div>`
+            : "");
 
     $("repBody").querySelectorAll("[data-marcar]").forEach(b => b.onclick = () => cambiar(b.dataset.marcar, true, b));
     $("repBody").querySelectorAll("[data-quitar]").forEach(b => b.onclick = () => cambiar(b.dataset.quitar, false, b));
