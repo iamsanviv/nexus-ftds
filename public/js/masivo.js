@@ -18,13 +18,15 @@ let masImgTipo = null;      // "imagen" | "video" — para la vista previa y el 
 // sube hasta el final para morir con un error en inglés que no dice nada.
 const MAX_VIDEO_MB = 16;
 
-// Esta lista tiene que decir lo MISMO que `allowed_mime_types` del bucket y que
-// el `accept` del input. Son tres sitios que describen la misma regla: cuando
-// se separan, el selector deja elegir un archivo que el Storage rechaza.
-const TIPOS_OK = [
-  "image/jpeg", "image/png", "image/webp", "image/gif",
-  "video/mp4", "video/quicktime", "video/webm",
-];
+// Esta lista tiene que decir lo MISMO que el `accept` del input. El bucket
+// acepta además los tipos de video, y a propósito: el día que el worker sepa
+// mandarlos, se reactiva desde acá sin tocar la base.
+//
+// VIDEO FUERA (31/07): sube bien y el worker lo da por enviado, pero llega al
+// cliente como NOTA DE VOZ — solo tiene rama para imagen y lo que no reconoce
+// lo manda como PTT. Esta lista es la red que de verdad lo impide: el `accept`
+// del input es una sugerencia que algunos navegadores dejan saltarse.
+const TIPOS_OK = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 let masCuando = "ahora";    // ahora | prog
 let segmentos = [];         // segmentos guardados
 
@@ -361,8 +363,8 @@ $("masImgFile").onchange = async () => {
   // veía «mime type video/quicktime is not supported» y no tenía cómo saber que
   // eso significaba «convierte el video a MP4».
   if (!TIPOS_OK.includes(file.type)) {
-    $("masImgEstado").textContent = file.type.startsWith("video/")
-      ? `⚠ Ese formato de video no sirve (${file.type}). Usa MP4.`
+    $("masImgEstado").textContent = esVideo
+      ? "⚠ Por ahora no se puede enviar video: llegaría como nota de voz"
       : `⚠ Ese tipo de archivo no se puede enviar (${file.type || "desconocido"})`;
     limpiar();
     return;

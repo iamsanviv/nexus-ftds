@@ -537,12 +537,17 @@ comportamiento, decirlo en vez de asumirlo.
   disponible». Se probaron tres perfiles de opus, whatsmeow actualizada y el
   bucket `ptt` del CDN; nada lo resolvió. El botón vive en `index.html` detrás
   de un `hidden` (no se borró el código, para no perder el trabajo de grabar).
-- **Video en Masivo (agregado 31/07) no está verificado contra el worker de
-  verdad.** Sube al mismo `media_url` que la imagen, con el mismo mecanismo —y
-  el worker no vive en este repo, así que no hay forma de probar desde acá si
-  lo manda como video de WhatsApp o si repite el fallo de la nota de voz.
-  **Probar con un envío real antes de confiar en él para una campaña grande**, y
-  ojo con el `.mov` del iPhone: se sube, pero WhatsApp nativamente maneja MP4.
+- **El video en Masivo está DESACTIVADO: el worker lo manda como nota de voz.**
+  Comprobado con dos envíos reales (31/07, un `.mp4` y un `.mov`). El archivo
+  sube perfecto —`storage.objects` guarda `video/mp4` y `video/quicktime`
+  correctos— y el worker marca el mensaje `enviado`, pero al cliente le llega
+  como PTT. **La regla del worker, inferida de los datos: reconoce extensiones
+  de imagen y manda todo lo demás como nota de voz.** No tiene rama de video.
+  Es el mismo agujero que ya rompió la nota de voz, visto desde el otro lado.
+  Lo que falta es una línea en el worker (que no vive acá): detectar
+  `video/*` y mandarlo como video. Del lado del panel ya está todo hecho —
+  previsualización, validación y el bucket acepta los tipos—; para reactivarlo
+  se devuelven `video/mp4,video/quicktime` al `accept` del input y a `TIPOS_OK`.
 - **El CSV no lleva las asistencias puntuales** (`clientes.puntuales`).
 - **Cobro por uso**: la medición ya existe (`mensajes_programados` por
   `owner_id`). Falta tabla de suscripción, cuota **aplicada en el worker** (no
