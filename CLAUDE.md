@@ -519,6 +519,24 @@ contra `ventas`. Funciona, y se comprobó que no filtra.
 
 ---
 
+### Vista de escritorio
+
+`@media (min-width:1024px)` al final de `styles.css`. El panel nació en celular
+y estaba tapado a 760 px en todas las pestañas menos Seguimiento, que ya se
+había rehecho a 1180. Ahora todas miden 1180.
+
+- **La lista NO se parte en columnas, y es una decisión.** Los clientes van en
+  orden por progreso y las ventas por urgencia de cobro; en dos columnas hay que
+  leer en zigzag y ese orden deja de leerse. Se gana ancho por fila, no columnas.
+- **Ensanchar por sí solo no servía**, y solo se vio al renderizar a 1440: la
+  tarjeta de persona apila nombre / barra / cifras, así que estirada seguía
+  igual de alta pero con mil píxeles de aire — cabían **cinco** personas, menos
+  que antes. Al ancho de monitor la fila se vuelve horizontal y entran ocho.
+- **Los bloques de resumen se capan** (`.metacard`, `.stats`, `.prof`, `.mgrp`,
+  campos de formulario): un número grande solo en una caja de 1180 px se ve
+  perdido, y un campo de texto de 1100 px es incómodo de llenar.
+- Todo vive dentro de la media query: **en celular no cambia nada**.
+
 ## Estructura
 
 ```
