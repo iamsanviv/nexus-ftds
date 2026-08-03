@@ -89,18 +89,27 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
   </div>
   <input type="file" id="fileInput" accept=".csv,text/csv" style="display:none">
 
-  <div class="modswitch" id="modSwitch"></div>
-  <div class="vtoggle hidden" id="viewToggle"></div>
-
-  <input class="buscar" id="buscar" placeholder="Buscar cliente…">
+  <!-- Envoltorio solo para poder ponerlos en FILA en escritorio. En celular es
+       un bloque normal y todo sigue apilado igual que siempre. -->
+  <div class="headctl">
+    <div class="modswitch" id="modSwitch"></div>
+    <div class="vtoggle hidden" id="viewToggle"></div>
+    <input class="buscar" id="buscar" placeholder="Buscar cliente…">
+  </div>
 
   <div id="vistaCliente">
     <!-- Bloque de FTD del mes. Vive aquí, no en Ventas, porque es donde el
          agente pasa el día. Lo pinta ftd.js. -->
-    <div id="ftdPanel"></div>
-    <div class="stats" id="stats"></div>
-    <div class="filtros" id="filtros"></div>
-    <div class="ordwrap"><span class="lbl">Orden</span><div class="ordseg" id="orden"></div></div>
+    <!-- Mismo caso: en escritorio la tarjeta de FTD y las cifras van lado a
+         lado, y los filtros comparten fila con el orden. En celular, apilados. -->
+    <div class="cliresumen">
+      <div id="ftdPanel"></div>
+      <div class="stats" id="stats"></div>
+    </div>
+    <div class="clifiltros">
+      <div class="filtros" id="filtros"></div>
+      <div class="ordwrap"><span class="lbl">Orden</span><div class="ordseg" id="orden"></div></div>
+    </div>
     <div id="lista"></div>
   </div>
 

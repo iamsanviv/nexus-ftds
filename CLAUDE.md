@@ -16,6 +16,12 @@ de WhatsApp alrededor de actividades (clases, operativas, lanzamientos).
   rara, casi siempre hay una razón: déjala escrita.
 - **Sin build.** No agregar bundler, framework ni dependencias de npm. Lo poco
   externo entra por `esm.sh` en tiempo de ejecución (Sortable, qrcode).
+- **El banco de pruebas tiene que incluir el ENCABEZADO REAL.** Un banco parcial
+  da una falsa sensación de haberlo comprobado: la vista de escritorio se
+  desplegó «verificada» y se veía mal, porque el banco no traía el título, el
+  selector Comunidad/Leads ni el buscador — y eran justo esos los que se
+  estiraban a todo lo ancho. Si el bloque vive dentro de `#app`, el banco lo
+  monta dentro de `#app` completo.
 - **Renderizar antes de dar algo por bueno.** Leer el código no basta: en esta
   sesión, montar un banco de pruebas con Playwright encontró defectos reales
   (formulario de 1180 px, nombre truncado, campo debajo del botón que lo
@@ -521,21 +527,26 @@ contra `ventas`. Funciona, y se comprobó que no filtra.
 
 ### Vista de escritorio
 
-`@media (min-width:1024px)` al final de `styles.css`. El panel nació en celular
-y estaba tapado a 760 px en todas las pestañas menos Seguimiento, que ya se
-había rehecho a 1180. Ahora todas miden 1180.
+`@media (min-width:1040px)` al final de `styles.css`. El panel nació en celular
+y estaba tapado a 760 px en todas las pestañas menos Seguimiento.
 
+- **1040, no 1180.** Es lo que este contenido llena de verdad: 28 clientes con
+  filas cortas. Más ancho solo agrega aire.
+- **Ensanchar NO es acomodar.** El primer intento subió el ancho y ya, y se veía
+  peor: el selector de módulo y el buscador se estiraban a todo lo ancho, y
+  entre el nombre y las cifras quedaba un océano. Hubo que revertirlo.
+- **Lo que se apilaba por falta de sitio, va en FILA**: selector + buscador;
+  tarjeta de FTD + cifras (`.cliresumen`); filtros + orden (`.clifiltros`). Los
+  envoltorios `.headctl`, `.cliresumen` y `.clifiltros` existen solo para eso —
+  en celular son bloques normales.
 - **La lista NO se parte en columnas, y es una decisión.** Los clientes van en
   orden por progreso y las ventas por urgencia de cobro; en dos columnas hay que
-  leer en zigzag y ese orden deja de leerse. Se gana ancho por fila, no columnas.
-- **Ensanchar por sí solo no servía**, y solo se vio al renderizar a 1440: la
-  tarjeta de persona apila nombre / barra / cifras, así que estirada seguía
-  igual de alta pero con mil píxeles de aire — cabían **cinco** personas, menos
-  que antes. Al ancho de monitor la fila se vuelve horizontal y entran ocho.
-- **Los bloques de resumen se capan** (`.metacard`, `.stats`, `.prof`, `.mgrp`,
-  campos de formulario): un número grande solo en una caja de 1180 px se ve
-  perdido, y un campo de texto de 1100 px es incómodo de llenar.
-- Todo vive dentro de la media query: **en celular no cambia nada**.
+  leer en zigzag y ese orden deja de leerse.
+- **La fila de persona se vuelve horizontal.** Apilada y estirada seguía igual
+  de alta pero con aire de sobra: cabían menos personas que en celular.
+- **El botón flotante se va al margen** (`right: max(18px, calc(50vw - 520px -
+  72px))`). Pegado al borde del contenido tapaba el final de la fila.
+- Todo dentro de la media query: **en celular no cambia nada**.
 
 ## Estructura
 

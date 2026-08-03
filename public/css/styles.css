@@ -426,6 +426,71 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 body.segwide{max-width:1180px}
 body.segwide .tabinner{max-width:1180px}
 
+/* ═══════════════ VISTA DE ESCRITORIO ═══════════════
+   Primer intento: se subió el ancho a 1180 y ya. Se veía PEOR — los controles
+   del encabezado (selector de módulo, buscador) se estiraban a todo lo ancho, y
+   con 28 clientes de filas cortas quedaba un océano entre el nombre y las
+   cifras. Ensanchar no es acomodar.
+
+   Ahora: 1040 px —lo que este contenido llena de verdad— y los bloques que
+   antes se apilaban por falta de espacio se ponen EN FILA, que es lo que uno
+   hace en un monitor. La lista sigue en una columna: los clientes van en orden
+   por progreso y las ventas por urgencia de cobro.
+
+   Todo dentro de la media query: en celular no cambia nada. */
+@media (min-width:1040px){
+  body{max-width:1040px}
+  .tabinner{max-width:1040px}
+
+  /* Selector de módulo y buscador comparten renglón. Sueltos, cada uno ocupaba
+     el ancho completo: dos botones de medio metro y un campo de búsqueda que
+     parecía un campo de dirección. */
+  .headctl{display:flex;align-items:flex-start;gap:12px}
+  .headctl .modswitch{flex:0 0 380px;margin-bottom:0}
+  .headctl .buscar{flex:1;margin-bottom:0}
+  .headctl .vtoggle{flex:0 0 auto}
+
+  /* La tarjeta del mes al lado de las cifras. Sola, dejaba medio ancho vacío. */
+  .cliresumen{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);
+    gap:14px;align-items:start;margin-bottom:12px}
+  .cliresumen #ftdPanel .metacard{margin-bottom:0}
+  .cliresumen .stats{margin:0;grid-template-columns:repeat(4,1fr)}
+
+  /* Filtros y orden, en un renglón. */
+  .clifiltros{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .clifiltros .filtros{margin-bottom:10px;overflow:visible}
+  .clifiltros .ordwrap{flex:0 0 auto;margin-bottom:10px}
+
+  /* La fila de persona se vuelve horizontal: apilada, estirada seguía igual de
+     alta pero con aire de sobra, y cabían MENOS personas que en celular. */
+  .chead{padding:11px 14px;gap:14px}
+  .card .cinfo{display:flex;align-items:center;gap:18px}
+  .card .nombre{flex:0 0 clamp(200px,25%,280px);min-width:0}
+  .card .barra{flex:1;max-width:340px;margin-top:0}
+  .card .pct{flex:1;margin-top:0;text-align:right}
+
+  /* Ventas: el encabezado partía la línea porque `.nombre` es un flex heredado
+     de la tarjeta de cliente. Acá cabe todo en una, con el valor a la derecha. */
+  .card.vt .vthead{display:flex;align-items:center;gap:9px;flex-wrap:nowrap}
+  .card.vt .vthead .nombre{display:block;flex:0 1 auto;min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card.vt .plata{margin-left:auto}
+  .card.vt .barra{max-width:420px}
+
+  /* El botón flotante se va al MARGEN cuando hay espacio, en vez de quedar
+     encima de la fila. Pegado al borde del contenido tapaba «Le faltan 5 ·
+     México»; suelto en la esquina de la pantalla quedaba a medio metro de la
+     lista a la que pertenece. El `max()` lo devuelve a su sitio de siempre
+     cuando la pantalla no da para tanto. */
+  .fab{right:max(18px, calc(50vw - 520px - 72px))}
+
+  /* Bloques que NO deben estirarse: un número grande solo en una caja ancha se
+     ve perdido, y un campo de texto de un metro es incómodo de llenar. */
+  .vtlegal, .massub{max-width:70ch}
+  .prof, .mgrp{max-width:620px}
+  .vista .frow input, .vista .frow select, .vista .frow textarea{max-width:520px}
+}
+
 
 /* ---- barra de acciones ---- */
 .segtop{flex-wrap:wrap;justify-content:flex-end}
