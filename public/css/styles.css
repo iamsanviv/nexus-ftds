@@ -426,59 +426,6 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 body.segwide{max-width:1180px}
 body.segwide .tabinner{max-width:1180px}
 
-/* ═══════════════ VISTA DE ESCRITORIO ═══════════════
-   El panel nació en celular y quedó tapado a 760 px en todas las pestañas menos
-   Seguimiento, que ya se había rehecho a 1180. En un monitor de 1440 eso dejaba
-   sin usar el 45 % de la pantalla. Se iguala todo a 1180.
-
-   La LISTA NO SE PARTE EN COLUMNAS, y es una decisión, no una limitación: los
-   clientes van en orden (por progreso) y las ventas por urgencia de cobro. En
-   dos columnas hay que leer en zigzag y ese orden deja de leerse. Se gana ancho
-   para cada fila, no columnas.
-
-   Todo va dentro de la media query: en celular no cambia absolutamente nada. */
-@media (min-width:1024px){
-  body{max-width:1180px}
-  .tabinner{max-width:1180px}
-
-  /* LO QUE DE VERDAD HACÍA FALTA, y solo se vio al renderizar a 1440: ensanchar
-     por sí solo no sirve. La tarjeta de persona apila nombre / barra / cifras,
-     así que estirada seguía midiendo lo mismo de alto pero con mil píxeles de
-     aire: cabían CINCO personas en pantalla, menos que antes. Al ancho de un
-     monitor la fila se vuelve horizontal —nombre, barra y cifras en una línea—
-     y entran casi el doble sin partir la lista en columnas. */
-  .chead{padding:11px 14px;gap:14px}
-  .card .cinfo{display:flex;align-items:center;gap:18px}
-  .card .nombre{flex:0 0 clamp(220px,26%,320px);min-width:0}
-  .card .barra{flex:1;margin-top:0}
-  .card .pct{flex:0 0 auto;margin-top:0;white-space:nowrap}
-
-  /* Ventas: el encabezado de la tarjeta parte la línea porque `.nombre` es un
-     flex heredado de la tarjeta de cliente. En celular está bien; con 1180 px
-     al lado, dejar el nombre solo en su renglón es aire regalado. Se vuelve una
-     fila y el valor se va a la derecha, que es donde se busca una cifra. */
-  .card.vt .vthead{display:flex;align-items:center;gap:9px;flex-wrap:nowrap}
-  .card.vt .vthead .nombre{display:block;flex:0 1 auto;min-width:0;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .card.vt .plata{margin-left:auto}
-
-  /* Los bloques de RESUMEN sí se capan. Un número grande solo en una caja de
-     1180 px se ve perdido, y estirar una tarjeta no la hace más informativa.
-     Las tiras de estadística, lo mismo: a 290 px por casilla el número queda
-     nadando. */
-  .metacard{max-width:560px}
-  .stats{max-width:720px}
-  .vtlegal{max-width:70ch}
-  .massub{max-width:70ch}
-
-  /* Menú y perfil de «Más»: son filas de botón con una flecha al final. A todo
-     lo ancho, el ícono y la flecha quedan a medio metro de distancia. */
-  .prof, .mgrp{max-width:620px}
-
-  /* Formularios: un campo de texto de 1100 px es incómodo de leer y de llenar.
-     Los modales ya venían capados; esto es para los que van en la página. */
-  .vista .frow input, .vista .frow select, .vista .frow textarea{max-width:560px}
-}
 
 /* ---- barra de acciones ---- */
 .segtop{flex-wrap:wrap;justify-content:flex-end}
