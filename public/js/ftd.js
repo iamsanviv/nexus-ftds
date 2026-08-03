@@ -9,7 +9,7 @@
 //   reales    → los que el agente dice que lleva (lo que manda)
 //   sin subir → su tarea pendiente
 import {
-  state, $, esc, hoyISO, toast, usd, mesLegible, periodoAntes,
+  state, $, esc, hoyISO, toast, usd, mesLegible, periodoAntes, periodoDe, estaSaldada,
   comisionFtd, metasDe, progresoMeta, periodoSinCerrar, ftdDelMes, resumenVentas,
 } from "./state.js";
 import { cargarVentas, guardarFtd, guardarMeta } from "./data.js";
@@ -17,14 +17,6 @@ import { cargarVentas, guardarFtd, guardarMeta } from "./data.js";
 const yo = () => state.me?.id;
 const mesActual = () => hoyISO().slice(0, 7);
 
-// EXCEPCIÓN TEMPORAL. Junio quedó con cifras malas en varios agentes, y esas
-// cifras sembraron la base de julio. Se abre ese mes —y solo ese— para que cada
-// quien corrija lo suyo. El RLS lo permite igual de acotado: fuera de este
-// periodo un mes cerrado sigue sin reabrirse.
-//
-// Cuando junio esté cuadrado se quita de los dos lados: esta constante y la
-// política `ftd_base_upd`. Mientras exista, el botón está a la vista.
-const PERIODO_ABIERTO = "2026-06";
 
 // Los datos de ventas se cargaban solo al entrar a esa pestaña. Ahora el bloque
 // vive en Personas, así que hay que traerlos la primera vez que se pinta.
@@ -95,12 +87,9 @@ export function renderBloqueFtd() {
         <b>${f.efectivos}</b> para la comisión${f.meta ? `: pagan ${usd(f.pago)}` : ""}.
         <span>No cuentan para tu meta del mes.</span></div>` : ""}
 
-      ${state.ftdBase[`${yo()}|${PERIODO_ABIERTO}`] ? `<div class="cmaviso">
-        <button class="metalink" id="ftdCorregirMes">Corregir la base de ${mesLegible(PERIODO_ABIERTO)}</button>
-        <span>si quedó mal, tu base de este mes salió de ahí.</span>
-      </div>` : ""}
 
       <div class="totalmes">Total del mes con ventas (${usd(vent)}) · <b>${usd(f.pago + vent)}</b></div>
+      <div class="fmeses"><button class="metalink" id="ftdMeses">📅 Ver meses anteriores</button></div>
     </div>`;
 
   const chip = $("ftdSinSubir");
@@ -110,8 +99,7 @@ export function renderBloqueFtd() {
   // La meta es tocable: el asistente promete que se puede cambiar cuando sea, y
   // "Ajustar" solo abre los números del mes.
   $("ftdMeta").onclick = () => abrirAsistente("metas");
-  const corr = $("ftdCorregirMes");
-  if (corr) corr.onclick = abrirCorregirMes;
+  $("ftdMeses").onclick = () => abrirResumen();
 
   // Momento natural para el ritual: el agente acaba de llegar a Personas.
   revisarRituales();
@@ -125,102 +113,109 @@ const pagoDeMeta = n => {
   return alc ? Number(alc.pago) : 0;
 };
 
-/* ================= CORREGIR UN MES CERRADO (junio) ================= */
-// Junio no se corrige solo: sus números sembraron la base del mes siguiente al
-// cerrarse. Por eso este panel muestra las dos cosas —lo que se corrige y lo que
-// eso le hace a la base de julio— y deja aplicar el arrastre en el mismo gesto.
-// Sin eso, el agente arregla junio y el número malo sigue vivo en julio.
-function siguientePeriodo(p) {
-  const [a, m] = p.split("-").map(Number);
-  return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, "0")}`;
+/* ================= RESUMEN DE MESES ANTERIORES ================= */
+// El panel solo hablaba del mes en curso: al pasar el mes, lo que uno hizo
+// desaparecía de la vista aunque los datos siguieran ahí. Esto es la puerta
+// para consultarlos.
+//
+// No guarda nada nuevo: todo se recalcula con las mismas funciones del mes
+// vivo (`comisionFtd`, `progresoMeta`, `resumenVentas`). Un resumen congelado
+// sería una segunda verdad que se separa de los datos en cuanto se corrija un
+// abono con fecha vieja.
+
+// Meses con algo que mostrar: donde declaró FTD o donde entró plata. El mes en
+// curso NO va — ese ya está arriba, en la tarjeta.
+function periodosConDatos() {
+  const hoy = mesActual();
+  const ps = new Set();
+  for (const k of Object.keys(state.ftdBase)) {
+    const [owner, periodo] = k.split("|");
+    if (owner === yo() && periodo < hoy) ps.add(periodo);
+  }
+  for (const v of state.ventas) {
+    if (v.owner_id !== yo()) continue;
+    for (const a of v.abonos || []) {
+      const p = periodoDe(a.fecha);
+      if (p && p < hoy) ps.add(p);
+    }
+  }
+  return [...ps].sort().reverse();
 }
 
-// Lo que junio le pasa a julio: los efectivos menos la meta que alcanzaron.
-// Misma cuenta que hace el cierre; se repite acá para poder mostrarla ANTES de
-// guardar, que es de lo que se trata el panel.
-function arrastre(declarado, base) {
-  const ef = declarado + base;
-  const alc = [...state.metasFtd].reverse().find(m => ef >= m.ftd) || null;
-  return { ef, meta: alc ? alc.ftd : 0, pago: alc ? Number(alc.pago) : 0,
-           sobra: ef - (alc ? alc.ftd : 0) };
+let resMes = null;   // periodo elegido en el panel
+
+export function abrirResumen(periodo) {
+  const ps = periodosConDatos();
+  if (!ps.length) { toast("Todavía no hay meses anteriores que mostrar"); return; }
+  resMes = periodo && ps.includes(periodo) ? periodo : ps[0];
+  $("ftdOverlay").classList.add("open");
+  pintarResumen(ps);
 }
 
-function abrirCorregirMes() {
-  const p = PERIODO_ABIERTO, sig = siguientePeriodo(p);
-  const fila = state.ftdBase[`${yo()}|${p}`] || {};
-  const cargados = ftdDelMes(p, yo());
-  const baseSig = state.ftdBase[`${yo()}|${sig}`]?.base || 0;
+function pintarResumen(ps) {
+  const p = resMes;
+  const f = comisionFtd(p, yo());
+  const g = progresoMeta(p, yo());
+  const v = resumenVentas(p, yo());
+  const metas = metasDe(p, yo());
+  const total = f.pago + v.causada;
+  const cerrado = f.cerrado;
 
-  // Los FTD declarados de ese mes NO se tocan acá: son un dato cerrado y ya
-  // pagado. Lo que se corrige es la base que el agente traía al entrar, que es
-  // lo que quedó mal. Se muestran igual porque el arrastre depende de los dos.
-  const d = fila.declarado ?? cargados;
+  // Cuántas ventas se saldaron ese mes: es el número que la gente busca cuando
+  // pregunta «¿cuántas cerré?».
+  const cerradas = state.ventas.filter(x =>
+    x.owner_id === yo() && estaSaldada(x) &&
+    periodoDe([...(x.abonos || [])].sort((a, b) => a.fecha.localeCompare(b.fecha)).at(-1)?.fecha) === p
+  ).length;
 
-  const pintar = () => {
-    const b = Number($("cmBase")?.value ?? (fila.base || 0)) || 0;
-    const r = arrastre(d, b);
-    const cambia = r.sobra !== baseSig;
-    $("cmEfecto").innerHTML = `
-      <div class="cmres">
-        <b>${d}</b> FTD ${b ? `+ <b>${b}</b> de base = <b>${r.ef}</b>` : ""}
-        ${r.meta ? `· alcanza la meta de <b>${r.meta}</b> (${usd(r.pago)})`
-                 : `· no alcanza la primera meta (${state.metasFtd[0]?.ftd ?? "—"})`}
-      </div>
-      <div class="cmres">Pasan <b>${r.sobra}</b> de base a ${mesLegible(sig)}
-        ${cambia ? `<span class="cmdelta">hoy tiene ${baseSig}</span>` : `<span class="cmigual">sin cambio</span>`}</div>`;
-    $("cmArrastrar").classList.toggle("hidden", !cambia);
-    $("cmArrastrar").textContent = `Guardar y poner ${r.sobra} de base en ${mesLegible(sig)}`;
-  };
+  const dato = (etq, val, sub) =>
+    `<div class="rsdato"><span class="rl">${etq}</span><b>${val}</b>${
+      sub ? `<span class="rs">${sub}</span>` : ""}</div>`;
 
-  // Misma estructura que los pasos del asistente (`.asis` > `.abody`): así los
-  // botones heredan su jerarquía y la pantalla no se siente de otro sistema.
   $("ftdModal").innerHTML = `
     <div class="asis">
-      ${cabeza("Corrección", `Base de ${mesLegible(p)}`,
-        `La base con la que entraste a ${mesLegible(p)} quedó mal, y de ahí salió
-         tu base de ${mesLegible(sig)}. Corrige la tuya: nadie más puede tocarla,
-         ni tú la de otro.`)}
+      ${cabeza("Resumen", mesLegible(p),
+        cerrado ? "Mes cerrado — estas cifras ya no cambian."
+                : "Mes sin cerrar: las cifras todavía se pueden mover.")}
       <div class="abody">
-        <div class="frow"><label>Base que traía ${mesLegible(p)}</label>
-          <input id="cmBase" type="number" min="0" step="1" inputmode="numeric"
-                 value="${fila.base || 0}"></div>
-        <div class="ayuda">Son los FTD que traías acumulados <b>antes</b> de
-          ${mesLegible(p)}, no los que hiciste ese mes.</div>
-        <div class="cmfijo">Tus <b>${d}</b> FTD de ${mesLegible(p)} no se tocan:
-          ese mes ya está cerrado y pagado.</div>
-        <div id="cmEfecto" class="cmefecto"></div>
-        <button class="abtn" id="cmArrastrar"></button>
-        <button class="abtn quiet" id="cmSolo">Guardar solo la base de ${mesLegible(p)}</button>
-        <button class="abtn quiet" id="cmCerrar">Cancelar</button>
+        <div class="rschips">${ps.map(x =>
+          `<button class="pill ${x === p ? "on" : ""}" data-resmes="${x}">${mesLegible(x)}</button>`).join("")}</div>
+
+        <div class="rstot">
+          <span class="rl">Comisión total de ${mesLegible(p)}</span>
+          <b class="${total ? "on" : ""}">${usd(total)}</b>
+        </div>
+
+        <div class="pstitle">FTD</div>
+        <div class="rsgrid">
+          ${dato("Reales", f.reales, `${f.cargados} cargados`)}
+          ${dato("Base que traía", f.base, f.base ? "de meses anteriores" : "")}
+          ${dato("Efectivos", f.efectivos, "reales + base")}
+          ${dato("Comisión", usd(f.pago), f.meta ? `meta de ${f.meta}` : "no alcanzó meta")}
+        </div>
+        ${metas?.metaFtd
+          ? `<div class="ayuda">Tu meta era de <b>${metas.metaFtd}</b> FTD del mes (sin contar base)
+             y ${g.cumplida ? "<b>la cumpliste</b> ✓" : `llegaste a <b>${f.reales}</b>`}.</div>`
+          : `<div class="ayuda">Ese mes no te pusiste meta.</div>`}
+
+        <div class="pstitle">Ventas</div>
+        <div class="rsgrid">
+          ${dato("Recaudado", usd(v.facturado), "abonos que entraron")}
+          ${dato("Ventas saldadas", cerradas, "quedaron pagas")}
+          ${dato("Comisión", usd(v.causada), "de lo saldado")}
+        </div>
+
+        <div class="ayuda">Las cifras se recalculan cada vez que abres esto, así que
+          si corriges un abono con fecha de ${mesLegible(p)}, este resumen lo refleja.</div>
+        <button class="abtn quiet" id="rsCerrar">Cerrar</button>
       </div>
     </div>`;
-  $("ftdOverlay").classList.add("open");
-  pintar();
-  $("cmBase").oninput = pintar;
-  $("cmCerrar").onclick = () => $("ftdOverlay").classList.remove("open");
 
-  const guardar = async (tambienSiguiente) => {
-    const b = Number($("cmBase").value) || 0;
-    const r = arrastre(d, b);
-    $("cmArrastrar").disabled = $("cmSolo").disabled = true;
-    // Solo `base`. `declarado` no se manda: ese mes está cerrado y pagado, y
-    // reescribirlo con lo que hubiera en pantalla sería tocar una cifra que
-    // nadie pidió cambiar.
-    //
-    // `cerrado` se manda en true a propósito: corregir no es reabrir.
-    const ok = await guardarFtd(yo(), p, { base: b, cerrado: true });
-    if (!ok) { $("cmArrastrar").disabled = $("cmSolo").disabled = false; return; }
-    if (tambienSiguiente && !(await guardarFtd(yo(), sig, { base: r.sobra }))) {
-      $("cmArrastrar").disabled = $("cmSolo").disabled = false; return;
-    }
-    toast(tambienSiguiente
-      ? `Base de ${mesLegible(p)} corregida · ${r.sobra} de base en ${mesLegible(sig)} ✓`
-      : `Base de ${mesLegible(p)} corregida ✓`);
-    $("ftdOverlay").classList.remove("open");
-    refrescar();
-  };
-  $("cmArrastrar").onclick = () => guardar(true);
-  $("cmSolo").onclick = () => guardar(false);
+  $("ftdModal").querySelectorAll("[data-resmes]").forEach(b => b.onclick = () => {
+    resMes = b.dataset.resmes;
+    pintarResumen(ps);
+  });
+  $("rsCerrar").onclick = () => $("ftdOverlay").classList.remove("open");
 }
 
 /* ================= ASISTENTE ================= */

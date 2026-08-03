@@ -349,6 +349,19 @@ Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
   en vez de derivarse: derivarla dejaría que un FTD registrado tarde moviera la
   comisión de meses ya pagados.
 
+### Resumen de meses anteriores
+
+`abrirResumen()` en `ftd.js`, desde «📅 Ver meses anteriores» en la tarjeta de
+FTD. El panel solo hablaba del mes en curso: al pasar el mes, lo hecho
+desaparecía de la vista aunque los datos siguieran ahí.
+
+- **No guarda nada nuevo**: recalcula con las mismas funciones del mes vivo
+  (`comisionFtd`, `progresoMeta`, `resumenVentas`). Un resumen congelado sería
+  una segunda verdad que se separa en cuanto se corrija un abono con fecha
+  vieja — y la fecha del abono es editable justo por eso.
+- Los meses que ofrece salen de donde hay algo: `ftd_base` propio o abonos con
+  fecha de ese periodo. El mes en curso no entra; ese ya está en la tarjeta.
+
 ### FTD reales vs. cargados (`ftd.js`)
 
 - **Tres números distintos, y confundirlos fue el defecto original**:
@@ -562,12 +575,6 @@ comportamiento, decirlo en vez de asumirlo.
   tienen su comisión confirmada (30/07). Los bots comisionan **el 30 % del
   precio**, pero se guarda el MONTO: si cambia el precio de un bot hay que
   recalcularlo a mano (`sql/2026-07-30_10_...`).
-- **Junio 2026 está abierto a propósito** para que cada agente corrija **su
-  base** (los FTD que traía acumulados de antes): quedó mal y, al cerrarse el
-  mes, sembró la base de julio. Los `declarado` de junio NO se tocan — ese mes
-  está cerrado y pagado. Es una excepción acotada
-  —el periodo va escrito en la política `ftd_base_upd` y en `PERIODO_ABIERTO`
-  (`ftd.js`)— y hay que **quitarla de los dos lados** cuando esté cuadrado.
 - **Meta mensual de facturación** (distinta de las metas de FTD): pedida el
   29/07 y aplazada a propósito hasta que lo demás funcione.
 - **Guardar la base de FTD al cerrar el mes** no tiene interfaz todavía: la app

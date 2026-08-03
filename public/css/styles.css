@@ -621,6 +621,21 @@ body.segwide .tabinner{max-width:1180px}
 /* Aviso de novedad: verde en vez de rojo/dorado, porque no hay nada que
    atender. Si compartiera el color con «canal caído», una buena noticia
    estaría gritando igual que un problema. */
+/* Resumen de meses anteriores. */
+.fmeses{margin-top:8px;text-align:right}
+.rschips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.rstot{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  background:var(--surface2);border:1px solid var(--border);border-radius:12px;
+  padding:12px 14px;margin-bottom:6px}
+.rstot b{font-family:'Archivo';font-weight:800;font-size:1.5rem;color:var(--muted)}
+.rstot b.on{color:var(--gold)}
+.rsgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
+.rsdato{background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:10px 12px}
+.rsdato b{display:block;font-family:'Archivo';font-weight:800;font-size:1.15rem;margin-top:2px}
+.rl{font-size:.68rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.rs{display:block;font-size:.72rem;color:var(--muted);margin-top:1px}
+@media (min-width:640px){.rsgrid{grid-template-columns:repeat(4,1fr)}}
+
 /* Progreso de un envío masivo. La barra es lo enviado sobre el total: el
    agente necesita ver de un vistazo si ya salió todo o si todavía va a medias,
    que es cuando cancelar sirve de algo. */
