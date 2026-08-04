@@ -603,6 +603,9 @@ public/
     ftd.js            Bloque de FTD en Personas, metas y cierre mensual
     stats.js, main.js
 sql/                  Migraciones documentadas (el estado real está en la base)
+contexto-worker.md    Cómo corre worker.py en la VM (no vive en este repo):
+                      systemd, arquitectura paralelo-por-agente, parámetros,
+                      enrutamiento por canales_wa, registro de bridges, salud
 ```
 
 Flujo de dependencias sin ciclos. El estado mutable vive en un único objeto
@@ -615,15 +618,16 @@ Flujo de dependencias sin ciclos. El estado mutable vive en un único objeto
 **El worker que envía por WhatsApp no vive en este repo.** Es `worker.py`, un
 proceso Python en otro repositorio. Lo de abajo lo describió el dueño el 04/08;
 **no se ha leído su código desde aquí**. Si algo depende de un detalle fino de su
-comportamiento, decirlo en vez de asumirlo.
+comportamiento, decirlo en vez de asumirlo. **El detalle completo vive en
+`contexto-worker.md`** (raíz de este repo) — acá solo lo esencial.
 
-### Cómo funciona el worker (descrito por el dueño, 04/08)
+### Cómo funciona el worker (descrito por el dueño, 04/08 — detalle en `contexto-worker.md`)
 
 | | |
 |---|---|
 | Dónde | Oracle Cloud VM `nexus-cloud`, Ubuntu 22.04, 1 GB, Always Free · `141.148.40.31` |
 | Cómo arranca | systemd `nexus-worker` (enabled) · `/home/ubuntu/nexus-worker/` |
-| Credencial | `.env` con la `SUPABASE_SERVICE_KEY` — por eso puede escribir las nueve filas |
+| Credencial | `.env` con la `SUPABASE_SERVICE_KEY` — por eso puede escribir las doce filas de `canales_wa` |
 | Ciclo | cada `CICLO_SEG=20` s trae hasta 600 pendientes, agrupa por `owner_id` y lanza **un hilo por agente** |
 | Ritmo | `PAUSA_MIN/MAX=4–8` s entre mensajes del **mismo** agente · `ARRANQUE_MAX=45` s de desfase inicial |
 | Topes | `LOTE_MAX=40` por agente y ciclo · `TOPE_DIARIO=220` por agente y día |
@@ -645,12 +649,14 @@ comportamiento, decirlo en vez de asumirlo.
 - **`TOPE_DIARIO` solo frena lo nuevo** (`invitacion`, masivo); nunca corta
   `rec_60`/`rec_15`/`enlace`/`confirmacion`, para no dejar a nadie sin el enlace
   de una actividad que ya arrancó.
-- **La RAM no es el límite.** Medido: 279 de 956 MB usados con los 9 bridges + el
-  worker (~180 MB entre todos, ~16 MB por bridge), más 2 GB de swap. A ese ritmo
-  20 bridges son ~320 MB y **caben**. Lo que empuja a una segunda máquina es la
-  **IP**: 20 sesiones de WhatsApp saliendo de `141.148.40.31`. El propio worker
-  ya lo reconoce — `ARRANQUE_MAX` existe para que varios agentes no disparen en
-  el mismo segundo *desde la misma IP*.
+- **La RAM no es el límite.** Medido: 279 de 956 MB usados con los 9 bridges de
+  entonces + el worker (~180 MB entre todos, ~16 MB por bridge), más 2 GB de
+  swap. A ese ritmo 20 bridges son ~320 MB y **caben**. Hoy ya son **12** — los
+  tres últimos (8089–8091) son los agentes que se pasaron bajo Juana Lamilla, ya
+  vinculados. Lo que empuja a una segunda máquina es la **IP**: 20 sesiones de
+  WhatsApp saliendo de `141.148.40.31`, no la memoria. El propio worker ya lo
+  reconoce — `ARRANQUE_MAX` existe para que varios agentes no disparen en el
+  mismo segundo *desde la misma IP*.
 - `canales_wa.host` (04/08) es lo que falta del lado de la base: el worker
   armaría `host:puerto` en vez de `localhost:puerto`. **Todavía no la lee** —
   ese cambio va en su código.
