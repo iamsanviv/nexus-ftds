@@ -617,6 +617,30 @@ Flujo de dependencias sin ciclos. El estado mutable vive en un único objeto
 que se sabe de él es inferencia desde la base. Si algo depende de su
 comportamiento, decirlo en vez de asumirlo.
 
+### El worker SALE A BUSCAR a los bridges (deducido de la base, 04/08)
+
+Importa porque decide qué hace falta para repartirlos en varias máquinas.
+Consultando `canales_wa` con un minuto de diferencia, los tres canales
+**muertos** (Majo 30/07, Felipe 31/07, Valery 28/07) tenían `actualizado`
+avanzando igual que los vivos, cada ~30 s. **Un proceso muerto no reescribe su
+propia fila**: algo externo los recorre uno por uno y anota si contestaron — a
+los vivos les mueve además `ultimo_visto`. Y por RLS ningún navegador puede
+tocar las nueve filas, así que quien las escribe lleva el service role.
+
+- Los nueve bridges están en **una sola VM** (1 GB, gratuita), puertos 8080–8088.
+  No caben 20: cada sesión de WhatsApp abierta come memoria.
+- **Un solo worker, siempre.** `mensajes_programados` no tiene columna de
+  reclamo (ni `tomado_por`, ni lease, ni `intentos`), así que dos procesos
+  leyendo la misma cola toman la misma fila y el cliente recibe el mensaje dos
+  veces — que es justo la señal por la que WhatsApp restringe un número. Un
+  worker por VM solo sería seguro filtrando por `owner_id`, con cada agente
+  asignado a exactamente una máquina; es más frágil que la alternativa.
+- `canales_wa.host` (04/08) es lo que falta del lado de la base: el worker
+  armaría `host:puerto` en vez de `localhost:puerto`. **Todavía no la lee** —
+  ese cambio va en su código.
+- El bridge 8080 (el número del propio admin) **no entra en el barrido**: su
+  `actualizado` quedó congelado el 22/07. Sin explicar.
+
 ## Decisiones de seguridad que se relajaron a propósito
 
 - **El agente escribe su propia `ftd_base`** (antes solo director y admin).
@@ -664,6 +688,16 @@ comportamiento, decirlo en vez de asumirlo.
   previsualización, validación y el bucket acepta los tipos—; para reactivarlo
   se devuelven `video/mp4,video/quicktime` al `accept` del input y a `TIPOS_OK`.
 - **El CSV no lleva las asistencias puntuales** (`clientes.puntuales`).
+- **Falta que el worker LEA `canales_wa.host`.** La columna existe desde el
+  04/08 y hoy vale `localhost` en las nueve filas, así que no cambia nada — es
+  decir, es una **columna inerte**, la trampa de `imagen_url` otra vez. Se
+  agregó porque la VM de 1 GB no aguanta 20 bridges y va a haber una segunda
+  máquina. Del lado de la base ya está todo; falta que el worker arme
+  `host:puerto` y que las dos VM se vean por red privada. **Nunca exponer el
+  puerto de un bridge a internet**: es un endpoint que manda WhatsApp a nombre
+  de un agente.
+- **Tres canales llevan días caídos** a medio vincular: Valery (28/07), Majo
+  (30/07), Felipe (31/07). Esos tres agentes no pueden enviar nada.
 - **Cobro por uso**: la medición ya existe (`mensajes_programados` por
   `owner_id`). Falta tabla de suscripción, cuota **aplicada en el worker** (no
   en el navegador) y pasarela. El costo real es por puesto —cada agente necesita
