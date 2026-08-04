@@ -2,7 +2,7 @@
 import Sortable from "https://esm.sh/sortablejs@1.15.3";
 import { NIVEL } from "./config.js";
 import {
-  state, $, esc, fmtF, hoyISO, uid, toast, copyNum, norm,
+  state, $, esc, fmtF, hoyISO, uid, toast, copyNum, norm, bandera,
   todos, esRequerido, esAdicional, esLead, progreso, siguiente,
 } from "./state.js";
 import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio } from "./data.js";
@@ -12,6 +12,31 @@ import { repasoPendientes } from "./repaso.js";
 import { refrescarCanal } from "./canal.js";
 
 const NIVELES = ["Lead", "Beca", "VIP", "Platino", "Oro"];
+
+/* El logo de WhatsApp va como SVG en línea, no como <img>: no hay build ni CDN
+   propio, y una imagen externa serían 200+ peticiones (una por tarjeta) además
+   de una dependencia de un dominio ajeno. Va al tamaño de un emoji.
+   El número ya no se imprime: era la línea más ruidosa de la tarjeta y casi
+   nunca se lee, solo se copia. El botón sigue copiándolo y lo lleva en el
+   `title` para quien necesite verlo. */
+const ICO_WA = `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347M12.05 21.785h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413"/></svg>`;
+
+/* Bandera con el nombre del país en el `title` (no se pierde el dato, deja de
+   ocupar renglón). Si el país está escrito de una forma que no se reconoce se
+   muestra el texto tal cual: mejor raro que desaparecido. */
+const banderaTag = c => {
+  if (!c.pais) return "";
+  const b = bandera(c.pais, c.tel);
+  return b
+    ? ` <span class="bandera" title="${esc(c.pais)}">${b}</span>`
+    : ` <span class="pais">${esc(c.pais)}</span>`;
+};
+
+// Los dos accesos al teléfono, iguales en la tarjeta y en la vista por servicio.
+const contacto = c => c.tel
+  ? `<a class="wabtn" target="_blank" rel="noopener" href="https://wa.me/${c.tel.replace(/\D/g, '')}" title="Escribir por WhatsApp" aria-label="Escribir por WhatsApp">${ICO_WA}</a>`
+    + `<button class="copynum" data-num="${esc(c.tel)}" title="Copiar ${esc(c.tel)}" aria-label="Copiar el número"></button>`
+  : '';
 
 /* ================= RENDER PRINCIPAL ================= */
 export function render() {
@@ -159,12 +184,16 @@ function cardHTML(c, p, rank, isLead, dir) {
   }
 
   const ownerBadge = (dir && c.owner_id !== state.me.id) ? `<span class="owner">👤 ${esc(state.perfiles[c.owner_id] || "agente")}</span>` : "";
-  const paisTag = c.pais ? `<span class="pais">📍 ${esc(c.pais)}</span>` : "";
+  // La bandera sube a la línea del nombre: es un dato de la persona, no de su
+  // progreso, y ahí no le roba renglón a las cifras.
+  const paisTag = banderaTag(c);
   const extraTag = p.extra ? ` · <span class="extra">+${p.extra} ✦</span>` : "";
 
   const metric = isLead
-    ? `<span class="extra">✦ <b>${p.extra}</b> invitación${p.extra === 1 ? '' : 'es'}</span>${paisTag ? ' · ' + paisTag : ''}`
-    : `<b>${p.done}/${p.total}</b> · ${p.pct}% · ${p.pct === 100 ? '<span class="falta cero">✓ Completó todo</span>' : `Le falta${falta === 1 ? '' : 'n'} <span class="falta">${falta}</span>`}${extraTag}${paisTag ? ' · ' + paisTag : ''}`;
+    ? `<span class="extra">✦ <b>${p.extra}</b> invitación${p.extra === 1 ? '' : 'es'}</span>`
+    // Sin el porcentaje: la barra de al lado ya lo dice y «1/3» es el mismo dato
+    // por tercera vez. Queda lo exacto y lo accionable.
+    : `<b>${p.done}/${p.total}</b> · ${p.pct === 100 ? '<span class="falta cero">✓ Completó todo</span>' : `Le falta${falta === 1 ? '' : 'n'} <span class="falta">${falta}</span>`}${extraTag}`;
 
   const grupos = state.catalogo.map(g => {
     if (!g.items.length) return "";
@@ -187,7 +216,7 @@ function cardHTML(c, p, rank, isLead, dir) {
       <div class="chead">
         ${rankChip || `<div class="cav">${esc(iniciales(c.nombre))}</div>`}
         <div class="cinfo">
-          <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span> ${ownerBadge}</div>
+          <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span>${paisTag} ${ownerBadge}</div>
           ${isLead ? '' : `<div class="barra"><i style="width:${p.pct}%"></i></div>`}
           <div class="pct">${metric}</div>
         </div>
@@ -196,8 +225,8 @@ function cardHTML(c, p, rank, isLead, dir) {
       <div class="cbody">
         ${nota}${grupos}
         <div class="cfoot">
-          ${c.tel ? `<button class="copynum" data-num="${esc(c.tel)}">${esc(c.tel)}</button><a class="wachip" target="_blank" rel="noopener" href="https://wa.me/${c.tel.replace(/\D/g,'')}">WhatsApp</a>` : ''}
-          <button data-acc="perfil">✎ Perfil</button>
+          ${contacto(c)}
+          <button data-acc="perfil">Perfil</button>
           <button class="del" data-acc="borrar">Eliminar</button>
         </div>
       </div>
@@ -343,9 +372,8 @@ function renderServicio() {
   </div>`;
 
   const dir = state.me.role === 'director';
-  const numchip = c => c.tel ? `<button class="copynum" data-num="${esc(c.tel)}">${esc(c.tel)}</button><a class="wachip" target="_blank" rel="noopener" href="https://wa.me/${c.tel.replace(/\D/g,'')}">WhatsApp</a>` : '';
   const owner = c => (dir && c.owner_id !== state.me.id) ? `<span class="owner">👤 ${esc(state.perfiles[c.owner_id] || 'agente')}</span>` : '';
-  const info = c => `<div class="pl"><span class="pn nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span><span class="badge b-${c.mem}">${c.mem}</span>${c.pais ? `<span class="pais">📍 ${esc(c.pais)}</span>` : ''}${owner(c)}${numchip(c)}</div>`;
+  const info = c => `<div class="pl"><span class="pn nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span><span class="badge b-${c.mem}">${c.mem}</span>${banderaTag(c)}${owner(c)}${contacto(c)}</div>`;
 
   const rowAsis = c => `<div class="prow">${info(c)}<div class="pr"><span class="pdate">asistió ${fmtF(c.acc[sid])}</span><button class="pmark off" data-unasis="${c.id}" title="Quitar asistencia">✕</button></div></div>`;
   const rowConf = c => `<div class="prow">${info(c)}<div class="pr"><span class="pdate conf">invitado ${fmtF(conf(c))}</span><button class="pmark" data-asis="${c.id}">✓ Asistió</button><button class="pmark off" data-unconf="${c.id}" title="Quitar confirmación">✕</button></div></div>`;

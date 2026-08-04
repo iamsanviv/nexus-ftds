@@ -548,6 +548,34 @@ y estaba tapado a 760 px en todas las pestañas menos Seguimiento.
   72px))`). Pegado al borde del contenido tapaba el final de la fila.
 - Todo dentro de la media query: **en celular no cambia nada**.
 
+### La fila de persona: qué se quitó y por qué
+
+Cuatro recortes, todos por lo mismo — cada fila repetía datos que ya estaban a
+la vista, y con 200+ clientes eso se paga 200 veces.
+
+- **La bandera reemplaza a «📍 Colombia»**, y sube a la línea del nombre: es un
+  dato de la persona, no de su progreso. `pais` es texto libre, así que
+  `bandera(pais, tel)` (`state.js`) normaliza el nombre y, si no lo reconoce,
+  lo deduce del **prefijo del teléfono** antes de rendirse. Devolver `""` es
+  una respuesta válida: entonces se pinta el texto tal cual, no se inventa una
+  bandera. El nombre del país queda en el `title`.
+- **El número no se imprime**; queda el 📋, que es para lo único que se usaba.
+  El número real va en el `title` y en `data-num` (lo que copia `copyNum`).
+- **«WhatsApp» pasa a ser el logo**, SVG en línea (`ICO_WA` en `ui.js`). No hay
+  build ni CDN propio: un `<img>` externo serían 200+ peticiones por pantalla y
+  una dependencia de un dominio ajeno.
+- **Fuera el porcentaje** de `.pct`: la barra de al lado ya lo dice y `1/3` es
+  el mismo dato por tercera vez. Queda lo exacto y lo accionable.
+
+`.cfoot button` (0,1,1) le metía subrayado al emoji de `.copynum` (0,1,0) — la
+trampa de `.frow label` otra vez. Se arregla nombrando el elemento
+(`.cfoot button.copynum`), nunca con `!important`.
+
+**El banco de pruebas ya no copia el marcado, lo extrae.** El generador saca de
+`ui.js` el texto literal de `cardHTML()` y sus ayudantes y lo pega en el banco,
+e importa `state.js` de verdad. Un banco con marcado copiado a mano envejece sin
+avisar y comprueba una tarjeta que ya no existe.
+
 ## Estructura
 
 ```

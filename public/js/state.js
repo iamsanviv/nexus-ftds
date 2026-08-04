@@ -55,6 +55,47 @@ export const uid = p => p + Date.now().toString(36) + Math.random().toString(36)
 export const resolverSnippets = t => (t || "").replace(/\{([^{}]*\|[^{}]*)\}/g,
   (m, g) => { const o = g.split("|"); return o[Math.floor(Math.random() * o.length)].trim(); });
 
+/* ---------- bandera del país ----------
+   En la lista se muestra SOLO el emoji de la bandera. El «📍 Colombia» anterior
+   repetía en cada fila la misma palabra (209 de 293 personas son de Colombia) y
+   le comía sitio al dato que sí cambia.
+   `pais` es texto libre —lo escribe el agente o llega del CSV—, así que el
+   nombre se normaliza antes de buscarlo; si no se reconoce, se deduce del
+   prefijo del teléfono antes de darse por vencido. Devolver "" es una respuesta
+   válida: quien la llama muestra entonces el texto tal cual, sin inventar. */
+const PAIS_ISO = {
+  colombia: "CO", mexico: "MX", ecuador: "EC", venezuela: "VE", peru: "PE",
+  chile: "CL", argentina: "AR", bolivia: "BO", paraguay: "PY", uruguay: "UY",
+  brasil: "BR", brazil: "BR", panama: "PA", "costa rica": "CR", cuba: "CU",
+  "el salvador": "SV", salvador: "SV", guatemala: "GT", honduras: "HN",
+  nicaragua: "NI", "republica dominicana": "DO", "rep dominicana": "DO",
+  dominicana: "DO", "puerto rico": "PR", haiti: "HT", belice: "BZ",
+  espana: "ES", portugal: "PT", italia: "IT", francia: "FR", alemania: "DE",
+  "reino unido": "GB", inglaterra: "GB", canada: "CA",
+  "estados unidos": "US", eeuu: "US", "ee uu": "US", eua: "US", usa: "US",
+  "united states": "US",
+};
+// De más largo a más corto: "1809" (Rep. Dominicana) tiene que ganarle a "1".
+const PREFIJO_ISO = [
+  ["1809", "DO"], ["1829", "DO"], ["1849", "DO"], ["1787", "PR"], ["1939", "PR"],
+  ["501", "BZ"], ["502", "GT"], ["503", "SV"], ["504", "HN"], ["505", "NI"],
+  ["506", "CR"], ["507", "PA"], ["509", "HT"], ["591", "BO"], ["593", "EC"],
+  ["595", "PY"], ["598", "UY"], ["351", "PT"],
+  ["33", "FR"], ["34", "ES"], ["39", "IT"], ["44", "GB"], ["49", "DE"],
+  ["51", "PE"], ["52", "MX"], ["53", "CU"], ["54", "AR"], ["55", "BR"],
+  ["56", "CL"], ["57", "CO"], ["58", "VE"], ["1", "US"],
+];
+// ISO-3166 → emoji: cada letra a su indicador regional (A = U+1F1E6).
+const emojiISO = iso => [...iso].map(c => String.fromCodePoint(c.codePointAt(0) + 127397)).join("");
+
+export function bandera(pais, tel) {
+  const n = norm(pais).replace(/[.,]/g, "").replace(/\s+/g, " ").trim();
+  if (PAIS_ISO[n]) return emojiISO(PAIS_ISO[n]);
+  const d = (tel || "").replace(/\D/g, "");
+  if (d) { for (const [p, iso] of PREFIJO_ISO) if (d.startsWith(p)) return emojiISO(iso); }
+  return "";
+}
+
 export function toast(msg) {
   const t = $("toast");
   t.textContent = msg;
