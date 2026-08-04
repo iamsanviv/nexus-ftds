@@ -5,14 +5,21 @@
 --
 --  POR QUÉ
 --
---  Los nueve bridges corren hoy en una sola VM (1 GB, gratuita), en los
---  puertos 8080–8088. Ahí "puerto 8081" alcanza como dirección porque el
---  worker y el bridge son vecinos: marca a localhost:8081.
+--  Los nueve bridges corren hoy en una sola VM (Oracle Cloud, 1 GB, Always
+--  Free), en los puertos 8080–8088. Ahí "puerto 8081" alcanza como
+--  dirección porque el worker y el bridge son vecinos: marca a
+--  localhost:8081 por REST.
 --
---  Con 20 agentes esa VM no da —cada sesión de WhatsApp abierta come
---  memoria— así que va a haber una segunda máquina. En cuanto exista,
---  "8089" deja de identificar a nadie: falta decir EN CUÁL. Esta columna
---  es ese dato.
+--  Lo que empuja a una segunda máquina NO es la memoria. Medido el 04/08:
+--  279 de 956 MB usados con los 9 bridges + el worker (~16 MB por bridge),
+--  más 2 GB de swap; 20 bridges serían ~320 MB y caben de sobra. Lo que
+--  no escala es la **IP**: 20 sesiones de WhatsApp saliendo de la misma
+--  dirección. El propio worker ya lo trata como riesgo — ARRANQUE_MAX
+--  existe para que varios agentes no disparen en el mismo segundo desde
+--  la misma IP.
+--
+--  En cuanto exista la segunda máquina, "8089" deja de identificar a
+--  nadie: falta decir EN CUÁL. Esta columna es ese dato.
 --
 --  El default es 'localhost' a propósito: mientras el worker no la lea, y
 --  para todo lo que se quede en la VM 1, el comportamiento es idéntico al

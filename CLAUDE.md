@@ -612,34 +612,56 @@ Flujo de dependencias sin ciclos. El estado mutable vive en un único objeto
 
 ## Lo que NO está aquí
 
-**El worker que envía por WhatsApp no vive en este repo.** Consume
-`mensajes_programados` y habla con un bridge por agente (`canales_wa`). Todo lo
-que se sabe de él es inferencia desde la base. Si algo depende de su
+**El worker que envía por WhatsApp no vive en este repo.** Es `worker.py`, un
+proceso Python en otro repositorio. Lo de abajo lo describió el dueño el 04/08;
+**no se ha leído su código desde aquí**. Si algo depende de un detalle fino de su
 comportamiento, decirlo en vez de asumirlo.
 
-### El worker SALE A BUSCAR a los bridges (deducido de la base, 04/08)
+### Cómo funciona el worker (descrito por el dueño, 04/08)
 
-Importa porque decide qué hace falta para repartirlos en varias máquinas.
-Consultando `canales_wa` con un minuto de diferencia, los tres canales
-**muertos** (Majo 30/07, Felipe 31/07, Valery 28/07) tenían `actualizado`
-avanzando igual que los vivos, cada ~30 s. **Un proceso muerto no reescribe su
-propia fila**: algo externo los recorre uno por uno y anota si contestaron — a
-los vivos les mueve además `ultimo_visto`. Y por RLS ningún navegador puede
-tocar las nueve filas, así que quien las escribe lleva el service role.
+| | |
+|---|---|
+| Dónde | Oracle Cloud VM `nexus-cloud`, Ubuntu 22.04, 1 GB, Always Free · `141.148.40.31` |
+| Cómo arranca | systemd `nexus-worker` (enabled) · `/home/ubuntu/nexus-worker/` |
+| Credencial | `.env` con la `SUPABASE_SERVICE_KEY` — por eso puede escribir las nueve filas |
+| Ciclo | cada `CICLO_SEG=20` s trae hasta 600 pendientes, agrupa por `owner_id` y lanza **un hilo por agente** |
+| Ritmo | `PAUSA_MIN/MAX=4–8` s entre mensajes del **mismo** agente · `ARRANQUE_MAX=45` s de desfase inicial |
+| Topes | `LOTE_MAX=40` por agente y ciclo · `TOPE_DIARIO=220` por agente y día |
 
-- Los nueve bridges están en **una sola VM** (1 GB, gratuita), puertos 8080–8088.
-  No caben 20: cada sesión de WhatsApp abierta come memoria.
+- **El worker LE MARCA al bridge** (API REST, enrutado por `puerto` desde
+  `canales_wa`). Esto es lo que decide todo lo de varias máquinas: hoy le basta
+  `localhost:<puerto>` porque son vecinos. Se había deducido de la base antes de
+  saberlo —los tres canales muertos tenían `actualizado` avanzando cada ~30 s, y
+  un proceso muerto no reescribe su propia fila— y quedó confirmado.
 - **Un solo worker, siempre.** `mensajes_programados` no tiene columna de
   reclamo (ni `tomado_por`, ni lease, ni `intentos`), así que dos procesos
   leyendo la misma cola toman la misma fila y el cliente recibe el mensaje dos
   veces — que es justo la señal por la que WhatsApp restringe un número. Un
   worker por VM solo sería seguro filtrando por `owner_id`, con cada agente
   asignado a exactamente una máquina; es más frágil que la alternativa.
+- **Solo envía si el canal del dueño está `vinculado`**; si no, marca el mensaje
+  como `error`. Nunca manda desde otro número — la regla de oro, aplicada donde
+  de verdad cuenta.
+- **`TOPE_DIARIO` solo frena lo nuevo** (`invitacion`, masivo); nunca corta
+  `rec_60`/`rec_15`/`enlace`/`confirmacion`, para no dejar a nadie sin el enlace
+  de una actividad que ya arrancó.
+- **La RAM no es el límite.** Medido: 279 de 956 MB usados con los 9 bridges + el
+  worker (~180 MB entre todos, ~16 MB por bridge), más 2 GB de swap. A ese ritmo
+  20 bridges son ~320 MB y **caben**. Lo que empuja a una segunda máquina es la
+  **IP**: 20 sesiones de WhatsApp saliendo de `141.148.40.31`. El propio worker
+  ya lo reconoce — `ARRANQUE_MAX` existe para que varios agentes no disparen en
+  el mismo segundo *desde la misma IP*.
 - `canales_wa.host` (04/08) es lo que falta del lado de la base: el worker
   armaría `host:puerto` en vez de `localhost:puerto`. **Todavía no la lee** —
   ese cambio va en su código.
-- El bridge 8080 (el número del propio admin) **no entra en el barrido**: su
-  `actualizado` quedó congelado el 22/07. Sin explicar.
+- El bridge 8080 no entra en el barrido (su `actualizado` quedó congelado el
+  22/07) porque es **el bridge viejo de Santiago**. Ya no es un misterio.
+- **La tabla de puertos que anda circulando está desactualizada**: dice «8081
+  Tatiana» y la base dice Evelin Gómez. La verdad es `canales_wa`, no el
+  documento.
+- El reintento de México **ya existe** en el worker (alterna el `1` tras el `52`
+  cuando da `no LID found`). Que aun así haya causado 18 % de fallos significa
+  que el reintento no alcanza, no que falte.
 
 ## Decisiones de seguridad que se relajaron a propósito
 
@@ -691,17 +713,19 @@ tocar las nueve filas, así que quien las escribe lleva el service role.
 - **Falta que el worker LEA `canales_wa.host`.** La columna existe desde el
   04/08 y hoy vale `localhost` en las nueve filas, así que no cambia nada — es
   decir, es una **columna inerte**, la trampa de `imagen_url` otra vez. Se
-  agregó porque la VM de 1 GB no aguanta 20 bridges y va a haber una segunda
-  máquina. Del lado de la base ya está todo; falta que el worker arme
-  `host:puerto` y que las dos VM se vean por red privada. **Nunca exponer el
-  puerto de un bridge a internet**: es un endpoint que manda WhatsApp a nombre
-  de un agente.
+  agregó para poder repartir los bridges en varias máquinas (por IP, no por
+  memoria). Del lado de la base ya está todo; en `worker.py` falta pedir `host`
+  en el `select` de `canales_wa` y armar `f"http://{host}:{puerto}"`, y que las
+  dos VM se vean por red privada. **Nunca exponer el puerto de un bridge a
+  internet**: es un endpoint que manda WhatsApp a nombre de un agente.
 - **Tres canales llevan días caídos** a medio vincular: Valery (28/07), Majo
   (30/07), Felipe (31/07). Esos tres agentes no pueden enviar nada.
 - **Cobro por uso**: la medición ya existe (`mensajes_programados` por
-  `owner_id`). Falta tabla de suscripción, cuota **aplicada en el worker** (no
-  en el navegador) y pasarela. El costo real es por puesto —cada agente necesita
-  su bridge 24/7— así que el modelo sano es base por agente + cuota + excedente.
+  `owner_id`) y el worker ya trae un tope duro por agente (`TOPE_DIARIO=220`),
+  pero ese es de protección, igual para todos. Falta tabla de suscripción, que
+  la cuota **salga del plan de cada quien** (aplicada en el worker, nunca en el
+  navegador) y pasarela. El costo real es por puesto —cada agente necesita su
+  bridge 24/7— así que el modelo sano es base por agente + cuota + excedente.
 - **Riesgo de fondo del negocio**: se envía desde los WhatsApp personales de los
   agentes. Ya le restringieron el número a una. Los snippets `{a|b|c}` y el
   goteo ayudan pero no lo eliminan.
