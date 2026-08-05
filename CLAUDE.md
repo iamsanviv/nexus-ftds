@@ -657,14 +657,14 @@ comportamiento, decirlo en vez de asumirlo. **El detalle completo vive en
 - **`TOPE_DIARIO` solo frena lo nuevo** (`invitacion`, masivo); nunca corta
   `rec_60`/`rec_15`/`enlace`/`confirmacion`, para no dejar a nadie sin el enlace
   de una actividad que ya arrancó.
-- **La RAM no es el límite.** Medido: 279 de 956 MB usados con los 9 bridges de
-  entonces + el worker (~180 MB entre todos, ~16 MB por bridge), más 2 GB de
-  swap. A ese ritmo 20 bridges son ~320 MB y **caben**. Hoy ya son **12** — los
-  tres últimos (8089–8091) son los agentes que se pasaron bajo Juana Lamilla, ya
-  vinculados. Lo que empuja a una segunda máquina es la **IP**: 20 sesiones de
-  WhatsApp saliendo de `141.148.40.31`, no la memoria. El propio worker ya lo
-  reconoce — `ARRANQUE_MAX` existe para que varios agentes no disparen en el
-  mismo segundo *desde la misma IP*.
+- **La RAM aprieta, pero no es lo que decide.** Con los **12** bridges de hoy:
+  356 de 956 MB, ~389 MB de RSS entre bridges y worker → **~29 MB por bridge**,
+  más 2 GB de swap. 15 agentes caben holgados; 20 quedan apretados (~600 MB solo
+  de bridges) pero viables. *(Una medición anterior con 9 bridges daba ~16 MB
+  cada uno y se quedó corta — vale la de 12.)* Lo que de verdad obliga a una
+  segunda máquina es la **IP**: 20 sesiones de WhatsApp saliendo de
+  `141.148.40.31`. El propio worker ya lo reconoce — `ARRANQUE_MAX` existe para
+  que varios agentes no disparen en el mismo segundo *desde la misma IP*.
 - `canales_wa.host` (04/08) es lo que falta del lado de la base: el worker
   armaría `host:puerto` en vez de `localhost:puerto`. **Todavía no la lee** —
   ese cambio va en su código.

@@ -1,92 +1,86 @@
-# Contexto del worker de envíos (`worker.py`)
+# Contexto: worker de envíos de Nexus (VM Oracle)
 
-Este archivo documenta el proceso que manda los mensajes de WhatsApp. **No vive
-en este repositorio** — es otro proyecto, en otra VM — pero lo que sigue afecta
-decisiones de acá (RLS de `canales_wa`, la columna `host`, los topes de envío),
-así que queda documentado aquí igual que el resto de `sql/`.
+> Última actualización: 2026-08-04
 
-Dos fuentes, marcadas por separado:
+**El worker no vive en este repositorio** — es otro proyecto, en otra VM — pero
+lo de acá decide cosas de este lado (el RLS de `canales_wa`, la columna `host`,
+los topes de envío), así que se documenta igual que `sql/`.
 
-- **Descrito por el dueño (04/08)**: lo que sigue viene de una descripción
-  directa de quien administra la VM, no de leer el código de `worker.py`.
-- **Confirmado en Supabase (04/08, 22:26 UTC)**: lo que se puede releer en
-  `canales_wa` en cualquier momento, sin depender de nadie.
+Dos fuentes, y conviene no mezclarlas:
 
-Si algo de acá cambia en la VM y no se actualiza este archivo, manda la base de
-datos, no este documento — es la misma regla que ya rige para la tabla de
-puertos y para `sql/`.
+- **Descrito por quien administra la VM** — casi todo este archivo. No sale de
+  leer `worker.py`.
+- **Confirmado en Supabase** — solo la tabla de bridges de abajo. Eso se puede
+  releer en `canales_wa` en cualquier momento, sin depender de nadie.
 
----
+Si el documento y la base se contradicen, **manda la base**.
 
-## Qué hace
+## Qué es
 
-`worker.py` vacía la cola de `mensajes_programados`: lee los que están en
-`pendiente` con `enviar_en` ya cumplido, y los manda llamando a la API REST del
-bridge de WhatsApp del agente dueño de cada mensaje. Corre 24/7 en la nube, no
-en el computador de nadie.
+`worker.py` es un proceso Python que vacía la cola de mensajes de WhatsApp. Lee de
+Supabase (tabla `mensajes_programados`, estado `pendiente` con `enviar_en` ya
+vencida) y los envía llamando a la API REST del bridge del agente dueño. Corre
+24/7 en la nube, no en ningún PC.
 
 ## Dónde y cómo corre
 
-| | |
-|---|---|
-| Servidor | Oracle Cloud VM `nexus-cloud` · Ubuntu 22.04 · 1 GB RAM · Always Free · `141.148.40.31` |
-| Servicio | systemd `nexus-worker` — `active`, `enabled` (arranca solo si la VM reinicia) |
-| Proceso | **uno solo** para toda la oficina — nunca dos a la vez (ver más abajo, por qué) |
-| Ubicación | `/home/ubuntu/nexus-worker/` → `worker.py` + `.env` (con `SUPABASE_SERVICE_KEY`) + `venv/` |
-| Uptime al 04/08 | ~11 días sin reinicios |
-| Comandos | `sudo systemctl status\|restart nexus-worker` · logs en vivo: `journalctl -u nexus-worker -f` |
+- **VM** `nexus-cloud` (Oracle Cloud, Ubuntu 22.04, 1 GB RAM + 2 GB swap, Always Free). IP `141.148.40.31`.
+- **Servicio** systemd `nexus-worker` — `active`, `enabled` para boot. **Un solo proceso** para toda la oficina.
+- **Ruta**: `/home/ubuntu/nexus-worker/` (`worker.py` + `.env` con `SUPABASE_SERVICE_KEY` + `venv/`). Respaldo del worker anterior (envío en serie): `worker.py.bak-serial`.
+- **Comandos**: `sudo systemctl status|restart nexus-worker`; logs en vivo `journalctl -u nexus-worker -f`.
 
-La `SUPABASE_SERVICE_KEY` en el `.env` es la explicación de algo que ya se
-había deducido leyendo la base sin verla: por qué el worker puede reescribir
-las nueve/doce filas de `canales_wa` cuando ningún agente, por RLS, puede tocar
-más que la suya.
+La `SUPABASE_SERVICE_KEY` del `.env` explica algo que se había deducido leyendo
+la base antes de tener este documento: por qué el worker puede reescribir las
+doce filas de `canales_wa` cuando ningún agente, por RLS, puede tocar más que la
+suya.
 
-## Arquitectura: paralelo por agente (desde 2026-07-24)
+**Un solo worker, siempre.** `mensajes_programados` no tiene columna de reclamo
+(ni `tomado_por`, ni lease, ni `intentos`), así que dos procesos leyendo la misma
+cola toman la misma fila y el cliente recibe el mensaje dos veces — que es justo
+la señal por la que WhatsApp restringe un número.
 
-Cada ciclo (`CICLO_SEG = 20` s):
+## Arquitectura de envío (paralelo por agente, desde 2026-07-24)
 
-1. Trae hasta 600 mensajes pendientes, de todos los agentes.
-2. Los agrupa por `owner_id`.
-3. Lanza **un hilo por agente** (`procesar_agente`).
+Cada ciclo (cada `CICLO_SEG` = 20 s):
 
-Cada agente envía por *su propio* bridge, a su propio ritmo. Los agentes **no
-hacen fila entre ellos** — un agente con 40 mensajes en cola no atrasa el envío
-de otro que solo tiene 2.
+1. Trae la cola de todos los agentes (hasta 600).
+2. La **agrupa por `owner_id`** y lanza **un hilo por agente** (`procesar_agente`).
+3. Cada agente envía por SU propio bridge (enrutado por puerto vía tabla `canales_wa`), con su propio ritmo humano. Los agentes no hacen fila entre ellos.
+
+Antes había un solo carril global (una pausa entre mensajes de toda la oficina),
+lo que hacía que con varias actividades a la misma hora el enlace saliera hasta
+~1 hora tarde. Con el paralelo, 200+ mensajes se drenan en pocos minutos.
 
 ## Parámetros (encabezado de `worker.py`)
 
-| Parámetro | Valor | Qué controla |
+| Parámetro | Valor | Significado |
 |---|---|---|
-| `CICLO_SEG` | 20 s | cada cuánto el worker vuelve a mirar la cola |
-| `PAUSA_MIN` / `PAUSA_MAX` | 4–8 s | pausa aleatoria entre mensajes **del mismo agente** (no es un límite global) |
-| `ARRANQUE_MAX` | 45 s | desfase inicial al azar por agente, para que varios no disparen en el mismo segundo **desde la misma IP** |
-| `LOTE_MAX` | 40 | tope de mensajes por agente y por ciclo; el resto espera al ciclo siguiente |
-| `TOPE_DIARIO` | 220 | tope por agente y por día — **solo frena tipos nuevos** (`invitacion`, masivo); nunca corta `rec_60` / `rec_15` / `enlace` / `confirmacion`, para no dejar a nadie sin el enlace de una actividad ya en marcha |
+| `CICLO_SEG` | 20 | Cada cuánto revisa la cola. |
+| `PAUSA_MIN` / `PAUSA_MAX` | 4 / 8 | Pausa aleatoria entre mensajes **de un mismo agente** (no global). |
+| `ARRANQUE_MAX` | 45 | Desfase inicial al azar por agente (evita que todos disparen en el mismo segundo desde la misma IP). |
+| `LOTE_MAX` | 40 | Máximo de mensajes por agente **por ciclo**; el resto va al ciclo siguiente. |
+| `TOPE_DIARIO` | 220 | Máximo por agente y por día. **Solo frena tipos nuevos (`invitacion`, `masivo`); nunca corta `rec_60`/`rec_15`/`enlace`/`confirmacion`** para no dejar a nadie sin el enlace de una actividad en marcha. |
 
 `ARRANQUE_MAX` es la prueba de que el propio worker ya trata **la IP**, no la
-memoria, como el recurso escaso de la VM — el mismo motivo por el que una
-segunda máquina tiene sentido al crecer el equipo.
+memoria, como el recurso escaso de la VM.
 
-## Enrutamiento: `canales_wa`
+## Enrutamiento multi-agente
 
-`canales_wa` mapea `owner_id → (puerto, estado, host)`. El worker **solo envía
-si el canal del dueño está `vinculado`**; si no, marca el mensaje como `error`.
-Nunca manda desde otro número — la regla de oro del panel, aplicada donde de
-verdad se ejecuta el envío.
+La tabla `canales_wa` mapea `owner_id → (puerto, estado, host)`. El worker solo envía si
+el canal del dueño está `vinculado`; si no, marca el mensaje como error (nunca
+manda desde otro número). Cada bridge es un binario Go (whatsmeow) que mantiene la
+sesión de WhatsApp en su carpeta `store/`.
 
-Hoy el worker le marca al bridge por `localhost:<puerto>` porque los dos viven
-en la misma VM. La columna `canales_wa.host` (migración
-`sql/2026-08-04_11_canales_wa_host.sql`) existe para el día en que deje de ser
-así — hoy vale `localhost` en las doce filas y el worker todavía no la lee.
+Hoy el worker le marca al bridge por `localhost:<puerto>` porque los dos viven en
+la misma VM. La columna `canales_wa.host`
+(`sql/2026-08-04_11_canales_wa_host.sql`) existe para el día en que deje de ser
+así — hoy vale `localhost` en las doce filas y **el worker todavía no la lee**.
 
-### Registro de bridges — confirmado en Supabase (04/08, 22:26 UTC)
-
-12 bridges, puertos 8080–8091. Cada uno es un binario Go (`whatsmeow`) que
-mantiene la sesión de WhatsApp de un agente en su propia carpeta `store/`.
+### 12 bridges — confirmado en `canales_wa` (2026-08-04, 22:26 UTC)
 
 | Puerto | Agente | Estado | Última señal |
 |---|---|---|---|
-| 8080 | Santiago Viveros (bridge viejo) | vinculado | — (no entra en el barrido) |
+| 8080 | Santiago Viveros (bridge viejo) | vinculado | — no entra en el barrido |
 | 8081 | Evelin Gomez | vinculado | hoy 22:26 |
 | 8082 | Juan Pablo Castro | vinculado | hoy 22:26 |
 | 8083 | fabian florez | vinculado | hoy 22:26 |
@@ -99,63 +93,64 @@ mantiene la sesión de WhatsApp de un agente en su propia carpeta `store/`.
 | 8090 | María José L | vinculado | hoy 22:26 |
 | 8091 | Laura Daniela Duarte | vinculado | hoy 22:26 |
 
-Los últimos tres (8089–8091) son los tres agentes que se pasaron hoy bajo
-Juana Lamilla — ya tienen bridge propio y vinculado, así que están operativos
-en la VM actual sin nada pendiente de este lado.
+Próximo puerto libre: **8092**.
 
-**La tabla de puertos que circulaba por fuera está desactualizada**: decía
-«8081 → Tatiana» y la base dice Evelin Gómez. Manda `canales_wa`, no ningún
-documento aparte — es la misma regla que aplica para todo lo demás del panel.
+Los últimos tres (8089–8091) son los agentes que pasaron a colgar de Juana
+Lamilla el 04/08: ya tienen bridge propio y vinculado, operativos sin nada
+pendiente de este lado.
 
-Los tres canales caídos (Majo, Felipe, Valery) siguen exactamente igual que
-antes; no se tocaron en esta ronda porque el pendiente activo era el reparto
-en varias VM, no la reparación de esos tres.
+**Tres canales llevan días caídos** a medio vincular (Valery, Majo, Felipe).
+Esos tres agentes no pueden enviar nada.
 
-## Detalles de envío — descrito por el dueño (04/08)
+**Ojo con los nombres.** La tabla de puertos que circula por fuera dice «8081 →
+Tatiana» y «8090 → María José Lamilla»; la base dice **Evelin Gómez** y
+**María José L**. Cuando no coincidan, manda `canales_wa`.
 
-- **México**: reintento automático — alterna el `1` tras el `52` si la primera
-  entrega da `no LID found`. Ya existe en el worker. Que aun así haya causado
-  18 % de fallos en un agente significa que el reintento **no alcanza**, no que
-  falte — es un problema distinto al que estaba anotado como pendiente sin
-  solución.
-- **Imágenes**: se resuelve la imagen *vigente* del servicio al momento de
-  enviar, nunca se congela la de cuando se programó.
-- **Enlace**: el token `{enlace}` se resuelve al enviar; si a esa hora la
-  actividad no tiene enlace todavía, se omite en vez de mandar un hueco.
-- **Notas de voz**: se convierten a `ogg/opus` (PTT) — con el bug de
-  reproducción ya conocido y documentado en `CLAUDE.md`.
+## Detalles de envío
 
-## Salud de la VM — descrito por el dueño (04/08)
+- **México**: reintento automático que alterna el `1` tras el código 52 si da "no LID found". Ya existe — que aun así haya causado 18 % de fallos en un agente significa que **el reintento no alcanza**, no que falte.
+- **Imágenes**: se resuelve la imagen actual del servicio al enviar (no se congela al programar).
+- **Enlace**: el token `{enlace}` se resuelve al enviar; si a esa hora no hay enlace, el mensaje se omite.
+- **Nota de voz**: la conversión a ogg/opus (PTT) existe en el worker, pero la UI está **oculta en producción** porque WhatsApp rechaza el audio al reproducir (bug pendiente).
+- **Video**: el worker **no tiene rama de video** — reconoce extensiones de imagen y manda todo lo demás como nota de voz, así que un `.mp4` le llega al cliente como PTT. Por eso el video está desactivado en Masivo. Falta una línea acá: detectar `video/*` y mandarlo como video.
 
-RAM: 279 de 956 MB usados (524 libres) + 2 GB de swap. Carga: 0.37. Con los 9
-bridges de entonces más el worker, el consumo total era ~180 MB — unos 16 MB
-por bridge. A ese ritmo, **20 bridges caben de sobra en 1 GB** (~320 MB): la
-memoria no es el límite. Lo que empuja a repartir en más de una VM es la IP
-saliendo de `141.148.40.31`, no la RAM — ver `ARRANQUE_MAX` arriba.
+## Salud del VM (2026-08-04)
 
-## Formato del log
+RAM 356/956 MB usada (447 libres); los 12 bridges + worker suman ~389 MB de RSS.
+Carga 0.01. Swap de 2 GB puesto (protección de picos; sin él, un `go build`
+congeló la máquina una vez).
+
+A ~29 MB por bridge, **15 agentes caben holgados** y 20 quedarían apretados
+(~600 MB solo de bridges) pero viables con el swap. **La memoria no es lo que
+obliga a una segunda máquina: es la IP** — 20 sesiones de WhatsApp saliendo de
+`141.148.40.31`. El propio `ARRANQUE_MAX` ya reconoce ese riesgo.
+
+> Medición anterior, para no confundirse: con **9** bridges eran 279/956 MB y
+> ~180 MB entre todos. De ahí salió un cálculo de «16 MB por bridge» que se
+> quedó corto — la cifra buena es la de arriba, con los 12 ya corriendo.
+
+## Formato de log
 
 ```
-[14:44:38] → 3 mensaje(s) en 1 agente(s)
-[14:45:14]   ✓ invitacion → +573122203384 (:8080)
+[14:44:38] → 3 mensaje(s) en 1 agente(s)              ← abre un ciclo
+[14:45:14]   ✓ invitacion → +573122203384 (:8080)      ← enviado OK (tipo → número (:puerto))
+[15:36:44]   ⨯ e8e81143 ya no está pendiente ...        ← saltado / cancelado
+[15:36:36]     ↻ reintento MX: 527... → 5217...         ← alternó variante de México
 ```
 
-`→ N mensaje(s) en M agente(s)` abre un ciclo. Dentro de un ciclo:
-`✓` = enviado bien · `⚠` = error · `⨯` = saltado o cancelado.
-
----
+`✓` = enviado · `⚠` = error · `⨯` = saltado/cancelado · `↻` = reintento MX.
 
 ## Lo que falta para repartir bridges en dos VM
 
-Ya está confirmado que el worker **le marca al bridge** (no al revés), así que
-el camino es el descrito en `sql/2026-08-04_11_canales_wa_host.sql`:
+Está confirmado que **el worker le marca al bridge** (no al revés), así que el
+camino es el de `sql/2026-08-04_11_canales_wa_host.sql`:
 
 1. En el `select` que trae `canales_wa`, pedir también `host`.
 2. Donde arma la URL del bridge, cambiar `f"http://localhost:{puerto}"` por
-   `f"http://{host or 'localhost'}:{puerto}"` — el `or 'localhost'` es la red
-   de seguridad para no romper nada si `host` llegara vacío.
-3. Que las dos VM se vean por red privada. **Nunca** exponer el puerto de un
+   `f"http://{host or 'localhost'}:{puerto}"` — el `or 'localhost'` es la red de
+   seguridad para no romper nada si `host` llegara vacío.
+3. Que las dos VM se vean por **red privada**. Nunca exponer el puerto de un
    bridge a internet: es un endpoint que manda WhatsApp a nombre de un agente.
 
-Del lado de la base ya está todo hecho. Este es el único cambio que falta, y
-vive en `worker.py`, fuera de este repositorio.
+Del lado de la base ya está todo hecho. Falta solo el paso 1–2, y vive en
+`worker.py`.
