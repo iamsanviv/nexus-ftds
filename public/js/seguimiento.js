@@ -1237,6 +1237,14 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
   return { movidos: tareas.length, cancelados: aCancelar.length };
 }
 
+// ¿Está marcada la asistencia de esta persona a ESTA actividad? La asistencia
+// vive en dos sitios según el tipo —`acc[servicio]` las del catálogo,
+// `puntuales[actividad].acc` las puntuales— y la regla va en un solo lugar
+// porque la usan el panel de entradas y el diálogo de cancelar.
+const asistioA = (c, actividadId, servicioId) => !c ? false
+  : servicioId ? !!(c.acc || {})[servicioId]
+               : !!((c.pun || {})[actividadId] || {}).acc;
+
 /* ================= QUIÉNES ENTRARON ================= */
 // Panel de la actividad: quién abrió su enlace y quién no, con la asistencia
 // editable a mano. El clic es una señal muy buena pero no infalible —quien ya
@@ -1266,10 +1274,7 @@ async function abrirEntradas(a) {
   $("repCerrar").onclick = cerrar;
   $("repOverlay").onclick = e => { if (e.target.id === "repOverlay") cerrar(); };
 
-  // ¿Está marcada la asistencia de esta persona a ESTA actividad?
-  const asistio = c => !c ? false
-    : sid ? !!(c.acc || {})[sid]
-          : !!((c.pun || {})[a.id] || {}).acc;
+  const asistio = c => asistioA(c, a.id, sid);
 
   const pintar = () => {
     const conCli = filas.map(s => ({ s, c: state.clientes.find(x => x.id === s.cliente_id) }));
@@ -1620,23 +1625,46 @@ async function renderActivos() {
 // Diálogo de cancelación: además de cancelar los mensajes pendientes, deja
 // elegir si la persona queda "invitada" (conserva conf) o vuelve a "por
 // invitar" (se borra conf de ese servicio).
-function abrirCancelar(s) {
+//
+// A QUIEN YA ASISTIÓ NO SE LE PREGUNTA. Reinvitar a alguien que ya asistió es
+// normal (una clase que se repite, un lanzamiento al que vuelve), y al cancelar
+// ese seguimiento nuevo las dos opciones mienten: «dejarla como invitada» la
+// nombra por un estado que ya superó, y «volver a por invitar» insinúa que se
+// le puede deshacer la asistencia. Es la misma invariante de `programar()`
+// —nada automático mueve `acc` hacia atrás—, aplicada al diálogo.
+async function abrirCancelar(s) {
   const nombre = s.clientes?.nombre || "esta persona";
-  // «Volver a por invitar» solo tiene sentido si la actividad es de un
-  // servicio: en una puntual no hay `conf` que quitar. Si la actividad ya no
-  // está cargada no se asume nada y se deja el botón (la acción es null-safe).
-  const act = actividades.find(x => x.id === s.actividad_id);
+  const c = state.clientes.find(x => x.id === s.cliente_id);
+
+  // `servicio_id` decide dos cosas —si «volver a por invitar» aplica (en una
+  // puntual no hay `conf` que quitar) y dónde está anotada la asistencia—, así
+  // que se resuelve UNA vez: de la lista si está cargada, y si no, de la base.
+  // Antes solo se miraba la lista, y un seguimiento de una actividad ya cerrada
+  // caía siempre en el caso "no sé".
+  let act = actividades.find(x => x.id === s.actividad_id) || null;
+  if (!act && s.actividad_id) {
+    const { data } = await SB.from("actividades")
+      .select("servicio_id").eq("id", s.actividad_id).maybeSingle();
+    act = data || null;
+  }
+  const sid = act?.servicio_id || null;
   const sinServicio = !!act && esLibre(act);
+  const yaAsistio = asistioA(c, s.actividad_id, sid);
+
   $("repSub").textContent = "Cancelar seguimiento";
   $("repBody").innerHTML = `
     <div class="prow" style="flex-direction:column;align-items:stretch;gap:12px">
       <div style="font-size:.95rem">Vas a cancelar el seguimiento de <b>${esc(nombre)}</b>
         para <b>${esc(s.actividad)}</b>. No se enviarán los mensajes pendientes.
-        <span class="sfecha">¿En qué estado dejas a la persona?</span>
+        <span class="sfecha">${yaAsistio
+          ? "Su asistencia no se toca: ya quedó registrada."
+          : "¿En qué estado dejas a la persona?"}</span>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        <button class="pmark" data-cx="invitado">Dejarla como «invitada»</button>
-        ${sinServicio ? "" : `<button class="pmark off" data-cx="porinvitar">Volver a «por invitar»</button>`}
+        ${yaAsistio
+          ? `<button class="pmark off" data-cx="solo">Sí, cancelar el seguimiento</button>`
+          : `<button class="pmark" data-cx="invitado">Dejarla como «invitada»</button>
+             ${sinServicio ? "" : `<button class="pmark off" data-cx="porinvitar">Volver a «por invitar»</button>`}`}
         <button class="tbtn" data-cx="nada">No cancelar</button>
       </div>
     </div>`;
@@ -1655,21 +1683,17 @@ function abrirCancelar(s) {
         .update({ estado: "cancelado" }).eq("id", s.id);
       if (r1.error || r2.error) throw (r1.error || r2.error);
 
-      // 2) si se elige "por invitar", quitar conf de ese servicio a la persona
-      if (modo === "porinvitar" && s.actividad_id) {
-        const { data: act } = await SB.from("actividades")
-          .select("servicio_id").eq("id", s.actividad_id).maybeSingle();
-        const sid = act?.servicio_id;
-        const c = state.clientes.find(x => x.id === s.cliente_id);
-        if (sid && c && (c.conf || {})[sid]) {
-          delete c.conf[sid];
-          await SB.from("clientes").update({ conf: c.conf }).eq("id", c.id);
-        }
+      // 2) si se elige "por invitar", quitar conf de ese servicio a la persona.
+      // `sid` y `c` ya vienen resueltos de arriba: antes se volvía a consultar
+      // la actividad aquí, con las mismas dos líneas.
+      if (modo === "porinvitar" && sid && c && (c.conf || {})[sid]) {
+        delete c.conf[sid];
+        await SB.from("clientes").update({ conf: c.conf }).eq("id", c.id);
       }
       cerrar();
-      toast(modo === "porinvitar"
-        ? "Seguimiento cancelado · persona vuelve a «por invitar» ✓"
-        : "Seguimiento cancelado · persona queda «invitada» ✓");
+      toast(modo === "porinvitar" ? "Seguimiento cancelado · persona vuelve a «por invitar» ✓"
+          : modo === "solo"       ? "Seguimiento cancelado ✓"
+          : "Seguimiento cancelado · persona queda «invitada» ✓");
       renderActivos();
     } catch (err) {
       toast("⚠ " + err.message);

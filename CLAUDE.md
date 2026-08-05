@@ -254,7 +254,7 @@ sin tocar nada más.
 automático puede moverlas hacia atrás.** Solo el agente, a mano, desde el perfil
 o desde el ✕ de la vista por servicio.
 
-Tres reglas que lo sostienen, y las tres nacieron de un defecto real:
+Cuatro reglas que lo sostienen, y las cuatro nacieron de un defecto real:
 
 - **Reinvitar a quien ya asistió no le toca NADA** (`programar()`): ni `acc` ni
   `conf`. Se queda en «asistió» y el repaso no vuelve a preguntar por él.
@@ -265,6 +265,14 @@ Tres reglas que lo sostienen, y las tres nacieron de un defecto real:
 - **«No asistió» nunca destruye historial.** En una puntual hacía
   `delete pun[actId]` —el registro ENTERO, con la asistencia adentro—; ahora
   solo quita `conf`. En una del catálogo solo borra `conf` si no hay `acc`.
+- **A quien ya asistió no se le PREGUNTA en qué estado queda** al cancelarle el
+  seguimiento (`abrirCancelar()`). Reinvitar a alguien que ya asistió es normal
+  —una clase que se repite, un lanzamiento al que vuelve—, y ahí las dos
+  opciones mentían: «dejarla como invitada» la nombra por un estado que ya
+  superó, y «volver a por invitar» insinúa que se le puede deshacer la
+  asistencia. Se cae a una confirmación simple. La regla de dónde vive la
+  asistencia está en `asistioA()`, que comparten este diálogo y el panel de
+  entradas — antes estaba escrita solo dentro de `abrirEntradas`.
 
 `acc` y `conf` son **un valor por servicio**, no por actividad: un servicio
 recurrente no puede guardar «asistió en junio, invitado otra vez en julio». Por
