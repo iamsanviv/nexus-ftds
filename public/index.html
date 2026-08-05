@@ -183,6 +183,20 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
           <input id="segLibre" placeholder="Ej: Lanzamiento de membresías" autocomplete="off">
           <div class="msgshelp">No entra al catálogo ni cuenta para el progreso de nadie. Úsalo para cosas de una sola vez.</div>
         </div>
+        <!-- Si la puntual ES uno de los tres zooms de venta, marcarle la
+             asistencia a alguien marca de una vez su etapa del embudo: es el
+             mismo hecho. Solo en las puntuales — una del catálogo es recurrente
+             y el embudo de una persona pasa una sola vez. -->
+        <div class="frow wide hidden" id="segZoomRow">
+          <label>¿Es un zoom de ventas? <span class="opt">(opcional)</span></label>
+          <select id="segZoom">
+            <option value="">No, es una actividad normal</option>
+            <option value="pres">Zoom de presentación</option>
+            <option value="uno">Zoom 1 a 1</option>
+            <option value="cierre">Zoom de cierre</option>
+          </select>
+          <div class="msgshelp">A quien le marques asistencia se le marca también esa etapa en su embudo de venta, y se ve en su perfil y en Ventas.</div>
+        </div>
         <!-- Invitación propia de esta actividad. Plegada: la mayoría de las
              veces la plantilla del agente sirve, y desplegar cinco mensajes
              convertiría el formulario en un muro de texto. Solo la invitación:

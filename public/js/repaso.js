@@ -9,7 +9,7 @@
 // desde el inicio de la actividad. Como `conf` guarda solo la fecha (sin hora),
 // la hora real se busca en la tabla `actividades`; si no hay actividad asociada
 // (invitación marcada a mano), se usa la regla de "día anterior".
-import { state, $, esc, fmtF, toast, todos, hoyISO } from "./state.js";
+import { state, $, esc, fmtF, toast, todos, hoyISO, syncZoom } from "./state.js";
 import { SB } from "./supabase.js";
 import { dbPatch } from "./data.js";
 import { render } from "./ui.js";
@@ -131,7 +131,11 @@ function abrir(items, marcarHecho) {
       if (b.dataset.r === "si") {
         if (actId) {
           c.pun[actId] = { ...c.pun[actId], acc: f };
-          await dbPatch(c, { puntuales: c.pun });
+          // Si la actividad era un zoom de venta, esta respuesta también cierra
+          // su etapa del embudo: es el mismo hecho, no dos.
+          const campos = { puntuales: c.pun };
+          if (syncZoom(c, actId, "hecha", f)) campos.zooms = c.zooms;
+          await dbPatch(c, campos);
         } else {
           c.acc[s.id] = f;
           await dbPatch(c, { acc: c.acc });
@@ -146,7 +150,11 @@ function abrir(items, marcarHecho) {
           // existe) se queda donde está.
           const { conf, ...resto } = c.pun[actId] || {};
           c.pun[actId] = resto;
-          await dbPatch(c, { puntuales: c.pun });
+          // «No asistió» a un zoom SÍ es un dato: deja la etapa con ✕ y su
+          // fecha, que es como se sabe a quién hay que reagendar.
+          const campos = { puntuales: c.pun };
+          if (syncZoom(c, actId, "no_asistio", f)) campos.zooms = c.zooms;
+          await dbPatch(c, campos);
           toast(`${c.nombre.split(" ")[0]} no asistió · anotado`);
         } else if (!c.acc[s.id]) {
           // El `if` es una red, no un adorno: `pendientes()` ya excluye a quien

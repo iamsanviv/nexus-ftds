@@ -408,6 +408,25 @@ desaparecía de la vista aunque los datos siguieran ahí.
   estrictamente el día 1. Si se pospone, vuelve a aparecer.
 - **Los zooms son etapas con fecha y estado.** No mandan WhatsApp. Programar
   recordatorios sigue siendo cosa de Seguimiento.
+- **El embudo es del CLIENTE, no de la venta** (`clientes.zooms`, 04/08).
+  Estaba en `ventas` y fallaba por los dos lados: la **presentación pasa antes
+  de que exista una venta**, así que la etapa más temprana era justo la que no
+  se podía anotar; y con un upgrade había dos filas repitiendo un embudo que le
+  pasó una sola vez. La tarjeta de venta lo lee del cliente.
+- **Una actividad puntual puede SER un zoom** (`actividades.zoom_tipo`).
+  Marcarle la asistencia a alguien marca su etapa: es el mismo hecho, no dos.
+  Solo en las puntuales — una del catálogo es recurrente. El tipo se copia al
+  registro de `puntuales` al programar (`z`), para que siga siendo
+  auto-contenido: los sitios que tocan la asistencia no van a buscar la
+  actividad, que puede estar cerrada o borrada.
+- **`syncZoom()` solo empuja hacia adelante.** Asistió → etapa «hecha»; no
+  asistió → «no asistió» con su fecha, que es como se sabe a quién reagendar.
+  Quitar la asistencia **no** borra la etapa: pudo ponerse a mano desde Ventas
+  antes de que la actividad existiera. Para vaciarla está el embudo del perfil.
+  La fecha es la de la ACTIVIDAD, no la de hoy.
+- El embudo va **plegado en todos los perfiles**: la presentación puede pasarle
+  a cualquiera, pero 300+ clientes de comunidad no lo usan y no tiene por qué
+  estorbarles.
 - **`productos.categoria` tiene tres valores**: `membresia`, `servicio` y
   `bot`. Los bots van aparte porque son nueve de dieciséis productos y
   mezclados con los servicios tapaban todo lo demás en el selector.

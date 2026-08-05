@@ -2,7 +2,7 @@
 import Sortable from "https://esm.sh/sortablejs@1.15.3";
 import { NIVEL } from "./config.js";
 import {
-  state, $, esc, fmtF, hoyISO, uid, toast, copyNum, norm, bandera,
+  state, $, esc, fmtF, hoyISO, uid, toast, copyNum, norm, bandera, ZOOMS,
   todos, esRequerido, esAdicional, esLead, progreso, siguiente,
 } from "./state.js";
 import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio } from "./data.js";
@@ -448,6 +448,30 @@ function construirActividades(c) {
     .filter(([, p]) => p && p.acc)
     .sort((a, b) => (b[1].acc || "").localeCompare(a[1].acc || ""));
 
+  // Embudo de venta. Va en TODOS los perfiles porque la presentación pasa antes
+  // de que exista una venta —hasta hoy no había dónde anotarla— pero plegado:
+  // 300+ clientes de comunidad no lo usan y no tiene por qué estorbarles.
+  const z = c.zooms || {};
+  const hechos = ZOOMS.filter(([k]) => (z[k] || {}).e === "hecha").length;
+  const zHtml = `<details class="punacc zoomacc">
+      <summary><span class="pat">◎ Embudo de venta</span><span class="pcn">${hechos}/3</span></summary>
+      <div class="punbody">
+        <div class="msgshelp">Se marcan solos al ponerle asistencia a una actividad puntual que sea un zoom. También puedes editarlos aquí.</div>
+        ${ZOOMS.map(([k, lbl]) => {
+          const zz = z[k] || {};
+          return `<div class="actrow zrow">
+            <span class="an">${lbl}</span>
+            <select data-zest="${k}" title="Estado">
+              <option value="" ${!zz.e || zz.e === "pendiente" ? "selected" : ""}>Pendiente</option>
+              <option value="hecha" ${zz.e === "hecha" ? "selected" : ""}>✓ Hecho</option>
+              <option value="no_asistio" ${zz.e === "no_asistio" ? "selected" : ""}>✕ No asistió</option>
+            </select>
+            <input type="date" data-zf="${k}" value="${esc(zz.f || "")}">
+          </div>`;
+        }).join("")}
+      </div>
+    </details>`;
+
   let html = "";
   html += items.length
     ? `<div class="pstitle">Fechas de actividades (edita o vacía para quitar)</div>` +
@@ -469,7 +493,23 @@ function construirActividades(c) {
       </div>`).join("") +
       `</div></details>`;
   }
+  html += zHtml;
   $("fActividades").innerHTML = html;
+
+  // Guardar el embudo. Vaciar la fecha y dejar «Pendiente» borra la etapa: es
+  // la única forma de deshacer un zoom marcado por error.
+  const guardarZoom = async () => {
+    const nuevo = {};
+    for (const [k] of ZOOMS) {
+      const e = $("fActividades").querySelector(`[data-zest="${k}"]`).value;
+      const f = $("fActividades").querySelector(`[data-zf="${k}"]`).value;
+      if (e || f) nuevo[k] = { ...(f ? { f } : {}), ...(e ? { e } : { e: "pendiente" }) };
+    }
+    c.zooms = nuevo;
+    if (await dbPatch(c, { zooms: nuevo })) toast("Embudo actualizado");
+  };
+  $("fActividades").querySelectorAll("[data-zest],[data-zf]")
+    .forEach(el => el.onchange = guardarZoom);
 
   // Eliminar un registro puntual. Pide confirmación con el nombre adentro: es
   // la única forma de borrar una asistencia sin querer desde acá, y la lista

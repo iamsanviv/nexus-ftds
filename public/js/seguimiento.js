@@ -4,7 +4,7 @@
 // Las plantillas de mensajes son editables por agente (tabla plantillas_seguimiento).
 // Tablas: actividades, seguimientos, mensajes_programados, plantillas_seguimiento.
 import { SB } from "./supabase.js";
-import { state, $, esc, toast, todos, hoyISO, resolverSnippets } from "./state.js";
+import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { avisarSiCanalCaido } from "./salud.js";
@@ -271,6 +271,7 @@ function renderForm() {
   // Compartir solo aplica si hay a quién: es cosa de directores.
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
   $("segCompartir").checked = true;
+  $("segZoom").value = "";
   setTipoActividad("cat");
 }
 
@@ -294,6 +295,9 @@ function setTipoActividad(tipo) {
   // Solo en las puntuales: una del catálogo es recurrente y su invitación es
   // justo la que el agente ya dejó escrita en sus plantillas.
   $("segMsgInvRow").classList.toggle("hidden", tipo !== "libre");
+  // El embudo de venta le pasa a la persona una sola vez; una actividad del
+  // catálogo es recurrente, así que marcarla como zoom no tendría sentido.
+  $("segZoomRow").classList.toggle("hidden", tipo !== "libre");
   $("segImgAyuda").textContent = tipo === "libre"
     ? "Una actividad puntual no tiene servicio del cual heredar imagen: si no subes una, la invitación va sin imagen."
     : "Si no subes ninguna, se usa la del servicio del catálogo.";
@@ -343,8 +347,10 @@ function entrarEdicion(a) {
   if (esLibre(a)) {
     setTipoActividad("libre");
     $("segLibre").value = a.nombre;
+    $("segZoom").value = a.zoom_tipo || "";
   } else {
     setTipoActividad("cat");
+    $("segZoom").value = "";
     if ([...$("segSrv").options].some(o => o.value === a.servicio_id)) $("segSrv").value = a.servicio_id;
   }
   setImgActividad(a.imagen);
@@ -411,6 +417,9 @@ async function guardarActividad() {
       // Solo las puntuales llevan invitación propia; si se cambia de tipo, se
       // limpia en vez de arrastrar un texto que ya no se ve en pantalla.
       msg_invitacion: libre ? (($("segMsgInv").value || "").trim() || null) : null,
+      // Igual que la invitación propia: solo en las puntuales, y se limpia al
+      // cambiar de tipo para no dejar una del catálogo marcada como zoom.
+      zoom_tipo: libre ? ($("segZoom").value || null) : null,
       compartida: state.me.role === "director" && $("segCompartir").checked,
     };
     if (actEdit) {
@@ -571,7 +580,7 @@ async function renderPasadas() {
 
 async function cargarActividades() {
   const { data, error } = await SB.from("actividades")
-    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen, compartida, msg_invitacion, owner_id")
+    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen, compartida, msg_invitacion, zoom_tipo, owner_id")
     .eq("estado", "activa")
     .order("inicio", { ascending: true });
   if (error) {
@@ -1011,10 +1020,16 @@ async function programar() {
       // Actividad puntual: se guarda en su propio mapa, con el nombre y la
       // hora copiados, para que el perfil y el repaso no dependan de que la
       // actividad siga existiendo.
+      // `z` (tipo de zoom) se copia acá para que el registro siga siendo
+      // auto-contenido: los cuatro sitios que tocan la asistencia no tienen que
+      // ir a buscar la actividad, que además puede estar cerrada o borrada.
       for (const c of seleccion) {
-        if (!(c.pun || {})[actSel.id]) {
+        const prev = (c.pun || {})[actSel.id];
+        if (!prev || (actSel.zoom_tipo || null) !== (prev.z || null)) {
           c.pun = { ...(c.pun || {}),
-            [actSel.id]: { n: actSel.nombre, i: actSel.inicio, conf: hoy } };
+            [actSel.id]: { n: actSel.nombre, i: actSel.inicio, conf: prev?.conf || hoy,
+                           ...(prev || {}),
+                           ...(actSel.zoom_tipo ? { z: actSel.zoom_tipo } : {}) } };
           await SB.from("clientes").update({ puntuales: c.pun }).eq("id", c.id);
         }
       }
@@ -1352,10 +1367,13 @@ async function abrirEntradas(a) {
       campos.acc = c.acc;
     } else {
       c.pun = { ...(c.pun || {}) };
-      const prev = c.pun[a.id] || { n: a.nombre, i: a.inicio };
+      const prev = c.pun[a.id] || { n: a.nombre, i: a.inicio, ...(a.zoom_tipo ? { z: a.zoom_tipo } : {}) };
       if (marcar) c.pun[a.id] = { ...prev, acc: fechaAct() };
       else { const { acc, ...resto } = prev; c.pun[a.id] = resto; }
       campos.puntuales = c.pun;
+      // Si la actividad ES un zoom de venta, marcar la asistencia marca la
+      // etapa. Solo al marcar: quitar la asistencia no deshace el embudo.
+      if (marcar && syncZoom(c, a.id, "hecha", fechaAct())) campos.zooms = c.zooms;
     }
     const { error } = await SB.from("clientes").update(campos).eq("id", c.id);
     if (error) { toast("⚠ " + error.message); btn.disabled = false; return; }

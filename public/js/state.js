@@ -96,6 +96,40 @@ export function bandera(pais, tel) {
   return "";
 }
 
+/* ---------- embudo de venta: los tres zooms ----------
+   Viven en el CLIENTE, no en la venta: la presentación pasa ANTES de que haya
+   una venta que apuntarla, y una persona con upgrade tenía dos filas de venta
+   repitiendo el mismo embudo. La venta los lee de aquí. */
+export const ZOOMS = [
+  ["pres",   "Presentación"],
+  ["uno",    "1 a 1"],
+  ["cierre", "Cierre"],
+];
+export const nombreZoom = k => (ZOOMS.find(([v]) => v === k) || [, ""])[1];
+
+/* Refleja en el embudo lo que pasó con una actividad puntual marcada como zoom.
+   La actividad y el zoom son el MISMO hecho, así que se marca solo: asistió →
+   la etapa queda «hecha»; no asistió → queda «no asistió», que sirve para saber
+   a quién hay que reagendar.
+
+   La fecha la pone quien llama, y es la de la ACTIVIDAD, no la de hoy:
+   corregir el lunes un zoom del viernes tiene que anotar el viernes.
+
+   Nunca BORRA una etapa: quitar la asistencia deja el embudo como estaba. La
+   etapa pudo haberse puesto a mano desde Ventas antes de que la actividad
+   existiera, y ahí sí manda lo que escribió el agente. Para vaciarla está el
+   propio embudo, en el perfil.
+
+   Devuelve si cambió algo, para que quien llama sepa si tiene que guardar. */
+export function syncZoom(c, actId, estado, fecha) {
+  const p = ((c || {}).pun || {})[actId];
+  if (!p || !p.z || !fecha) return false;
+  const prev = (c.zooms || {})[p.z];
+  if (prev && prev.f === fecha && prev.e === estado) return false;
+  c.zooms = { ...(c.zooms || {}), [p.z]: { f: fecha, e: estado } };
+  return true;
+}
+
 export function toast(msg) {
   const t = $("toast");
   t.textContent = msg;

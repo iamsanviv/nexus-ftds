@@ -9,8 +9,12 @@ export const mapDesdeDB = r => ({
   comunidadDesde: r.comunidad_desde || "", upgradeFecha: r.upgrade_fecha || "",
   nota: r.nota || "", acc: r.acc || {}, conf: r.conf || {},
   // Asistencia a actividades puntuales (fuera del catálogo), auto-contenida:
-  // { [actividad_id]: { n, i, conf, acc } }.
+  // { [actividad_id]: { n, i, conf, acc, z } }. `z` es el tipo de zoom de venta
+  // cuando la actividad ES uno: se copia al programar para que los sitios que
+  // tocan la asistencia no tengan que ir a buscar la actividad.
   pun: r.puntuales || {},
+  // Embudo de venta de la persona: { pres|uno|cierre: { f, e } }.
+  zooms: r.zooms || {},
 });
 export const mapAEditar = c => ({
   nombre: c.nombre, telefono: c.tel || null, pais: c.pais || null,
@@ -18,6 +22,7 @@ export const mapAEditar = c => ({
   comunidad_desde: c.comunidadDesde || null, upgrade_fecha: c.upgradeFecha || null,
   nota: c.nota || null, acc: c.acc || {}, conf: c.conf || {},
   puntuales: c.pun || {},
+  zooms: c.zooms || {},
   // Solo se manda si quien guarda eligió dueño (un director asignando a uno de
   // sus agentes). Si no va, la base pone auth.uid() por defecto. El RLS valida
   // que el dueño elegido sea de su equipo: no se puede regalar a un ajeno.

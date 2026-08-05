@@ -15,7 +15,7 @@ import {
 } from "./state.js";
 import {
   cargarVentas, vInsert, vPatch, vDelete, abInsert, abPatch, abDelete,
-  notaInsert, notaDelete,
+  notaInsert, notaDelete, dbPatch,
 } from "./data.js";
 
 const yo = () => state.me?.id;
@@ -223,7 +223,14 @@ function cuerpo(v, sal, notas) {
       <button class="abx" data-abdel="${a.id}" title="Borrar este abono">✕</button>
     </div>`).join("");
 
-  const zoom = (lbl, fecha, est) => {
+  // El embudo es de la PERSONA, no de esta venta: la presentación pasa antes de
+  // que la venta exista, y con un upgrade había dos filas repitiendo el mismo
+  // embudo. Se lee del cliente; si ya no está en la lista, no se pinta nada
+  // en vez de inventar un embudo vacío.
+  const cli = state.clientes.find(x => x.id === v.cliente_id);
+  const zs = (cli || {}).zooms || {};
+  const zoom = (k, lbl) => {
+    const { f: fecha, e: est } = zs[k] || {};
     const cls = est === "hecha" ? "ok" : est === "no_asistio" ? "no" : fecha ? "now" : "";
     const ic = est === "hecha" ? "✓" : est === "no_asistio" ? "✕" : "·";
     return `<div class="paso ${cls}"><span class="dot">${ic}</span>${lbl}
@@ -255,9 +262,9 @@ function cuerpo(v, sal, notas) {
     </div>`}
 
     <div class="pasos">
-      ${zoom("Presentación", v.pres_fecha, v.pres_estado)}
-      ${zoom("1 a 1", v.uno_fecha, v.uno_estado)}
-      ${zoom("Cierre", v.cierre_fecha, v.cierre_estado)}
+      ${zoom("pres", "Presentación")}
+      ${zoom("uno", "1 a 1")}
+      ${zoom("cierre", "Cierre")}
     </div>
 
     <div class="acciones">
@@ -525,9 +532,11 @@ export function abrirVenta(v = null) {
   set("vfOtro", v && !v.producto_id ? v.producto_nombre : "");
   set("vfValor", v?.valor); set("vfComision", v?.comision);
   set("vfTipo", v?.tipo || "agendado"); set("vfFechaPago", v?.fecha_pago);
-  set("vfPres", (v?.pres_fecha || "").slice(0, 10));
-  set("vfUno", (v?.uno_fecha || "").slice(0, 10));
-  set("vfCierre", (v?.cierre_fecha || "").slice(0, 10));
+  // Las tres fechas del embudo salen del CLIENTE, no de la venta.
+  const zc = (state.clientes.find(x => x.id === v?.cliente_id) || {}).zooms || {};
+  set("vfPres", (zc.pres || {}).f || "");
+  set("vfUno", (zc.uno || {}).f || "");
+  set("vfCierre", (zc.cierre || {}).f || "");
   set("vfAbono", "");
   $("vfPagada").checked = false;
   $("vfHint").classList.add("hidden");
@@ -585,16 +594,28 @@ $("vGuardar").onclick = async () => {
     es_upgrade: esUp, nivel_origen: esUp ? c.mem : null,
     valor, comision: Number($("vfComision").value) || 0,
     tipo: $("vfTipo").value, fecha_pago: $("vfFechaPago").value || null,
-    pres_fecha: $("vfPres").value || null, uno_fecha: $("vfUno").value || null,
-    cierre_fecha: $("vfCierre").value || null,
   };
-  // Poner fecha a un zoom lo da por hecho: no hay por qué marcarlo dos veces.
-  ["pres", "uno", "cierre"].forEach(k => {
-    if (campos[`${k}_fecha`]) campos[`${k}_estado`] = "hecha";
+
+  // El embudo se guarda en el CLIENTE, aparte de la venta. Poner fecha a un
+  // zoom lo da por hecho: no hay por qué marcarlo dos veces. Vaciarla borra la
+  // etapa, salvo que ya estuviera en «no asistió», que es un dato que el agente
+  // puso a mano y no se pisa desde aquí.
+  const zPrev = c.zooms || {};
+  const zNuevo = {};
+  [["pres", "vfPres"], ["uno", "vfUno"], ["cierre", "vfCierre"]].forEach(([k, id]) => {
+    const f = $(id).value || "";
+    if (f) zNuevo[k] = { f, e: zPrev[k]?.e === "no_asistio" ? "no_asistio" : "hecha" };
+    else if (zPrev[k]?.e === "no_asistio") zNuevo[k] = zPrev[k];
   });
 
   $("vGuardar").disabled = true;
   try {
+    // El embudo va al cliente antes que la venta: es de la persona y vale
+    // aunque la venta no llegue a guardarse.
+    if (JSON.stringify(zNuevo) !== JSON.stringify(zPrev)) {
+      c.zooms = zNuevo;
+      await dbPatch(c, { zooms: zNuevo });
+    }
     if (state.ventaEdit) {
       if (!(await vPatch(state.ventaEdit.id, campos))) return;
       Object.assign(state.ventaEdit, campos);

@@ -799,6 +799,19 @@ body.segwide .tabinner{max-width:1180px}
 .punbody{padding:0 12px 8px}
 .punbody .actrow:last-child{border-bottom:none}
 
+/* Embudo de venta en el perfil. Mismo acordeón que las puntuales, pero con dos
+   controles por fila (estado + fecha), así que la fila reparte el ancho en vez
+   de dejar el <select> estirado a todo lo largo. */
+.zoomacc .msgshelp{padding:8px 0 4px}
+/* Envuelve en vez de desbordarse: en celular el nombre de la etapa + el estado
+   + la fecha no caben en un renglón, y sin `wrap` la fecha se salía del
+   recuadro. `min-width:0` es lo que deja encoger a los controles dentro del
+   flex; sin él no ceden y el wrap no alcanza. */
+.zrow{gap:8px;flex-wrap:wrap}
+.zrow .an{flex:1 1 110px;min-width:0}
+.zrow select{width:auto;flex:0 1 auto;min-width:0;padding:6px 8px;font-size:.8rem}
+.zrow input[type=date]{flex:0 1 auto;min-width:0}
+
 .alerta.nueva{background:rgba(78,203,141,.07);border-color:rgba(78,203,141,.38);
   position:relative;padding-right:40px}
 .alerta.nueva .at{color:var(--ok)}
