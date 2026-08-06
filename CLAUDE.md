@@ -171,6 +171,32 @@ registra el clic, marca asistencia y redirige.
   recibió; quien entre con un enlace que ya tenía no genera clic; y el agente
   que abra el enlace para probarlo le marca asistencia a ese cliente.
 
+### Programar: nadie marcado por defecto, y confirmación siempre
+
+**Dos veces se programó a 40+ personas de un clic sin querer.** El 05/08 quedó
+probado con los tiempos de `seguimientos`: cuatro filas con 932 s, 72 s y 38 s
+de separación —el agente yendo uno por uno— y de pronto **43 más en el mismo
+milisegundo**. Eso no es lentitud humana: es una sola llamada masiva.
+
+La causa eran dos piezas que por separado parecían inofensivas:
+
+1. Al abrir el panel se **pre-marcaba a todos** los que faltaban (`segSel` se
+   llenaba en `mostrarProg`).
+2. **El buscador oculta pero no desmarca.** Con un nombre escrito se ve una
+   fila, pero `segSel` sigue teniendo a los otros 43 — y `programar()` encola la
+   SELECCIÓN, no lo visible.
+
+Buscar un nombre y darle «Programar» mandaba, entonces, a todo el mundo. La red
+de duplicados no saltaba porque en la primera tanda nadie tenía seguimiento aún.
+
+- **`segSel` nace vacío.** Para invitar a varios está «Marcar visibles», que sí
+  respeta el filtro. El masivo silencioso dejó de ser el camino por defecto.
+- **`confirm()` antes de encolar, siempre**, con el número y los primeros ocho
+  nombres. Es la única forma de enterarse de a cuántos se le va a escribir de
+  verdad, porque lo seleccionado y lo visible pueden no coincidir. El aviso de
+  duplicados se pliega en ese mismo diálogo en vez de abrir un segundo.
+- `faltantes()` quedó sin uso y se eliminó — la trampa de la columna muerta.
+
 ### Envíos masivos: progreso y cancelación
 
 `campanas` se escribía y **nunca se leía**: un masivo salía y desaparecía de la

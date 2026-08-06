@@ -701,12 +701,6 @@ async function cargarActividades() {
 // lo agregó: eso no se hace. Cada quien escribe a los suyos.
 const mios = () => state.clientes.filter(c => c.tel && c.owner_id === state.me.id);
 
-// A quienes les falta la actividad. Sin servicio (actividad puntual) no hay
-// asistencia que consultar: entran todos los que tengan teléfono.
-function faltantes(sid) {
-  return mios().filter(c => !sid || !c.acc[sid]);
-}
-
 // Universo elegible para programar: los que faltan, y —si el toggle está
 // activo— también quienes ya asistieron (para reinvitarlos).
 function elegibles(sid) {
@@ -752,11 +746,13 @@ async function seleccionarActividad(a) {
   renderSegmentos();
 
   await cargarYaProgramados(a.id);
-  // Por defecto: la comunidad que le falta la actividad (no Leads) y a la que
-  // NO se le haya programado ya. Repetir sería mandarle todo dos veces.
-  segSel = new Set(faltantes(a.servicio_id)
-    .filter(c => !esLeadMem(c.mem) && !segYaProg.has(c.id))
-    .map(c => c.id));
+  // NADIE marcado por defecto. Antes se pre-marcaban todos los que faltaban, y
+  // eso —combinado con que el buscador oculta pero no desmarca— hacía que
+  // buscar un nombre y darle «Programar» encolara a TODA la selección oculta,
+  // no a quien se veía. Dos veces se programó a 40+ personas de un clic sin
+  // querer. Para invitar a todos está «Marcar visibles»; el masivo silencioso
+  // ya no es el camino por defecto.
+  segSel = new Set();
   renderFaltan();
   $("segProgBloque").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
@@ -892,15 +888,24 @@ async function programar() {
   const seleccion = elegibles(actSel.servicio_id).filter(c => segSel.has(c.id));
   if (!seleccion.length) { toast("No hay nadie seleccionado"); return; }
 
-  // Última red antes de duplicar: si alguien marcado ya tiene seguimiento para
-  // esta actividad, recibiría todo dos veces.
+  // Confirmación SIEMPRE, con el número y algunos nombres. Es la red que faltó:
+  // el buscador oculta a los seleccionados que no coinciden, así que la única
+  // forma de saber a cuántos se les va a escribir de verdad es contar la
+  // selección entera aquí y decírselo antes de encolar nada.
+  const n = seleccion.length;
+  const primeros = seleccion.slice(0, 8).map(c => c.nombre.split(" ")[0]).join(", ");
+  const mas = n > 8 ? ` y ${n - 8} más` : "";
+  let aviso = `Vas a programar los mensajes de «${actSel.nombre}» para ${n} persona${n === 1 ? "" : "s"}:\n${primeros}${mas}.`;
+  // La advertencia de duplicados se pliega en el mismo aviso en vez de abrir un
+  // segundo diálogo: si alguien marcado ya tiene seguimiento, recibiría todo
+  // dos veces.
   const repetidos = seleccion.filter(c => segYaProg.has(c.id));
   if (repetidos.length) {
-    const quienes = repetidos.slice(0, 3).map(c => c.nombre.split(" ")[0]).join(", ");
-    const resto = repetidos.length > 3 ? ` y ${repetidos.length - 3} más` : "";
-    if (!confirm(`${repetidos.length} persona(s) ya tienen seguimiento para esta actividad (${quienes}${resto}).\n\n`
-               + `Si continúas les llegarán los mensajes DOS veces. ¿Programar de todas formas?`)) return;
+    aviso += `\n\n⚠ ${repetidos.length} de ell${repetidos.length === 1 ? "a/o" : "as/os"} ya `
+           + `tien${repetidos.length === 1 ? "e" : "en"} seguimiento para esta actividad y `
+           + `recibir${repetidos.length === 1 ? "ía" : "ían"} los mensajes DOS veces.`;
   }
+  if (!confirm(aviso + `\n\n¿Programar?`)) return;
 
   // Si se difirió la invitación, debe caer entre ahora y el inicio de la actividad.
   // (No aplica si no se va a enviar invitación.)
