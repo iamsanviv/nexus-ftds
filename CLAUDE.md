@@ -779,6 +779,10 @@ comportamiento, decirlo en vez de asumirlo. **El detalle completo vive en
   internet**: es un endpoint que manda WhatsApp a nombre de un agente.
 - **Tres canales llevan días caídos** a medio vincular: Valery (28/07), Majo
   (30/07), Felipe (31/07). Esos tres agentes no pueden enviar nada.
+- **La VM2 está en pausa y no se debe mover a nadie más allá** hasta aplicar el
+  parche de `worker.py` que está escrito en `contexto-worker.md`. Faltan dos
+  cosas: copiarle el archivo de imagen al bridge remoto (hoy las imágenes fallan
+  al 100 % desde la VM2) y enrutar por `owner_id` en vez de por puerto.
 - **Cobro por uso**: la medición ya existe (`mensajes_programados` por
   `owner_id`) y el worker ya trae un tope duro por agente (`TOPE_DIARIO=220`),
   pero ese es de protección, igual para todos. Falta tabla de suscripción, que

@@ -140,6 +140,116 @@ obliga a una segunda máquina: es la IP** — 20 sesiones de WhatsApp saliendo d
 
 `✓` = enviado · `⚠` = error · `⨯` = saltado/cancelado · `↻` = reintento MX.
 
+## Repartir bridges en dos VM: qué se hizo y qué costó
+
+El paso de `host` **ya está aplicado** (06/08). Pero la migración de tres agentes
+a la VM2 destapó dos defectos que hay que entender antes de volver a intentarlo.
+
+### DEFECTO 1 — el mapa de máquinas se indexó por PUERTO (le costó un número)
+
+El cambio aplicado guarda el host en un diccionario aparte:
+
+```python
+HOST_POR_PUERTO = {c.get("puerto"): (c.get("host") or "localhost") for c in filas}
+```
+
+**Indexar por puerto solo es válido con UNA máquina.** Con dos, Sofía Muñoz quedó
+en `localhost:8092` y Leonardo en `10.0.0.23:8092`: una entrada pisó a la otra y
+los mensajes de Leonardo salieron **por el WhatsApp de Sofía**, a 35 contactos que
+ella no tenía. 173 mensajes. WhatsApp le bloqueó el número.
+
+- **Venda aplicada**: índice único sobre `canales_wa.puerto`
+  (`sql/2026-08-06_13_canales_wa_puerto_unico.sql`). Un puerto repetido ahora
+  falla al escribir en vez de cruzar envíos en silencio.
+- **Cura pendiente**: que el worker enrute por `owner_id`, que es lo único único
+  de verdad. Requiere tocar `puerto_de()` y `procesar_agente()` para que el host
+  viaje junto al puerto. Cuando se haga, **quitar el índice**: con enrutamiento
+  por dueño, dos máquinas pueden reutilizar números de puerto sin problema.
+
+La lección general: **un identificador solo es único dentro del alcance donde se
+creó.** El puerto identificaba un bridge mientras hubo un solo host.
+
+### DEFECTO 2 — worker y bridge compartían disco sin que nadie lo dijera
+
+El worker baja la imagen a un temporal **suyo** (`descargar_media()` →
+`/tmp/nexus_media_*.jpeg`) y le pasa al bridge la RUTA. Funcionaba porque eran
+vecinos. Con el bridge en otra máquina:
+
+```
+Error reading media file: open /tmp/nexus_media__3hdp8gh.jpeg: no such file
+```
+
+Los mensajes de solo texto salen bien; **los que llevan imagen fallan al 100 %**.
+
+Confirmado leyendo el bridge de `lharries/whatsapp-mcp`, de donde salió el
+binario: su API **solo acepta una ruta local**, ni URL ni subida multipart.
+
+```go
+type SendMessageRequest struct {
+    Recipient string `json:"recipient"`
+    Message   string `json:"message"`
+    MediaPath string `json:"media_path,omitempty"`
+}
+```
+
+Así que la única vía sin recompilar el bridge es **copiarle el archivo antes**.
+
+#### Parche listo para aplicar (no aplicado aún)
+
+En el encabezado, junto a los demás `import`:
+
+```python
+import subprocess
+LLAVE_SSH = os.environ.get("LLAVE_SSH", "/home/ubuntu/.ssh/vm2.key")
+```
+
+Una función nueva, antes de `_post_bridge`:
+
+```python
+def _copiar_media(host, ruta):
+    """Deja el archivo temporal en la MISMA ruta de la otra máquina. El bridge
+    solo sabe leer rutas locales, así que sin esto una imagen a un bridge remoto
+    falla siempre. Se copia a /tmp, que se limpia solo."""
+    try:
+        subprocess.run(
+            ["scp", "-i", LLAVE_SSH,
+             "-o", "StrictHostKeyChecking=accept-new",
+             "-o", "UserKnownHostsFile=/home/ubuntu/.ssh/known_hosts",
+             "-o", "ConnectTimeout=10",
+             ruta, f"ubuntu@{host}:{ruta}"],
+            check=True, capture_output=True, timeout=60)
+        return True, None
+    except Exception as e:
+        return False, str(e)[:200]
+```
+
+Y dentro de `_post_bridge`, justo después de resolver el host:
+
+```python
+    host = HOST_POR_PUERTO.get(puerto) or "localhost"
+    # Si el bridge vive en otra máquina, el temporal que bajó ESTE worker no
+    # existe allá. Copiarlo primero; si no se puede, fallar con un motivo claro
+    # en vez de dejar que el bridge diga "no such file".
+    if media_path and host not in ("localhost", "127.0.0.1"):
+        ok, err = _copiar_media(host, media_path)
+        if not ok:
+            return False, f"no pude copiar la imagen a {host}: {err}"
+    url = f"http://{host}:{puerto}/api/send"
+```
+
+**Requisitos**: que `/home/ubuntu/.ssh/vm2.key` exista en la VM1 y que el worker
+(corre como `ubuntu`) pueda leerla. Ya está puesta.
+
+**Riesgo asumido**: mete una llamada a `scp` dentro del camino de envío. Con
+`ConnectTimeout=10` y `timeout=60` acotados, un fallo de red demora a ESE agente,
+no a los demás (cada uno va en su propio hilo).
+
+### Estado al 07/08: la VM2 está en pausa
+
+Los tres agentes de Juana volvieron a la VM1 salvo Leonardo, que quedó en la VM2
+(texto sí, imágenes no). **No mover a nadie más allá hasta aplicar el parche de
+media y, preferiblemente, el enrutamiento por `owner_id`.**
+
 ## Lo que falta para repartir bridges en dos VM
 
 Está confirmado que **el worker le marca al bridge** (no al revés), así que el
