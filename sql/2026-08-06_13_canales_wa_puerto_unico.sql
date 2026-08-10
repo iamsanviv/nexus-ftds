@@ -35,24 +35,27 @@
 --  Convierte ese fallo silencioso en uno ruidoso: repetir un puerto ahora
 --  revienta al escribir, en vez de cruzar los envíos entre agentes.
 --
---  ES UNA VENDA, NO LA CURA. La cura es que el worker enrute por
---  `owner_id` —lo único único de verdad— pasando el host junto al puerto
---  a través de `puerto_de()` y `procesar_agente()`. El parche está escrito
---  en `contexto-worker.md`, pendiente de aplicar.
+--  ERA UNA VENDA; LA CURA YA SE APLICÓ. Desde el 08-08 el worker enruta por
+--  `owner_id` (mapa `HOST_POR_OWNER` + `_ctx.host` por hilo, fijado en
+--  `procesar_agente()`; sin host resuelto NO envía). Con eso el índice ya no
+--  hace falta para que el sistema sea correcto.
 --
---  CUANDO SE APLIQUE ESA CURA, QUITAR ESTE ÍNDICE:
+--  DECISIÓN (08-10): EL ÍNDICE SE QUEDA de todos modos. Es una red barata
+--  contra la falla exacta que costó un número: mientras los puertos sean
+--  únicos entre las dos VM —trivial con <20 agentes—, una regresión en la
+--  lógica de enrutamiento del worker no puede volver a cruzar envíos. El
+--  único costo es no reutilizar el mismo número de puerto en VM1 y VM2, que
+--  no cuesta nada. Solo reconsiderar si algún día se audita `worker.py` y se
+--  confirma el enrutamiento por dueño a prueba de balas.
 --
---      drop index public.canales_wa_puerto_unico;
---
---  Con enrutamiento por dueño, dos máquinas pueden reutilizar el mismo
---  número de puerto sin ningún problema, y este índice estorbaría.
+--  Para quitarlo, llegado ese caso:  drop index public.canales_wa_puerto_unico;
 -- =====================================================================
 
 create unique index if not exists canales_wa_puerto_unico
   on public.canales_wa (puerto);
 
 comment on index public.canales_wa_puerto_unico is
-  'Temporal: el worker indexa host por puerto, así que un puerto repetido cruza los envíos entre agentes. Quitar cuando worker.py enrute por owner_id.';
+  'Red de seguridad: aunque el worker ya enruta por owner_id (08-08), se mantiene para que un puerto repetido entre las dos VM sea imposible por construcción. Costó un número de WhatsApp cuando faltaba.';
 
 -- Reasignación que se hizo junto con el índice, para poder crearlo:
 --   Sofía Muñoz  8092 → 8192  (canal no vinculado, número bloqueado)

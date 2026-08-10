@@ -685,11 +685,12 @@ comportamiento, decirlo en vez de asumirlo. **El detalle completo vive en
 | Ritmo | `PAUSA_MIN/MAX=4–8` s entre mensajes del **mismo** agente · `ARRANQUE_MAX=45` s de desfase inicial |
 | Topes | `LOTE_MAX=40` por agente y ciclo · `TOPE_DIARIO=220` por agente y día |
 
-- **El worker LE MARCA al bridge** (API REST, enrutado por `puerto` desde
-  `canales_wa`). Esto es lo que decide todo lo de varias máquinas: hoy le basta
-  `localhost:<puerto>` porque son vecinos. Se había deducido de la base antes de
-  saberlo —los tres canales muertos tenían `actualizado` avanzando cada ~30 s, y
-  un proceso muerto no reescribe su propia fila— y quedó confirmado.
+- **El worker LE MARCA al bridge** (API REST, enrutado por **`owner_id → (host,
+  puerto)`** desde `canales_wa`, desde el 08-08). Con dos VM ya en uso arma
+  `http://{host}:{puerto}`: `localhost` para VM1 y `10.0.0.23` para VM2. Se había
+  deducido de la base antes de saberlo —los canales muertos tenían `actualizado`
+  avanzando cada ~30 s, y un proceso muerto no reescribe su propia fila— y quedó
+  confirmado.
 - **Un solo worker, siempre.** `mensajes_programados` no tiene columna de
   reclamo (ni `tomado_por`, ni lease, ni `intentos`), así que dos procesos
   leyendo la misma cola toman la misma fila y el cliente recibe el mensaje dos
@@ -710,9 +711,10 @@ comportamiento, decirlo en vez de asumirlo. **El detalle completo vive en
   segunda máquina es la **IP**: 20 sesiones de WhatsApp saliendo de
   `141.148.40.31`. El propio worker ya lo reconoce — `ARRANQUE_MAX` existe para
   que varios agentes no disparen en el mismo segundo *desde la misma IP*.
-- `canales_wa.host` (04/08) es lo que falta del lado de la base: el worker
-  armaría `host:puerto` en vez de `localhost:puerto`. **Todavía no la lee** —
-  ese cambio va en su código.
+- `canales_wa.host` (04/08) **ya se usa** (08-08): el worker la lee y arma
+  `http://{host}:{puerto}`. Junto con la copia SSH del temporal de imagen al
+  bridge remoto, es lo que hizo operativa la VM2. El índice único de `puerto` se
+  mantiene como red de seguridad contra colisiones entre las dos VM.
 - El bridge 8080 no entra en el barrido (su `actualizado` quedó congelado el
   22/07) porque es **el bridge viejo de Santiago**. Ya no es un misterio.
 - **La tabla de puertos que anda circulando está desactualizada**: dice «8081
@@ -769,20 +771,21 @@ comportamiento, decirlo en vez de asumirlo. **El detalle completo vive en
   previsualización, validación y el bucket acepta los tipos—; para reactivarlo
   se devuelven `video/mp4,video/quicktime` al `accept` del input y a `TIPOS_OK`.
 - **El CSV no lleva las asistencias puntuales** (`clientes.puntuales`).
-- **Falta que el worker LEA `canales_wa.host`.** La columna existe desde el
-  04/08 y hoy vale `localhost` en las nueve filas, así que no cambia nada — es
-  decir, es una **columna inerte**, la trampa de `imagen_url` otra vez. Se
-  agregó para poder repartir los bridges en varias máquinas (por IP, no por
-  memoria). Del lado de la base ya está todo; en `worker.py` falta pedir `host`
-  en el `select` de `canales_wa` y armar `f"http://{host}:{puerto}"`, y que las
-  dos VM se vean por red privada. **Nunca exponer el puerto de un bridge a
-  internet**: es un endpoint que manda WhatsApp a nombre de un agente.
-- **Tres canales llevan días caídos** a medio vincular: Valery (28/07), Majo
-  (30/07), Felipe (31/07). Esos tres agentes no pueden enviar nada.
-- **La VM2 está en pausa y no se debe mover a nadie más allá** hasta aplicar el
-  parche de `worker.py` que está escrito en `contexto-worker.md`. Faltan dos
-  cosas: copiarle el archivo de imagen al bridge remoto (hoy las imágenes fallan
-  al 100 % desde la VM2) y enrutar por `owner_id` en vez de por puerto.
+- **El worker YA lee `canales_wa.host` y enruta por `owner_id`** (08-08). La
+  columna dejó de ser inerte: Leonardo y María José envían desde la VM2
+  (`10.0.0.23`). Detalle en `contexto-worker.md`.
+- **Dos canales de VM1 siguen caídos** a medio vincular: Valery (28/07), Majo
+  (30/07). No pueden enviar hasta revincular. (Felipe Narvaez se dio de baja; su
+  bridge se apagó.)
+- **La VM2 está operativa** (08-10). Leonardo y María José corren allá; probado
+  hoy con tráfico real que texto e imágenes salen bien y solo a los clientes de
+  cada quien (los dos defectos que costaron el número de Sofía están resueltos:
+  enrutamiento por `owner_id` + copia SSH de la imagen al bridge remoto). El
+  índice único de `canales_wa.puerto` se mantiene como red de seguridad. Falta
+  solo: (a) el primer envío real de María José como confirmación —su config es
+  idéntica a la ya probada de Leonardo—, y (b) que Laura escanee el QR para pasar
+  de VM1 a VM2 (su sesión no era portable). El instructivo de alta de agentes en
+  VM2 quedó en `contexto-worker.md`.
 - **Cobro por uso**: la medición ya existe (`mensajes_programados` por
   `owner_id`) y el worker ya trae un tope duro por agente (`TOPE_DIARIO=220`),
   pero ese es de protección, igual para todos. Falta tabla de suscripción, que

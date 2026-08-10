@@ -1,6 +1,6 @@
 # Contexto: worker de envíos de Nexus (VM Oracle)
 
-> Última actualización: 2026-08-04
+> Última actualización: 2026-08-10
 
 **El worker no vive en este repositorio** — es otro proyecto, en otra VM — pero
 lo de acá decide cosas de este lado (el RLS de `canales_wa`, la columna `host`,
@@ -45,7 +45,7 @@ Cada ciclo (cada `CICLO_SEG` = 20 s):
 
 1. Trae la cola de todos los agentes (hasta 600).
 2. La **agrupa por `owner_id`** y lanza **un hilo por agente** (`procesar_agente`).
-3. Cada agente envía por SU propio bridge (enrutado por puerto vía tabla `canales_wa`), con su propio ritmo humano. Los agentes no hacen fila entre ellos.
+3. Cada agente envía por SU propio bridge (enrutado por **`owner_id → (host, puerto)`** vía tabla `canales_wa`), con su propio ritmo humano. Los agentes no hacen fila entre ellos.
 
 Antes había un solo carril global (una pausa entre mensajes de toda la oficina),
 lo que hacía que con varias actividades a la misma hora el enlace saliera hasta
@@ -71,36 +71,36 @@ el canal del dueño está `vinculado`; si no, marca el mensaje como error (nunca
 manda desde otro número). Cada bridge es un binario Go (whatsmeow) que mantiene la
 sesión de WhatsApp en su carpeta `store/`.
 
-Hoy el worker le marca al bridge por `localhost:<puerto>` porque los dos viven en
-la misma VM. La columna `canales_wa.host`
-(`sql/2026-08-04_11_canales_wa_host.sql`) existe para el día en que deje de ser
-así — hoy vale `localhost` en las doce filas y **el worker todavía no la lee**.
+**Desde el 08-08 el worker lee `host` y enruta por `owner_id`** (ver «Repartir
+bridges en dos VM», más abajo): arma la URL como `http://{host}:{puerto}`. Con eso
+un bridge puede vivir en otra máquina. Hoy hay dos VM en juego:
 
-### 12 bridges — confirmado en `canales_wa` (2026-08-04, 22:26 UTC)
+- **VM1** `nexus-cloud` (`141.148.40.31`) — el worker y la mayoría de bridges. `host = localhost`.
+- **VM2** (`10.0.0.23`, red privada) — bridges de Juana. `host = 10.0.0.23`.
 
-| Puerto | Agente | Estado | Última señal |
-|---|---|---|---|
-| 8080 | Santiago Viveros (bridge viejo) | vinculado | — no entra en el barrido |
-| 8081 | Evelin Gomez | vinculado | hoy 22:26 |
-| 8082 | Juan Pablo Castro | vinculado | hoy 22:26 |
-| 8083 | fabian florez | vinculado | hoy 22:26 |
-| 8084 | Daniel | vinculado | hoy 22:26 |
-| 8085 | Majo Guzman | **vinculando** | 30/07 — caído |
-| 8086 | Felipe Narvaez | **vinculando** | 31/07 — caído |
-| 8087 | Valery Gallo | **vinculando** | 28/07 — caído |
-| 8088 | Brayan Monje | vinculado | hoy 22:26 |
-| 8089 | Jose Leonardo Angarita Lara | vinculado | hoy 22:26 |
-| 8090 | María José L | vinculado | hoy 22:26 |
-| 8091 | Laura Daniela Duarte | vinculado | hoy 22:26 |
+### Bridges — confirmado en `canales_wa` (2026-08-10)
 
-Próximo puerto libre: **8092**.
+| Puerto | Host | Agente | Estado | Nota |
+|---|---|---|---|---|
+| 8080 | localhost | Santiago Viveros (bridge viejo) | vinculado | no entra en el barrido (señal congelada 22/07) |
+| 8081 | localhost | Evelin Gomez | vinculado | VM1, vivo |
+| 8082 | localhost | Juan Pablo Castro | vinculando | VM1 |
+| 8083 | localhost | fabian florez | vinculado | VM1, vivo |
+| 8084 | localhost | Daniel | vinculado | VM1, vivo (envió imágenes hoy) |
+| 8085 | localhost | Majo Guzman | **solicitado** | caído |
+| 8087 | localhost | Valery Gallo | **vinculando** | caído |
+| 8088 | localhost | Brayan Monje | vinculado | VM1, vivo |
+| 8091 | localhost | Laura Daniela Duarte | vinculado | **sigue en VM1** — su sesión no era portable, falta que escanee QR para pasar a VM2 |
+| 8092 | **10.0.0.23** | Jose Leonardo Angarita Lara | vinculado | **VM2** — probado hoy: texto e imágenes OK, a sus propios clientes |
+| 8093 | **10.0.0.23** | María José L | vinculado | **VM2** — bridge vivo; config idéntica a la de Leonardo, pendiente su primer envío real |
+| 8192 | localhost | Sofía Muñoz | vinculando | **número bloqueado por WhatsApp** (ver DEFECTO 1); aislada aquí para que no colisione |
 
-Los últimos tres (8089–8091) son los agentes que pasaron a colgar de Juana
-Lamilla el 04/08: ya tienen bridge propio y vinculado, operativos sin nada
-pendiente de este lado.
+- **Felipe Narvaez (juan_narvaez, 8086) ya no está** — dado de baja; su bridge se apagó.
+- **Sofía (8192)**: se movió de 8092 a 8192 tras el incidente. Su número sigue
+  bloqueado, por eso no pasa de `vinculando`.
 
-**Tres canales llevan días caídos** a medio vincular (Valery, Majo, Felipe).
-Esos tres agentes no pueden enviar nada.
+**Dos canales de VM1 siguen caídos** a medio vincular (Valery, Majo). Esos
+agentes no pueden enviar nada hasta revincular.
 
 **Ojo con los nombres.** La tabla de puertos que circula por fuera dice «8081 →
 Tatiana» y «8090 → María José Lamilla»; la base dice **Evelin Gómez** y
@@ -109,7 +109,7 @@ Tatiana» y «8090 → María José Lamilla»; la base dice **Evelin Gómez** y
 ## Detalles de envío
 
 - **México**: reintento automático que alterna el `1` tras el código 52 si da "no LID found". Ya existe — que aun así haya causado 18 % de fallos en un agente significa que **el reintento no alcanza**, no que falte.
-- **Imágenes**: se resuelve la imagen actual del servicio al enviar (no se congela al programar).
+- **Imágenes**: se resuelve la imagen actual del servicio al enviar (no se congela al programar). Si el bridge del dueño está en otra VM, el temporal se copia por SSH antes de mandar (ver DEFECTO 2).
 - **Enlace**: el token `{enlace}` se resuelve al enviar; si a esa hora no hay enlace, el mensaje se omite.
 - **Nota de voz**: la conversión a ogg/opus (PTT) existe en el worker, pero la UI está **oculta en producción** porque WhatsApp rechaza el audio al reproducir (bug pendiente).
 - **Video**: el worker **no tiene rama de video** — reconoce extensiones de imagen y manda todo lo demás como nota de voz, así que un `.mp4` le llega al cliente como PTT. Por eso el video está desactivado en Masivo. Falta una línea acá: detectar `video/*` y mandarlo como video.
@@ -142,12 +142,14 @@ obliga a una segunda máquina: es la IP** — 20 sesiones de WhatsApp saliendo d
 
 ## Repartir bridges en dos VM: qué se hizo y qué costó
 
-El paso de `host` **ya está aplicado** (06/08). Pero la migración de tres agentes
-a la VM2 destapó dos defectos que hay que entender antes de volver a intentarlo.
+El paso de `host` se aplicó el 06/08 y la migración de tres agentes a la VM2
+destapó dos defectos que costaron un número de WhatsApp. **Los dos ya están
+resueltos y probados con tráfico real el 08-10** (ver «Estado al 08-10»); se
+dejan escritos porque explican por qué el worker quedó como quedó.
 
-### DEFECTO 1 — el mapa de máquinas se indexó por PUERTO (le costó un número)
+### DEFECTO 1 — el mapa de máquinas se indexó por PUERTO (le costó un número) · RESUELTO
 
-El cambio aplicado guarda el host en un diccionario aparte:
+El primer cambio guardaba el host en un diccionario indexado por puerto:
 
 ```python
 HOST_POR_PUERTO = {c.get("puerto"): (c.get("host") or "localhost") for c in filas}
@@ -158,18 +160,29 @@ en `localhost:8092` y Leonardo en `10.0.0.23:8092`: una entrada pisó a la otra 
 los mensajes de Leonardo salieron **por el WhatsApp de Sofía**, a 35 contactos que
 ella no tenía. 173 mensajes. WhatsApp le bloqueó el número.
 
-- **Venda aplicada**: índice único sobre `canales_wa.puerto`
+- **Venda (sigue puesta)**: índice único sobre `canales_wa.puerto`
   (`sql/2026-08-06_13_canales_wa_puerto_unico.sql`). Un puerto repetido ahora
   falla al escribir en vez de cruzar envíos en silencio.
-- **Cura pendiente**: que el worker enrute por `owner_id`, que es lo único único
-  de verdad. Requiere tocar `puerto_de()` y `procesar_agente()` para que el host
-  viaje junto al puerto. Cuando se haga, **quitar el índice**: con enrutamiento
-  por dueño, dos máquinas pueden reutilizar números de puerto sin problema.
+- **Cura (aplicada 08-08)**: el worker enruta por `owner_id`, que es lo único
+  único de verdad. El mapa pasó a `HOST_POR_OWNER = {c["owner_id"]: host …}` y el
+  host viaja al hilo del agente por un `threading.local()` (`_ctx.host`), fijado
+  en `procesar_agente()`. Si un agente no resuelve host, **no se envía** (`return
+  False, "sin host resuelto…"`) en vez de caer a un `localhost` que podría ser el
+  bridge de otro.
+
+**Decisión: el índice único se QUEDA**, aunque el plan original era quitarlo al
+enrutar por dueño. Con el enrutamiento por `owner_id` ya no hace falta para que
+el sistema sea correcto, pero es una red barata contra la falla exacta que costó
+un número: mientras los puertos sean únicos entre las dos VM (trivial con <20
+agentes), una regresión en la lógica de enrutamiento no puede volver a cruzar
+envíos. El único costo es no reutilizar el mismo número de puerto en VM1 y VM2 —
+que no cuesta nada. Si algún día se auditara `worker.py` y se confirmara el
+enrutamiento por dueño a prueba de balas, se puede reconsiderar.
 
 La lección general: **un identificador solo es único dentro del alcance donde se
 creó.** El puerto identificaba un bridge mientras hubo un solo host.
 
-### DEFECTO 2 — worker y bridge compartían disco sin que nadie lo dijera
+### DEFECTO 2 — worker y bridge compartían disco sin que nadie lo dijera · RESUELTO
 
 El worker baja la imagen a un temporal **suyo** (`descargar_media()` →
 `/tmp/nexus_media_*.jpeg`) y le pasa al bridge la RUTA. Funcionaba porque eran
@@ -194,7 +207,12 @@ type SendMessageRequest struct {
 
 Así que la única vía sin recompilar el bridge es **copiarle el archivo antes**.
 
-#### Parche listo para aplicar (no aplicado aún)
+#### Parche aplicado (08-08) — probado el 08-10
+
+Leonardo (VM2) envió **37 imágenes el 08-10, todas `enviado` y a clientes
+suyos**, después de que el 07/08 y el 08/08 fallaran al 100 % con «no such file».
+Esa es la prueba de que la copia funciona de punta a punta contra un bridge
+remoto. El código quedó así:
 
 En el encabezado, junto a los demás `import`:
 
@@ -223,10 +241,15 @@ def _copiar_media(host, ruta):
         return False, str(e)[:200]
 ```
 
-Y dentro de `_post_bridge`, justo después de resolver el host:
+Y dentro de `_post_bridge`, justo después de resolver el host **por dueño** (el
+host lo dejó `procesar_agente()` en el contexto del hilo, no se busca por puerto):
 
 ```python
-    host = HOST_POR_PUERTO.get(puerto) or "localhost"
+    host = getattr(_ctx, "host", None)
+    if not host:
+        # Sin host resuelto no se envía: caer a "localhost" podría mandar por el
+        # bridge de otro agente. Es exactamente la falla que costó el número.
+        return False, "sin host resuelto para este agente; no se envía por seguridad"
     # Si el bridge vive en otra máquina, el temporal que bajó ESTE worker no
     # existe allá. Copiarlo primero; si no se puede, fallar con un motivo claro
     # en vez de dejar que el bridge diga "no such file".
@@ -244,23 +267,56 @@ Y dentro de `_post_bridge`, justo después de resolver el host:
 `ConnectTimeout=10` y `timeout=60` acotados, un fallo de red demora a ESE agente,
 no a los demás (cada uno va en su propio hilo).
 
-### Estado al 07/08: la VM2 está en pausa
+### Estado al 08-10: la VM2 está operativa
 
-Los tres agentes de Juana volvieron a la VM1 salvo Leonardo, que quedó en la VM2
-(texto sí, imágenes no). **No mover a nadie más allá hasta aplicar el parche de
-media y, preferiblemente, el enrutamiento por `owner_id`.**
+Las tres verificaciones se cubrieron con **tráfico real de hoy**, no con envíos
+de prueba forzados:
 
-## Lo que falta para repartir bridges en dos VM
+| Prueba | Evidencia (08-10) | Resultado |
+|---|---|---|
+| Texto desde VM2 | Leonardo, 51 textos `enviado` el 08-08 | ✅ |
+| **Imagen desde VM2** | Leonardo, 37 imágenes `enviado`, **las 37 a clientes suyos** | ✅ |
+| Sin regresión en VM1 | Daniel, 40 imágenes `enviado` (localhost) | ✅ |
+| Regla de oro | 0 mensajes de Leonardo a clientes ajenos | ✅ |
+| Sin colisión de puertos | índice único puesto, 0 puertos repetidos | ✅ |
+| Cola limpia | 0 mensajes `pendiente` represados | ✅ |
 
-Está confirmado que **el worker le marca al bridge** (no al revés), así que el
-camino es el de `sql/2026-08-04_11_canales_wa_host.sql`:
+Queda un hueco menor, no de mecanismo:
 
-1. En el `select` que trae `canales_wa`, pedir también `host`.
-2. Donde arma la URL del bridge, cambiar `f"http://localhost:{puerto}"` por
-   `f"http://{host or 'localhost'}:{puerto}"` — el `or 'localhost'` es la red de
-   seguridad para no romper nada si `host` llegara vacío.
-3. Que las dos VM se vean por **red privada**. Nunca exponer el puerto de un
-   bridge a internet: es un endpoint que manda WhatsApp a nombre de un agente.
+- **María José (8093, VM2)**: bridge vivo y `vinculado`, con la MISMA config que la
+  de Leonardo (host `10.0.0.23`, puerto propio, mismo worker parcheado). Su
+  enrutamiento funcionará igual; falta solo su primer masivo/actividad para verlo
+  con datos.
+- **Laura (8091)**: sigue en VM1. Su sesión de WhatsApp no era portable (bridge
+  suelto, sin carpeta `store/` copiable), así que **falta que escanee el QR** del
+  bridge nuevo en VM2. Mientras tanto envía normal desde VM1.
 
-Del lado de la base ya está todo hecho. Falta solo el paso 1–2, y vive en
-`worker.py`.
+## Alta de un agente nuevo en la VM2 (runbook)
+
+Con el enrutamiento por `owner_id` y la copia de media ya probados, agregar un
+agente a la VM2 es repetible. Pasos, en orden:
+
+1. **Elegir puerto libre y global.** Mirar `canales_wa` y tomar el siguiente sin
+   usar (hoy el mayor operativo es 8093 → sigue 8094). **Único entre las dos VM**:
+   el índice `canales_wa_puerto_unico` lo exige y es a propósito (ver DEFECTO 1).
+2. **Levantar el bridge en VM2** en ese puerto, con su propia carpeta `store/`.
+3. **Escanear el QR** desde el WhatsApp del agente. Sin esto el canal se queda en
+   `vinculando` y el worker no le envía nada (marca error, nunca manda por otro).
+4. **Escribir su fila en `canales_wa`**: `owner_id` del agente, `puerto` elegido,
+   `host = '10.0.0.23'`, `estado` lo pone el bridge al vincular.
+5. **Verificar la señal**: `actualizado` debe avanzar cada ~30 s y `estado` llegar
+   a `vinculado`. Recién ahí está listo.
+6. **Confirmar con un envío real** (una invitación o un masivo chico) y revisar en
+   `mensajes_programados` que quede `enviado` y que el teléfono sea de un cliente
+   suyo. Para imágenes, que **no** aparezca «no such file» (probaría que la copia
+   SSH al `host` falló — revisar la llave `LLAVE_SSH` y la red privada).
+
+**Requisitos de red que no cambian**: las dos VM se ven por **red privada**
+(`10.0.0.0/24`); el puerto del bridge **nunca** se expone a internet — es un
+endpoint que manda WhatsApp a nombre del agente. La llave `LLAVE_SSH`
+(`/home/ubuntu/.ssh/vm2.key`) debe seguir permitiendo a la VM1 copiar temporales
+a la VM2 para las imágenes.
+
+**Límite real de la VM2**: como en la VM1, lo que aprieta no es la RAM sino la
+**IP** — cuántas sesiones de WhatsApp salen de `10.0.0.23`. Repartir por IP es
+justo para lo que existe la segunda máquina.
