@@ -656,6 +656,9 @@ public/
     ftd.js            Bloque de FTD en Personas, metas y cierre mensual
     stats.js, main.js
 sql/                  Migraciones documentadas (el estado real está en la base)
+mcp/oracle/           Servidor MCP de solo lectura contra la API de Oracle
+                      Cloud: instancias, cupo Always Free, métricas y costos.
+                      Python sin dependencias. Ver su README.
 contexto-worker.md    Cómo corre worker.py en la VM (no vive en este repo):
                       systemd, arquitectura paralelo-por-agente, parámetros,
                       enrutamiento por canales_wa, registro de bridges, salud
@@ -723,6 +726,52 @@ comportamiento, decirlo en vez de asumirlo. **El detalle completo vive en
 - El reintento de México **ya existe** en el worker (alterna el `1` tras el `52`
   cuando da `no LID found`). Que aun así haya causado 18 % de fallos significa
   que el reintento no alcanza, no que falte.
+
+## Mirar Oracle en vivo (`mcp/oracle/`)
+
+Servidor MCP de **solo lectura** contra la API de OCI, para preguntar por las VM
+sin abrir la consola: instancias, cupo Always Free, métricas y costos. Puesta en
+marcha y permisos, en `mcp/oracle/README.md`.
+
+- **Sin dependencias, a propósito.** El SDK `oci` pesa 36 MB y obliga a un
+  `pip install` en cada sitio donde corra (portátil, VM, entorno efímero de
+  Claude, que se reconstruye en cada sesión). La firma es RSA-SHA256 sobre un
+  texto armado a mano y Python trae de fábrica todo lo que hace falta.
+- **El límite real lo pone la política de Oracle, no este código.** El usuario
+  de API es de grupo `observadores` con `inspect`/`read` y nada más. Que aquí no
+  haya herramientas de escritura es la segunda capa, no la primera.
+- **La firma se probó verificándola con `cryptography`**, una implementación
+  ajena, porque desde el entorno de Claude no se puede llamar a Oracle. Es más
+  estricto que un «funcionó una vez».
+- **`*.oraclecloud.com` está BLOQUEADO en el entorno remoto de Claude** (el
+  proxy responde 403 al CONNECT). El servidor funciona desde el portátil; para
+  usarlo en la web hay que permitir ese dominio en la política de red del
+  entorno. Comprobado, no supuesto.
+- **El cupo se responde CONTANDO las instancias**, y solo después se contrasta
+  con la API de límites. Así «¿cabe otra VM gratis?» se contesta aunque esa API
+  cambie de ruta — que es lo único que no se pudo verificar contra Oracle.
+- **Las versiones de cada API viven juntas en la constante `API`**, porque son
+  lo único que envejece. Si algo da 404, el primer sospechoso es esa tabla y
+  `oci_get` sirve para tantear la ruta correcta sin editar código a ciegas.
+
+### La cuenta de Oracle: qué caducó y qué no (08-10)
+
+Llegó un correo de Oracle el 07/08 anunciando el fin del **Free Trial**. No
+afecta a las VM:
+
+- Lo que expiró son los **créditos de prueba** (los $300 / 30 días). **Always
+  Free es otra cosa y no caduca**, mientras la cuenta siga activa y los recursos
+  no lleven mucho tiempo ociosos (los bridges corriendo 24/7 bastan).
+- Las dos VM son `VM.Standard.E2.1.Micro`, que es justo el shape Always Free de
+  AMD. El tope de ese shape son **2**, así que **ese cupo está lleno**: no cabe
+  una tercera VM AMD gratis.
+- **Sí queda cupo ARM**: Ampere A1 regala 4 OCPU y 24 GB repartibles en hasta 4
+  instancias. Una VM3 saldría de ahí, con dos salvedades: el bridge habría que
+  compilarlo para **ARM**, y traería **otra IP** — que es precisamente el
+  recurso escaso, no la RAM.
+- Lo que sí se reclama a los 30 días es cualquier recurso creado con el crédito
+  de prueba que **no** sea Always Free. `oci_cupo_gratis` lo señala: lista
+  aparte lo que esté fuera de Always Free.
 
 ## Decisiones de seguridad que se relajaron a propósito
 

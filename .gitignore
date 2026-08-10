@@ -4,3 +4,14 @@ node_modules/
 *.log
 .env
 .claude/
+
+# Llaves privadas. Van aquí porque la llave de API de Oracle se descarga con
+# nombres poco memorables y vive cómodamente en la carpeta del proyecto: basta
+# un `git add .` distraído para publicarla. Que el repo la rechace por defecto.
+*.pem
+*.key
+oci_api_key*
+.oci/
+
+__pycache__/
+*.pyc
