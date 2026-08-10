@@ -79,12 +79,22 @@ def main():
     if not encabezados:
         print("    NINGUNO — un PEM debe traer '-----BEGIN ... KEY-----'.")
 
-    intrusos = sorted({c for l in cuerpo for c in l.replace(" ", "")
-                       if c not in VALIDOS})
-    if intrusos:
+    # Se cuentan, no solo se listan: UN carácter raro es corrupción puntual y
+    # MUCHOS es otro formato. Son dos problemas distintos con dos arreglos
+    # distintos, y el conteo es lo único que los separa.
+    import collections
+    cuenta = collections.Counter(
+        c for l in cuerpo for c in l.replace(" ", "") if c not in VALIDOS)
+    if cuenta:
         print("  Caracteres que no son base64 en el contenido:")
-        for c in intrusos[:10]:
-            print(f"    {c!r}  (U+{ord(c):04X})")
+        for c, veces in cuenta.most_common(10):
+            print(f"    {c!r}  (U+{ord(c):04X})  ×{veces}")
+        if set(cuenta) <= {"-", "_"} and sum(cuenta.values()) > 3:
+            print("  → Son solo '-' y '_', y hay varios: el archivo está en "
+                  "base64url. Se puede convertir; la carga ya lo intenta sola.")
+        elif sum(cuenta.values()) <= 3:
+            print("  → Son poquísimos: parece corrupción puntual, no otro "
+                  "formato. Lo fiable es regenerar la llave.")
     else:
         print("  Contenido: solo caracteres base64 válidos.")
 

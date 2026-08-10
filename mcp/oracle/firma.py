@@ -109,6 +109,19 @@ def cargar_llave(pem):
     try:
         der = base64.b64decode(cuerpo_b64, validate=True)
     except Exception as exc:
+        # Segundo intento en base64url ('-' y '_' en vez de '+' y '/'). Algunas
+        # herramientas guardan así. No es un riesgo aceptar las dos variantes:
+        # el resultado tiene que seguir siendo DER de una llave RSA válida, y si
+        # no fuera la llave correcta Oracle la rechaza con 401. Traducir a ciegas
+        # una llave rota no la vuelve buena, solo mueve el error un paso.
+        if set(cuerpo_b64) & {"-", "_"}:
+            try:
+                der = base64.b64decode(
+                    cuerpo_b64.replace("-", "+").replace("_", "/"),
+                    validate=True)
+                return _numeros_rsa(der)
+            except Exception:  # noqa: BLE001
+                pass
         # El mensaje tiene que DECIR qué estorba. «No está en base64 válido» deja
         # a oscuras delante de un archivo que uno no puede leer a ojo, y abrir la
         # llave privada para inspeccionarla es justo lo que no conviene hacer.
@@ -140,6 +153,58 @@ def cargar_llave(pem):
             "Lo más seguro es volver a generar la llave en la consola de Oracle "
             "(Perfil → API keys → Add API key → Generate) y descargarla sin "
             "abrirla con ningún editor.") from exc
+    return _numeros_rsa(der)
+
+
+def _comprobar_coherencia(enteros):
+    """Verifica que la llave sea internamente coherente: n = p·q.
+
+    Es la red que hace segura la lectura tolerante de más arriba. Un archivo con
+    un carácter cambiado puede decodificar igual y dar una llave que PARECE
+    válida —estructura DER correcta, enteros en su sitio— pero que no es la
+    llave. Sin esta comprobación eso sale como un 401 de Oracle, que manda a
+    revisar permisos y fingerprint cuando lo que pasa es que el archivo está
+    roto. El producto de los primos es la única prueba barata que lo distingue.
+
+    RSAPrivateKey es: version, n, e, d, p, q, dp, dq, qinv — nueve enteros
+    SIEMPRE. Por eso, si vienen menos, la conclusión no es «no se puede
+    comprobar» sino «está rota»: no verificar cuando falta información es
+    justamente como se cuela una llave equivocada.
+    """
+    aviso = (
+        "\n\nHay que generar una llave nueva en la consola de Oracle "
+        "(Perfil → API keys → Add API key → Generate) y descargarla sin "
+        "abrirla con ningún editor.")
+
+    if len(enteros) < 6 or not all(enteros[i] for i in (1, 4, 5)):
+        raise ErrorFirma(
+            "La llave está incompleta: se esperaban los nueve enteros de una "
+            f"llave RSA y se encontraron {len(enteros)}. El archivo está "
+            "truncado o alterado." + aviso)
+
+    n, e, d, p, q = enteros[1], enteros[2], enteros[3], enteros[4], enteros[5]
+    if p * q != n:
+        raise ErrorFirma(
+            "La llave está corrupta: sus dos primos no dan el módulo "
+            "(n ≠ p·q). El archivo se alteró en algún momento — no es un "
+            "problema de formato, le faltan o le sobran datos." + aviso)
+
+    # n = p·q no basta: si el carácter alterado cae dentro del exponente
+    # privado, los primos siguen cuadrando y la llave pasa el filtro siendo
+    # otra. Esta prueba cierra el círculo sobre lo que de verdad se usa para
+    # firmar: se firma un número y se verifica con el exponente público. Si
+    # no vuelve al original, `n` y `d` no son pareja.
+    if e and d:
+        muestra = 0xC0FFEE
+        if pow(pow(muestra, d, n), e, n) != muestra:
+            raise ErrorFirma(
+                "La llave está corrupta: su exponente privado no corresponde "
+                "al módulo, así que cualquier firma saldría inválida. El "
+                "archivo se alteró." + aviso)
+
+
+def _numeros_rsa(der):
+    """Saca (módulo, exponente privado) del DER de una llave RSA."""
     if len(der) < 8:
         raise ErrorFirma("El PEM está vacío o truncado tras decodificar.")
 
@@ -151,6 +216,7 @@ def cargar_llave(pem):
 
     # PKCS#1: version, n, e, d, ...  → el módulo es el segundo entero.
     if len(enteros) >= 4 and enteros[0] == 0 and enteros[1] is not None:
+        _comprobar_coherencia(enteros)
         return enteros[1], enteros[3]
 
     # PKCS#8: envuelve la RSAPrivateKey dentro de un OCTET STRING.
@@ -161,6 +227,7 @@ def cargar_llave(pem):
             _, cuerpo_rsa, _ = _leer_der(interno, 0)
             enteros = _enteros_de_secuencia(cuerpo_rsa)
             if len(enteros) >= 4:
+                _comprobar_coherencia(enteros)
                 return enteros[1], enteros[3]
 
     raise ErrorFirma("No se pudo extraer la llave RSA del PEM (¿formato raro?).")

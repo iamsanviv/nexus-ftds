@@ -162,6 +162,50 @@ try:
 except firma.ErrorFirma as exc:
     revisar("reconoce base64url", "base64url" in str(exc), str(exc))
 
+print("\n5d. Una llave alterada NO se carga como si fuera otra llave válida")
+# Esto nació de un caso real: al tolerar base64url, un PEM con un carácter
+# cambiado se «arreglaba» solo y cargaba una llave DISTINTA que parecía buena.
+# El síntoma era un 401 de Oracle, que manda a revisar permisos y fingerprint
+# cuando lo que pasa es que el archivo está roto. Se comprueba a lo bruto.
+import base64  # noqa: E402
+import random  # noqa: E402
+
+cuerpo_ok = "".join(l for l in pem_pkcs8.splitlines() if "-----" not in l)
+
+
+def envolver(cuerpo):
+    return ("-----BEGIN PRIVATE KEY-----\n"
+            + "\n".join(cuerpo[i:i + 64] for i in range(0, len(cuerpo), 64))
+            + "\n-----END PRIVATE KEY-----\n")
+
+
+# base64url legítimo: se acepta y da exactamente la misma llave.
+url = base64.urlsafe_b64encode(base64.b64decode(cuerpo_ok)).decode()
+try:
+    n_url, d_url = firma.cargar_llave(envolver(url))
+    revisar("un PEM entero en base64url carga y da la MISMA llave",
+            (n_url, d_url) == (numeros.public_numbers.n, numeros.d))
+except firma.ErrorFirma as exc:
+    revisar("un PEM entero en base64url carga y da la MISMA llave", False, str(exc))
+
+random.seed(7)
+alfabeto = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+coladas, probadas = 0, 0
+for _ in range(150):
+    i = random.randrange(len(cuerpo_ok) - 4)
+    c = random.choice(alfabeto)
+    if c == cuerpo_ok[i]:
+        continue
+    probadas += 1
+    try:
+        n_x, d_x = firma.cargar_llave(envolver(cuerpo_ok[:i] + c + cuerpo_ok[i + 1:]))
+        if (n_x, d_x) != (numeros.public_numbers.n, numeros.d):
+            coladas += 1
+    except firma.ErrorFirma:
+        pass  # Rechazarla es la respuesta correcta.
+revisar(f"ninguna de {probadas} corrupciones de 1 carácter se cuela como llave válida",
+        coladas == 0, f"se colaron {coladas}")
+
 print("\n6. La cabecera Authorization tiene la forma exacta de OCI")
 cred = types.SimpleNamespace(
     n=n8, d=d8, tenancy="ocid1.tenancy.oc1..aaa",
