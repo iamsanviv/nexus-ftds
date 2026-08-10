@@ -151,7 +151,7 @@ texto = servidor.h_cupo_gratis(CRED, {})
 revisar("cuenta 2 de 2 micros (ignora la TERMINATED)",
         "VM.Standard.E2.1.Micro : 2 de 2" in texto, texto)
 revisar("dice que no cabe otra micro", "CUPO LLENO" in texto, texto)
-revisar("ve el cupo ARM libre", "0 de 4 OCPU" in texto, texto)
+revisar("ve el cupo ARM libre", "0 de 2 OCPU" in texto, texto)
 revisar("avisa de que ARM necesita compilar para esa arquitectura",
         "ARM" in texto and "arquitectura" in texto, texto)
 revisar("si la API de límites falla, la respuesta principal sigue en pie",
@@ -180,8 +180,8 @@ firma.peticion_firmada = falsa_api({
     "/resourceAvailability": firma.ErrorFirma("404"),
 })
 texto = servidor.h_cupo_gratis(CRED, {})
-revisar("suma OCPU y GB de ARM en uso", "1 de 4 OCPU" in texto and "6 de 24 GB" in texto, texto)
-revisar("calcula lo que queda de ARM", "Caben 3 OCPU y 18 GB" in texto, texto)
+revisar("suma OCPU y GB de ARM en uso", "1 de 2 OCPU" in texto and "6 de 12 GB" in texto, texto)
+revisar("calcula lo que queda de ARM", "Caben 1 OCPU y 6 GB" in texto, texto)
 
 # --- instancias con IPs -----------------------------------------------------
 firma.peticion_firmada = falsa_api({

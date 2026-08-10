@@ -765,13 +765,18 @@ afecta a las VM:
 - Las dos VM son `VM.Standard.E2.1.Micro`, que es justo el shape Always Free de
   AMD. El tope de ese shape son **2**, así que **ese cupo está lleno**: no cabe
   una tercera VM AMD gratis.
-- **Sí queda cupo ARM**: Ampere A1 regala 4 OCPU y 24 GB repartibles en hasta 4
+- **Sí queda cupo ARM**: Ampere A1 regala OCPU y GB repartibles en varias
   instancias. Una VM3 saldría de ahí, con dos salvedades: el bridge habría que
   compilarlo para **ARM**, y traería **otra IP** — que es precisamente el
   recurso escaso, no la RAM.
 - Lo que sí se reclama a los 30 días es cualquier recurso creado con el crédito
   de prueba que **no** sea Always Free. `oci_cupo_gratis` lo señala: lista
   aparte lo que esté fuera de Always Free.
+- **El cupo ARM se recortó de 4 OCPU/24 GB a 2 OCPU/12 GB** (aviso de Oracle,
+  10/08). Sigue alcanzando para una VM3 chica, pero es la prueba de que un
+  límite Always Free no es fijo — de ahí que `oci_cupo_gratis` lo lea en vivo
+  en vez de tener el número escrito en un sitio donde pueda quedar viejo otra
+  vez.
 
 ## Decisiones de seguridad que se relajaron a propósito
 

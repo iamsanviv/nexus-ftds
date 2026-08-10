@@ -59,8 +59,11 @@ CUPO_GRATIS = {
         "maximo": 2, "unidad": "instancias",
         "nota": "AMD, 1/8 OCPU y 1 GB cada una. Es el shape de las VM actuales."},
     "VM.Standard.A1.Flex": {
-        "maximo_ocpu": 4, "maximo_gb": 24, "unidad": "OCPU y GB repartibles",
-        "nota": "Ampere ARM. Se puede partir en hasta 4 instancias."},
+        # Bajó de 4 OCPU/24 GB a esto — aviso de Oracle recibido el 2026-08-10.
+        # Un límite Always Free no es una constante del universo: hay que
+        # esperar que vuelva a moverse y no tratarlo como si no pudiera.
+        "maximo_ocpu": 2, "maximo_gb": 12, "unidad": "OCPU y GB repartibles",
+        "nota": "Ampere ARM. Se puede repartir en varias instancias más chicas."},
 }
 
 
@@ -475,7 +478,7 @@ HERRAMIENTAS = [
         "description": (
             "Dice cuánto queda del cupo Always Free de cómputo y si cabe crear "
             "otra VM gratis: cuántas VM.Standard.E2.1.Micro (AMD, tope 2) y "
-            "cuántas OCPU/GB de Ampere A1 (ARM, tope 4 OCPU y 24 GB) están en "
+            "cuántas OCPU/GB de Ampere A1 (ARM, tope 2 OCPU y 12 GB) están en "
             "uso. Avisa además si hay alguna instancia fuera de Always Free, "
             "que es lo que genera cobro."),
         "handler": h_cupo_gratis,
