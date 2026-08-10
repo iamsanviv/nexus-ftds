@@ -128,6 +128,40 @@ for descripcion, pem, aguja in (
     except firma.ErrorFirma as exc:
         revisar(f"llave {descripcion} da error claro", aguja in str(exc), str(exc))
 
+print("\n5b. Un PEM que pasó por Windows sigue cargando")
+# Los tres salieron de configurarlo en un Windows real. Un editor que añade una
+# marca invisible no puede costar una llave nueva.
+for descripcion, texto in (
+        ("con marca BOM del Bloc de notas", "﻿" + pem_pkcs8),
+        ("con saltos de línea de Windows", pem_pkcs8.replace("\n", "\r\n")),
+        ("con espacios metidos en el base64",
+         "\n".join(l[:20] + " " + l[20:] if i == 2 else l
+                   for i, l in enumerate(pem_pkcs8.splitlines()))),
+        ("con líneas en blanco de sobra", pem_pkcs8.replace("\n", "\n\n")),
+        ("con espacios al final de cada línea",
+         "\n".join(l + "   " for l in pem_pkcs8.splitlines()))):
+    try:
+        n_x, d_x = firma.cargar_llave(texto)
+        revisar(f"carga la llave {descripcion}", n_x == numeros.public_numbers.n)
+    except firma.ErrorFirma as exc:
+        revisar(f"carga la llave {descripcion}", False, str(exc))
+
+print("\n5c. Cuando de verdad está rota, el error dice qué estorba")
+try:
+    firma.cargar_llave("-----BEGIN PRIVATE KEY-----\nAAAA@@@@BBBB\n-----END PRIVATE KEY-----")
+    revisar("señala los caracteres intrusos", False, "no lanzó nada")
+except firma.ErrorFirma as exc:
+    revisar("señala los caracteres intrusos", "'@'" in str(exc), str(exc))
+    revisar("muestra la primera línea del archivo",
+            "BEGIN PRIVATE KEY" in str(exc), str(exc))
+    revisar("dice qué hacer", "volver a generar" in str(exc), str(exc))
+
+try:
+    firma.cargar_llave("-----BEGIN PRIVATE KEY-----\nAA-_AA\n-----END PRIVATE KEY-----")
+    revisar("reconoce base64url", False, "no lanzó nada")
+except firma.ErrorFirma as exc:
+    revisar("reconoce base64url", "base64url" in str(exc), str(exc))
+
 print("\n6. La cabecera Authorization tiene la forma exacta de OCI")
 cred = types.SimpleNamespace(
     n=n8, d=d8, tenancy="ocid1.tenancy.oc1..aaa",

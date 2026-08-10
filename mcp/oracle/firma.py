@@ -94,16 +94,52 @@ def cargar_llave(pem):
             "La llave tiene contraseña y no se admite. Genera una llave de API "
             "sin passphrase desde la consola de Oracle (Perfil → API Keys).")
 
+    # Se descartan encabezados y líneas en blanco. Los espacios internos también
+    # se quitan: un PEM que pasó por un cuadro de texto o por un correo puede
+    # volver con espacios metidos dentro del base64, y son inofensivos.
+    lineas = [l.strip() for l in pem.strip().splitlines()]
     cuerpo_b64 = "".join(
-        linea.strip() for linea in pem.strip().splitlines()
-        if "-----" not in linea)
+        l.replace(" ", "").replace("\t", "")
+        for l in lineas
+        if l and "-----" not in l)
+
     # `validate=True` a propósito: por defecto b64decode DESCARTA en silencio lo
     # que no sea del alfabeto, así que un PEM corrupto se decodificaba a vacío y
     # reventaba después con un IndexError del parser DER que no decía nada.
     try:
         der = base64.b64decode(cuerpo_b64, validate=True)
     except Exception as exc:
-        raise ErrorFirma(f"El PEM no está en base64 válido: {exc}") from exc
+        # El mensaje tiene que DECIR qué estorba. «No está en base64 válido» deja
+        # a oscuras delante de un archivo que uno no puede leer a ojo, y abrir la
+        # llave privada para inspeccionarla es justo lo que no conviene hacer.
+        # Se muestran los caracteres intrusos y dónde están, nunca la llave.
+        validos = set(
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")
+        intrusos = sorted({c for c in cuerpo_b64 if c not in validos})
+        pista = ", ".join(f"{c!r} (U+{ord(c):04X})" for c in intrusos[:8]) or "ninguno"
+
+        sospecha = ""
+        if "﻿" in cuerpo_b64:
+            sospecha = ("\n  El archivo empieza con una marca BOM: lo guardó un "
+                        "editor de Windows. Vuelve a descargar el .pem de Oracle "
+                        "sin abrirlo con el Bloc de notas.")
+        elif "\x00" in cuerpo_b64:
+            sospecha = ("\n  El archivo tiene bytes nulos: está en UTF-16, "
+                        "seguramente por haberlo copiado con `>` en PowerShell. "
+                        "Cópialo con `copy` o vuelve a descargarlo.")
+        elif "-" in intrusos or "_" in intrusos:
+            sospecha = ("\n  Tiene '-' o '_': parece base64url, no el PEM que "
+                        "descarga Oracle.")
+
+        raise ErrorFirma(
+            f"El contenido de la llave no es base64 válido.\n\n"
+            f"  Primera línea      : {lineas[0][:60] if lineas else '(vacío)'}\n"
+            f"  Líneas de contenido: {len([l for l in lineas if l and '-----' not in l])}\n"
+            f"  Caracteres que sobran: {pista}\n"
+            f"  Detalle: {exc}{sospecha}\n\n"
+            "Lo más seguro es volver a generar la llave en la consola de Oracle "
+            "(Perfil → API keys → Add API key → Generate) y descargarla sin "
+            "abrirla con ningún editor.") from exc
     if len(der) < 8:
         raise ErrorFirma("El PEM está vacío o truncado tras decodificar.")
 
