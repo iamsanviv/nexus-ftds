@@ -238,6 +238,95 @@ texto = servidor.h_costos(CRED, {})
 revisar("costo con consumo lo desglosa",
         "12.50 USD" in texto and "COMPUTE" in texto, texto)
 
+# ---------------------------------------------------------------------------
+print("\n2b. Lectura del ~/.oci/config (donde de verdad se pierde la gente)")
+# ---------------------------------------------------------------------------
+# Todos estos casos salieron de configurarlo en un Windows real. Cada uno costó
+# un rato porque el mensaje de error no señalaba la causa.
+
+import tempfile  # noqa: E402
+
+CONFIG_BUENO = (
+    "[DEFAULT]\n"
+    "user=ocid1.user.oc1..aaaa\n"
+    "fingerprint=a8:7a:bc:ff\n"
+    "tenancy=ocid1.tenancy.oc1..bbbb\n"
+    "region=us-ashburn-1\n"
+)
+carpeta = tempfile.mkdtemp()
+
+
+def con_config(contenido, binario=False, **entorno):
+    """Escribe un config y devuelve lo que pasa al cargar credenciales."""
+    ruta_cfg = os.path.join(carpeta, "config")
+    modo = "wb" if binario else "w"
+    with open(ruta_cfg, modo) as fh:
+        fh.write(contenido)
+    for v in ("OCI_TENANCY", "OCI_USER", "OCI_FINGERPRINT", "OCI_REGION",
+              "OCI_KEY", "OCI_KEY_FILE", "OCI_PROFILE"):
+        os.environ.pop(v, None)
+    os.environ["OCI_CONFIG_FILE"] = entorno.pop("config", ruta_cfg)
+    os.environ.update(entorno)
+    try:
+        servidor.cargar_credenciales()
+        return "OK"
+    except servidor.ErrorConfig as exc:
+        return str(exc)
+    except Exception as exc:  # noqa: BLE001
+        return f"{type(exc).__name__}: {exc}"
+
+
+# El caso que se dio: config en otra carpeta y la variable sin poner.
+salida = con_config(CONFIG_BUENO, config="/ruta/que/no/existe/config")
+revisar("config no encontrado: dice DÓNDE buscó",
+        "/ruta/que/no/existe/config" in salida, salida)
+revisar("config no encontrado: dice que NO existe", "Existe      : NO" in salida, salida)
+revisar("config no encontrado: enseña cómo apuntarlo",
+        "OCI_CONFIG_FILE" in salida, salida)
+revisar("config no encontrado: avisa de que la variable no sobrevive a otra ventana",
+        "ventana" in salida, salida)
+revisar("config no encontrado: NO culpa a las credenciales",
+        "Falta configurar" not in salida, salida)
+
+# El Bloc de notas de Windows guarda con BOM.
+salida = con_config(("\ufeff" + CONFIG_BUENO + "key_file=/no/existe.pem\n").encode("utf-8"),
+                    binario=True)
+revisar("config guardado con BOM (Bloc de notas) se lee igual",
+        "No existe el archivo de llave" in salida, salida)
+
+# Fin de línea de Windows.
+salida = con_config((CONFIG_BUENO + "key_file=/no/existe.pem\n").replace("\n", "\r\n"))
+revisar("config con saltos de línea de Windows se lee igual",
+        "No existe el archivo de llave" in salida, salida)
+
+# Comentario al final de una línea, como el "# TODO" que quedó pegado.
+salida = con_config(CONFIG_BUENO + "key_file=/no/existe.pem # TODO\n")
+revisar("un comentario al final de key_file no se traga como parte de la ruta",
+        "# TODO" not in salida, salida)
+
+# Config encontrado pero incompleto: mensaje distinto al de «no encontrado».
+salida = con_config("[DEFAULT]\nuser=ocid1.user.oc1..aaaa\n")
+revisar("config incompleto: dice que SÍ se leyó y qué falta",
+        "se leyó pero le faltan datos" in salida and "tenancy" in salida, salida)
+revisar("config incompleto: nombra el perfil que miró", "[DEFAULT]" in salida, salida)
+
+# Las variables de entorno mandan sobre el archivo.
+salida = con_config("[DEFAULT]\n", OCI_TENANCY="t", OCI_USER="u",
+                    OCI_FINGERPRINT="f", OCI_REGION="r",
+                    OCI_KEY_FILE="/no/existe.pem")
+revisar("las variables de entorno funcionan sin archivo de config",
+        "No existe el archivo de llave" in salida, salida)
+
+# La llave que no está: el mensaje tiene que mostrar la ruta buscada.
+salida = con_config(CONFIG_BUENO + "key_file=D:\\ruta\\mala\\clave.pem\n")
+revisar("llave inexistente: muestra la ruta a la que apunta key_file",
+        "D:\\ruta\\mala\\clave.pem" in salida, salida)
+
+for v in ("OCI_CONFIG_FILE", "OCI_TENANCY", "OCI_USER", "OCI_FINGERPRINT",
+          "OCI_REGION", "OCI_KEY", "OCI_KEY_FILE"):
+    os.environ.pop(v, None)
+
+
 # --- oci_get: es GET y solo GET ---------------------------------------------
 metodos_usados = []
 

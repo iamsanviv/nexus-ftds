@@ -90,12 +90,19 @@ def cargar_credenciales():
     archivo_llave = os.environ.get("OCI_KEY_FILE")
     compartimento = os.environ.get("OCI_COMPARTMENT")
 
+    ruta = os.path.expanduser(os.environ.get("OCI_CONFIG_FILE", "~/.oci/config"))
+    perfil = os.environ.get("OCI_PROFILE", "DEFAULT")
+    existe = os.path.exists(ruta)
+
     if not (tenancy and usuario and fingerprint and region and (pem or archivo_llave)):
-        ruta = os.path.expanduser(os.environ.get("OCI_CONFIG_FILE", "~/.oci/config"))
-        perfil = os.environ.get("OCI_PROFILE", "DEFAULT")
-        if os.path.exists(ruta):
-            cfg = configparser.ConfigParser()
-            cfg.read(ruta)
+        if existe:
+            # `utf-8-sig` porque el Bloc de notas de Windows guarda con BOM, y
+            # con BOM configparser no reconoce ni el [DEFAULT] de la primera
+            # línea: falla con «File contains no section headers», que no se
+            # parece en nada a la causa. El editor por defecto de un sistema
+            # entero no puede ser una trampa.
+            cfg = configparser.ConfigParser(inline_comment_prefixes=("#",))
+            cfg.read(ruta, encoding="utf-8-sig")
             if cfg.has_section(perfil) or perfil == "DEFAULT":
                 sec = cfg[perfil] if cfg.has_section(perfil) else cfg.defaults()
                 tenancy = tenancy or sec.get("tenancy")
@@ -109,17 +116,41 @@ def cargar_credenciales():
                              ("fingerprint", fingerprint), ("region", region))
               if not v]
     if faltan:
+        # El mensaje dice DÓNDE se buscó y si el archivo estaba. Sin eso, quien
+        # tiene el config en otra carpeta se pone a revisar unas credenciales
+        # que están perfectas, porque nada le indica que no se llegaron a leer.
+        if not existe:
+            raise ErrorConfig(
+                f"No se encontró el archivo de configuración.\n\n"
+                f"  Se buscó en : {ruta}\n"
+                f"  Existe      : NO\n\n"
+                "Si tu config está en otra carpeta, indícalo con la variable "
+                "OCI_CONFIG_FILE. En PowerShell:\n"
+                '  $env:OCI_CONFIG_FILE = "D:\\ruta\\a\\tu\\config"\n\n'
+                "Ojo: esa variable solo dura mientras la ventana esté abierta. "
+                "Si abriste otra, hay que volver a ponerla.\n"
+                "También sirven OCI_TENANCY, OCI_USER, OCI_FINGERPRINT, "
+                "OCI_REGION y OCI_KEY_FILE. Ver mcp/oracle/README.md.")
         raise ErrorConfig(
-            f"Falta configurar: {', '.join(faltan)}. Pon un ~/.oci/config o las "
-            "variables OCI_TENANCY, OCI_USER, OCI_FINGERPRINT, OCI_REGION y "
-            "OCI_KEY_FILE. Ver mcp/oracle/README.md.")
+            f"El archivo de configuración se leyó pero le faltan datos: "
+            f"{', '.join(faltan)}.\n\n"
+            f"  Archivo : {ruta}\n"
+            f"  Perfil  : [{perfil}]\n\n"
+            "Revisa que el perfil tenga las cuatro líneas: tenancy, user, "
+            "fingerprint y region. Ver mcp/oracle/README.md.")
 
     if not pem:
         if not archivo_llave:
             raise ErrorConfig("Falta la llave privada (OCI_KEY_FILE o key_file).")
-        ruta_llave = os.path.expanduser(archivo_llave)
+        ruta_llave = os.path.expanduser(archivo_llave.strip())
         if not os.path.exists(ruta_llave):
-            raise ErrorConfig(f"No existe el archivo de llave: {ruta_llave}")
+            raise ErrorConfig(
+                f"No existe el archivo de llave.\n\n"
+                f"  key_file apunta a : {ruta_llave}\n"
+                f"  Declarado en      : {ruta}\n\n"
+                "Comprueba que la ruta sea la del .pem que descargaste de "
+                "Oracle. En Windows va con la ruta completa, p. ej. "
+                "key_file=D:\\carpeta\\oci_api_key.pem")
         with open(ruta_llave, "r", encoding="utf-8") as fh:
             pem = fh.read()
 
