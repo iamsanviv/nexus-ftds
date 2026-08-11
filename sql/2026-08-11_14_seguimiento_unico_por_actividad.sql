@@ -1,0 +1,98 @@
+-- =====================================================================
+--  Un seguimiento ACTIVO por persona y actividad
+--  Aplicado el 2026-08-11 con el MCP de Supabase, en caliente.
+-- =====================================================================
+--
+--  QUÉ PASÓ
+--
+--  Brayan reportó que su invitación no le había llegado a nadie. Buscando
+--  eso apareció algo peor: tenía **48 clientes con 3 seguimientos activos
+--  cada uno** para la misma clase («MasterClass Trader X (Clase 2)»,
+--  11/08 19:00). Esa noche cada persona iba a recibir:
+--
+--      18:00  3 recordatorios idénticos
+--      18:45  3 recordatorios idénticos
+--      19:00  3 enlaces idénticos
+--      19:10  3 confirmaciones idénticas
+--
+--  572 mensajes, 12 por persona, en cuatro ráfagas de tres. Es el patrón
+--  exacto por el que WhatsApp le restringió el número a Sofía.
+--
+--  POR QUÉ NO LO FRENÓ NADA
+--
+--  `programar()` YA detectaba el caso, pero solo AVISABA dentro del
+--  `confirm()`: «⚠ N ya tienen seguimiento y recibirían los mensajes DOS
+--  veces». Un aviso que se puede aceptar no es un límite. El agente
+--  programó en tres tandas —normal, va confirmando gente de a poquitos— y
+--  pasó por encima del aviso las tres veces.
+--
+--  Y no había forma de verlo después: nada en el panel muestra cuántos
+--  seguimientos activos tiene una persona para una actividad. Se descubrió
+--  contándolos a mano en la base.
+--
+--  QUÉ HACE ESTE ÍNDICE
+--
+--  Vuelve imposible lo que antes era una advertencia. La regla la pidió el
+--  dueño así: «no pueden coexistir dos invitaciones a una misma actividad
+--  en simultáneo».
+--
+--  `estado = 'activo'` es la clave del asunto, y es deliberado:
+--
+--    - `cancelado` NO cuenta: cancelar y volver a programar es legítimo, y
+--      ya estaba escrito así en `cargarYaProgramados()`.
+--    - `completado` NO cuenta: la actividad ya pasó.
+--    - `actividad_id` nulo NO cuenta (Postgres trata los NULL como
+--      distintos en un índice único). Correcto: sin actividad identificada
+--      no hay nada que duplicar. Hoy son 286 filas, todas cerradas o
+--      canceladas; ninguna activa.
+--
+--  PROBADO (11/08, en transacciones revertidas)
+--
+--    | caso                                          | resultado    |
+--    |-----------------------------------------------|--------------|
+--    | duplicado activo exacto                       | rechazado    |
+--    | misma persona, otra actividad                 | permitido    |
+--    | otra persona, misma actividad                 | permitido    |
+--    | segundo intento sobre esa otra persona        | rechazado    |
+--    | `cancelado` junto a un `activo`               | permitido    |
+--    | `completado` junto a un `activo`              | permitido    |
+--    | dos con `actividad_id` nulo                   | permitido    |
+--
+--  Ojo con la prueba de «otra persona»: la primera vez dio BLOQUEADO y
+--  parecía un defecto grave del índice. Era la prueba, no el índice: se
+--  había elegido a alguien que YA tenía seguimiento para esa actividad, así
+--  que el rechazo era correcto. Al elegir a alguien sin seguimiento, pasa.
+--  Vale para la próxima: en esta actividad TODOS los clientes del agente ya
+--  estaban programados, así que no había persona de control donde se buscó.
+--
+--  EN LA INTERFAZ (public/js/seguimiento.js)
+--
+--  `programar()` dejó de avisar y ahora OMITE a quien ya tiene seguimiento
+--  vivo, diciendo cuántos se omitieron. El índice es el límite; la interfaz
+--  solo es para que el agente vea lo que va a pasar antes de darle.
+--  El error 23505 se traduce a un mensaje entendible por si salta igual
+--  (dos pestañas abiertas, o alguien programando lo mismo desde otro sitio).
+-- =====================================================================
+
+create unique index if not exists seguimientos_uno_activo_por_actividad
+  on public.seguimientos (cliente_id, actividad_id)
+  where estado = 'activo';
+
+comment on index public.seguimientos_uno_activo_por_actividad is
+  'Una persona no puede tener dos seguimientos ACTIVOS para la misma actividad. Los cancelados y completados no cuentan: volver a programar despues es legitimo. Costo real: 48 clientes con 3 seguimientos cada uno = 12 mensajes por persona en una noche.';
+
+-- Limpieza que hubo que hacer antes de poder crearlo (11/08): de los 144
+-- seguimientos activos de Brayan para esa actividad se dejó UNO por persona.
+-- Se cancelaron 96 seguimientos y sus 384 mensajes pendientes; ningún mensaje
+-- ya enviado se tocó. Los mensajes cancelados llevan el motivo en `error`.
+--
+--   with rank as (
+--     select id, row_number() over (partition by cliente_id order by id) as n
+--       from seguimientos
+--      where estado='activo' and actividad_id='3938a9ca-1a6c-4107-9147-5269dc4f0e17'
+--   )
+--   update mensajes_programados set estado='cancelado',
+--          error='seguimiento duplicado: la persona ya tiene otro para esta actividad'
+--    where seguimiento_id in (select id from rank where n>1) and estado='pendiente';
+--   update seguimientos set estado='cancelado'
+--    where id in (select id from rank where n>1);

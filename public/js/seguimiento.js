@@ -885,8 +885,32 @@ async function programar() {
   const ahora = new Date();
   if (inicio <= ahora) { toast("Esta actividad ya empezó; crea una nueva"); return; }
 
-  const seleccion = elegibles(actSel.servicio_id).filter(c => segSel.has(c.id));
-  if (!seleccion.length) { toast("No hay nadie seleccionado"); return; }
+  const marcados = elegibles(actSel.servicio_id).filter(c => segSel.has(c.id));
+  if (!marcados.length) { toast("No hay nadie seleccionado"); return; }
+
+  // A quien ya tiene seguimiento vivo para esta actividad se le OMITE, no se le
+  // avisa y se sigue. Antes esto era una advertencia dentro del confirm y se
+  // podía pasar por encima: el 11/08 un agente programó tres tandas seguidas y
+  // 48 clientes acabaron con tres seguimientos cada uno — 12 mensajes por
+  // persona esa noche, en cuatro ráfagas de tres idénticos. Nadie quiere eso
+  // nunca, así que dejó de ser una decisión del que programa.
+  //
+  // La regla de verdad vive en el índice `seguimientos_uno_activo_por_actividad`
+  // (Postgres). Esto de aquí es para que el agente vea lo que va a pasar antes
+  // de darle, no el límite: el límite tiene que estar donde no se pueda saltar.
+  const repetidos = marcados.filter(c => segYaProg.has(c.id));
+  const seleccion = marcados.filter(c => !segYaProg.has(c.id));
+  const omitidos = repetidos.length
+    ? `\n\n(${repetidos.length} ya ten${repetidos.length === 1 ? "ía" : "ían"} seguimiento `
+      + `para esta actividad y se om${repetidos.length === 1 ? "ite" : "iten"}.)`
+    : "";
+
+  if (!seleccion.length) {
+    toast(repetidos.length === 1
+      ? "Esa persona ya tiene seguimiento para esta actividad"
+      : "Todas ya tienen seguimiento para esta actividad");
+    return;
+  }
 
   // Confirmación SIEMPRE, con el número y algunos nombres. Es la red que faltó:
   // el buscador oculta a los seleccionados que no coinciden, así que la única
@@ -895,16 +919,7 @@ async function programar() {
   const n = seleccion.length;
   const primeros = seleccion.slice(0, 8).map(c => c.nombre.split(" ")[0]).join(", ");
   const mas = n > 8 ? ` y ${n - 8} más` : "";
-  let aviso = `Vas a programar los mensajes de «${actSel.nombre}» para ${n} persona${n === 1 ? "" : "s"}:\n${primeros}${mas}.`;
-  // La advertencia de duplicados se pliega en el mismo aviso en vez de abrir un
-  // segundo diálogo: si alguien marcado ya tiene seguimiento, recibiría todo
-  // dos veces.
-  const repetidos = seleccion.filter(c => segYaProg.has(c.id));
-  if (repetidos.length) {
-    aviso += `\n\n⚠ ${repetidos.length} de ell${repetidos.length === 1 ? "a/o" : "as/os"} ya `
-           + `tien${repetidos.length === 1 ? "e" : "en"} seguimiento para esta actividad y `
-           + `recibir${repetidos.length === 1 ? "ía" : "ían"} los mensajes DOS veces.`;
-  }
+  const aviso = `Vas a programar los mensajes de «${actSel.nombre}» para ${n} persona${n === 1 ? "" : "s"}:\n${primeros}${mas}.${omitidos}`;
   if (!confirm(aviso + `\n\n¿Programar?`)) return;
 
   // Si se difirió la invitación, debe caer entre ahora y el inicio de la actividad.
@@ -1053,7 +1068,19 @@ async function programar() {
     renderActivos();
     renderLogs();
   } catch (err) {
-    toast("⚠ " + err.message);
+    // 23505 = índice único. El único que puede saltar aquí es el de «un
+    // seguimiento activo por persona y actividad», y salta cuando la pantalla
+    // tenía datos viejos: dos pestañas abiertas, o alguien programando lo mismo
+    // desde otro sitio. El mensaje crudo de Postgres no le dice nada a nadie.
+    if (err.code === "23505" && (err.message || "").includes("uno_activo_por_actividad")) {
+      toast("⚠ Alguien de esa lista ya tenía seguimiento para esta actividad. "
+          + "No se duplicó nada; vuelve a abrir la actividad para ver el estado real.");
+      await cargarYaProgramados(actSel.id);
+      renderFaltan();
+      actualizarConteo();
+    } else {
+      toast("⚠ " + err.message);
+    }
   } finally {
     // No se re-habilita a ciegas: si el canal se cayó mientras tanto, el botón
     // debe quedar deshabilitado.

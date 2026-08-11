@@ -197,6 +197,30 @@ de duplicados no saltaba porque en la primera tanda nadie tenía seguimiento aú
   duplicados se pliega en ese mismo diálogo en vez de abrir un segundo.
 - `faltantes()` quedó sin uso y se eliminó — la trampa de la columna muerta.
 
+### Un seguimiento activo por persona y actividad
+
+**No pueden coexistir dos seguimientos `activo` del mismo cliente para la misma
+actividad.** Lo garantiza el índice parcial
+`seguimientos_uno_activo_por_actividad` sobre `(cliente_id, actividad_id) where
+estado = 'activo'` (`sql/2026-08-11_14_...`).
+
+- **El aviso no alcanzaba porque se podía aceptar.** `programar()` ya detectaba
+  el caso y lo decía en el `confirm()` («recibirían los mensajes DOS veces»),
+  pero el 11/08 Brayan programó tres tandas —lo normal, va confirmando gente de
+  a poquitos— y pasó por encima las tres. Quedaron **48 clientes con 3
+  seguimientos cada uno**: 12 mensajes por persona esa noche, en cuatro ráfagas
+  de tres idénticos. Es el patrón que ya le costó el número a Sofía.
+- **Ahora la interfaz OMITE en vez de avisar**, y dice cuántos omitió. Dejó de
+  ser una decisión del que programa porque nadie quiere ese resultado nunca.
+- **`cancelado` y `completado` no cuentan.** Cancelar y volver a programar es
+  legítimo (ya estaba escrito así en `cargarYaProgramados`), y una actividad
+  que ya pasó no bloquea nada.
+- **Nada en el panel muestra cuántos seguimientos activos tiene alguien.** Por
+  eso el defecto vivió sin verse: se descubrió contándolos en la base. El
+  índice lo vuelve imposible sin necesidad de esa pantalla.
+- El 23505 se traduce a un mensaje entendible: puede saltar con dos pestañas
+  abiertas aunque la interfaz ya filtre.
+
 ### Envíos masivos: progreso y cancelación
 
 `campanas` se escribía y **nunca se leía**: un masivo salía y desaparecía de la
@@ -826,12 +850,8 @@ afecta a las VM:
   sí salen, así que le llega «en 1 hora empieza X» a gente que nunca fue
   invitada. Arreglo: contar el día en `America/Bogota`. Es una línea en
   `worker.py`, que no vive en este repo.
-- **Programar en varias tandas crea seguimientos DUPLICADOS.** El mismo 11/08,
-  Brayan tenía a 48 clientes con 3 seguimientos activos cada uno para la misma
-  clase: 12 mensajes por persona esa noche, en cuatro ráfagas de 3 idénticos.
-  El aviso de duplicados de `programar()` no lo frenó. Nada en el panel lo
-  muestra: hay que contar seguimientos activos por cliente y actividad. Se
-  limpió a mano dejando uno por persona.
+- ~~Programar en varias tandas crea seguimientos duplicados~~ **RESUELTO
+  (11/08)**: ver «Un seguimiento activo por persona y actividad».
 - **La nota de voz en Masivo está oculta, no arreglada.** Sube bien al Storage
   y el worker la manda, pero WhatsApp la recibe como «Este audio ya no está
   disponible». Se probaron tres perfiles de opus, whatsmeow actualizada y el
