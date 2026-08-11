@@ -723,6 +723,15 @@ comportamiento, decirlo en vez de asumirlo. **El detalle completo vive en
 - **La tabla de puertos que anda circulando está desactualizada**: dice «8081
   Tatiana» y la base dice Evelin Gómez. La verdad es `canales_wa`, no el
   documento.
+- **Para dar de alta en la VM2, `canales_wa` NO alcanza para elegir puerto.** Una
+  carpeta ya provisionada en `/home/ubuntu/nexus-bridges/` reserva un puerto que
+  la base todavía no conoce, porque el bridge no lo escribe hasta… nunca: **el
+  bridge deja `puerto` nulo y `host` en `localhost`**, y esos dos se ponen a
+  mano. Laura tenía el 8094 reservado en la VM2 mientras su fila decía 8091; se
+  le estuvo a punto de dar ese mismo puerto a otra agente, lo que habría roto su
+  traslado en silencio por el índice único. El runbook completo, con las tres
+  trampas (puertos, firewall por rango, y el `host` que no se escribe), está en
+  `contexto-worker.md`.
 - El reintento de México **ya existe** en el worker (alterna el `1` tras el `52`
   cuando da `no LID found`). Que aun así haya causado 18 % de fallos significa
   que el reintento no alcanza, no que falte.

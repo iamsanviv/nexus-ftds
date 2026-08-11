@@ -293,23 +293,96 @@ Queda un hueco menor, no de mecanismo:
 
 ## Alta de un agente nuevo en la VM2 (runbook)
 
-Con el enrutamiento por `owner_id` y la copia de media ya probados, agregar un
-agente a la VM2 es repetible. Pasos, en orden:
+Probado de punta a punta el **11-08** dando de alta a Seleny Quintero (8096) y
+Luis Muñoz (8095). Los tres tropiezos de esa vez están abajo: los tres eran
+silenciosos y ninguno estaba escrito.
 
-1. **Elegir puerto libre y global.** Mirar `canales_wa` y tomar el siguiente sin
-   usar (hoy el mayor operativo es 8093 → sigue 8094). **Único entre las dos VM**:
-   el índice `canales_wa_puerto_unico` lo exige y es a propósito (ver DEFECTO 1).
-2. **Levantar el bridge en VM2** en ese puerto, con su propia carpeta `store/`.
-3. **Escanear el QR** desde el WhatsApp del agente. Sin esto el canal se queda en
-   `vinculando` y el worker no le envía nada (marca error, nunca manda por otro).
-4. **Escribir su fila en `canales_wa`**: `owner_id` del agente, `puerto` elegido,
-   `host = '10.0.0.23'`, `estado` lo pone el bridge al vincular.
-5. **Verificar la señal**: `actualizado` debe avanzar cada ~30 s y `estado` llegar
+**Cómo se llega a la VM2**: no tiene IP pública. Se entra a la VM1
+(`ssh -i <llave> ubuntu@141.148.40.31`) y desde allí se salta con
+`ssh -i /home/ubuntu/.ssh/vm2.key ubuntu@10.0.0.23`. El hostname es
+`nexus-cloud-2`.
+
+**Cómo está montado un bridge** (plantilla `/etc/systemd/system/nexus-bridge@.service`):
+
+| | |
+|---|---|
+| Servicio | `nexus-bridge@<slug>`, slug `nombre_apellido` (`leonardo_angarita`) |
+| Carpeta | `/home/ubuntu/nexus-bridges/<slug>/` con `env` y `store/` |
+| Binario | `/home/ubuntu/whatsapp-mcp/whatsapp-bridge/whatsapp-bridge-mt` (común) |
+| `env` | `WA_PORT`, `WA_OWNER` (= `profiles.id`), `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` |
+
+Solo `WA_PORT` y `WA_OWNER` cambian por agente. **No hay script de alta**: las
+carpetas se crean a mano copiando el `env` de un bridge que ya ande y cambiando
+esas dos líneas (así la `SERVICE_KEY` no pasa por pantalla).
+
+Pasos, en orden:
+
+1. **Elegir puerto libre — mirando la VM2, NO solo `canales_wa`** (ver TRAMPA 1).
+2. **Crear la carpeta**: `mkdir -p .../<slug>/store` y el `env` derivado de otro.
+   El `store/` va **vacío**: copiar el de otro agente arrancaría la sesión de
+   WhatsApp de esa otra persona.
+3. **Abrir el puerto en el firewall** si hace falta (ver TRAMPA 2).
+4. **Arrancar**: `sudo systemctl enable --now nexus-bridge@<slug>`.
+5. **Corregir `puerto` y `host` en `canales_wa`** (ver TRAMPA 3). El bridge crea
+   su fila pero deja el puerto nulo y el host en `localhost`.
+6. **Escanear el QR** desde el WhatsApp del agente, en «Más → Mi WhatsApp». Sin
+   esto el canal se queda en `vinculando` y el worker no le envía nada (marca
+   error, nunca manda por otro).
+7. **Verificar la señal**: `actualizado` debe avanzar cada ~30 s y `estado` llegar
    a `vinculado`. Recién ahí está listo.
-6. **Confirmar con un envío real** (una invitación o un masivo chico) y revisar en
+8. **Confirmar con un envío real** (una invitación o un masivo chico) y revisar en
    `mensajes_programados` que quede `enviado` y que el teléfono sea de un cliente
    suyo. Para imágenes, que **no** aparezca «no such file» (probaría que la copia
    SSH al `host` falló — revisar la llave `LLAVE_SSH` y la red privada).
+
+### TRAMPA 1 — el puerto libre NO se deduce de `canales_wa`
+
+Una carpeta ya provisionada **reserva** un puerto que la base todavía no conoce.
+Laura tenía `/nexus-bridges/laura_daniela/env` con `WA_PORT=8094` desde el 10-08,
+esperando a que escaneara, mientras su fila seguía diciendo `8091`/`localhost`.
+Se asignó el 8094 a Seleny mirando solo la base; de haber arrancado así, Seleny
+habría registrado ese puerto primero y **el bridge de Laura ya no habría podido
+escribir su fila** (índice único) — su traslado roto en silencio y sin un error
+que lo dijera.
+
+La verdad de los puertos de la VM2 es **la unión de las dos fuentes**:
+
+```bash
+grep -h '^WA_PORT' /home/ubuntu/nexus-bridges/*/env | sort   # en la VM2
+```
+más los de `canales_wa`. Comprobar antes de arrancar que hay tantos puertos
+distintos como carpetas.
+
+### TRAMPA 2 — el firewall de la VM2 abre por RANGO
+
+La regla era `-A INPUT -s 10.0.0.74/32 -p tcp --dport 8092:8094 -j ACCEPT`:
+solo desde la IP privada de la VM1 (`10.0.0.74`) y solo hasta el **8094**. Un
+bridge en el 8095 habría arrancado perfecto y el worker no lo habría alcanzado
+nunca — el peor tipo de fallo, porque todo se ve bien. Se amplió con:
+
+```bash
+sudo iptables -I INPUT -s 10.0.0.74/32 -p tcp -m tcp --dport 8095:8100 -j ACCEPT
+sudo netfilter-persistent save
+```
+
+Se **agregó** una regla en vez de tocar la que funcionaba, y con margen hasta el
+8100 para que los próximos no vuelvan a chocar. `ufw` está inactivo: manda
+iptables.
+
+### TRAMPA 3 — el bridge NO escribe `puerto` ni `host`
+
+Al arrancar, el bridge crea su fila en `canales_wa` y mantiene `estado`, `qr`,
+`telefono` y `actualizado`. Pero **`puerto` queda nulo y `host` en su valor por
+defecto, `localhost`**. Los de Leonardo y María José los había puesto alguien a
+mano y por eso parecía que el bridge lo hacía.
+
+Un canal así, al vincularse, manda al worker a buscar un bridge de la VM2 en
+`localhost` con puerto nulo. Hay que corregirlo **antes de que el agente escanee**:
+
+```sql
+update canales_wa set puerto = <puerto>, host = '10.0.0.23'
+where owner_id = '<uuid del agente>';
+```
 
 **Requisitos de red que no cambian**: las dos VM se ven por **red privada**
 (`10.0.0.0/24`); el puerto del bridge **nunca** se expone a internet — es un
