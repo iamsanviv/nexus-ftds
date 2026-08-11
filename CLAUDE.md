@@ -817,6 +817,21 @@ afecta a las VM:
   `type=recovery` al abrir la app.
 - **Bug de números de México en el worker**: `no LID found for 52…` con y sin el
   `1` tras el código de país. Causó el 18 % de fallos de un agente.
+- **`TOPE_DIARIO` cuenta el día en UTC, y la medianoche UTC son las 19:00 en
+  Colombia.** Lo que se envía después de las 7 p. m. se le cobra al día
+  siguiente. El 11/08 Brayan tenía el día bloqueado a las 15:30 con **cero**
+  mensajes enviados ese día: los 270 que gastaron su cuota eran de la noche
+  anterior. Sus 188 invitaciones salieron `cancelado`. Peor: el agente no se
+  entera —el motivo solo se ve abriendo la fila en la base— y los recordatorios
+  sí salen, así que le llega «en 1 hora empieza X» a gente que nunca fue
+  invitada. Arreglo: contar el día en `America/Bogota`. Es una línea en
+  `worker.py`, que no vive en este repo.
+- **Programar en varias tandas crea seguimientos DUPLICADOS.** El mismo 11/08,
+  Brayan tenía a 48 clientes con 3 seguimientos activos cada uno para la misma
+  clase: 12 mensajes por persona esa noche, en cuatro ráfagas de 3 idénticos.
+  El aviso de duplicados de `programar()` no lo frenó. Nada en el panel lo
+  muestra: hay que contar seguimientos activos por cliente y actividad. Se
+  limpió a mano dejando uno por persona.
 - **La nota de voz en Masivo está oculta, no arreglada.** Sube bien al Storage
   y el worker la manda, pero WhatsApp la recibe como «Este audio ya no está
   disponible». Se probaron tres perfiles de opus, whatsmeow actualizada y el

@@ -59,7 +59,36 @@ lo que hacía que con varias actividades a la misma hora el enlace saliera hasta
 | `PAUSA_MIN` / `PAUSA_MAX` | 4 / 8 | Pausa aleatoria entre mensajes **de un mismo agente** (no global). |
 | `ARRANQUE_MAX` | 45 | Desfase inicial al azar por agente (evita que todos disparen en el mismo segundo desde la misma IP). |
 | `LOTE_MAX` | 40 | Máximo de mensajes por agente **por ciclo**; el resto va al ciclo siguiente. |
-| `TOPE_DIARIO` | 220 | Máximo por agente y por día. **Solo frena tipos nuevos (`invitacion`, `masivo`); nunca corta `rec_60`/`rec_15`/`enlace`/`confirmacion`** para no dejar a nadie sin el enlace de una actividad en marcha. |
+| `TOPE_DIARIO` | 220 | Máximo por agente y por día. **Solo frena tipos nuevos (`invitacion`, `masivo`); nunca corta `rec_60`/`rec_15`/`enlace`/`confirmacion`** para no dejar a nadie sin el enlace de una actividad en marcha. **El «día» es UTC — ver abajo, es un defecto.** |
+
+### DEFECTO ABIERTO — el tope diario cuenta el día en UTC (11-08)
+
+La medianoche UTC son **las 19:00 en Colombia**. Todo lo que un agente envía
+después de las 7 p. m. se le cobra a la cuota del **día siguiente**.
+
+Medido el 11-08 con Brayan Monje: **0 mensajes enviados en el día colombiano** y
+aun así sus 188 invitaciones salieron canceladas con
+`tope diario del agente (220) alcanzado`. Los 270 que gastaron la cuota son de
+**ayer**, entre las 19:00 y las 21:04 de Bogotá:
+
+| Hora Bogotá | Enviados |
+|---|---|
+| 10/08 19:00 | 90 |
+| 10/08 20:00 | 150 |
+| 10/08 21:00 | 30 |
+
+A las 15:30 tenía el día bloqueado sin haberle escrito a nadie. Como la
+tarde-noche es justo cuando más se envía, esto le pasa a cualquiera que trabaje
+después de las 7 p. m., y **el agente no se entera**: las invitaciones aparecen
+canceladas y el motivo solo se ve abriendo la fila en la base.
+
+Efecto secundario feo: los recordatorios **sí** salen (están exentos a
+propósito), así que la gente recibe «en 1 hora empieza X» de una actividad a la
+que nunca la invitaron.
+
+Arreglo: contar el día en hora de Colombia (`America/Bogota`) en vez de UTC. Es
+una línea en `worker.py`, que **no vive en este repo**. Mientras tanto, la cuota
+de un agente se le libera a las 19:00 de Bogotá, no a medianoche.
 
 `ARRANQUE_MAX` es la prueba de que el propio worker ya trata **la IP**, no la
 memoria, como el recurso escaso de la VM.
