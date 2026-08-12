@@ -405,22 +405,31 @@ const nivelDe = mem => ({ Beca: 1, VIP: 2, Platino: 3, Oro: 4 }[mem] || 0);
 const esUpgrade = (cliente, p) =>
   !!p && p.categoria === "membresia" && nivelDe(cliente.mem) > 1 && nivelDe(cliente.mem) < p.nivel;
 
-// Qué pagó el cliente por la membresía que tiene hoy. Se busca su última venta
-// de membresía; si no hay (entró antes del módulo), se usa el producto más
-// barato de ese nivel, que es la promoción. Es una estimación, y por eso el
-// monto queda siempre editable.
-function precioActual(cliente) {
+// Qué tiene HOY el cliente: precio de lista y comisión del producto de membresía
+// que posee. Se busca su última venta de membresía; si no hay (entró antes del
+// módulo), se usa el producto más barato de ese nivel, que es la promoción. Es
+// una estimación —por eso el monto queda editable—, pero precio y comisión salen
+// SIEMPRE del mismo producto: el upgrade cobra la diferencia de precio y
+// comisiona la diferencia de comisión, y si cada uno saliera de un producto
+// distinto la resta no cuadraría.
+function membresiaActual(cliente) {
   const n = nivelDe(cliente.mem);
-  if (!n) return 0;
+  if (!n) return { precio: 0, comision: 0 };
   const previa = state.ventas
     .filter(v => v.cliente_id === cliente.id && prod(v.producto_id)?.categoria === "membresia")
     .sort((a, b) => b.creado_en.localeCompare(a.creado_en))[0];
-  // El PRECIO DE LISTA del producto, no lo que pagó por él: si esa venta previa
-  // era a su vez un upgrade, su monto es una diferencia y encadenar diferencias
-  // daría un descuento que nadie concedió.
-  if (previa && prod(previa.producto_id)) return Number(prod(previa.producto_id).precio);
+  // El PRODUCTO de esa venta (precio y comisión de LISTA), no lo que pagó por
+  // él: si esa venta previa era a su vez un upgrade, su monto es una diferencia
+  // y encadenar diferencias regalaría un descuento —o una comisión— que nadie
+  // concedió.
+  const pPrev = previa && prod(previa.producto_id);
+  if (pPrev) return { precio: Number(pPrev.precio), comision: Number(pPrev.comision) };
+  // Sin venta previa: el más barato de su nivel (la promo), y de ESE mismo
+  // producto se toman precio y comisión juntos.
   const mismos = state.productos.filter(p => p.nivel === n);
-  return mismos.length ? Math.min(...mismos.map(p => Number(p.precio))) : 0;
+  if (!mismos.length) return { precio: 0, comision: 0 };
+  const promo = mismos.reduce((a, b) => Number(b.precio) < Number(a.precio) ? b : a);
+  return { precio: Number(promo.precio), comision: Number(promo.comision) };
 }
 
 // Calcula monto y comisión según el producto y en qué nivel está el cliente.
@@ -431,18 +440,23 @@ function calcular() {
   if (!c || !p) { hint.classList.add("hidden"); return; }
 
   const esUp = esUpgrade(c, p);
-  const comUp = Number(state.parametros.comision_upgrade || 0);
 
   if (esUp) {
-    const base = precioActual(c);
-    const dif = Math.max(0, Number(p.precio) - base);
+    // El cliente ya pagó y ya comisionó su membresía actual. Al escalar, paga la
+    // diferencia de PRECIO y el agente comisiona la diferencia de COMISIÓN — no
+    // la comisión entera del producto nuevo, que volvería a pagar lo ya cobrado.
+    // Se combinan promo y normal libremente: cada nivel resuelve su propio
+    // producto (promo o normal) y de ahí sale su precio y su comisión.
+    const actual = membresiaActual(c);
+    const dif = Math.max(0, Number(p.precio) - actual.precio);
+    const comDif = Math.max(0, Number(p.comision) - actual.comision);
     $("vfValor").value = dif;
-    $("vfComision").value = comUp;
+    $("vfComision").value = comDif;
     hint.classList.remove("hidden");
     hint.innerHTML = `<span class="ic">↑</span><span>Es un <b>upgrade</b> desde ${esc(c.mem)}:
-      el monto queda en <b>${usd(dif)}</b>, la diferencia contra ${usd(base)}.
-      ${comUp > 0 ? `Comisión de upgrade: <b>${usd(comUp)}</b>.`
-                  : `<b>La comisión de upgrade todavía no está definida</b>, así que esta venta no sumará al total.`}</span>`;
+      el monto queda en <b>${usd(dif)}</b> (diferencia contra ${usd(actual.precio)}) y la
+      comisión en <b>${usd(comDif)}</b> (${usd(Number(p.comision))} − ${usd(actual.comision)}).
+      Ambos son editables si el caso fue distinto.</span>`;
   } else {
     $("vfValor").value = Number(p.precio);
     $("vfComision").value = Number(p.comision);

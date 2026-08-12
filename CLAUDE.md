@@ -403,11 +403,16 @@ Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
   tarjeta no muestra ningún control: quedaba sin salida. La fecha es editable
   porque decide en qué mes se causa la comisión. Poner cero no vale — para eso
   está la ✕, que es lo que de verdad se quiere decir.
-- **Upgrade**: cobra la diferencia de precio y comisiona un **monto fijo**
-  (`parametros.comision_upgrade`), no la comisión del producto — el pago inicial
-  ya comisionó en su momento. **De Beca a membresía NO es upgrade**: la beca es
-  gratis, así que no hay pago inicial que descontar ni comisión ya cobrada. Se
-  cobra precio completo. El upgrade empieza en VIP (nivel 2).
+- **Upgrade**: cobra la **diferencia de precio** y comisiona la **diferencia de
+  comisión** (comisión del producto nuevo − la del que ya tiene), no la comisión
+  entera del nuevo — el pago inicial ya comisionó en su momento. Precio y
+  comisión de cada extremo salen del **mismo producto**, para que las dos restas
+  cuadren; se combinan promo y precio normal libremente. **De Beca a membresía
+  NO es upgrade**: la beca es gratis, así que no hay pago inicial que descontar
+  ni comisión ya cobrada. Se cobra precio y comisión completos. El upgrade
+  empieza en VIP (nivel 2). *(Antes comisionaba un monto fijo
+  `parametros.comision_upgrade`, que nunca se definió; se eliminó —
+  `sql/2026-08-12_15_...`.)*
 - **Los FTD no se pagan uno por uno**: solo si se alcanza una meta mensual. Lo
   que sobra se acumula como «base» para el mes siguiente. `ftd_base` se guarda
   en vez de derivarse: derivarla dejaría que un FTD registrado tarde moviera la
@@ -822,10 +827,10 @@ afecta a las VM:
 
 ## Pendientes conocidos
 
-- **Falta `parametros.comision_upgrade`**, todavía en 0. Los 16 productos ya
-  tienen su comisión confirmada (30/07). Los bots comisionan **el 30 % del
-  precio**, pero se guarda el MONTO: si cambia el precio de un bot hay que
-  recalcularlo a mano (`sql/2026-07-30_10_...`).
+- Los 16 productos tienen su comisión confirmada (30/07). Los bots comisionan
+  **el 30 % del precio**, pero se guarda el MONTO: si cambia el precio de un bot
+  hay que recalcularlo a mano (`sql/2026-07-30_10_...`). *(El upgrade ya no usa
+  un monto fijo: comisiona la diferencia de comisiones — `sql/2026-08-12_15_...`.)*
 - **Meta mensual de facturación** (distinta de las metas de FTD): pedida el
   29/07 y aplazada a propósito hasta que lo demás funcione.
 - **Guardar la base de FTD al cerrar el mes** no tiene interfaz todavía: la app

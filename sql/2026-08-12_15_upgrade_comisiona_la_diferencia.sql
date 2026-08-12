@@ -1,0 +1,65 @@
+-- =====================================================================
+--  Upgrade de membresía: comisiona la DIFERENCIA de comisiones
+--  Aplicado el 2026-08-12 con el MCP de Supabase.
+-- =====================================================================
+--
+--  QUÉ CAMBIA
+--
+--  El upgrade siempre cobró al cliente la diferencia de PRECIO (paga solo lo
+--  que le falta para escalar). Lo que cambia es la comisión del agente:
+--
+--    ANTES  un monto fijo para todo upgrade (`parametros.comision_upgrade`),
+--           que nunca se definió y estaba en 0 — así ningún upgrade sumaba.
+--    AHORA  la DIFERENCIA entre la comisión del producto nuevo y la del que el
+--           cliente ya tiene. El pago inicial ya comisionó en su momento; al
+--           escalar se comisiona solo lo que sube.
+--
+--  Ejemplo (el que pidió el dueño): VIP promo → Platino promo.
+--    cliente paga  439 − 220 = 219
+--    agente gana   110 −  55 =  55
+--
+--  Se combinan promo y precio normal libremente: cada extremo resuelve su
+--  propio producto y de ahí salen SU precio y SU comisión, que es lo que hace
+--  que las dos restas cuadren.
+--
+--  PROBADO (matemática, contra los 7 productos reales):
+--    VIP promo   → Platino promo : paga 219, comisiona  55   (ejemplo del dueño)
+--    VIP promo   → Platino       : paga 330, comisiona  82
+--    VIP         → Oro promo     : paga 489, comisiona 144
+--    Platino promo → Oro         : paga 461, comisiona 147
+--    VIP promo   → Oro promo     : paga 569, comisiona 164   (salto de 2 niveles)
+--
+--  DÓNDE VIVE
+--
+--  En `public/js/ventas.js` (`membresiaActual()` + `calcular()`). La comisión
+--  se CONGELA en la venta al crearla, como todas: `productos` es el valor por
+--  defecto al momento de vender, no la fuente de verdad de lo ya vendido. Por
+--  eso este cambio no toca ninguna venta pasada (además, hoy hay 0 upgrades
+--  registrados).
+--
+--  LO QUE SIGUE IGUAL
+--
+--  · El upgrade empieza en VIP (nivel 2). De Beca a membresía NO es upgrade: la
+--    beca es gratis, no hay pago inicial que descontar ni comisión ya cobrada,
+--    así que se cobra precio y comisión completos.
+--  · Se usa el PRECIO/COMISIÓN DE LISTA del producto que el cliente tiene, no lo
+--    que pagó: si su venta previa fue a su vez un upgrade, su monto es una
+--    diferencia y encadenar diferencias regalaría un descuento (o una comisión)
+--    que nadie concedió.
+--  · Monto y comisión quedan editables por si el caso real fue distinto.
+--
+--  PRECIOS Y COMISIONES DE MEMBRESÍA (confirmados 2026-08-12, ya estaban así):
+--    VIP promo     220 →  55      VIP      300 →  75
+--    Platino promo 439 → 110      Platino  550 → 137
+--    Oro promo     789 → 219      Oro      900 → 257
+--    (No hubo nada que ajustar: la base ya tenía exactamente estos valores.)
+-- =====================================================================
+
+-- El parámetro del modelo viejo queda muerto: ya no lo lee nadie. Se elimina
+-- para no dejar la trampa de la columna muerta (como se hizo con
+-- `actividades.rastrear`). Estaba en 0 y no había ninguna venta que dependiera
+-- de él.
+delete from parametros where clave = 'comision_upgrade';
+
+-- (No hay DDL: el cambio es de cálculo, en el navegador. Las comisiones y
+--  precios de `productos` no se tocaron porque ya eran los correctos.)

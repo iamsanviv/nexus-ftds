@@ -24,7 +24,7 @@ export const state = {
   /* ---- módulo de ventas ---- */
   ventas: [],
   productos: [],
-  parametros: {},        // { comision_upgrade: 0 }
+  parametros: {},        // config global (hoy vacío; el upgrade ya no usa parámetro)
   metasFtd: [],          // [{ ftd, pago }] ordenadas
   ftdBase: {},           // { "<owner>|<YYYY-MM>": { base, declarado, cerrado } }
   metasAgente: {},       // { "<owner>|<YYYY-MM>": { meta_ftd, meta_ventas } }
