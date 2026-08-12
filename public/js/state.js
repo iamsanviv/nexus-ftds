@@ -224,15 +224,41 @@ export function fechaSaldo(v) {
 // en la interfaz y NO suman: más vale un hueco visible que una cifra inventada.
 export const comisionSinDefinir = v => !(v.comision > 0);
 
-// Resumen de un periodo para un agente. `facturado` es lo RECAUDADO: para la
-// empresa facturar es cobrar, así que no hay dos cifras distintas.
+// EXCEPCIÓN DE FACTURACIÓN (regla del dueño, agosto 2026 — para todos los meses).
+//
+// Regla base: facturar es cobrar, así que `facturado` de un mes son los abonos
+// que ENTRARON ese mes. La empresa cambió esto: cuando una venta se termina de
+// pagar (se SALDA) en un mes, ese mes cuenta el VALOR COMPLETO de la venta, no
+// solo el abono que la completó. Los abonos de meses anteriores SIGUEN contados
+// en sus meses —no se les quita nada—, así que la parte ya abonada se cuenta dos
+// veces a propósito: en el mes que entró y otra vez en el mes que se saldó.
+//
+// Ejemplo (César, VIP 300): abonó 200 en julio y los 100 finales en agosto.
+//   julio  = 200 (el abono que entró, como siempre)
+//   agosto = 300 (el valor completo, porque se saldó en agosto)
+//
+// Se deja detrás de este flag para poder revertirla a la regla base sin buscar
+// la lógica: `FACTURA_VALOR_AL_SALDAR = false` y vuelve a ser "abonos del mes".
+// Solo afecta a `facturado` (la plata); la comisión no se toca, se causa igual.
+const FACTURA_VALOR_AL_SALDAR = true;
+
+// Resumen de un periodo para un agente.
 export function resumenVentas(periodo, ownerId) {
   const mias = state.ventas.filter(v => v.owner_id === ownerId);
   const vivas = mias.filter(v => v.estado !== "perdida" && !estaSaldada(v));
 
-  const facturado = mias.reduce((s, v) =>
-    s + (v.abonos || []).filter(a => periodoDe(a.fecha) === periodo)
-                        .reduce((t, a) => t + a.monto, 0), 0);
+  const abonosDelMes = v => (v.abonos || [])
+    .filter(a => periodoDe(a.fecha) === periodo)
+    .reduce((t, a) => t + a.monto, 0);
+
+  const facturado = mias.reduce((s, v) => {
+    // Si se saldó en ESTE periodo, cuenta el valor completo en vez de los abonos
+    // del mes (que sería solo el que la completó). Los de meses previos ya se
+    // contaron en su momento y no se tocan.
+    if (FACTURA_VALOR_AL_SALDAR && estaSaldada(v) && periodoDe(fechaSaldo(v)) === periodo)
+      return s + v.valor;
+    return s + abonosDelMes(v);
+  }, 0);
 
   const causada = mias.filter(v => estaSaldada(v) && periodoDe(fechaSaldo(v)) === periodo)
                       .reduce((s, v) => s + v.comision, 0);

@@ -393,8 +393,16 @@ Todo en **dólares**. Módulo aditivo: no cambia nada de lo anterior.
   no la fuente de verdad de lo ya vendido.
 - **`comision = 0` significa SIN DEFINIR**, no «no comisiona». La interfaz lo
   marca y esa venta **no suma**: mejor un hueco visible que una cifra inventada.
-- **Facturado = recaudado.** Para la empresa facturar es cobrar, así que no hay
-  columna de facturación: es la suma de abonos y punto.
+- **Facturado = recaudado, con una excepción del dueño.** La base es que
+  facturar es cobrar: no hay columna de facturación, es la suma de abonos del
+  mes. La excepción (agosto 2026, para todos los meses): **cuando una venta se
+  SALDA en un mes, ese mes cuenta su valor completo**, no solo el abono que la
+  completó. Los abonos de meses anteriores siguen contados en su mes, así que la
+  parte ya abonada se cuenta dos veces a propósito — es lo que la empresa quiere:
+  la membresía completa suma en el mes que se termina de pagar. Vive tras el flag
+  `FACTURA_VALOR_AL_SALDAR` en `state.js` (`resumenVentas`) para poder volver a
+  la regla base sin buscar la lógica. Solo toca `facturado`; la comisión se causa
+  igual que antes. *(Un mes pagado de una vez no cambia: valor = abonos.)*
 - **«Saldada» no se marca, se deduce** (abonos ≥ valor). La comisión se causa en
   el mes del abono que completó el valor. Ni «saldada» ni el total de comisión
   se guardan: una sola verdad.

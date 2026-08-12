@@ -200,7 +200,7 @@ function pintarResumen(ps) {
 
         <div class="pstitle">Ventas</div>
         <div class="rsgrid">
-          ${dato("Recaudado", usd(v.facturado), "abonos que entraron")}
+          ${dato("Facturado", usd(v.facturado), "abonos del mes + ventas saldadas")}
           ${dato("Ventas saldadas", cerradas, "quedaron pagas")}
           ${dato("Comisión", usd(v.causada), "de lo saldado")}
         </div>
