@@ -1971,6 +1971,11 @@ $("segSinInv").onchange = e => {
     $("segTardeRow").classList.add("hidden");
     $("segTardeToggle").classList.remove("on");
   }
+  // Sin invitación no hay invitación que personalizar: se esconde el editor (y
+  // su caja abierta) en vez de dejar un control que no haría nada.
+  const mostrarMiInv = !segSinInvitacion && puedoPersonalizarInvitacion(actSel);
+  $("segMiInvRow").classList.toggle("hidden", !mostrarMiInv);
+  if (!mostrarMiInv) $("segMiInvBox").classList.add("hidden");
   refrescarBotonProgramar();
 };
 
