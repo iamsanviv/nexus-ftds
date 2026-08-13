@@ -285,6 +285,31 @@ cambiarle la plantilla para una sola actividad le rompería las demás.
 - Manda sobre `invitacion_extra`: quien escribió una invitación a mano quiere
   que salga esa.
 
+### La invitación propia del AGENTE (actividad compartida)
+
+`invitaciones_agente (actividad_id, owner_id, texto)` — `sql/2026-08-12_16_...`.
+El director crea las puntuales y las comparte; el agente no puede abrir esa
+actividad, así que hasta ahora heredaba el texto del director sin poder cambiarlo.
+
+**Precedencia, de más específica a más general** (probada con 7 casos):
+`invitaciones_agente` → `actividades.msg_invitacion` → plantilla del agente →
+la del sistema. Gana la más específica: es la que alguien escribió para *este*
+caso.
+
+- **El editor vive en el panel de PROGRAMACIÓN, no en el formulario**, porque el
+  formulario es de una actividad que no es suya. Y solo aparece si la actividad
+  **no** es del agente: si es suya ya tiene el editor del formulario, y dos
+  sitios para lo mismo confunden.
+- **Es una tabla y no un campo en `seguimientos`** porque el agente programa en
+  tandas: el texto tiene que sobrevivir de una a otra, o acabaría con versiones
+  distintas del mismo mensaje.
+- **El director NO ve el texto de sus agentes**, a propósito. La redacción de un
+  agente es suya, igual que sus plantillas — misma razón por la que
+  `reprogramarPorHora()` solo regenera el texto de los seguimientos propios.
+- **Se guarda al programar, no al escribir**: lo guardado es exactamente el
+  texto con el que salieron los mensajes. Vaciarlo borra la fila y vuelve a la
+  invitación de la actividad.
+
 ### Avisos de novedad
 
 `renderNovedad()` en `seguimiento.js`. **Se cierra y no vuelve**, porque un aviso

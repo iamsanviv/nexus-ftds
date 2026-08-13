@@ -346,6 +346,11 @@
   cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 .masbuscarx:active{background:var(--surface2);color:var(--gold)}
 .segchip.hist{border-style:dashed;color:var(--muted)}
+/* Invitación propia del agente, dentro del panel de programación. Va fuera de
+   `.frow`, así que no le aplica la trampa de `.frow label` que ya mordió dos
+   veces; el botón es un `<button>`, no una etiqueta. */
+.miinvrow{margin:2px 0 10px}
+.miinvrow textarea{width:100%;margin-top:6px}
 .segselbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .segselcount{font-size:.78rem;color:var(--muted);margin-right:auto}
 .opt{font-weight:400;color:var(--muted);font-size:.85em}

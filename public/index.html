@@ -276,6 +276,22 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
            La misma actividad puede querer las dos cosas. -->
       <label class="segtoggle"><input type="checkbox" id="segRastrear" checked> Saber quién entra al enlace</label>
       <div class="msgshelp" id="segRastrearAyuda">Cada persona recibe un enlace propio que la lleva a la misma sala. Quien lo abra queda marcado como asistente, sin tener que preguntárselo. Apágalo si prefieres que vean el enlace de Zoom tal cual.</div>
+      <!-- Invitación propia del agente para una actividad que le compartieron.
+           Va acá y no en el formulario de la actividad porque esa actividad no
+           es suya y no la puede abrir. El texto es SUYO: solo cambia lo que él
+           programa, y su director no lo ve — igual que sus plantillas. -->
+      <div id="segMiInvRow" class="miinvrow hidden">
+        <button type="button" class="tbtn" id="segMiInvBtn">✎ Personalizar mi invitación</button>
+        <div id="segMiInvBox" class="hidden">
+          <textarea id="segMiInv" rows="4" placeholder="Escribe tu invitación para esta actividad…"></textarea>
+          <div class="msgshelp">Etiquetas: <code>{nombre}</code> <code>{actividad}</code>
+            <code>{hora}</code>. Variantes al azar con <code>{hola|buenas|qué más}</code>.
+            Solo cambia <b>tu</b> invitación para esta actividad; los recordatorios,
+            el enlace y la confirmación no cambian.</div>
+          <div class="prevmsg" id="segMiInvPrev"></div>
+          <button type="button" class="tbtn" id="segMiInvQuitar" style="color:var(--bad)">Quitar y usar la de la actividad</button>
+        </div>
+      </div>
       <div class="segselbar">
         <span id="segSelCount" class="segselcount"></span>
         <button class="pill" id="segMarcarVis">✓ Marcar visibles</button>

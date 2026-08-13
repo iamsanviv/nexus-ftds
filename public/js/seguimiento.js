@@ -88,6 +88,14 @@ let segInvitarTarde = null;   // Date para diferir la invitación, o null = ahor
 // invitó por llamada o por otro mensaje. Los recordatorios, el enlace y la
 // confirmación salen igual.
 let segSinInvitacion = false;
+// Invitación propia del agente para la actividad elegida (tabla
+// `invitaciones_agente`). Solo aplica a actividades que NO son suyas: las que
+// le comparte su director y por tanto no puede editar. Se guarda por actividad
+// para que sobreviva entre tandas — el agente programa de a poquitos y volver a
+// escribir el texto en cada tanda acabaría con versiones distintas del mismo
+// mensaje. `miInvOrig` recuerda lo que había al abrir, para saber si cambió.
+let miInvitacion = "";
+let miInvOrig = "";
 // Quiénes YA tienen seguimiento para la actividad elegida. Sin esto, al volver
 // a programar la misma actividad aparecían igual que el resto y era fácil
 // duplicarles los mensajes sin darse cuenta.
@@ -717,6 +725,67 @@ async function cargarYaProgramados(actividadId) {
   (data || []).forEach(s => segYaProg.add(s.cliente_id));
 }
 
+/* ---------- invitación propia del agente para una actividad ajena ---------- */
+
+// Solo tiene sentido en una actividad que el agente NO puede editar: si es
+// suya, ya tiene el editor dentro del formulario de la actividad y ofrecer dos
+// sitios para lo mismo solo confunde.
+const puedoPersonalizarInvitacion = a => !!a && !!state.me && a.owner_id !== state.me.id;
+
+async function cargarMiInvitacion(a) {
+  miInvitacion = "";
+  miInvOrig = "";
+  const row = $("segMiInvRow");
+  if (!row) return;
+  row.classList.toggle("hidden", !puedoPersonalizarInvitacion(a));
+  $("segMiInvBox").classList.add("hidden");
+  if (!puedoPersonalizarInvitacion(a)) return;
+
+  const { data } = await SB.from("invitaciones_agente")
+    .select("texto").eq("actividad_id", a.id).eq("owner_id", state.me.id).maybeSingle();
+  miInvitacion = (data?.texto || "").trim();
+  miInvOrig = miInvitacion;
+  pintarMiInvitacion();
+}
+
+function pintarMiInvitacion() {
+  const hay = !!miInvitacion.trim();
+  $("segMiInv").value = miInvitacion;
+  $("segMiInvBtn").textContent = hay ? "✎ Editando mi invitación" : "✎ Personalizar mi invitación";
+  $("segMiInvBtn").classList.toggle("on", hay);
+  renderPrevMiInvitacion();
+}
+
+// Vista previa con datos de ejemplo, con el nombre y la hora REALES de la
+// actividad elegida (no los del formulario, que acá no existe).
+function renderPrevMiInvitacion() {
+  const prev = $("segMiInvPrev");
+  if (!prev || !actSel) return;
+  const txt = ($("segMiInv").value || "").trim();
+  prev.textContent = txt
+    ? aplicar(txt, { nombre: "Ana", actividad: actSel.nombre, hora: horaCO(actSel.inicio), enlace: "" })
+    : "";
+}
+
+// Se guarda al PROGRAMAR, no al escribir: así lo que queda guardado es
+// exactamente el texto con el que salieron los mensajes. Vaciarlo borra la fila
+// —volver a la invitación de la actividad— en vez de dejar un texto vacío que
+// no significa nada.
+async function guardarMiInvitacion(actividadId) {
+  const txt = miInvitacion.trim();
+  if (txt === miInvOrig.trim()) return;          // no cambió: no se toca la base
+  if (!txt) {
+    await SB.from("invitaciones_agente").delete()
+      .eq("actividad_id", actividadId).eq("owner_id", state.me.id);
+  } else {
+    await SB.from("invitaciones_agente")
+      .upsert({ actividad_id: actividadId, owner_id: state.me.id, texto: txt,
+                actualizado: new Date().toISOString() },
+              { onConflict: "actividad_id,owner_id" });
+  }
+  miInvOrig = txt;
+}
+
 async function seleccionarActividad(a) {
   actSel = a;
   segFiltroMem = "todos";
@@ -739,6 +808,7 @@ async function seleccionarActividad(a) {
   const ra = $("segRastrear"); if (ra) ra.checked = true;
   const tr = $("segTardeRow"); if (tr) tr.classList.add("hidden");
   const tt = $("segTardeToggle"); if (tt) { tt.classList.remove("on"); tt.classList.remove("hidden"); }
+  await cargarMiInvitacion(a);
   $("segProgTitulo").innerHTML = `Programar para <b>${esc(a.nombre)}</b> · ${fechaHoraCO(a.inicio)}`;
   refrescarBotonProgramar();
   $("segProgBloque").classList.remove("hidden");
@@ -979,10 +1049,18 @@ async function programar() {
       if (!segSinInvitacion) t.unshift(["invitacion", cuandoInv]);
       return t;
     };
+    // Qué invitación sale, de más específica a más general: la que el agente
+    // escribió para ESTA actividad → la que puso el dueño de la actividad → su
+    // plantilla de siempre. Gana la más específica porque es la que alguien se
+    // tomó el trabajo de escribir para este caso.
+    const invEfectiva = (puedoPersonalizarInvitacion(actSel) && miInvitacion.trim())
+      ? miInvitacion.trim()
+      : actSel.msg_invitacion;
+
     for (const seg of segs) {
       const c = seleccion.find(x => x.id === seg.cliente_id);
       const tpl = plantillas(c.nombre, actSel.nombre, actSel.inicio, actSel.enlace,
-        yaInvitados.has(c.tel), actSel.msg_invitacion);
+        yaInvitados.has(c.tel), invEfectiva);
       for (const [tipo, cuando] of tiempos()) {
         if (tipo !== "invitacion" && cuando <= ahora) continue; // ya pasó
         const fila = {
@@ -1057,6 +1135,11 @@ async function programar() {
 
     // Guarda la selección en el historial de segmentos (automático).
     await guardarSegmentoHistorial(seleccion.map(c => c.id), actSel.id, actSel.nombre);
+
+    // El texto se guarda DESPUÉS de encolar, y solo si se encoló: lo que queda
+    // guardado es exactamente el que salió. Si falla, no se pierde nada —
+    // los mensajes ya llevan el texto resuelto adentro.
+    if (puedoPersonalizarInvitacion(actSel)) await guardarMiInvitacion(actSel.id);
 
     const nota = segSinInvitacion
       ? " · sin invitación (empieza en los recordatorios)"
@@ -1933,6 +2016,32 @@ $("segMsgInvBtn").onclick = () => {
   if (abrir) $("segMsgInv").focus();
 };
 $("segMsgInv").oninput = renderPrevInvitacion;
+
+// --- invitación propia del agente (panel de programación) ---
+$("segMiInvBtn").onclick = () => {
+  const box = $("segMiInvBox");
+  const abrir = box.classList.contains("hidden");
+  box.classList.toggle("hidden", !abrir);
+  // Al abrirlo vacío se siembra con lo que HOY saldría: la invitación de la
+  // actividad si el director escribió una, o la plantilla propia. Retocar un
+  // texto existente es mucho más fácil que escribir mirando una caja en blanco.
+  if (abrir && !$("segMiInv").value.trim()) {
+    $("segMiInv").value = (actSel?.msg_invitacion || "").trim()
+      || plantillasUsuario.invitacion || PLANTILLAS_DEF.invitacion;
+    miInvitacion = $("segMiInv").value;
+    renderPrevMiInvitacion();
+  }
+  if (abrir) $("segMiInv").focus();
+};
+$("segMiInv").oninput = () => {
+  miInvitacion = $("segMiInv").value;
+  renderPrevMiInvitacion();
+};
+$("segMiInvQuitar").onclick = () => {
+  miInvitacion = "";
+  pintarMiInvitacion();
+  $("segMiInvBox").classList.add("hidden");
+};
 $("segHora").addEventListener("change", renderPrevInvitacion);
 $("segLibre").addEventListener("input", renderPrevInvitacion);
 $("segMsgInvQuitar").onclick = () => setMsgInvitacion(null);
