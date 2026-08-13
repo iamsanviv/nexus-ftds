@@ -264,7 +264,14 @@ function wireCards() {
     const cn = card.querySelector('.copynum'); if (cn) cn.onclick = e => { e.stopPropagation(); copyNum(cn.dataset.num); };
     card.querySelector('[data-acc="borrar"]').onclick = async () => {
       if (!confirm(`¿Eliminar a ${c.nombre}?`)) return;
-      if (await dbDelete(c.id)) { state.clientes = state.clientes.filter(x => x.id !== c.id); state.abiertos.delete(c.id); render(); }
+      if (await dbDelete(c.id)) {
+        state.clientes = state.clientes.filter(x => x.id !== c.id);
+        state.abiertos.delete(c.id);
+        // Descuenta el FTD si este cliente lo había sumado este mes (simétrico
+        // a trasCrearCliente). Va después de sacarlo de state.clientes.
+        await (await import("./ftd.js")).trasBorrarCliente(c);
+        render();
+      }
     };
   });
 }

@@ -475,6 +475,13 @@ desaparecía de la vista aunque los datos siguieran ahí.
   `declarado` en 1 y ya; al subir uno de los que faltaban, `cargados` sube solo
   y «sin subir» baja. Por eso la casilla **solo aparece si hay deuda**: cuando
   «sin subir» llega a 0 desaparece del formulario.
+- **Borrar un cliente descuenta el FTD** (`trasBorrarCliente`, simétrico a
+  `trasCrearCliente`). `cargados` baja solo al salir de `state.clientes`, pero
+  `declarado` es un número guardado y no se movería; como `reales =
+  max(declarado, cargados)`, sin esto el conteo quedaba inflado. Solo actúa si
+  el cliente entró a la beca **este mes** (por `comunidad_desde`), el mes no está
+  cerrado y hay un `declarado` puesto; baja `declarado` en 1 con piso en 0. Si
+  nunca se declaró, `reales = cargados` y ya bajó solo.
 - **La base se escribe a mano una sola vez**, para arrancar. Del mes siguiente
   en adelante la siembra el cierre: `sobra = efectivos − meta alcanzada`.
 - **La meta que el agente se pone se mide SIN la base** (`progresoMeta`), y la

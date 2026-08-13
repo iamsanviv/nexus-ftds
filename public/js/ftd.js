@@ -561,3 +561,29 @@ export async function trasCrearCliente(nuevo) {
   const f = comisionFtd(p, yo());
   await guardarFtd(yo(), p, { base: f.base, declarado: f.reales + 1 });
 }
+
+// Al borrar un cliente hay que deshacer lo que hizo `trasCrearCliente`, o el
+// FTD queda inflado: `cargados` baja solo (el cliente sale de state.clientes),
+// pero `declarado` es un número guardado y no se movería, y como
+// `reales = max(declarado, cargados)` el conteo no bajaría. Es simétrico:
+// crear sube el declarado, borrar lo baja.
+//
+// Se llama DESPUÉS de sacar al cliente de state.clientes, para que `cargados`
+// ya refleje la baja.
+export async function trasBorrarCliente(borrado) {
+  if (!state.ventasOk || borrado.mem === "Lead") return;
+  // Solo la FTD de su propio dueño, y solo si es quien borra: escribir la
+  // ftd_base de otro agente no es de aquí (misma línea que la regla de oro).
+  if (borrado.owner_id !== state.me?.id) return;
+  const p = mesActual();
+  // Solo si entró a la beca ESTE mes: un cliente de un mes anterior no cuenta
+  // para el FTD del mes en curso, y un mes cerrado no se toca (lo que se pagó,
+  // se pagó — el RLS además lo bloquea).
+  if ((borrado.comunidadDesde || "").slice(0, 7) !== p) return;
+  const fila = state.ftdBase[`${yo()}|${p}`];
+  // Si nunca se declaró, `reales = cargados` y este ya bajó solo: nada que hacer.
+  if (!fila || fila.declarado == null || fila.cerrado) return;
+  const nuevo = Math.max(0, fila.declarado - 1);
+  if (nuevo === fila.declarado) return;
+  await guardarFtd(yo(), p, { base: fila.base || 0, declarado: nuevo });
+}
