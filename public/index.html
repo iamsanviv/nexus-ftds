@@ -10,6 +10,10 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="Seguimiento">
 <meta name="mobile-web-app-capable" content="yes">
+<!-- Android/Chrome usa el manifest (íconos 192/512) para «Agregar a inicio»;
+     sin él inventa una letra, igual que iOS sin el apple-touch-icon. -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0E1116">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <script>
