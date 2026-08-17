@@ -1,0 +1,103 @@
+/* ============================================================
+   tema.css — modo claro global (paleta "Arena")
+   Cárgalo DESPUÉS de styles.css:
+     <link rel="stylesheet" href="./css/styles.css">
+     <link rel="stylesheet" href="./css/tema.css">
+
+   Arquitectura: el tema vive en un solo lugar. styles.css define los
+   tokens oscuros en :root; aquí se redefinen esos mismos tokens cuando
+   <html data-tema="claro">. Ninguna vista necesita CSS propio: si un
+   componente usa var(--surface), var(--text), etc., cambia solo.
+
+   Regla para vistas nuevas: nunca escribas un hex en el CSS de una
+   vista; usa un token. Si te falta un token, decláralo aquí en los dos
+   bloques (oscuro y claro).
+   ============================================================ */
+
+/* --- tokens que faltaban en styles.css (valores del modo oscuro) --- */
+:root{
+  --bg-side:#0b0e12;        /* barra lateral / cabecera */
+  --border-side:#1c232d;
+  --hover:#1a212a;          /* fila u opción bajo el cursor */
+  --on-gold:#191204;        /* texto sobre fondo dorado */
+  --gold-soft:rgba(232,184,75,.18);
+  --gold-hi:#f2cd78;        /* dorado en hover */
+  --dim:#5f6b78;            /* texto terciario, placeholders */
+  --track:#1D242E;          /* fondo de barras de progreso */
+  --ftd-grad:linear-gradient(135deg,rgba(232,184,75,.16) 0%,rgba(232,184,75,.05) 38%,#161C24 78%);
+  --ftd-border:rgba(232,184,75,.34);
+  --shadow:0 1px 2px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
+
+/* --- modo claro: mismos tokens, otros valores --- */
+html[data-tema="claro"]{
+  --bg:#E9DFCD;
+  --surface:#F6EFE2;
+  --surface2:#EDE3D2;
+  --border:#D8CAB1;
+  --text:#211B11;
+  --muted:#736550;
+  --gold:#8A620E;
+  --gold-dim:#B98A22;
+  --ok:#2F7F57;
+  --bad:#B23B3F;
+
+  --beca:#2C628F;
+  --vip:#6F3FA6;
+  --plat:#5A6B78;
+  --oro:#8A620E;
+
+  --bg-side:#F3EADA;
+  --border-side:#D8CAB1;
+  --hover:#F1E7D7;
+  --on-gold:#332304;
+  --gold-soft:rgba(138,98,14,.14);
+  --gold-hi:#6E4D08;
+  --dim:#8A7B63;
+  --track:#DED0B6;
+  --ftd-grad:linear-gradient(135deg,rgba(214,166,60,.45) 0%,rgba(214,166,60,.16) 38%,#F6EFE2 78%);
+  --ftd-border:rgba(138,98,14,.34);
+  --shadow:0 1px 2px rgba(33,27,17,.10);
+  color-scheme:light;
+}
+
+/* El botón dorado y la barra de progreso conservan el dorado vivo
+   (#E8B84B) en ambos temas; solo cambia el texto que va encima. */
+html[data-tema="claro"]{
+  --gold-fill:#D9A93C;
+}
+:root{ --gold-fill:#E8B84B; }
+
+/* Transición suave al alternar (no aplica al primer pintado). */
+html[data-tema-listo] body,
+html[data-tema-listo] .card,
+html[data-tema-listo] .tabbar,
+html[data-tema-listo] .topbar{
+  transition:background-color .18s ease, color .18s ease, border-color .18s ease;
+}
+
+/* --- interruptor sol/luna --- */
+.tema-toggle{
+  display:flex; gap:2px; padding:2px; border-radius:999px;
+  background:var(--surface2); border:1px solid var(--border-side);
+}
+.tema-toggle button{
+  display:flex; align-items:center; justify-content:center;
+  width:28px; height:24px; border:0; border-radius:999px;
+  background:transparent; color:var(--dim); cursor:pointer;
+}
+.tema-toggle button svg{ width:15px; height:15px; }
+.tema-toggle button[aria-pressed="true"]{ background:var(--surface); color:var(--gold); }
+
+/* ------------------------------------------------------------
+   PENDIENTE al integrar (colores fijos que quedan en styles.css
+   y no responden al tema). Sustituirlos por tokens:
+     #191204  -> var(--on-gold)     (12 usos)
+     #b9c3ce  -> var(--muted)       (6)
+     #0b0e12  -> var(--bg-side)
+     #1c232d  -> var(--border-side)
+     #5f6b78  -> var(--dim)
+     #1a1304 / #a9842a -> var(--on-gold) / var(--gold-dim)
+   Los verdes de WhatsApp (#3ddc84, #2e6b50) son de marca: se dejan.
+   ------------------------------------------------------------ */

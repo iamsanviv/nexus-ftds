@@ -14,8 +14,10 @@
      sin él inventa una letra, igual que iOS sin el apple-touch-icon. -->
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0E1116">
+<script src="./js/tema.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/tema.css">
 <script>
 // RED DE SEGURIDAD DEL ENLACE RASTREADO — va antes que todo lo demás.
 //
@@ -370,6 +372,8 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         <div class="pn"><b id="meName">—</b></div>
         <div class="pr"><span id="meRol"></span></div>
       </div>
+      <!-- tema.js rellena este contenedor con el interruptor sol/luna -->
+      <div data-tema-toggle class="profTema"></div>
     </div>
     <div class="massub" id="appSub"></div>
 
