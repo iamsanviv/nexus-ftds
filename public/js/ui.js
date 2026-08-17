@@ -320,6 +320,8 @@ function renderShell() {
 
   const av = $("meAv");
   if (av && state.me?.name) av.textContent = iniciales(state.me.name);
+  const sav = $("sideAv");
+  if (sav && state.me?.name) sav.textContent = iniciales(state.me.name);
 
   renderRepInd();
 }

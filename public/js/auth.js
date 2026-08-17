@@ -63,6 +63,10 @@ async function entrar() {
   $("meName").textContent = state.me.name;
   $("meRol").textContent = { admin: "Administrador", director: "Director" }[state.me.role] || "Agente";
   $("meRol").className = "rol " + state.me.role;
+  // Espejo en el pie de la barra lateral de escritorio (mismos datos).
+  const rolTxt = { admin: "Administrador", director: "Director" }[state.me.role] || "Agente";
+  if ($("sideName")) $("sideName").textContent = state.me.name;
+  if ($("sideRol")) { $("sideRol").textContent = rolTxt; $("sideRol").className = "rol " + state.me.role; }
   const admin = state.me.role === "admin";
   const dir = state.me.role === "director";
   const mando = admin || dir;                 // ve el panel de equipo

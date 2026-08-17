@@ -388,6 +388,8 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 .tabbar .tab svg{width:23px;height:23px}
 .tabbar .tab.on{color:var(--gold)}
 .tabbar .tab:active{transform:scale(.96)}
+/* El pie con perfil + interruptor solo existe en la barra lateral de escritorio. */
+.sidefoot{display:none}
 
 /* fab por encima de la tab bar */
 .fab{bottom:calc(96px + env(safe-area-inset-bottom))}
@@ -460,8 +462,38 @@ body.segwide .tabinner{max-width:1180px}
 
    Todo dentro de la media query: en celular no cambia nada. */
 @media (min-width:1040px){
-  body{max-width:1040px}
-  .tabinner{max-width:1040px}
+  /* El contenido deja sitio a la barra lateral fija de 208px y se centra en el
+     resto. `padding-bottom` normal: ya no hay cinta inferior que tapar. */
+  body{max-width:none;margin:0;padding:24px 28px 40px 236px}
+  #app{max-width:1040px;margin:0 auto}
+
+  /* La cinta inferior pasa a barra lateral fija a la izquierda. Se reutilizan
+     los mismos <button.tab> (misma lógica de navegación); solo cambia posición
+     y estilo. */
+  .tabbar{top:0;bottom:0;left:0;right:auto;width:208px;height:100vh;
+    flex-direction:column;padding:18px 12px;
+    border-top:0;border-right:1px solid var(--border-side);
+    display:flex}
+  .tabinner{flex-direction:column;max-width:none;margin:0;gap:2px;flex:1;align-items:stretch}
+  .tabbar .tab{flex:0 0 auto;flex-direction:row;justify-content:flex-start;align-items:center;
+    gap:11px;padding:10px 12px;border-radius:10px;font-size:14px;font-weight:600;
+    color:var(--dim);letter-spacing:0;text-align:left}
+  .tabbar .tab svg{width:20px;height:20px;flex:0 0 auto}
+  .tabbar .tab.on{background:var(--surface2);color:var(--gold)}
+  .tabbar .tab:hover{background:var(--hover)}
+  .tabbar .tab:active{transform:none}
+
+  /* Pie: perfil + interruptor de tema. El bloque de texto necesita min-width:0 y
+     nowrap para que el nombre no se parta en dos líneas. */
+  .sidefoot{display:flex;align-items:center;gap:9px;margin-top:8px;padding:10px 8px;
+    border-top:1px solid var(--border-side)}
+  .sidefoot .pav{width:34px;height:34px;border-radius:10px;background:var(--gold-fill);
+    color:var(--on-gold);font-family:'Archivo';font-weight:800;font-size:.85rem;
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .sidefoot-txt{min-width:0;white-space:nowrap;line-height:1.15;flex:1}
+  .sidefoot-txt b{display:block;font-size:.82rem;color:var(--text);overflow:hidden;text-overflow:ellipsis}
+  .sidefoot-txt span{font-size:.7rem;color:var(--muted)}
+  .sidefoot-tema{flex:0 0 auto}
 
   /* Selector de módulo y buscador comparten renglón. Sueltos, cada uno ocupaba
      el ancho completo: dos botones de medio metro y un campo de búsqueda que

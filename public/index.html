@@ -418,7 +418,18 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <button class="tab" data-v="mas" id="tabMas">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></svg>
       Más</button>
-  </div></nav>
+  </div>
+    <!-- Pie de la barra lateral (solo escritorio): perfil + interruptor de tema.
+         En móvil va oculto; el perfil y el interruptor viven en la vista «Más». -->
+    <div class="sidefoot">
+      <div class="pav" id="sideAv">—</div>
+      <div class="sidefoot-txt">
+        <b id="sideName">—</b>
+        <span id="sideRol"></span>
+      </div>
+      <div data-tema-toggle class="sidefoot-tema"></div>
+    </div>
+  </nav>
 </div>
 
 <!-- modal supervisión de agentes (solo director) -->
