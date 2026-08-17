@@ -97,7 +97,7 @@ export function render() {
   $("vistaCliente").classList.remove("hidden");
   $("vistaServicio").classList.add("hidden");
   $("abrirModal").classList.remove("hidden");
-  $("buscar").placeholder = isLead ? "Buscar lead…" : "Buscar cliente…";
+  $("buscar").placeholder = isLead ? "Buscar lead…" : "Buscar por nombre o teléfono…";
 
   // Bloque de FTD del mes. Import dinámico por lo mismo que ventas.js y
   // repaso.js: ftd.js necesita render() de aquí y no puede haber ciclo.
@@ -130,9 +130,19 @@ export function render() {
   $("orden").querySelectorAll(".oseg").forEach(b => b.onclick = () => { state.orden = b.dataset.o; render(); });
 
   /* ----- filtrar ----- */
-  const q = norm($("buscar").value.trim());
+  const crudo = $("buscar").value.trim();
+  const q = norm(crudo);
+  // Búsqueda por teléfono: se buscan los DÍGITOS de la consulta dentro de los
+  // dígitos del teléfono. Es aditiva —el nombre sigue funcionando igual—, así
+  // que "3390" o "55 3390" encuentran al cliente sin romper nada. Mínimo 2
+  // dígitos para no filtrar de más al escribir un solo número suelto.
+  const qDig = crudo.replace(/\D/g, "");
   let vis = base.filter(c => {
-    if (q && !norm(c.nombre).includes(q)) return false;
+    if (q) {
+      const porNombre = norm(c.nombre).includes(q);
+      const porTel = qDig.length >= 2 && (c.tel || "").replace(/\D/g, "").includes(qDig);
+      if (!porNombre && !porTel) return false;
+    }
     if (state.filtro === "todos") return true;
     if (state.filtro === "activos") return pr(c).extra > 0;
     if (state.filtro === "inactivos") return pr(c).extra === 0;
