@@ -8,6 +8,12 @@ Guía para abrir el repositorio en Obsidian: `brain/README.md`.
 
 Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir únicamente los documentos relevantes y después inspeccionar el código citado en esos documentos.
 
+`06-decisions/index.md` y `08-memory/known-issues.md` **no son lecturas obligatorias de cierre**:
+
+- consultar `06-decisions/index.md` solo cuando la tarea implique una decisión arquitectónica, cambie una regla estructural o exista una posibilidad razonable de contradecir una decisión previa;
+- consultar `08-memory/known-issues.md` solo cuando aparezca un bug, comportamiento anómalo o síntoma que razonablemente pueda corresponder a un defecto ya registrado;
+- no abrir ninguno de los dos por rutina si la tarea puede resolverse con la ruta específica del router.
+
 ## Producto
 
 - `01-product/current-state.md` — estado funcional y técnico actual del sistema.
@@ -45,7 +51,7 @@ Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir 
 
 ## Decisiones
 
-- `06-decisions/index.md` — decisiones que no deben rediscutirse sin evidencia nueva.
+- `06-decisions/index.md` — decisiones que no deben rediscutirse sin evidencia nueva. Lectura condicional, no rutinaria.
 
 ## Desarrollo
 
@@ -58,7 +64,7 @@ Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir 
 - `08-memory/dangerous-patterns.md` — errores que ya causaron daño o riesgo real.
 - `08-memory/database-security-traps.md` — trampas de Postgres, RLS, helpers y SECURITY DEFINER.
 - `08-memory/ui-css-traps.md` — especificidad CSS, harnesses visuales y responsive.
-- `08-memory/known-issues.md` — defectos o trabajos históricamente abiertos; verificar antes de asumir vigencia.
+- `08-memory/known-issues.md` — defectos o trabajos históricamente abiertos; lectura condicional ante bugs o síntomas, y verificar antes de asumir vigencia.
 
 ## Legacy
 
