@@ -511,10 +511,28 @@ body.segwide .tabinner{max-width:1180px}
   .headctl .vtoggle{flex:0 0 auto}
 
   /* La tarjeta del mes al lado de las cifras. Sola, dejaba medio ancho vacío. */
-  .cliresumen{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);
+  .cliresumen{display:grid;grid-template-columns:minmax(0,480px) minmax(0,1fr);
     gap:14px;align-items:start;margin-bottom:12px}
   .cliresumen #ftdPanel .metacard{margin-bottom:0}
   .cliresumen .stats{margin:0;grid-template-columns:repeat(4,1fr)}
+
+  /* Tarjeta de FTD en tres columnas separadas por filetes. Todo lo demás
+     (notas de base, explicaciones) sale de la vista y vive en el asistente. */
+  .ftddesk{display:grid;grid-template-columns:repeat(3,1fr);gap:0;padding:0;
+    background:var(--ftd-grad);border:1px solid var(--ftd-border);border-radius:14px}
+  .ftddesk .ftdcol{display:flex;flex-direction:column;gap:5px;padding:13px 16px;min-width:0}
+  .ftddesk .ftdcol + .ftdcol{border-left:1px solid var(--ftd-border)}
+  .ftddesk .ftdlbl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;
+    color:var(--gold);font-weight:700;white-space:nowrap}
+  .ftddesk .ftdbig{font-family:'Archivo';font-weight:800;font-size:34px;line-height:1;
+    font-variant-numeric:tabular-nums;color:var(--text)}
+  .ftddesk .ftdbig.md{font-size:26px}
+  .ftddesk .ftdbig.gold{color:var(--gold)}
+  .ftddesk .ftdsup{font-size:.76rem;color:var(--muted);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .ftddesk .barra{margin-top:auto}
+  .ftddesk .ftdlinks{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin-top:4px}
+  .ftddesk .ftdlinks .metalink{font-size:12px;white-space:nowrap;text-align:left}
 
   /* Filtros a la izquierda; orden + «+ Cliente» a la derecha. */
   .clifiltros{display:flex;align-items:center;justify-content:space-between;gap:16px}

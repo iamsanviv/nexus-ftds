@@ -51,7 +51,40 @@ export function renderBloqueFtd() {
   // La comisión de ventas del mes, solo para el total discreto de la esquina.
   const vent = resumenVentas(p, yo()).causada;
 
-  cont.innerHTML = `
+  // En ESCRITORIO la tarjeta es de tres columnas (FTD del mes · Comisión FTD ·
+  // Total del mes), sin el resto de texto —eso vive en el asistente—: a un ancho
+  // grande el flujo vertical de móvil abrumaba. En móvil, el diseño de siempre.
+  const desk = window.matchMedia("(min-width:1040px)").matches;
+  if (desk) {
+    const metaTxt = g.meta
+      ? (g.cumplida ? `de ${g.meta} · cumplida ✓` : `de ${g.meta} · te faltan ${g.faltan}`)
+      : "sin meta puesta";
+    cont.innerHTML = `
+      <div class="metacard ftdcard ftddesk">
+        <div class="ftdcol">
+          <span class="ftdlbl">FTD de ${mesLegible(p)}</span>
+          <div class="ftdbig">${f.reales}</div>
+          <div class="ftdsup">${metaTxt}</div>
+          <div class="barra dos ${g.cumplida ? "full" : ""}">
+            <u style="width:${g.pctCargados}%"></u><i style="width:${g.pct}%"></i>
+          </div>
+        </div>
+        <div class="ftdcol">
+          <span class="ftdlbl">Comisión FTD</span>
+          <div class="ftdbig md">${usd(f.pago)}</div>
+          <div class="ftdsup">${f.cargados} cargados${f.base ? ` · ${f.base} con tu base` : ""}</div>
+        </div>
+        <div class="ftdcol">
+          <span class="ftdlbl">Total del mes</span>
+          <div class="ftdbig gold">${usd(f.pago + vent)}</div>
+          <div class="ftdlinks">
+            <button class="metalink" id="ftdAjustar">${f.declaro ? "Ajustar" : "Poner mis números"}</button>
+            <button class="metalink" id="ftdMeses">Meses anteriores</button>
+          </div>
+        </div>
+      </div>`;
+  } else {
+    cont.innerHTML = `
     <div class="metacard ftdcard">
       <div class="fhead">
         <span class="lbl">FTD de ${mesLegible(p)}</span>
@@ -91,15 +124,16 @@ export function renderBloqueFtd() {
       <div class="totalmes">Total del mes con ventas (${usd(vent)}) · <b>${usd(f.pago + vent)}</b></div>
       <div class="fmeses"><button class="metalink" id="ftdMeses">📅 Ver meses anteriores</button></div>
     </div>`;
+  }
 
   const chip = $("ftdSinSubir");
   if (chip) chip.onclick = () => toast(
     `Llevas ${f.reales} FTD pero solo ${f.cargados} están cargados. Sube los ${f.sinSubir} que faltan cuando puedas.`);
-  $("ftdAjustar").onclick = () => abrirAsistente("ajuste");
+  if ($("ftdAjustar")) $("ftdAjustar").onclick = () => abrirAsistente("ajuste");
   // La meta es tocable: el asistente promete que se puede cambiar cuando sea, y
   // "Ajustar" solo abre los números del mes.
-  $("ftdMeta").onclick = () => abrirAsistente("metas");
-  $("ftdMeses").onclick = () => abrirResumen();
+  if ($("ftdMeta")) $("ftdMeta").onclick = () => abrirAsistente("metas");
+  if ($("ftdMeses")) $("ftdMeses").onclick = () => abrirResumen();
 
   // Momento natural para el ritual: el agente acaba de llegar a Personas.
   revisarRituales();
