@@ -390,6 +390,9 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 .tabbar .tab:active{transform:scale(.96)}
 /* El pie con perfil + interruptor solo existe en la barra lateral de escritorio. */
 .sidefoot{display:none}
+/* El teléfono en el encabezado de la fila es solo de escritorio: en móvil la
+   fila no cambia (el número sigue en el cuerpo, con el botón de copiar). */
+.cheadtel{display:none}
 
 /* fab por encima de la tab bar */
 .fab{bottom:calc(96px + env(safe-area-inset-bottom))}
@@ -514,15 +517,23 @@ body.segwide .tabinner{max-width:1180px}
   .clifiltros .filtros{margin-bottom:10px;overflow:visible}
   .clifiltros .ordwrap{flex:0 0 auto;margin-bottom:10px}
 
-  /* La fila de persona se vuelve horizontal: apilada, estirada seguía igual de
-     alta pero con aire de sobra, y cabían MENOS personas que en celular. */
-  .chead{padding:11px 14px;gap:14px}
-  .card .cinfo{display:flex;align-items:center;gap:18px}
-  /* Cabe nombre + nivel + bandera en un renglón: si la bandera se pasa a la
-     línea de abajo, esa fila queda más alta que sus vecinas y salta a la vista. */
-  .card .nombre{flex:0 0 clamp(260px,32%,340px);min-width:0}
-  .card .barra{flex:1;max-width:340px;margin-top:0}
-  .card .pct{flex:1;margin-top:0;text-align:right}
+  /* La fila de persona en UNA sola línea. El reparto flex importa: si el nombre
+     fuera el único flexible, se recortaría él y el teléfono quedaría entero, que
+     es justo lo que no queremos. Por eso el nombre crece (3) y el teléfono cede
+     primero (0 1 130). */
+  .chead{padding:13px 16px;gap:16px}
+  .card .cinfo{display:flex;align-items:center;gap:16px;flex:1;min-width:0}
+  /* El nombre es flex-wrap:wrap de base; sin desactivarlo, la bandera saltaba a
+     una segunda línea y la fila crecía. Se mantiene en una línea y el ellipsis
+     va en el NOMBRE (.nmlink), no en el contenedor, para que insignia y bandera
+     se queden al lado. */
+  .card .nombre{flex:3 1 300px;min-width:0;flex-wrap:nowrap;overflow:hidden}
+  .card .nombre .nmlink{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card .nombre .badge,.card .nombre .pais,.card .nombre .owner{flex:0 0 auto}
+  .cheadtel{display:block;flex:0 1 130px;min-width:0;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
+  .card .barra{flex:1 1 140px;min-width:90px;max-width:280px;margin-top:0}
+  .card .pct{flex:0 0 auto;margin-top:0;white-space:nowrap;text-align:right}
 
   /* Ventas: el encabezado partía la línea porque `.nombre` es un flex heredado
      de la tarjeta de cliente. Acá cabe todo en una, con el valor a la derecha. */

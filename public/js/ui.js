@@ -227,6 +227,7 @@ function cardHTML(c, p, rank, isLead, dir) {
         ${rankChip || `<div class="cav">${esc(iniciales(c.nombre))}</div>`}
         <div class="cinfo">
           <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span>${paisTag} ${ownerBadge}</div>
+          ${isLead || !c.tel ? '' : `<span class="cheadtel" title="${esc(c.tel)}">${esc(c.tel)}</span>`}
           ${isLead ? '' : `<div class="barra"><i style="width:${p.pct}%"></i></div>`}
           <div class="pct">${metric}</div>
         </div>
