@@ -1,19 +1,48 @@
 # Memoria legacy
 
-El `CLAUDE.md` monolítico anterior a esta migración no se copia dentro del brain porque hacerlo duplicaría decenas de KB y frustraría el objetivo de reducir contexto.
+El `CLAUDE.md` monolítico anterior fue reemplazado por una memoria modular en la rama de migración del brain.
 
-## Fuente preservada
+La versión anterior sigue íntegra en el historial Git de `main` anterior a esta migración; no se copia dentro de `brain/` porque hacerlo volvería a introducir decenas de KB de contexto duplicado.
 
-El contenido completo permanece en el historial Git y en la rama `main` anterior a la migración.
+## Auditoría inicial
 
-Blob conocido durante la migración:
+En la segunda auditoría se promovieron al brain, entre otros, estos bloques que aún estaban demasiado resumidos:
 
-```text
-a8c887b6650505335204cc4ebe2ef8648656340a
-```
+- autenticación, aprobación y recuperación;
+- invitaciones específicas y precedencia de textos;
+- asistencia que no retrocede y revisión de días pasados;
+- segmentos/historial reutilizable;
+- FTD, ventas, abonos, upgrades y zooms;
+- salud de canales;
+- medios adjuntos;
+- MCP Oracle;
+- trampas de RLS/Postgres;
+- trampas de CSS/harnesses;
+- pendientes conocidos.
 
-Para auditar una regla que parezca ausente, consultar la versión histórica de `CLAUDE.md`, clasificar la información y migrarla al documento modular correcto. No volver a inflar el `CLAUDE.md` raíz.
+Esto reduce considerablemente la probabilidad de que una regla vigente importante dependa únicamente del archivo histórico.
+
+## Cuándo consultar legacy
+
+**No cargar legacy por defecto.**
+
+Recuperarlo solo si:
+
+1. aparece un comportamiento no explicado por el brain actual;
+2. una tarea hace referencia explícita a una decisión antigua;
+3. código/SQL contiene una forma extraña y ninguna nota actual explica el porqué;
+4. existe evidencia concreta de que falta una regla histórica.
+
+## Procedimiento
+
+1. recuperar el `CLAUDE.md` anterior desde Git;
+2. localizar únicamente la sección relacionada;
+3. verificarla contra código y, si importa, producción;
+4. si sigue vigente, promover una versión compacta al documento canónico del brain;
+5. si está obsoleta, no preservarla como regla.
 
 ## Regla
 
-La documentación legacy sirve para recuperar contexto perdido, no como fuente principal. Si contradice código actual, estado de producción o decisiones vigentes, manda la fuente superior indicada en `brain/00-index.md`.
+El historial es archivo forense, no contexto base.
+
+Ver [[../07-development/brain-maintenance]].
