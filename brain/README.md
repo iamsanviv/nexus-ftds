@@ -4,15 +4,27 @@
 
 No hay una API especial entre Claude Code y Obsidian. Ambos leen y escriben los mismos archivos del repositorio.
 
+## Estado de esta integración
+
+La parte que vive en Git ya queda preparada con esta rama:
+
+- `brain/` versionado;
+- `CLAUDE.md` como bootstrap pequeño;
+- enlaces internos;
+- `.obsidian/` ignorado por Git.
+
+La única activación que debe hacerse físicamente en cada computador es abrir la carpeta local del repositorio como vault. GitHub no puede realizar ese clic dentro de Obsidian por el usuario.
+
 ## Abrir el proyecto como vault
 
 En el equipo donde está clonado `nexus-ftds`:
 
-1. abrir Obsidian;
-2. elegir **Open folder as vault / Abrir carpeta como vault**;
-3. seleccionar la carpeta raíz del repositorio `nexus-ftds`, no solamente `brain/`;
-4. Obsidian creará `.obsidian/` dentro del repositorio;
-5. `.obsidian/` ya está ignorado por Git y no debe versionarse.
+1. traer la rama/versión que contiene el brain;
+2. abrir Obsidian;
+3. elegir **Open folder as vault / Abrir carpeta como vault**;
+4. seleccionar la carpeta raíz del repositorio `nexus-ftds`, no solamente `brain/`;
+5. Obsidian creará `.obsidian/` dentro del repositorio;
+6. `.obsidian/` ya está ignorado por Git y no debe versionarse.
 
 La carpeta `brain/` sí se versiona.
 
