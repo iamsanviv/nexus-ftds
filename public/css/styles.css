@@ -487,36 +487,45 @@ body.segwide .tabinner{max-width:1180px}
     border-top:0;border-right:1px solid var(--border-side);
     display:flex}
   /* Marca arriba de la barra lateral (mockup). Solo escritorio. */
-  .sidebrand{display:block;font-family:'Archivo';font-weight:800;font-size:.82rem;
-    letter-spacing:.14em;color:var(--muted);padding:6px 12px 16px}
+  .sidebrand{display:block;font-family:'Archivo';font-weight:800;font-size:13px;
+    letter-spacing:.16em;color:var(--gold);padding:6px 12px 16px}
   .sidebrand b{color:var(--gold);font-weight:800}
-  .tabinner{flex-direction:column;max-width:none;margin:0;gap:2px;flex:1;align-items:stretch}
+  .tabinner{flex-direction:column;max-width:none;margin:0;gap:3px;flex:1;align-items:stretch}
   .tabbar .tab{flex:0 0 auto;flex-direction:row;justify-content:flex-start;align-items:center;
     gap:11px;padding:10px 12px;border-radius:10px;font-size:14px;font-weight:600;
     color:var(--dim);letter-spacing:0;text-align:left}
-  .tabbar .tab svg{width:20px;height:20px;flex:0 0 auto}
+  .tabbar .tab svg{width:19px;height:19px;flex:0 0 auto}
   .tabbar .tab.on{background:var(--surface2);color:var(--gold)}
   .tabbar .tab:hover{background:var(--hover)}
   .tabbar .tab:active{transform:none}
 
   /* Pie: perfil + interruptor de tema. El bloque de texto necesita min-width:0 y
-     nowrap para que el nombre no se parta en dos líneas. */
-  .sidefoot{display:flex;align-items:center;gap:9px;margin-top:8px;padding:10px 8px;
+     nowrap para que el nombre no se parta en dos líneas. El avatar va discreto
+     (mockup): el único relleno dorado de la vista es «+ Cliente». */
+  .sidefoot{display:flex;align-items:center;gap:10px;margin-top:8px;padding:10px 8px;
     border-top:1px solid var(--border-side)}
-  .sidefoot .pav{width:34px;height:34px;border-radius:10px;background:var(--gold-fill);
-    color:var(--on-gold);font-family:'Archivo';font-weight:800;font-size:.85rem;
+  .sidefoot .pav{width:32px;height:32px;border-radius:10px;background:var(--surface2);
+    color:var(--gold);font-family:'Archivo';font-weight:800;font-size:12px;
     display:flex;align-items:center;justify-content:center;flex:0 0 auto}
-  .sidefoot-txt{min-width:0;white-space:nowrap;line-height:1.15;flex:1}
-  .sidefoot-txt b{display:block;font-size:.82rem;color:var(--text);overflow:hidden;text-overflow:ellipsis}
-  .sidefoot-txt span{font-size:.7rem;color:var(--muted)}
+  .sidefoot-txt{min-width:0;white-space:nowrap;line-height:1.2;flex:1}
+  .sidefoot-txt b{display:block;font-family:'Archivo';font-size:12px;font-weight:800;
+    color:var(--text);overflow:hidden;text-overflow:ellipsis}
+  .sidefoot-txt span{font-size:10px;font-weight:800;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--gold)}
   .sidefoot-tema{flex:0 0 auto}
 
-  /* El selector Comunidad/Leads sube a la derecha del título (mockup), compacto.
-     El buscador se reubica por JS a la fila de filtros, así que headctl queda
-     vacío en Personas. */
+  /* El selector Comunidad/Leads sube a la derecha del título (mockup): un solo
+     segmento con marco propio, no dos píldoras sueltas con borde cada una. */
   .apphead{align-items:center}
-  .apphead .modswitch{flex:0 0 auto;width:auto;margin:0}
-  .apphead .modswitch .mbtn{flex:0 0 auto;padding:9px 18px;font-size:.82rem}
+  .apphead .modswitch{flex:0 0 auto;width:auto;margin:0;gap:6px;padding:3px;
+    background:var(--bg-side);border:1px solid var(--border);border-radius:10px}
+  .apphead .modswitch .mbtn{flex:0 0 auto;font-family:inherit;font-size:13px;font-weight:600;
+    padding:7px 14px;border:0;border-radius:7px;background:none;box-shadow:none;color:var(--muted)}
+  .apphead .modswitch .mbtn.on{background:var(--surface2);color:var(--gold);
+    font-weight:700;box-shadow:none}
+  /* Leads conserva su verde: es la señal de que se cambió de módulo, y el
+     segmento del mockup no distingue entre los dos. */
+  .apphead .modswitch .mbtn.leads.on{color:var(--lead)}
   .headctl{display:flex;align-items:flex-start;gap:12px}
   .headctl .vtoggle{flex:0 0 auto}
 
@@ -526,55 +535,96 @@ body.segwide .tabinner{max-width:1180px}
   .cliresumen{display:block;margin-bottom:12px}
   .cliresumen #ftdPanel{margin-bottom:14px}
   .cliresumen #ftdPanel .metacard{margin-bottom:0}
-  .cliresumen .stats{margin:0;grid-template-columns:repeat(4,1fr)}
+  .cliresumen .stats{margin:0;grid-template-columns:repeat(4,1fr);gap:12px}
 
-  /* Tarjeta de FTD en tres columnas separadas por filetes. Todo lo demás
-     (notas de base, explicaciones) sale de la vista y vive en el asistente. */
-  .ftddesk{display:grid;grid-template-columns:repeat(3,1fr);gap:0;padding:0;
+  /* Tarjeta de FTD en tres columnas. La primera pesa más (lleva la cifra del mes
+     y la barra) y los separadores son filetes cortos centrados, no bordes de
+     celda: a altura completa partían la tarjeta en tres cajas. Todo el texto
+     explicativo (notas de base) sale de la vista y vive en el asistente. */
+  .ftddesk{display:grid;
+    grid-template-columns:minmax(0,1.5fr) 1px minmax(0,1fr) 1px minmax(0,1fr);
+    gap:22px;align-items:center;padding:18px 22px;
     background:var(--ftd-grad);border:1px solid var(--ftd-border);border-radius:14px}
-  .ftddesk .ftdcol{display:flex;flex-direction:column;gap:5px;padding:13px 16px;min-width:0}
-  .ftddesk .ftdcol + .ftdcol{border-left:1px solid var(--ftd-border)}
+  .ftddesk .ftdcol{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .ftddesk .ftdcol:first-child{gap:10px}
+  .ftddesk .ftdsep{width:1px;height:56px;background:var(--border)}
+  /* Solo la etiqueta del mes va en dorado; si las tres lo van, ninguna destaca. */
   .ftddesk .ftdlbl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;
-    color:var(--gold);font-weight:700;white-space:nowrap}
+    color:var(--muted);font-weight:800;white-space:nowrap}
+  .ftddesk .ftdlbl.oro{color:var(--gold)}
+  .ftddesk .ftdcifra{display:flex;align-items:baseline;gap:10px;min-width:0}
   .ftddesk .ftdbig{font-family:'Archivo';font-weight:800;font-size:34px;line-height:1;
     font-variant-numeric:tabular-nums;color:var(--text)}
   .ftddesk .ftdbig.md{font-size:26px}
   .ftddesk .ftdbig.gold{color:var(--gold)}
-  .ftddesk .ftdsup{font-size:.76rem;color:var(--muted);white-space:nowrap;
+  /* Comisión en cero: el número no compite con el total que sí se cobra. */
+  .ftddesk .ftdbig.mut{color:var(--muted)}
+  .ftddesk .ftdmeta{font-size:14px;color:var(--muted);min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ftddesk .ftdmeta b{color:var(--gold);font-variant-numeric:tabular-nums}
+  .ftddesk .ftdmeta b.fuerte{color:var(--text)}
+  .ftddesk .ftdsup{font-size:12px;color:var(--muted);white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis}
-  .ftddesk .barra{margin-top:auto}
-  .ftddesk .ftdlinks{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin-top:4px}
-  .ftddesk .ftdlinks .metalink{font-size:12px;white-space:nowrap;text-align:left}
+  .ftddesk .barra{margin-top:0}
+  /* Los dos enlaces en una línea: apilados alargaban la tercera columna y
+     descuadraban la altura de la tarjeta. */
+  .ftddesk .ftdlinks{display:flex;flex-direction:row;align-items:baseline;gap:14px;margin-top:2px}
+  .ftddesk .ftdlinks .metalink{font-size:12px;white-space:nowrap;padding:0;
+    border-bottom:1px dotted var(--gold-dim);opacity:.6}
+  .ftddesk .ftdlinks .metalink:hover{opacity:1;background:none;border-bottom-style:dotted}
+  .ftddesk .ftdlinks .metalink.quiet{color:var(--muted);border-bottom-color:var(--border);opacity:.8}
 
   /* Filtros a la izquierda; buscador + «+ Cliente» a la derecha (mockup). El
      «Orden» sale de la vista: en escritorio la lista ya va por progreso y el
      segmento solo estorbaba. */
   .clifiltros{display:flex;align-items:center;justify-content:space-between;gap:16px}
   .clifiltros .filtros{margin-bottom:10px;overflow:visible}
+  .clifiltros .pill{font-size:13px;padding:7px 14px}
+  .clifiltros .pill.on{border-color:transparent}
   .clifiltros-r{display:flex;align-items:center;gap:12px;flex:0 0 auto;margin-bottom:10px}
   .clifiltros-r .ordwrap{display:none}
-  .clifiltros-r .buscar{flex:0 0 240px;margin:0}
-  /* «+ Cliente» deja de flotar: se acomoda en la fila. */
+  .clifiltros-r .buscar{flex:0 0 290px;margin:0;font-size:14px}
+  /* «+ Cliente» deja de flotar: se acomoda en la fila, con el mismo radio que
+     el buscador de al lado (la píldora de móvil desentonaba en la fila). */
   .clifiltros-r .clifab{position:static;bottom:auto;right:auto;box-shadow:none;
-    padding:9px 16px;font-size:.85rem;margin:0}
+    padding:11px 18px;font-size:14px;border-radius:10px;margin:0}
 
-  /* Tarjetas de conteo como botones de filtro por membresía. La activa se marca
-     con un filo del color de su nivel. */
-  .stat.filtrable{cursor:pointer;font:inherit;display:block;
-    transition:background .12s,box-shadow .12s}
-  .stat.filtrable:hover{background:var(--hover)}
-  .stat.filtrable.on{background:var(--surface2)}
-  .stat.filtrable.beca.on{box-shadow:inset 0 0 0 1px var(--beca);border-color:var(--beca)}
-  .stat.filtrable.vip.on{box-shadow:inset 0 0 0 1px var(--vip);border-color:var(--vip)}
-  .stat.filtrable.plat.on{box-shadow:inset 0 0 0 1px var(--plat);border-color:var(--plat)}
-  .stat.filtrable.oro.on{box-shadow:inset 0 0 0 1px var(--oro);border-color:var(--oro)}
+  /* Tarjetas de conteo como botones de filtro por membresía. Cifra y etiqueta
+     comparten línea base y el color del nivel manda en TODO el botón, para que
+     el filo de la activa salga de `currentColor` y no de un token por nivel. */
+  .stat.filtrable{cursor:pointer;font:inherit;display:flex;align-items:baseline;gap:9px;
+    text-align:left;padding:14px 16px;border-radius:14px;
+    transition:background .12s,box-shadow .12s,border-color .12s}
+  .stat.filtrable b{display:inline;font-size:22px;color:currentColor}
+  .stat.filtrable span{font-size:11px;letter-spacing:.05em}
+  .stat.filtrable.beca{color:var(--beca)}
+  .stat.filtrable.vip{color:var(--vip)}
+  .stat.filtrable.plat{color:var(--plat)}
+  .stat.filtrable.oro{color:var(--oro)}
+  .stat.filtrable:hover{background:var(--surface2)}
+  .stat.filtrable.on{background:var(--surface2);border-color:currentColor;
+    box-shadow:inset 0 0 0 1px currentColor}
 
-  /* Tira de estado. */
+  /* Tira de estado. «Quitar filtros» se lee como parte de la frase (punteado),
+     no como un botón. */
   .cliestado{display:flex;align-items:center;gap:10px;margin:0 0 14px;
-    font-size:.82rem;color:var(--muted)}
-  .quitarf{background:none;border:0;color:var(--gold);font:inherit;font-size:.82rem;
-    font-weight:600;cursor:pointer;padding:2px 6px;border-radius:6px}
-  .quitarf:hover{background:var(--hover)}
+    font-size:13px;color:var(--muted)}
+  .quitarf{background:none;border:0;border-bottom:1px dotted var(--gold-dim);
+    color:var(--gold);font:inherit;font-size:13px;font-weight:700;
+    cursor:pointer;padding:0;border-radius:0}
+  .quitarf:hover{background:none;border-bottom-style:solid}
+
+  /* La lista es UNA tarjeta con filas dentro (mockup), no una pila de tarjetas
+     sueltas: a este ancho los márgenes entre tarjetas cortaban la lectura
+     vertical. Cada fila sigue siendo el mismo acordeón; solo pierde su marco. */
+  #lista{background:var(--surface);border:1px solid var(--border);
+    border-radius:14px;overflow:hidden}
+  #lista .card{background:transparent;border:0;border-radius:0;margin-bottom:0;
+    border-bottom:1px solid var(--surface2)}
+  #lista .card:last-child{border-bottom:0}
+  #lista .chead:hover{background:var(--hover)}
+  /* El vacío vive dentro de esa misma tarjeta: sin marco punteado propio. */
+  #lista .vacio{border:0;border-radius:0;padding:34px 16px}
 
   /* La fila de persona en UNA sola línea. El reparto flex importa: si el nombre
      fuera el único flexible, se recortaría él y el teléfono quedaría entero, que
@@ -586,13 +636,19 @@ body.segwide .tabinner{max-width:1180px}
      una segunda línea y la fila crecía. Se mantiene en una línea y el ellipsis
      va en el NOMBRE (.nmlink), no en el contenedor, para que insignia y bandera
      se queden al lado. */
-  .card .nombre{flex:3 1 300px;min-width:0;flex-wrap:nowrap;overflow:hidden}
+  .card .nombre{flex:3 1 300px;min-width:0;flex-wrap:nowrap;overflow:hidden;font-size:15px}
   .card .nombre .nmlink{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .card .nombre .badge,.card .nombre .pais,.card .nombre .owner{flex:0 0 auto}
   .cheadtel{display:block;flex:0 1 130px;min-width:0;white-space:nowrap;overflow:hidden;
-    text-overflow:ellipsis;font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
+    text-overflow:ellipsis;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
   .card .barra{flex:1 1 140px;min-width:90px;max-width:280px;margin-top:0}
-  .card .pct{flex:0 0 auto;margin-top:0;white-space:nowrap;text-align:right}
+  .card .pct{flex:0 0 auto;margin-top:0;white-space:nowrap;text-align:right;font-size:13px}
+  /* Rango: en la fila compacta el cuadro de móvil sobra, y solo el primero va
+     en dorado (mockup). Del segundo en adelante, neutro. */
+  #lista .rank,#lista .cav{width:30px;height:30px;border-radius:9px}
+  #lista .rank .rn{font-size:14px}
+  #lista .rank.r2,#lista .rank.r3{background:var(--surface2);color:var(--text);
+    border-color:var(--border)}
 
   /* Ventas: el encabezado partía la línea porque `.nombre` es un flex heredado
      de la tarjeta de cliente. Acá cabe todo en una, con el valor a la derecha. */

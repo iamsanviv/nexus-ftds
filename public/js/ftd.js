@@ -56,30 +56,38 @@ export function renderBloqueFtd() {
   // grande el flujo vertical de móvil abrumaba. En móvil, el diseño de siempre.
   const desk = window.matchMedia("(min-width:1040px)").matches;
   if (desk) {
+    // La cifra grande y el «de N · te faltan M» comparten línea base (mockup):
+    // el número solo, con la meta en un renglón aparte, desbalanceaba la columna.
     const metaTxt = g.meta
-      ? (g.cumplida ? `de ${g.meta} · cumplida ✓` : `de ${g.meta} · te faltan ${g.faltan}`)
+      ? (g.cumplida
+          ? `de <b>${g.meta}</b> · cumplida ✓`
+          : `de <b>${g.meta}</b> · te faltan <b class="fuerte">${g.faltan}</b>`)
       : "sin meta puesta";
     cont.innerHTML = `
       <div class="metacard ftdcard ftddesk">
         <div class="ftdcol">
-          <span class="ftdlbl">FTD de ${mesLegible(p)}</span>
-          <div class="ftdbig">${f.reales}</div>
-          <div class="ftdsup">${metaTxt}</div>
+          <span class="ftdlbl oro">FTD de ${mesLegible(p)}</span>
+          <div class="ftdcifra">
+            <b class="ftdbig">${f.reales}</b>
+            <span class="ftdmeta">${metaTxt}</span>
+          </div>
           <div class="barra dos ${g.cumplida ? "full" : ""}">
             <u style="width:${g.pctCargados}%"></u><i style="width:${g.pct}%"></i>
           </div>
         </div>
+        <div class="ftdsep"></div>
         <div class="ftdcol">
           <span class="ftdlbl">Comisión FTD</span>
-          <div class="ftdbig md">${usd(f.pago)}</div>
+          <div class="ftdbig md ${f.pago ? "" : "mut"}">${usd(f.pago)}</div>
           <div class="ftdsup">${f.cargados} cargados${f.base ? ` · ${f.base} con tu base` : ""}</div>
         </div>
+        <div class="ftdsep"></div>
         <div class="ftdcol">
           <span class="ftdlbl">Total del mes</span>
           <div class="ftdbig gold">${usd(f.pago + vent)}</div>
           <div class="ftdlinks">
             <button class="metalink" id="ftdAjustar">${f.declaro ? "Ajustar" : "Poner mis números"}</button>
-            <button class="metalink" id="ftdMeses">Meses anteriores</button>
+            <button class="metalink quiet" id="ftdMeses">Meses anteriores</button>
           </div>
         </div>
       </div>`;

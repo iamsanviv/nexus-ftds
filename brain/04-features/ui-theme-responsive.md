@@ -13,10 +13,10 @@ El diseño de escritorio y móvil comparte producto, pero no necesariamente estr
 Cambios recientes incluyen:
 
 - barra lateral fija en lugar de cinta inferior;
-- tarjeta FTD reorganizada en columnas;
+- tarjeta FTD en tres columnas de peso desigual (1.5fr/1fr/1fr) separadas por filetes cortos, con la cifra del mes y su meta en la misma línea base;
 - tarjetas de membresía como filtros;
 - buscador integrado con filtros;
-- filas de cliente horizontales;
+- filas de cliente horizontales dentro de UNA sola tarjeta contenedora (`#lista`), no una pila de tarjetas sueltas;
 - selector Comunidad/Leads reubicado;
 - búsqueda por nombre y teléfono.
 

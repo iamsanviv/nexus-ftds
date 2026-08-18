@@ -54,7 +54,9 @@ Detalles históricos que protegen layout:
 - elipsis en el elemento de texto (`.nmlink`), no en un contenedor con elementos auxiliares como bandera;
 - nombres largos deben ser parte de la prueba visual;
 - el buscador también puede encontrar por teléfono;
-- las tarjetas de membresía pueden actuar como filtros y combinarse con filtro de progreso.
+- las tarjetas de membresía pueden actuar como filtros y combinarse con filtro de progreso;
+- en escritorio la lista es una tarjeta única: la fila pierde marco y margen propios y solo conserva un filete inferior. Sigue siendo el mismo acordeón, así que al tocar `#lista` hay que comprobar también el estado abierto y el estado vacío, que viven dentro del mismo contenedor;
+- el color del nivel se aplica al botón de conteo completo para que el filo de la tarjeta activa salga de `currentColor`; no volver a duplicar un token por nivel en el `box-shadow`.
 
 ## Regla de prueba
 
