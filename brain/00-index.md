@@ -2,6 +2,8 @@
 
 Este directorio contiene la memoria persistente y modular del proyecto. `CLAUDE.md` contiene instrucciones de trabajo; `brain/` contiene conocimiento del sistema.
 
+Guía para abrir el repositorio en Obsidian: `brain/README.md`.
+
 ## Regla de lectura
 
 Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir únicamente los documentos relevantes y después inspeccionar el código citado en esos documentos.
@@ -49,6 +51,7 @@ Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir 
 
 - `07-development/testing.md` — protocolo de pruebas visuales y RLS.
 - `07-development/database-changes.md` — relación entre Supabase real y `sql/`.
+- `07-development/brain-maintenance.md` — cómo actualizar, depurar y evitar que la memoria vuelva a inflarse.
 
 ## Memoria operativa
 
@@ -71,6 +74,7 @@ Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir 
 | actividad/seguimiento | `03-domain/activities-followups.md` |
 | texto de invitación/asistencia | `04-features/invitations-attendance.md` |
 | programar destinatarios | `03-domain/messaging-rules.md` + `08-memory/dangerous-patterns.md` |
+| segmento/historial de invitados | `04-features/segments-history.md` |
 | campaña masiva | `04-features/mass-messaging.md` |
 | imagen/audio/video | `04-features/media-attachments.md` |
 | enlace rastreado `/i` | `04-features/tracked-links.md` + `05-integrations/cloudflare.md` |
@@ -79,6 +83,7 @@ Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir 
 | canal caído/QR/bridge | `04-features/channel-health.md` + `05-integrations/whatsapp-worker.md` |
 | VM/cupo/métricas Oracle | `05-integrations/oracle-mcp.md` |
 | cambio visual | `04-features/ui-theme-responsive.md` + `08-memory/ui-css-traps.md` |
+| mantener/depurar la memoria | `07-development/brain-maintenance.md` |
 
 ## Jerarquía de verdad
 
