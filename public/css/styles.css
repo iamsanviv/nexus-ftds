@@ -359,7 +359,11 @@
 
 /* ================= SHELL DE APP (rediseño móvil) ================= */
 body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
-.apphead{display:flex;align-items:flex-end;justify-content:space-between;margin:4px 0 14px}
+.apphead{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;margin:4px 0 14px}
+.appheadmain{flex:1 1 auto;min-width:0}
+/* En celular el selector Comunidad/Leads se envuelve a su propia fila completa
+   debajo del título, que es donde estaba antes de vivir en el header. */
+.apphead .modswitch{flex:1 0 100%;margin:12px 0 0}
 .apptitle{font-family:'Archivo';font-size:1.7rem;font-weight:800;letter-spacing:-.02em;color:var(--text);line-height:1.1}
 .appsub{font-size:.78rem;color:var(--muted);margin-top:2px}
 .vtoggle{display:none!important}
@@ -388,7 +392,8 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 .tabbar .tab svg{width:23px;height:23px}
 .tabbar .tab.on{color:var(--gold)}
 .tabbar .tab:active{transform:scale(.96)}
-/* El pie con perfil + interruptor solo existe en la barra lateral de escritorio. */
+/* La marca y el pie con perfil solo existen en la barra lateral de escritorio. */
+.sidebrand{display:none}
 .sidefoot{display:none}
 /* El teléfono en el encabezado de la fila es solo de escritorio: en móvil la
    fila no cambia (el número sigue en el cuerpo, con el botón de copiar). */
@@ -481,6 +486,10 @@ body.segwide .tabinner{max-width:1180px}
     flex-direction:column;padding:18px 12px;
     border-top:0;border-right:1px solid var(--border-side);
     display:flex}
+  /* Marca arriba de la barra lateral (mockup). Solo escritorio. */
+  .sidebrand{display:block;font-family:'Archivo';font-weight:800;font-size:.82rem;
+    letter-spacing:.14em;color:var(--muted);padding:6px 12px 16px}
+  .sidebrand b{color:var(--gold);font-weight:800}
   .tabinner{flex-direction:column;max-width:none;margin:0;gap:2px;flex:1;align-items:stretch}
   .tabbar .tab{flex:0 0 auto;flex-direction:row;justify-content:flex-start;align-items:center;
     gap:11px;padding:10px 12px;border-radius:10px;font-size:14px;font-weight:600;
@@ -502,17 +511,20 @@ body.segwide .tabinner{max-width:1180px}
   .sidefoot-txt span{font-size:.7rem;color:var(--muted)}
   .sidefoot-tema{flex:0 0 auto}
 
-  /* Selector de módulo y buscador comparten renglón. Sueltos, cada uno ocupaba
-     el ancho completo: dos botones de medio metro y un campo de búsqueda que
-     parecía un campo de dirección. */
+  /* El selector Comunidad/Leads sube a la derecha del título (mockup), compacto.
+     El buscador se reubica por JS a la fila de filtros, así que headctl queda
+     vacío en Personas. */
+  .apphead{align-items:center}
+  .apphead .modswitch{flex:0 0 auto;width:auto;margin:0}
+  .apphead .modswitch .mbtn{flex:0 0 auto;padding:9px 18px;font-size:.82rem}
   .headctl{display:flex;align-items:flex-start;gap:12px}
-  .headctl .modswitch{flex:0 0 380px;margin-bottom:0}
-  .headctl .buscar{flex:1;margin-bottom:0}
   .headctl .vtoggle{flex:0 0 auto}
 
-  /* La tarjeta del mes al lado de las cifras. Sola, dejaba medio ancho vacío. */
-  .cliresumen{display:grid;grid-template-columns:minmax(0,480px) minmax(0,1fr);
-    gap:14px;align-items:start;margin-bottom:12px}
+  /* La tarjeta del mes ocupa TODO el ancho y las cifras van en su propia fila
+     completa debajo (mockup). Antes iban a media pantalla cada una y se veía
+     apretado. */
+  .cliresumen{display:block;margin-bottom:12px}
+  .cliresumen #ftdPanel{margin-bottom:14px}
   .cliresumen #ftdPanel .metacard{margin-bottom:0}
   .cliresumen .stats{margin:0;grid-template-columns:repeat(4,1fr)}
 
@@ -534,11 +546,14 @@ body.segwide .tabinner{max-width:1180px}
   .ftddesk .ftdlinks{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin-top:4px}
   .ftddesk .ftdlinks .metalink{font-size:12px;white-space:nowrap;text-align:left}
 
-  /* Filtros a la izquierda; orden + «+ Cliente» a la derecha. */
+  /* Filtros a la izquierda; buscador + «+ Cliente» a la derecha (mockup). El
+     «Orden» sale de la vista: en escritorio la lista ya va por progreso y el
+     segmento solo estorbaba. */
   .clifiltros{display:flex;align-items:center;justify-content:space-between;gap:16px}
   .clifiltros .filtros{margin-bottom:10px;overflow:visible}
   .clifiltros-r{display:flex;align-items:center;gap:12px;flex:0 0 auto;margin-bottom:10px}
-  .clifiltros-r .ordwrap{flex:0 0 auto;margin:0}
+  .clifiltros-r .ordwrap{display:none}
+  .clifiltros-r .buscar{flex:0 0 240px;margin:0}
   /* «+ Cliente» deja de flotar: se acomoda en la fila. */
   .clifiltros-r .clifab{position:static;bottom:auto;right:auto;box-shadow:none;
     padding:9px 16px;font-size:.85rem;margin:0}

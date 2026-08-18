@@ -90,7 +90,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
 <!-- ================= APP ================= -->
 <div id="app" class="hidden">
   <div class="apphead">
-    <div>
+    <div class="appheadmain">
       <div class="apptitle" id="viewTitle">Personas</div>
       <div class="appsub" id="viewSub"></div>
     </div>
@@ -98,13 +98,18 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3 7-7"/><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/></svg>
       <span class="repcount" id="repIndCount">0</span>
     </button>
+    <!-- Selector Comunidad/Leads. En escritorio va arriba a la derecha del
+         título (mockup); en celular se envuelve a una fila completa debajo,
+         justo donde estaba. -->
+    <div class="modswitch" id="modSwitch"></div>
   </div>
   <input type="file" id="fileInput" accept=".csv,text/csv" style="display:none">
 
   <!-- Envoltorio solo para poder ponerlos en FILA en escritorio. En celular es
-       un bloque normal y todo sigue apilado igual que siempre. -->
+       un bloque normal y todo sigue apilado igual que siempre. En escritorio el
+       buscador se reubica (por JS) a la fila de filtros; aquí queda su sitio de
+       móvil. -->
   <div class="headctl">
-    <div class="modswitch" id="modSwitch"></div>
     <div class="vtoggle hidden" id="viewToggle"></div>
     <input class="buscar" id="buscar" placeholder="Buscar cliente…">
   </div>
@@ -408,7 +413,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
   <button class="fab hidden" id="abrirVenta">+ Venta</button>
 
   <!-- barra de pestañas inferior -->
-  <nav class="tabbar"><div class="tabinner">
+  <nav class="tabbar"><div class="sidebrand">SEGUIMIENTO <b>NX</b></div><div class="tabinner">
     <button class="tab" data-v="cliente" id="tabPersonas">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5" stroke-linecap="round"/></svg>
       Personas</button>

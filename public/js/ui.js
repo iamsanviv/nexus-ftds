@@ -44,6 +44,16 @@ export function render() {
   renderViewToggle();
   renderShell();
   const isLead = state.modulo === "leads";
+  const desk = window.matchMedia("(min-width:1040px)").matches;
+  // El buscador vive en el header (su sitio de móvil y de la vista Servicios).
+  // Solo en Personas de ESCRITORIO se reubica a la fila de filtros, junto a
+  // «+ Cliente», como en el mockup. Se mueve el nodo real —no un duplicado— para
+  // no partir el estado de búsqueda, y nunca queda dentro de una vista oculta.
+  const busc = $("buscar"), enFila = desk && state.vista === "cliente";
+  const destino = enFila ? document.querySelector(".clifiltros-r") : document.querySelector(".headctl");
+  if (destino && busc.parentElement !== destino) {
+    enFila ? destino.insertBefore(busc, $("abrirModal")) : destino.appendChild(busc);
+  }
   // Seguimiento usa dos columnas en escritorio, así que necesita más ancho que
   // el resto de la app (las demás vistas son listas y se leen mejor angostas).
   document.body.classList.toggle("segwide", state.vista === "seguimiento");
@@ -109,7 +119,6 @@ export function render() {
   // Escritorio: las tarjetas de conteo son filtros por membresía (combinables
   // con el progreso), abre en «En progreso» y hay tira de estado. En móvil NADA
   // de esto aplica: se mantiene el comportamiento de siempre.
-  const desk = window.matchMedia("(min-width:1040px)").matches;
   if (desk && !isLead && !state.filtroDefDesk && state.filtro === "todos") {
     state.filtro = "incompletos"; state.filtroDefDesk = true;
   }
@@ -142,7 +151,7 @@ export function render() {
   const defs = isLead
     ? [["todos", "Todos"], ["activos", "🔥 Con actividad"], ["inactivos", "Sin actividad"]]
     : desk
-      ? [["todos", "Todos"], ["incompletos", "⏳ En progreso"], ["completos", "✓ Completos"]]
+      ? [["incompletos", "⏳ En progreso"], ["completos", "✓ Completos"], ["todos", "Todos"]]
       : [["todos", "Todos"], ["Beca", "Beca"], ["VIP", "VIP"], ["Platino", "Platino"], ["Oro", "Oro"], ["incompletos", "⏳ En progreso"], ["completos", "✓ Completos"]];
   $("filtros").innerHTML = defs.map(([v, l]) => `<button class="pill ${state.filtro === v ? 'on' : ''}" data-f="${v}">${l}</button>`).join("");
   $("filtros").querySelectorAll(".pill").forEach(b => b.onclick = () => { state.filtro = b.dataset.f; render(); });
