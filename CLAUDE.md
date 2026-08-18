@@ -652,6 +652,35 @@ contra `ventas`. Funciona, y se comprobó que no filtra.
 `@media (min-width:1040px)` al final de `styles.css`. El panel nació en celular
 y estaba tapado a 760 px en todas las pestañas menos Seguimiento.
 
+**Rediseño de escritorio + modo claro (fase 2).** Cambios que reemplazan parte
+de lo de abajo. Todo gateado por `matchMedia(min-width:1040px)` en el JS o por la
+media query: **en móvil no cambia nada** (criterio del encargo).
+
+- **Modo claro global.** `js/tema.js` (en el `<head>` antes del CSS, sin
+  parpadeo) pone `data-tema` en `<html>`, guarda en `localStorage` y respeta
+  `prefers-color-scheme`. `css/tema.css` (después de `styles.css`) redefine los
+  tokens para `data-tema="claro"` (paleta Arena). Interruptor sol/luna en
+  `[data-tema-toggle]`. **Los rellenos dorados usan `--gold-fill`, no `--gold`**:
+  en claro `--gold` es café oscuro y el texto encima quedaría sin contraste; en
+  oscuro son el mismo `#E8B84B`. Regla: **ningún hex nuevo en el CSS de una
+  vista**, solo tokens.
+- **Barra lateral en vez de cinta.** La `.tabbar` se reposiciona a la izquierda
+  (208px) reusando los mismos `<button.tab>`; el contenido corre con
+  `padding-left`. Pie con perfil (`#sideAv/#sideName/#sideRol`, espejados desde
+  `auth.js`/`ui.js`) + interruptor.
+- **Tarjeta de FTD en 3 columnas** (`.ftddesk`, ramificada en `ftd.js`): FTD del
+  mes · Comisión · Total. Lo demás vive en el asistente.
+- **Tarjetas de conteo = filtros por membresía** (`state.filtroMem`), combinables
+  con progreso (`state.filtro`); las píldoras de membresía salen del set (quedan
+  Todos/En progreso/Completos); abre en «En progreso»; tira de estado con «Quitar
+  filtros». El buscador encuentra **por teléfono** (dígitos, aditivo, global).
+- **Fila en una sola línea** con el teléfono en el encabezado (`.cheadtel`, solo
+  escritorio). El ellipsis va en `.nmlink`, no en `.nombre` (que es
+  `flex-wrap:wrap` de base), o la bandera saltaba de línea.
+
+Lo de abajo es el diseño anterior; se conserva como historia y porque parte
+sigue vigente en móvil.
+
 - **1040, no 1180.** Es lo que este contenido llena de verdad: 28 clientes con
   filas cortas. Más ancho solo agrega aire.
 - **Ensanchar NO es acomodar.** El primer intento subió el ancho y ya, y se veía
