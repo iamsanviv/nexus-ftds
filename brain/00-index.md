@@ -19,19 +19,26 @@ Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir 
 
 - `03-domain/roles-hierarchy.md` — agente, director, admin y jerarquía.
 - `03-domain/messaging-rules.md` — invariantes de envío y propiedad de clientes.
-- `03-domain/activities-followups.md` — actividades, seguimientos, programación, cancelación y rastreo.
-- `03-domain/ftd-sales-commissions.md` — FTD, ventas, metas y comisiones.
+- `03-domain/activities-followups.md` — actividades, seguimientos, programación y cancelación.
+- `03-domain/ftd-sales-commissions.md` — reglas conceptuales de FTD, ventas y comisiones.
 
 ## Funcionalidades
 
+- `04-features/authentication-approval.md` — registro, aprobación, roles y recuperación de contraseña.
 - `04-features/people-followup.md` — Personas, clientes, filtros y seguimiento.
-- `04-features/mass-messaging.md` — envíos masivos y sus protecciones.
-- `04-features/tracked-links.md` — enlaces rastreados y asistencia.
+- `04-features/invitations-attendance.md` — precedencia de invitaciones, asistencia y zooms.
+- `04-features/segments-history.md` — historial reutilizable de invitados entre Seguimiento y Masivo.
+- `04-features/mass-messaging.md` — campañas masivas y sus protecciones.
+- `04-features/media-attachments.md` — imágenes, audio, video, Storage y contratos MIME.
+- `04-features/tracked-links.md` — enlaces rastreados, clics y ventana de asistencia.
+- `04-features/ftd-sales.md` — comportamiento detallado de FTD, ventas, abonos, upgrades y cierres.
+- `04-features/channel-health.md` — vinculación, salud y supervisión de canales WhatsApp.
 - `04-features/ui-theme-responsive.md` — modo claro/oscuro y diferencias escritorio/móvil.
 
 ## Integraciones
 
 - `05-integrations/whatsapp-worker.md` — cola Supabase, worker Oracle y bridges WhatsApp.
+- `05-integrations/oracle-mcp.md` — MCP de solo lectura para consultar OCI.
 - `05-integrations/cloudflare.md` — publicación y comportamiento de rutas estáticas.
 
 ## Decisiones
@@ -46,7 +53,32 @@ Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir 
 ## Memoria operativa
 
 - `08-memory/dangerous-patterns.md` — errores que ya causaron daño o riesgo real.
-- `08-memory/known-issues.md` — defectos abiertos conocidos.
+- `08-memory/database-security-traps.md` — trampas de Postgres, RLS, helpers y SECURITY DEFINER.
+- `08-memory/ui-css-traps.md` — especificidad CSS, harnesses visuales y responsive.
+- `08-memory/known-issues.md` — defectos o trabajos históricamente abiertos; verificar antes de asumir vigencia.
+
+## Legacy
+
+- `09-legacy/README.md` — cómo recuperar conocimiento del `CLAUDE.md` monolítico anterior si aparece una laguna real. No cargar legacy por defecto.
+
+## Router rápido por tipo de tarea
+
+| Si la tarea toca… | Leer primero |
+|---|---|
+| login, registro, aprobación, contraseña | `04-features/authentication-approval.md` |
+| roles, permisos, RLS | `02-architecture/security-rls.md` + `08-memory/database-security-traps.md` |
+| personas/clientes | `04-features/people-followup.md` |
+| actividad/seguimiento | `03-domain/activities-followups.md` |
+| texto de invitación/asistencia | `04-features/invitations-attendance.md` |
+| programar destinatarios | `03-domain/messaging-rules.md` + `08-memory/dangerous-patterns.md` |
+| campaña masiva | `04-features/mass-messaging.md` |
+| imagen/audio/video | `04-features/media-attachments.md` |
+| enlace rastreado `/i` | `04-features/tracked-links.md` + `05-integrations/cloudflare.md` |
+| FTD/meta/cierre | `04-features/ftd-sales.md` |
+| venta/abono/upgrade/comisión | `04-features/ftd-sales.md` + `03-domain/ftd-sales-commissions.md` |
+| canal caído/QR/bridge | `04-features/channel-health.md` + `05-integrations/whatsapp-worker.md` |
+| VM/cupo/métricas Oracle | `05-integrations/oracle-mcp.md` |
+| cambio visual | `04-features/ui-theme-responsive.md` + `08-memory/ui-css-traps.md` |
 
 ## Jerarquía de verdad
 
