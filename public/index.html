@@ -120,8 +120,15 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     </div>
     <div class="clifiltros">
       <div class="filtros" id="filtros"></div>
-      <div class="ordwrap"><span class="lbl">Orden</span><div class="ordseg" id="orden"></div></div>
+      <div class="clifiltros-r">
+        <div class="ordwrap"><span class="lbl">Orden</span><div class="ordseg" id="orden"></div></div>
+        <!-- «+ Cliente» deja de flotar en escritorio y se acomoda aquí. En móvil
+             sigue siendo botón flotante (position:fixed lo saca del flujo). -->
+        <button class="fab clifab" id="abrirModal">+ Cliente</button>
+      </div>
     </div>
+    <!-- Tira de estado (solo escritorio): resumen del filtro activo. -->
+    <div class="cliestado" id="cliEstado"></div>
     <div id="lista"></div>
   </div>
 
@@ -398,7 +405,6 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     </div>
   </div>
 
-  <button class="fab" id="abrirModal">+ Cliente</button>
   <button class="fab hidden" id="abrirVenta">+ Venta</button>
 
   <!-- barra de pestañas inferior -->

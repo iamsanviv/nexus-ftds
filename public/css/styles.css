@@ -393,6 +393,10 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 /* El teléfono en el encabezado de la fila es solo de escritorio: en móvil la
    fila no cambia (el número sigue en el cuerpo, con el botón de copiar). */
 .cheadtel{display:none}
+/* En móvil el envoltorio de la derecha es transparente (el +Cliente flota como
+   siempre) y la tira de estado no existe. */
+.clifiltros-r{display:contents}
+.cliestado{display:none}
 
 /* fab por encima de la tab bar */
 .fab{bottom:calc(96px + env(safe-area-inset-bottom))}
@@ -512,10 +516,32 @@ body.segwide .tabinner{max-width:1180px}
   .cliresumen #ftdPanel .metacard{margin-bottom:0}
   .cliresumen .stats{margin:0;grid-template-columns:repeat(4,1fr)}
 
-  /* Filtros y orden, en un renglón. */
+  /* Filtros a la izquierda; orden + «+ Cliente» a la derecha. */
   .clifiltros{display:flex;align-items:center;justify-content:space-between;gap:16px}
   .clifiltros .filtros{margin-bottom:10px;overflow:visible}
-  .clifiltros .ordwrap{flex:0 0 auto;margin-bottom:10px}
+  .clifiltros-r{display:flex;align-items:center;gap:12px;flex:0 0 auto;margin-bottom:10px}
+  .clifiltros-r .ordwrap{flex:0 0 auto;margin:0}
+  /* «+ Cliente» deja de flotar: se acomoda en la fila. */
+  .clifiltros-r .clifab{position:static;bottom:auto;right:auto;box-shadow:none;
+    padding:9px 16px;font-size:.85rem;margin:0}
+
+  /* Tarjetas de conteo como botones de filtro por membresía. La activa se marca
+     con un filo del color de su nivel. */
+  .stat.filtrable{cursor:pointer;font:inherit;display:block;
+    transition:background .12s,box-shadow .12s}
+  .stat.filtrable:hover{background:var(--hover)}
+  .stat.filtrable.on{background:var(--surface2)}
+  .stat.filtrable.beca.on{box-shadow:inset 0 0 0 1px var(--beca);border-color:var(--beca)}
+  .stat.filtrable.vip.on{box-shadow:inset 0 0 0 1px var(--vip);border-color:var(--vip)}
+  .stat.filtrable.plat.on{box-shadow:inset 0 0 0 1px var(--plat);border-color:var(--plat)}
+  .stat.filtrable.oro.on{box-shadow:inset 0 0 0 1px var(--oro);border-color:var(--oro)}
+
+  /* Tira de estado. */
+  .cliestado{display:flex;align-items:center;gap:10px;margin:0 0 14px;
+    font-size:.82rem;color:var(--muted)}
+  .quitarf{background:none;border:0;color:var(--gold);font:inherit;font-size:.82rem;
+    font-weight:600;cursor:pointer;padding:2px 6px;border-radius:6px}
+  .quitarf:hover{background:var(--hover)}
 
   /* La fila de persona en UNA sola línea. El reparto flex importa: si el nombre
      fuera el único flexible, se recortaría él y el teléfono quedaría entero, que

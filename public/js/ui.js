@@ -106,19 +106,44 @@ export function render() {
   const base = state.clientes.filter(c => isLead ? esLead(c) : !esLead(c));
   const pr = c => progreso(c);
 
+  // Escritorio: las tarjetas de conteo son filtros por membresía (combinables
+  // con el progreso), abre en «En progreso» y hay tira de estado. En móvil NADA
+  // de esto aplica: se mantiene el comportamiento de siempre.
+  const desk = window.matchMedia("(min-width:1040px)").matches;
+  if (desk && !isLead && !state.filtroDefDesk && state.filtro === "todos") {
+    state.filtro = "incompletos"; state.filtroDefDesk = true;
+  }
+  if (!desk) state.filtroMem = null;   // el filtro por membresía es solo de escritorio
+
   /* ----- stats ----- */
   if (isLead) {
     const con = base.filter(c => pr(c).extra > 0).length;
     $("stats").innerHTML = stat("lead", base.length, "Leads") + stat("ok", con, "Con actividad") + stat("mut", base.length - con, "Sin actividad");
-  } else {
+  } else if (!desk) {
     $("stats").innerHTML = ["Beca", "VIP", "Platino", "Oro"]
       .map(m => stat(m.toLowerCase().slice(0, 4), base.filter(c => c.mem === m).length, m)).join("");
+  } else {
+    // Escritorio: cada tarjeta es un botón de filtro; la activa se marca.
+    $("stats").innerHTML = ["Beca", "VIP", "Platino", "Oro"].map(m => {
+      const cls = m.toLowerCase().slice(0, 4);
+      const n = base.filter(c => c.mem === m).length;
+      return `<button class="stat ${cls} filtrable ${state.filtroMem === m ? 'on' : ''}" data-mem="${m}"><b>${n}</b><span>${m}</span></button>`;
+    }).join("");
+    $("stats").querySelectorAll("[data-mem]").forEach(b => b.onclick = () => {
+      state.filtroMem = state.filtroMem === b.dataset.mem ? null : b.dataset.mem;
+      render();
+    });
   }
 
   /* ----- filtros ----- */
+  // En escritorio, la membresía la dan las tarjetas de conteo, así que aquí
+  // quedan solo tres (Todos / En progreso / Completos). En móvil, el set de
+  // siempre con las píldoras de membresía.
   const defs = isLead
     ? [["todos", "Todos"], ["activos", "🔥 Con actividad"], ["inactivos", "Sin actividad"]]
-    : [["todos", "Todos"], ["Beca", "Beca"], ["VIP", "VIP"], ["Platino", "Platino"], ["Oro", "Oro"], ["incompletos", "⏳ En progreso"], ["completos", "✓ Completos"]];
+    : desk
+      ? [["todos", "Todos"], ["incompletos", "⏳ En progreso"], ["completos", "✓ Completos"]]
+      : [["todos", "Todos"], ["Beca", "Beca"], ["VIP", "VIP"], ["Platino", "Platino"], ["Oro", "Oro"], ["incompletos", "⏳ En progreso"], ["completos", "✓ Completos"]];
   $("filtros").innerHTML = defs.map(([v, l]) => `<button class="pill ${state.filtro === v ? 'on' : ''}" data-f="${v}">${l}</button>`).join("");
   $("filtros").querySelectorAll(".pill").forEach(b => b.onclick = () => { state.filtro = b.dataset.f; render(); });
 
@@ -143,6 +168,8 @@ export function render() {
       const porTel = qDig.length >= 2 && (c.tel || "").replace(/\D/g, "").includes(qDig);
       if (!porNombre && !porTel) return false;
     }
+    // Filtro por membresía (escritorio): se combina con el de progreso de abajo.
+    if (state.filtroMem && c.mem !== state.filtroMem) return false;
     if (state.filtro === "todos") return true;
     if (state.filtro === "activos") return pr(c).extra > 0;
     if (state.filtro === "inactivos") return pr(c).extra === 0;
@@ -165,6 +192,26 @@ export function render() {
 
   const rankMap = {};
   if (state.orden === "cerca") { let n = 0; vis.forEach(c => { if (isLead ? pr(c).extra > 0 : pr(c).pct < 100) rankMap[c.id] = ++n; }); }
+
+  // Tira de estado (solo escritorio): resume qué se está viendo y ofrece
+  // «Quitar filtros» cuando hay alguno activo (membresía, progreso o búsqueda).
+  const estadoEl = $("cliEstado");
+  if (estadoEl) {
+    if (desk && !isLead) {
+      const partes = [`${vis.length} persona${vis.length === 1 ? "" : "s"}`];
+      if (state.filtroMem) partes.push(`nivel ${state.filtroMem}`);
+      if (state.filtro === "incompletos") partes.push("en progreso");
+      else if (state.filtro === "completos") partes.push("completos");
+      if (crudo) partes.push(`"${esc(crudo)}"`);
+      const hayFiltro = !!state.filtroMem || !!crudo || state.filtro === "completos";
+      estadoEl.innerHTML = `<span>${partes.join(" · ")}</span>`
+        + (hayFiltro ? ` <button class="quitarf" id="quitarFiltros">Quitar filtros</button>` : "");
+      const qf = $("quitarFiltros");
+      if (qf) qf.onclick = () => {
+        state.filtroMem = null; state.filtro = "todos"; $("buscar").value = ""; render();
+      };
+    } else estadoEl.innerHTML = "";
+  }
 
   if (!vis.length) {
     const vacioMsg = isLead
