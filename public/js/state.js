@@ -135,11 +135,16 @@ export const horaDeCliente = (iso, tzOff) =>
   new Date(new Date(iso).getTime() + (tzOff || 0) * 60000)
     .toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit", hour12: true });
 
-// Qué se pone junto a la hora. Sin desfase se sigue diciendo «hora Colombia»,
-// que es lo que el mensaje decía antes de existir esta función. Con desfase la
-// hora YA está convertida, y decir «hora Colombia» sería mentira.
+// Qué se pone junto a la hora, y CUÁNDO no se pone nada.
+//
+// Si la persona tiene la misma hora que Colombia —o no se sabe, que es el caso
+// de casi todos— la hora del mensaje ya es la suya: aclarar «hora Colombia» es
+// ruido en todos los mensajes para que lo aproveche casi nadie.
+//
+// Solo hay algo que decir cuando la hora viene convertida: ahí «(tu hora)»
+// evita que la persona la convierta otra vez y llegue tarde.
 export const etiquetaZona = tzOff =>
-  (tzOff === null || tzOff === undefined || tzOff === 0) ? "(hora Colombia)" : "(tu hora)";
+  (tzOff === null || tzOff === undefined || tzOff === 0) ? "" : "(tu hora)";
 
 /* ---------- embudo de venta: los tres zooms ----------
    Viven en el CLIENTE, no en la venta: la presentación pasa ANTES de que haya

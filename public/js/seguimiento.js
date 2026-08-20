@@ -20,9 +20,11 @@ const TIPOS = ["invitacion", "rec_60", "rec_15", "enlace", "confirmacion"];
 const CLAVES_TPL = ["invitacion", "invitacion_extra", "rec_60", "rec_15", "enlace", "confirmacion"];
 
 // Plantillas por defecto. Etiquetas: {nombre} {actividad} {hora} {zona} {enlace}
-// {hora} sale en la hora de pared de cada persona si su perfil tiene desfase;
-// {zona} dice «(hora Colombia)» o «(tu hora)» según corresponda. Van juntas:
-// una hora ya convertida etiquetada como «hora Colombia» es peor que no convertir.
+// {hora} sale en la hora de pared de cada persona si su perfil tiene desfase.
+// {zona} solo escribe algo cuando esa hora vino convertida —«(tu hora)»— y se
+// va vacía, con su espacio, cuando la persona tiene la misma hora que Colombia.
+// Van juntas: una hora convertida sin avisar hace que la persona la convierta
+// otra vez y llegue tarde.
 // Además admiten snippets {a|b|c}: se elige una opción al azar POR PERSONA,
 // así no salen 50 mensajes con el texto idéntico. No anidar llaves dentro de
 // un snippet, y no meter datos clave (hora, enlace) dentro de las variantes.
@@ -49,13 +51,29 @@ const fechaHoraCO = iso => new Date(iso).toLocaleString("es-CO",
 // se llama una vez por contacto, cada quien recibe una redacción distinta) y
 // luego sustituye las etiquetas. El token {enlace} no tiene "|", así que los
 // snippets no lo tocan y el worker lo resuelve al enviar.
+//
+// {zona} se va VACÍA la mayor parte del tiempo (ver etiquetaZona), y la
+// plantilla la escribe pegada a un espacio: «a las {hora} {zona}.». Si solo se
+// sustituyera el token quedaría «a las 7:00 p. m. .» —espacio suelto y punto
+// separado— en casi todos los mensajes. Por eso se consume también el espacio
+// vecino: primero el de delante, después el de detrás (para un {zona} que abra
+// la frase) y al final un {zona} pegado a otra cosa.
 function aplicar(tpl, { nombre, actividad, hora, zona, enlace }) {
-  return resolverSnippets(tpl)
+  const z = zona || "";
+  const txt = resolverSnippets(tpl)
     .replaceAll("{nombre}", nombre)
     .replaceAll("{actividad}", actividad)
     .replaceAll("{hora}", hora)
-    .replaceAll("{zona}", zona ?? "(hora Colombia)")
+    .replaceAll(" {zona}", z ? " " + z : "")
+    .replaceAll("{zona} ", z ? z + " " : "")
+    .replaceAll("{zona}", z)
     .replaceAll("{enlace}", enlace);
+  // Segundo arreglo del mismo hueco: la hora en español TERMINA en punto
+  // («7:00 p. m.»), así que «{hora} {zona}.» con la zona vacía dejaba
+  // «7:00 p. m..». Se colapsan solo los pares de puntos —el lookbehind y el
+  // lookahead dejan intactos los suspensivos— y solo cuando la zona se fue
+  // vacía: con etiqueta el punto de la plantilla es el único que hay.
+  return z ? txt : txt.replace(/(?<!\.)\.\.(?!\.)/g, ".");
 }
 
 // yaInvitado: si la persona ya recibió una invitación hoy, la invitación de

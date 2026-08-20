@@ -47,9 +47,11 @@ La hora del mensaje es el único dato que depende de dónde vive quien lo recibe
 Dos etiquetas que deben ir siempre juntas:
 
 - `{hora}` se resuelve **por persona**, no por actividad;
-- `{zona}` dice `(hora Colombia)` o `(tu hora)` según haya desfase.
+- `{zona}` escribe `(tu hora)` solo cuando esa hora vino convertida. Sin desfase —el caso de casi todos— se va **vacía**, y con ella el espacio que la precede: aclarar «hora Colombia» en todos los mensajes es ruido para que lo aproveche casi nadie.
 
-Una hora ya convertida etiquetada como «hora Colombia» es peor que no convertir: el cliente la vuelve a convertir y llega tarde. Si se toca `{hora}`, revisar que `{zona}` viaje con ella — incluida la ruta de cambio de hora, que regenera el texto y necesita leer el desfase del cliente en su consulta.
+Como `{zona}` se va vacía la mayor parte del tiempo, quien toque `aplicar()` debe conservar el consumo del espacio anterior; si no, casi todos los mensajes salen con un espacio suelto antes del punto.
+
+Una hora convertida sin avisar es peor que no convertir: el cliente la vuelve a convertir y llega tarde. Si se toca `{hora}`, revisar que `{zona}` viaje con ella — incluida la ruta de cambio de hora, que regenera el texto y necesita leer el desfase del cliente en su consulta.
 
 Es un desfase fijo, no un huso: los países con horario de verano hay que corregirlos a mano dos veces al año. Las plantillas viejas que escribieron «(hora Colombia)» como literal siguen funcionando, pero no se adaptan.
 
