@@ -146,6 +146,56 @@ export const horaDeCliente = (iso, tzOff) =>
 export const etiquetaZona = tzOff =>
   (tzOff === null || tzOff === undefined || tzOff === 0) ? "" : "(tu hora)";
 
+/* ---------- adjuntos de mensajes ----------
+   Vive acá y no en cada módulo porque hay DOS formularios que suben adjuntos
+   —el masivo y la invitación de una actividad— y dos atributos `accept` en el
+   HTML. Con la lista repetida, un formulario acaba ofreciendo algo que el otro
+   rechaza, y el agente se entera por un error del Storage en inglés.
+
+   La lista no puede decir más de lo que el bridge sabe entregar. El bridge
+   decide por EXTENSIÓN:
+     mp4 · mov · avi → video      ogg → nota de voz
+     jpg · png · gif · webp → imagen        cualquier otra → archivo adjunto
+
+   `webm` queda fuera a propósito: el bucket lo acepta pero el bridge no tiene
+   esa rama, así que llegaría como archivo adjunto en vez de video.
+   `avi` también: el bridge lo mapea, pero el bucket no acepta ese MIME. */
+export const MAX_ADJUNTO_MB = 16;   // = file_size_limit del bucket `mensajes`
+export const TIPOS_ADJUNTO = [
+  "image/jpeg", "image/png", "image/webp", "image/gif",
+  "video/mp4", "video/quicktime",
+];
+// El mismo texto que va en los dos `accept` del HTML.
+export const ACCEPT_ADJUNTO = TIPOS_ADJUNTO.join(",");
+
+// Devuelve { ok, esVideo, error }. El Storage repite estas comprobaciones —es
+// él quien manda— pero su error no le dice nada a nadie: el agente veía «mime
+// type video/quicktime is not supported» sin forma de saber que eso significaba
+// «conviértelo a MP4».
+export function validarAdjunto(file) {
+  const esVideo = (file.type || "").startsWith("video/");
+  if (!TIPOS_ADJUNTO.includes(file.type)) {
+    return { ok: false, esVideo, error: esVideo
+      ? `Ese formato de video no se puede enviar (${file.type || "desconocido"}) — conviértelo a MP4`
+      : `Ese tipo de archivo no se puede enviar (${file.type || "desconocido"})` };
+  }
+  if (file.size > MAX_ADJUNTO_MB * 1024 * 1024) {
+    return { ok: false, esVideo, error:
+      `Pesa ${(file.size / 1024 / 1024).toFixed(1)} MB y el tope es ${MAX_ADJUNTO_MB} MB — comprímelo o recórtalo` };
+  }
+  return { ok: true, esVideo, error: null };
+}
+
+// Traduce al español los errores que sí vienen del Storage, por si las listas
+// se llegaran a separar de lo que el bucket acepta.
+export function mensajeErrorAdjunto(err) {
+  const m = (err && err.message || "").toLowerCase();
+  if (m.includes("mime type")) return "Ese formato no se puede enviar. Usa MP4 o una imagen.";
+  if (m.includes("maximum allowed size") || m.includes("payload too large"))
+    return `El archivo supera el tope de ${MAX_ADJUNTO_MB} MB`;
+  return err && err.message || "No se pudo subir";
+}
+
 /* ---------- persona inactiva ----------
    Dejó de responder, pidió no seguir o su número ya no sirve. No se borra:
    conserva asistencia, ventas e historial. Solo deja de recibir mensajes.

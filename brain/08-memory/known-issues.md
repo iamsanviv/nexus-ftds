@@ -22,36 +22,25 @@ No habilitar audio solo porque exista código parcial. Probar subida, envío, re
 
 ---
 
-## KI-003 — Video llega como nota de voz
+## KI-003 — Video llega como nota de voz · CERRADO 20/08/2026
 
-**Causa raíz encontrada el 20/08/2026, y no estaba donde decía la nota vieja.**
+**Causa:** en `worker.py` de la VM, `.mp4` estaba dentro de `AUDIO_EXTS`. Todo mp4 se clasificaba como audio y pasaba por `convertir_a_ogg`, que lleva `-vn` y le arranca la pista de video. `.mov` no estaba en la lista, por eso MOV sí salía como video.
 
-En `worker.py` de la VM:
+**Arreglo aplicado en producción:** `es_audio()` recibe ahora la ruta ya descargada y, para las extensiones ambiguas (`.mp4`, `.webm`), decide con `ffprobe` según el archivo traiga o no una pista de video. Se ignora `attached_pic` para que la carátula de un mp3 no lo convierta en video. Si `ffprobe` falla se conserva el comportamiento anterior (audio): degradar un video es peor que romper las notas de voz que ya funcionaban.
 
-```python
-AUDIO_EXTS = {".webm", ".m4a", ".mp4", ".aac", ".ogg", ...}
-def es_audio(url):
-    return os.path.splitext(...)[1].lower() in AUDIO_EXTS
-```
+Respaldo: `worker.py.bak-video-2026-08-20-1826`.
 
-`.mp4` está en esa lista, así que **todo** mp4 se clasifica como audio y pasa por `convertir_a_ogg`, que lleva `-vn` — le arranca la pista de video — y sale como PTT.
+**Verificado antes de reiniciar** sobre archivos reales del bucket: los tres videos → no audio; una nota de voz `.webm` real → sigue siendo audio. Y después, con un envío real: llegó como video reproducible.
 
-Comprobado sobre el archivo real enviado el 20/08: `ffprobe` reporta `h264` + `aac`, y `es_audio()` del worker en producción devuelve `True` para esa misma URL.
+### Lo que dejó de paso
 
-`.mov` **no** está en `AUDIO_EXTS`, así que MOV sí sale como video. Ese es el motivo de que las dos pruebas del 30/07 no se comportaran igual, aunque la nota de entonces las metiera en el mismo saco.
+El texto que acompaña a un adjunto viaja como **pie** en el mismo mensaje; solo el audio lo manda aparte, porque una nota de voz no admite pie. Mientras el video se clasificaba como audio, su texto salía como mensaje suelto — eso también quedó arreglado.
 
-### La lección, que es más general que el video
+### La lección, que sobrevive al defecto
 
-El bridge y el worker se reparten la decisión de qué tipo de mensaje sale, y **los dos deciden por la extensión del archivo**. `.mp4` y `.webm` son contenedores: valen igual para audio que para video. Cualquier regla basada solo en la extensión va a equivocarse con ellos.
+Bridge y worker deciden el tipo de mensaje por la **extensión**, y `.mp4`/`.webm` son contenedores que valen para audio y para video. Cualquier regla basada solo en la extensión se equivoca con ellos.
 
-Verificar el bridge no basta: el worker puede haber transformado el archivo antes de que el bridge lo vea. Ese fue justamente el error de diagnóstico del 20/08 — se leyó el bridge, se dio por bueno, y el `-vn` estaba un paso antes.
-
-### Estado
-
-- frontend: listo, MP4 y MOV habilitados (rama `claude/masivo-video`);
-- Storage: acepta video, tope 16 MB;
-- bridge: mapea `mp4`/`mov`/`avi` a `VideoMessage` — verificado en el binario en uso;
-- **worker: pendiente.** Mientras `.mp4` siga en `AUDIO_EXTS`, MP4 sale como nota de voz. MOV ya funciona.
+Y verificar un componente no dice nada del otro: el 20/08 se leyó el bridge, se dio el caso por cerrado, y el `-vn` estaba un paso antes.
 
 ## KI-004 — Estado de bridges/canales
 

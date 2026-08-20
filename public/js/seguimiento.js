@@ -5,7 +5,8 @@
 // Tablas: actividades, seguimientos, mensajes_programados, plantillas_seguimiento.
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
-  horaDeCliente, etiquetaZona, esInactivo, nombreMotivo, motivoCorto } from "./state.js";
+  horaDeCliente, etiquetaZona, esInactivo, nombreMotivo, motivoCorto,
+  ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { avisarSiCanalCaido } from "./salud.js";
@@ -264,7 +265,8 @@ const pad = n => String(n).padStart(2, "0");
 const esLibre = a => !a || !a.servicio_id;
 
 let segTipoAct = "cat";   // "cat" (del catálogo) | "libre" (puntual)
-let segImg = null;        // URL de la imagen subida para esta actividad
+let segImg = null;        // URL del adjunto subido para esta actividad (imagen o video)
+let segImgTipo = null;    // "imagen" | "video" — solo decide qué previsualización se ve
 
 /* ---------- enlace rastreado ("trigger link") ---------- */
 // Cada seguimiento lleva un token propio. El mensaje del enlace no manda la URL
@@ -361,9 +363,11 @@ function setTipoActividad(tipo) {
   // El embudo de venta le pasa a la persona una sola vez; una actividad del
   // catálogo es recurrente, así que marcarla como zoom no tendría sentido.
   $("segZoomRow").classList.toggle("hidden", tipo !== "libre");
-  $("segImgAyuda").textContent = tipo === "libre"
-    ? "Una actividad puntual no tiene servicio del cual heredar imagen: si no subes una, la invitación va sin imagen."
-    : "Si no subes ninguna, se usa la del servicio del catálogo.";
+  const heredada = tipo === "libre"
+    ? "Una actividad puntual no tiene servicio del cual heredar imagen: si no subes nada, la invitación va sin adjunto."
+    : "Si no subes nada, se usa la imagen del servicio del catálogo.";
+  $("segImgAyuda").textContent =
+    heredada + " Video en MP4 o MOV, hasta 16 MB; el texto de la invitación va como pie.";
 }
 
 // Invitación propia de la actividad. `null` = usar la plantilla del agente.
@@ -394,11 +398,21 @@ function renderPrevInvitacion() {
     : "";
 }
 
-function setImgActividad(url) {
+// Un solo adjunto por actividad: viaja en el mismo `media_url`, así que mostrar
+// imagen y video a la vez no tendría cómo enviarse.
+//
+// Al reabrir una actividad guardada solo se conoce la URL, no el tipo: se
+// deduce de la extensión, que es exactamente el criterio con el que el worker y
+// el bridge deciden después. Si alguna vez dejan de coincidir, se ve aquí.
+function setImgActividad(url, tipo) {
   segImg = url || null;
-  const img = $("segImgPrev"), del = $("segImgDel");
-  if (url) { img.src = url; img.classList.remove("hidden"); del.classList.remove("hidden"); }
-  else { img.src = ""; img.classList.add("hidden"); del.classList.add("hidden"); }
+  segImgTipo = url ? (tipo || (/\.(mp4|mov)(\?|$)/i.test(url) ? "video" : "imagen")) : null;
+  const img = $("segImgPrev"), vid = $("segVidPrev"), del = $("segImgDel");
+  img.classList.add("hidden"); vid.classList.add("hidden"); vid.pause?.();
+  img.src = ""; vid.src = "";
+  if (url && segImgTipo === "video") { vid.src = url; vid.classList.remove("hidden"); del.classList.remove("hidden"); }
+  else if (url) { img.src = url; img.classList.remove("hidden"); del.classList.remove("hidden"); }
+  else { del.classList.add("hidden"); }
 }
 
 // El formulario vive plegado: crear una actividad se hace 1–2 veces al día,
@@ -2129,17 +2143,26 @@ $("segTipoAct").querySelectorAll("[data-tipo]").forEach(b =>
 /* ---------- imagen de la actividad ---------- */
 // Se sube al bucket `mensajes` con nombre único: es de esta actividad, no del
 // catálogo, así que no debe pisar la imagen de ningún servicio.
+// Misma constante que el masivo: los dos formularios aceptan exactamente lo
+// mismo, y lo aceptan porque lo lee del mismo sitio, no porque coincidan.
+$("segImgFile").accept = ACCEPT_ADJUNTO;
 $("segImgPick").onclick = () => $("segImgFile").click();
 $("segImgFile").onchange = async () => {
   const file = $("segImgFile").files[0];
   if (!file) return;
-  $("segImgEstado").textContent = "Subiendo…";
+  const limpiar = () => { $("segImgFile").value = ""; };
+  // Antes este campo no validaba nada: subía y mostraba crudo el error del
+  // Storage. Ahora usa el mismo validador que el masivo, así los dos
+  // formularios aceptan exactamente lo mismo.
+  const v = validarAdjunto(file);
+  if (!v.ok) { $("segImgEstado").textContent = "⚠ " + v.error; limpiar(); return; }
+  $("segImgEstado").textContent = v.esVideo ? "Subiendo video…" : "Subiendo…";
   try {
-    setImgActividad(await subirImagenMensaje(file));
-    $("segImgEstado").textContent = "✓ Imagen lista";
+    setImgActividad(await subirImagenMensaje(file), v.esVideo ? "video" : "imagen");
+    $("segImgEstado").textContent = v.esVideo ? "✓ Video listo" : "✓ Imagen lista";
   } catch (err) {
-    $("segImgEstado").textContent = "⚠ " + err.message;
-  } finally { $("segImgFile").value = ""; }
+    $("segImgEstado").textContent = "⚠ " + mensajeErrorAdjunto(err);
+  } finally { limpiar(); }
 };
 $("segImgDel").onclick = () => { setImgActividad(null); $("segImgEstado").textContent = ""; };
 

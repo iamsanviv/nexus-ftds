@@ -65,7 +65,7 @@ El worker resuelve recursos al enviar según su implementación vigente. Histór
 
 - el `worker.py` es **agnóstico al tipo**: baja el archivo a un temporal conservando la extensión de la URL y le pasa la ruta al bridge. Quien decide si algo va como imagen, video, nota de voz o documento es el **bridge**, y lo decide por la **extensión**;
 - imágenes están soportadas;
-- video (`mp4`, `mov`) está mapeado a `VideoMessage` en el binario en uso; habilitado en Masivo desde el 20/08/2026 y pendiente de una prueba real en teléfono;
+- video (`mp4`, `mov`) funciona de extremo a extremo desde el 20/08/2026, comprobado en teléfono. El worker distingue audio de video con `ffprobe` cuando la extensión es ambigua;
 - `webm` no tiene rama y cae en `DocumentMessage`, lo que probablemente explica el defecto de las notas de voz;
 - notas de voz han tenido restricciones de reproducción.
 

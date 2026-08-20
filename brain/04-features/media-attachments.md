@@ -56,9 +56,11 @@ De ahí las dos exclusiones deliberadas de la UI:
 - **`webm` fuera**: el bucket lo acepta pero el bridge no tiene esa rama, así que llegaría como archivo adjunto. Es el mismo agujero que hoy afecta a la nota de voz — ver [[../08-memory/known-issues]] KI-002;
 - **`avi` fuera**: el bridge sí lo mapea, pero el bucket no acepta ese MIME.
 
-**Ojo: el bridge no es el único que decide.** El `worker.py` clasifica el archivo ANTES, también por extensión, y si lo cree audio lo convierte a ogg con `-vn` —que le quita la imagen— antes de que el bridge lo vea. Hoy `.mp4` está en su lista de audio, así que un MP4 sale como nota de voz por más que el bridge sepa mandar video. Ver [[../08-memory/known-issues]] KI-003.
+**Ojo: el bridge no es el único que decide.** El `worker.py` clasifica el archivo ANTES; si lo cree audio lo convierte a ogg con `-vn` —que le quita la imagen— antes de que el bridge lo vea. Ahí estuvo el defecto que se cerró el 20/08: ver [[../08-memory/known-issues]] KI-003.
 
-MOV sí funciona hoy, porque `.mov` no está en esa lista.
+**Dónde se sube video:** el masivo y la invitación de una actividad. Los dos leen la misma lista de tipos, el mismo tope y el mismo validador desde `state.js`, y los dos ponen su `accept` desde esa constante en vez de escribirlo en el HTML — antes se desfasaban y un formulario ofrecía lo que el otro rechazaba.
+
+**El texto viaja como pie del adjunto**, en el mismo mensaje. La única excepción es la nota de voz, que no admite pie y manda el texto aparte.
 
 El `VideoMessage` no manda `Seconds`, `Width/Height` ni miniatura. Son opcionales: el video se reproduce, pero la vista previa en el chat puede salir sosa.
 

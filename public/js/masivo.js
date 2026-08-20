@@ -3,7 +3,8 @@
 // que no llegue idéntico (más seguro). Crea una "campaña" y N mensajes en cola.
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, norm, resolverSnippets,
-  esInactivo, nombreMotivo, motivoCorto } from "./state.js";
+  esInactivo, nombreMotivo, motivoCorto,
+  MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento } from "./data.js";
 import { canalVinculado } from "./canal.js";
 
@@ -13,32 +14,6 @@ let masFiltro = "todos";    // filtro de membresía
 let masImg = null;          // URL del adjunto subido (imagen o video), o null
 let masImgTipo = null;      // "imagen" | "video" — para la vista previa y el nombre de la campaña
 
-// 16 MB es el tope de la Cloud API de Meta para medios salientes, y es también
-// el `file_size_limit` del bucket `mensajes`. Los dos números TIENEN que ser el
-// mismo: si la pantalla ofrece más de lo que el Storage acepta, el archivo se
-// sube hasta el final para morir con un error en inglés que no dice nada.
-const MAX_VIDEO_MB = 16;
-
-// Esta lista tiene que decir lo MISMO que el `accept` del input, y NO puede
-// decir más que lo que el bridge sabe entregar. El `accept` es una sugerencia
-// que algunos navegadores dejan saltarse; esta lista es la red de verdad.
-//
-// VIDEO DENTRO (20/08). La nota anterior decía que el video llegaba como nota
-// de voz y que el bridge «solo tenía rama para imagen». Verificado contra la VM
-// de producción, eso ya no es cierto —y probablemente confundía la prueba de
-// video con la de audio—: el binario que corre hoy mapea por extensión
-//   mp4 → MediaVideo · mov → MediaVideo · avi → MediaVideo
-//   ogg → MediaAudio (PTT) · el resto → MediaDocument
-// y las tres cadenas `video/*` están dentro del ejecutable en uso.
-//
-// WEBM FUERA a propósito: el bucket lo acepta, pero el bridge NO tiene rama
-// para esa extensión, así que caería en MediaDocument y llegaría como archivo
-// adjunto en vez de video. Es el mismo agujero que tiene hoy la nota de voz
-// (ver brain/08-memory/known-issues.md KI-002).
-const TIPOS_OK = [
-  "image/jpeg", "image/png", "image/webp", "image/gif",
-  "video/mp4", "video/quicktime",
-];
 let masCuando = "ahora";    // ahora | prog
 // ¿Se muestran las personas inactivas? Apagado SIEMPRE al abrir: incluirlas es
 // una decisión deliberada de esta tanda (una reactivación), no una preferencia
@@ -414,34 +389,18 @@ $("masCuandoSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
 $("masFecha").onchange = renderCuando;
 $("masHora").onchange = renderCuando;
 
+// El `accept` se toma de la MISMA constante que valida: escrito a mano en el
+// HTML se desfasaba del validador y el formulario ofrecía algo que luego
+// rechazaba.
+$("masImgFile").accept = ACCEPT_ADJUNTO;
 $("masImgPick").onclick = () => $("masImgFile").click();
 $("masImgFile").onchange = async () => {
   const file = $("masImgFile").files[0];
   if (!file) return;
-  const esVideo = file.type.startsWith("video/");
   const limpiar = () => { $("masImgFile").value = ""; };
-
-  // Las dos comprobaciones se hacen ANTES de subir. El Storage las repite —es
-  // él quien manda—, pero su error llega en inglés y sin contexto: el agente
-  // veía «mime type video/quicktime is not supported» y no tenía cómo saber que
-  // eso significaba «convierte el video a MP4».
-  if (!TIPOS_OK.includes(file.type)) {
-    // El video sí se puede, pero solo en los formatos que el bridge sabe
-    // mandar COMO video. Un .webm llegaría como archivo adjunto, así que se
-    // rechaza acá con una instrucción concreta en vez de dejarlo pasar.
-    $("masImgEstado").textContent = esVideo
-      ? `⚠ Ese formato de video no se puede enviar (${file.type || "desconocido"}) — conviértelo a MP4`
-      : `⚠ Ese tipo de archivo no se puede enviar (${file.type || "desconocido"})`;
-    limpiar();
-    return;
-  }
-  if (file.size > MAX_VIDEO_MB * 1024 * 1024) {
-    const mb = (file.size / 1024 / 1024).toFixed(1);
-    $("masImgEstado").textContent =
-      `⚠ Pesa ${mb} MB y el tope es ${MAX_VIDEO_MB} MB — comprímelo o recórtalo`;
-    limpiar();
-    return;
-  }
+  const v = validarAdjunto(file);
+  if (!v.ok) { $("masImgEstado").textContent = "⚠ " + v.error; limpiar(); return; }
+  const esVideo = v.esVideo;
 
   $("masImgEstado").textContent = esVideo ? "Subiendo video…" : "Subiendo…";
   try {
@@ -449,14 +408,7 @@ $("masImgFile").onchange = async () => {
     setImg(url, esVideo ? "video" : "imagen");
     $("masImgEstado").textContent = esVideo ? "✓ Video listo" : "✓ Imagen lista";
   } catch (err) {
-    // Red de seguridad por si las listas se vuelven a separar: el mensaje del
-    // Storage se traduce en vez de mostrarse crudo.
-    const m = (err.message || "").toLowerCase();
-    $("masImgEstado").textContent =
-        m.includes("mime type") ? "⚠ Ese formato no se puede enviar. Usa MP4 o una imagen."
-      : m.includes("maximum allowed size") || m.includes("payload too large")
-        ? `⚠ El archivo supera el tope de ${MAX_VIDEO_MB} MB`
-      : "⚠ " + err.message;
+    $("masImgEstado").textContent = "⚠ " + mensajeErrorAdjunto(err);
   } finally { limpiar(); }
 };
 $("masImgDel").onclick = () => { setImg(null); $("masImgEstado").textContent = ""; };
