@@ -55,6 +55,17 @@ Una hora convertida sin avisar es peor que no convertir: el cliente la vuelve a 
 
 Es un desfase fijo, no un huso: los países con horario de verano hay que corregirlos a mano dos veces al año. Las plantillas viejas que escribieron «(hora Colombia)» como literal siguen funcionando, pero no se adaptan.
 
+## Orden de los mensajes
+
+La invitación es el primer contacto del seguimiento. **Ningún otro mensaje puede salir antes que ella.**
+
+Los recordatorios se cuelgan del inicio de la actividad; la invitación, de cuándo se invita. Son dos relojes distintos, y al diferir la invitación un recordatorio puede caer antes. Comparar solo contra `ahora` no lo evita — ver [[../08-memory/dangerous-patterns]] DP-009.
+
+- al programar, el piso es la hora de la invitación (o `ahora` si no se envía invitación);
+- al cambiar la hora de la actividad, el piso es `max(ahora, invitación pendiente)`;
+- lo que quede por debajo del piso se omite o se cancela, nunca se adelanta;
+- la omisión se informa al agente con el nombre del mensaje.
+
 ## Eliminación de actividad
 
 Cancelar seguimientos y mensajes activos **antes** de borrar la actividad. Si se borra primero, quedan dependencias sin un punto fiable desde el cual cancelarlas.

@@ -122,3 +122,25 @@ Antes de agregar una columna o bandera, responder:
 3. ¿puede derivarse de datos actuales?
 
 Ejemplos: el rastreo se determina por presencia de `clic_token`; el progreso de campañas se calcula desde mensajes reales, no desde un contador paralelo.
+---
+
+## DP-009 — Mensaje que sale antes que la invitación
+
+### Incidente
+
+19/08/2026. Una agente programó una actividad de las 19:00 y difirió la invitación a las 18:01, precisamente para saltarse el recordatorio de una hora. El recordatorio salió igual, a las 18:00: **61 personas leyeron «en 1 hora empieza X» un minuto antes de ser invitadas.**
+
+La causa es que los cuatro recordatorios se cuelgan del **inicio de la actividad**, mientras que la invitación se cuelga de **cuándo se invita**. Son dos relojes distintos y el código solo comparaba contra `ahora`, así que un mensaje futuro pero anterior a la invitación pasaba el filtro.
+
+Con la invitación inmediata el defecto no se ve: todo lo pasado ya se descartaba. Solo aparece al diferirla, que es cuando los dos relojes se separan.
+
+### Protección
+
+- la invitación es el **primer contacto**: nada del mismo seguimiento puede salir antes o en el mismo instante;
+- la referencia es la hora de la invitación, no `ahora`. Sin invitación (el agente ya invitó por fuera) vuelve a ser `ahora`;
+- lo que se omite **se dice** en el aviso de confirmación, con nombre propio: saltarse un recordatorio en silencio se descubre tarde;
+- la misma regla aplica al **cambio de hora** de la actividad, que recalcula los recordatorios y puede meterlos antes de una invitación todavía pendiente. Ahí el piso es `max(ahora, invitación pendiente)`.
+
+### Señal para el futuro
+
+Cuando dos mensajes de un mismo flujo se calculan desde orígenes distintos, comparar contra `ahora` no ordena nada. Hay que comparar contra el hito que los ordena de verdad.

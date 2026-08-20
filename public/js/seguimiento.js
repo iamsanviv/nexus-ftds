@@ -19,6 +19,24 @@ const TIPOS = ["invitacion", "rec_60", "rec_15", "enlace", "confirmacion"];
 // Claves de plantilla editables (incluye la invitación extra).
 const CLAVES_TPL = ["invitacion", "invitacion_extra", "rec_60", "rec_15", "enlace", "confirmacion"];
 
+// Los cuatro mensajes que se cuelgan del INICIO de la actividad. La invitación
+// no está aquí a propósito: su hora no depende del inicio sino de cuándo se
+// invita, y confundir las dos cosas es lo que hacía salir un recordatorio antes
+// que la propia invitación.
+const HITOS = inicio => [
+  ["rec_60",       new Date(inicio.getTime() - 60 * 60000)],
+  ["rec_15",       new Date(inicio.getTime() - 15 * 60000)],
+  ["enlace",       new Date(inicio.getTime())],
+  ["confirmacion", new Date(inicio.getTime() + 10 * 60000)],
+];
+// Para nombrarlos en un aviso al agente, no en el mensaje al cliente.
+const NOMBRE_HITO = {
+  rec_60: "el recordatorio de 1 hora",
+  rec_15: "el recordatorio de 15 minutos",
+  enlace: "el enlace",
+  confirmacion: "la confirmación",
+};
+
 // Plantillas por defecto. Etiquetas: {nombre} {actividad} {hora} {zona} {enlace}
 // {hora} sale en la hora de pared de cada persona si su perfil tiene desfase.
 // {zona} solo escribe algo cuando esa hora vino convertida —«(tu hora)»— y se
@@ -1022,18 +1040,42 @@ async function programar() {
   // el buscador oculta a los seleccionados que no coinciden, así que la única
   // forma de saber a cuántos se les va a escribir de verdad es contar la
   // selección entera aquí y decírselo antes de encolar nada.
-  const n = seleccion.length;
-  const primeros = seleccion.slice(0, 8).map(c => c.nombre.split(" ")[0]).join(", ");
-  const mas = n > 8 ? ` y ${n - 8} más` : "";
-  const aviso = `Vas a programar los mensajes de «${actSel.nombre}» para ${n} persona${n === 1 ? "" : "s"}:\n${primeros}${mas}.${omitidos}`;
-  if (!confirm(aviso + `\n\n¿Programar?`)) return;
-
-  // Si se difirió la invitación, debe caer entre ahora y el inicio de la actividad.
-  // (No aplica si no se va a enviar invitación.)
+  // Si se difirió la invitación, debe caer entre ahora y el inicio de la
+  // actividad. (No aplica si no se va a enviar invitación.) Se valida ANTES del
+  // confirm para poder decir en ese mismo aviso qué recordatorios se omiten.
   if (!segSinInvitacion && segInvitarTarde) {
     if (segInvitarTarde <= ahora) { toast("La hora de envío ya pasó; elige una futura"); return; }
     if (segInvitarTarde >= inicio) { toast("La invitación debe salir antes de que empiece la actividad"); return; }
   }
+
+  // NADA sale antes que la invitación: es el primer contacto. Los recordatorios
+  // se cuelgan del inicio de la actividad, así que al diferir la invitación uno
+  // puede caer ANTES. Pasó en producción: actividad de las 19:00 con la
+  // invitación diferida a las 18:01, y el recordatorio de una hora salió a las
+  // 18:00 — 61 personas leyeron «en 1 hora empieza X» sin haber sido invitadas.
+  // Diferir la invitación es justamente para saltarse ese recordatorio, no para
+  // adelantarlo. Sin invitación (el agente ya invitó por fuera) el primer
+  // contacto vuelve a ser «ahora», que es la regla que había antes.
+  const cuandoInv = (segInvitarTarde && segInvitarTarde > ahora) ? segInvitarTarde : ahora;
+  const primerContacto = segSinInvitacion ? ahora : cuandoInv;
+
+  // Lo que se omite se DICE. Saltarse un recordatorio en silencio es tan malo
+  // como mandarlo fuera de orden, solo que se descubre más tarde.
+  const seOmiten = HITOS(inicio)
+    .filter(([, cuando]) => cuando <= primerContacto)
+    .map(([tipo]) => NOMBRE_HITO[tipo]);
+  const porQue = segSinInvitacion
+    ? "esa hora ya pasó"
+    : `saldría${seOmiten.length === 1 ? "" : "n"} antes que la invitación`;
+  const avisoOmitidos = seOmiten.length
+    ? `\n\nNo se programa${seOmiten.length === 1 ? "" : "n"} ${seOmiten.join(" ni ")}: ${porQue}.`
+    : "";
+
+  const n = seleccion.length;
+  const primeros = seleccion.slice(0, 8).map(c => c.nombre.split(" ")[0]).join(", ");
+  const mas = n > 8 ? ` y ${n - 8} más` : "";
+  const aviso = `Vas a programar los mensajes de «${actSel.nombre}» para ${n} persona${n === 1 ? "" : "s"}:\n${primeros}${mas}.${omitidos}${avisoOmitidos}`;
+  if (!confirm(aviso + `\n\n¿Programar?`)) return;
 
   const btn = $("segProgramar");
   btn.disabled = true; btn.textContent = "Programando…";
@@ -1069,19 +1111,11 @@ async function programar() {
       yaInvitados = new Set((previas || []).map(r => r.telefono));
     }
 
-    // 2) los mensajes por persona (se omiten los que ya quedaron en el pasado).
-    // La invitación sale "ahora" salvo que se haya elegido diferirla, y se
-    // omite del todo si el agente ya invitó por fuera: en ese caso el
-    // seguimiento arranca directo en los recordatorios.
-    const cuandoInv = (segInvitarTarde && segInvitarTarde > ahora) ? segInvitarTarde : ahora;
+    // 2) los mensajes por persona. `cuandoInv` y `primerContacto` se calcularon
+    // arriba, antes del confirm, para poder avisar allí qué se omite.
     const msgs = [];
     const tiempos = () => {
-      const t = [
-        ["rec_60",       new Date(inicio.getTime() - 60 * 60000)],
-        ["rec_15",       new Date(inicio.getTime() - 15 * 60000)],
-        ["enlace",       inicio],
-        ["confirmacion", new Date(inicio.getTime() + 10 * 60000)],
-      ];
+      const t = HITOS(inicio);
       if (!segSinInvitacion) t.unshift(["invitacion", cuandoInv]);
       return t;
     };
@@ -1098,7 +1132,7 @@ async function programar() {
       const tpl = plantillas(c.nombre, actSel.nombre, actSel.inicio, actSel.enlace,
         yaInvitados.has(c.tel), invEfectiva, c.tzOff);
       for (const [tipo, cuando] of tiempos()) {
-        if (tipo !== "invitacion" && cuando <= ahora) continue; // ya pasó
+        if (tipo !== "invitacion" && cuando <= primerContacto) continue;
         const fila = {
           seguimiento_id: seg.id, tipo, enviar_en: cuando.toISOString(),
           telefono: c.tel, texto: tpl[tipo],
@@ -1359,18 +1393,22 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
              tzOff: s.clientes?.tz_offset_min ?? null }]));
 
   const { data: msgs } = await SB.from("mensajes_programados")
-    .select("id, tipo, seguimiento_id")
+    .select("id, tipo, seguimiento_id, enviar_en")
     .in("seguimiento_id", [...info.keys()]).eq("estado", "pendiente");
   if (!msgs || !msgs.length) return { movidos: 0, cancelados: 0 };
 
   const t = new Date(nuevoInicioISO).getTime();
-  const nuevaHora = {
-    rec_60:       new Date(t - 60 * 60000),
-    rec_15:       new Date(t - 15 * 60000),
-    enlace:       new Date(t),
-    confirmacion: new Date(t + 10 * 60000),
-  };
+  const nuevaHora = Object.fromEntries(HITOS(new Date(t)));
   const ahora = Date.now();
+
+  // La misma regla que al programar, por la otra puerta: nada puede salir antes
+  // que la invitación. Si esa persona todavía tiene la invitación PENDIENTE
+  // —diferida y sin salir— y la hora nueva mete un recordatorio antes, ese
+  // recordatorio se cancela en vez de adelantarse a la invitación.
+  const invPendiente = new Map();
+  for (const m of msgs) {
+    if (m.tipo === "invitacion") invPendiente.set(m.seguimiento_id, new Date(m.enviar_en).getTime());
+  }
 
   // Un texto por seguimiento (no por mensaje): así el sorteo de snippets sale
   // una sola vez por persona, igual que al programar.
@@ -1387,9 +1425,11 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
     const campos = {};
     if (tpl && tpl[m.tipo]) campos.texto = tpl[m.tipo];
     if (cuando) {
-      // Si con la hora nueva ese recordatorio ya quedó en el pasado, no se
-      // programa hacia atrás: se cancela.
-      if (cuando.getTime() <= ahora) { aCancelar.push(m.id); continue; }
+      // Si con la hora nueva ese recordatorio quedó en el pasado —o antes de una
+      // invitación que todavía no ha salido— no se programa hacia atrás: se
+      // cancela.
+      const piso = Math.max(ahora, invPendiente.get(m.seguimiento_id) ?? 0);
+      if (cuando.getTime() <= piso) { aCancelar.push(m.id); continue; }
       campos.enviar_en = cuando.toISOString();
     }
     if (Object.keys(campos).length)
