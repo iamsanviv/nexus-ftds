@@ -38,6 +38,21 @@ Al cambiar la hora de una actividad:
 - la invitación conserva su momento de envío, pero su texto puede necesitar actualización;
 - nunca sobrescribir texto de seguimientos ajenos con las plantillas del director.
 
+## Hora anunciada en el mensaje
+
+La hora del mensaje es el único dato que depende de dónde vive quien lo recibe.
+
+`clientes.tz_offset_min` guarda la diferencia con Colombia en minutos. `NULL` = desconocida, y entonces se anuncia hora Colombia, que es el comportamiento previo a esta columna.
+
+Dos etiquetas que deben ir siempre juntas:
+
+- `{hora}` se resuelve **por persona**, no por actividad;
+- `{zona}` dice `(hora Colombia)` o `(tu hora)` según haya desfase.
+
+Una hora ya convertida etiquetada como «hora Colombia» es peor que no convertir: el cliente la vuelve a convertir y llega tarde. Si se toca `{hora}`, revisar que `{zona}` viaje con ella — incluida la ruta de cambio de hora, que regenera el texto y necesita leer el desfase del cliente en su consulta.
+
+Es un desfase fijo, no un huso: los países con horario de verano hay que corregirlos a mano dos veces al año. Las plantillas viejas que escribieron «(hora Colombia)» como literal siguen funcionando, pero no se adaptan.
+
 ## Eliminación de actividad
 
 Cancelar seguimientos y mensajes activos **antes** de borrar la actividad. Si se borra primero, quedan dependencias sin un punto fiable desde el cual cancelarlas.

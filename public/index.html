@@ -172,7 +172,8 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <!-- editor de plantillas (oculto por defecto) -->
     <div id="segMsgsPanel" class="hidden msgspanel">
       <div class="pstitle">✎ Mensajes automáticos</div>
-      <div class="msgshelp">Usa estas etiquetas y se reemplazan solas: <code>{nombre}</code> <code>{actividad}</code> <code>{hora}</code> <code>{enlace}</code></div>
+      <div class="msgshelp">Usa estas etiquetas y se reemplazan solas: <code>{nombre}</code> <code>{actividad}</code> <code>{hora}</code> <code>{zona}</code> <code>{enlace}</code><br>
+        <code>{hora}</code> llega en la hora de cada persona si su perfil tiene diferencia horaria, y <code>{zona}</code> pone «(hora Colombia)» o «(tu hora)» según corresponda. Si escribiste «(hora Colombia)» a mano, cámbialo por <code>{zona}</code>.</div>
       <div class="msgshelp">Variantes: <code>{Hola|Qué más|Hey}</code> → a cada persona le llega una al azar, así no sale el mismo texto a todos (menos riesgo de bloqueo). No metas la hora ni el enlace dentro de una variante.</div>
       <div class="frow"><label>Invitación (bienvenida — al programar)</label><textarea id="tpl_invitacion" rows="3"></textarea><div class="tplprev" id="prev_invitacion"></div></div>
       <div class="frow"><label>Invitación extra (si ya la invitaste hoy a otra actividad — sin saludo)</label><textarea id="tpl_invitacion_extra" rows="2"></textarea><div class="tplprev" id="prev_invitacion_extra"></div></div>
@@ -230,7 +231,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
           <div id="segMsgInvBox" class="hidden">
             <textarea id="segMsgInv" rows="4" placeholder="Escribe la invitación de esta actividad…"></textarea>
             <div class="msgshelp">Etiquetas: <code>{nombre}</code> <code>{actividad}</code>
-              <code>{hora}</code>. Variantes al azar con <code>{hola|buenas|qué más}</code>.
+              <code>{hora}</code> <code>{zona}</code>. Variantes al azar con <code>{hola|buenas|qué más}</code>.
               Déjalo vacío para usar tu plantilla de siempre.</div>
             <div class="prevmsg" id="segMsgInvPrev"></div>
             <button type="button" class="tbtn" id="segMsgInvQuitar" style="color:var(--bad)">Quitar y usar mi plantilla</button>
@@ -309,7 +310,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         <div id="segMiInvBox" class="hidden">
           <textarea id="segMiInv" rows="4" placeholder="Escribe tu invitación para esta actividad…"></textarea>
           <div class="msgshelp">Etiquetas: <code>{nombre}</code> <code>{actividad}</code>
-            <code>{hora}</code>. Variantes al azar con <code>{hola|buenas|qué más}</code>.
+            <code>{hora}</code> <code>{zona}</code>. Variantes al azar con <code>{hola|buenas|qué más}</code>.
             Solo cambia <b>tu</b> invitación para esta actividad; los recordatorios,
             el enlace y la confirmación no cambian.</div>
           <div class="prevmsg" id="segMiInvPrev"></div>
@@ -513,6 +514,15 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         <option value="España">España</option>
       </select></div>
     </div></div>
+    <!-- Desfase horario: hace que {hora} llegue en la hora de pared de la
+         persona en vez de la de Colombia. Se pone A MANO: el país no sirve para
+         deducirlo (México tiene tres husos). `fTzPrev` muestra un ejemplo vivo,
+         que es la única forma de que el agente note si eligió al revés. -->
+    <div class="frow">
+      <label>Diferencia de hora con Colombia <span class="opt">(opcional)</span></label>
+      <select id="fTz"></select>
+      <div class="msgshelp" id="fTzPrev"></div>
+    </div>
     <div class="frow"><div class="dual">
       <div style="flex:1"><label>Nivel</label><select id="fMem"></select></div>
       <div style="flex:1"><label>Registrado el</label><input id="fCreado" type="date"></div>

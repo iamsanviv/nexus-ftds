@@ -101,6 +101,46 @@ export function bandera(pais, tel) {
   return "";
 }
 
+/* ---------- desfase horario del cliente ----------
+   `tzOff` es la diferencia con Colombia en MINUTOS. Positivo = la persona va
+   adelantada (allá es más tarde). null = sin definir, y entonces el mensaje
+   anuncia hora Colombia, igual que antes de existir esta columna.
+
+   Lo pone el agente a mano, siempre. NO se deduce del país: dentro de un mismo
+   país puede haber varios husos —México tiene tres— así que adivinar acierta a
+   veces y falla en silencio el resto, que es la peor de las dos.
+
+   Se guardan minutos y no horas porque hay husos a la media hora. Es un desfase
+   FIJO, no un huso: los países con horario de verano hay que corregirlos dos
+   veces al año. */
+
+// De -3 h a +12 h en saltos de media hora: cubre todo lo que aparece desde
+// Colombia, incluidos los husos a la media hora.
+export const OPCIONES_TZ =
+  Array.from({ length: 31 }, (_, i) => (i - 6) * 30);
+
+// "+1 h 30 min" antes que "+1,5 h": se lee sin traducir.
+export function etiquetaOffset(min) {
+  if (min === 0) return "Igual que Colombia";
+  const a = Math.abs(min), h = Math.floor(a / 60), m = a % 60, partes = [];
+  if (h) partes.push(h + " h");
+  if (m) partes.push(m + " min");
+  return (min > 0 ? "+" : "−") + partes.join(" ");
+}
+
+// La app asume que el agente trabaja en hora Colombia (ver `inicio` al crear la
+// actividad). Por eso basta con CORRER el instante el desfase y formatear como
+// siempre: lo que sale es la hora de pared del cliente.
+export const horaDeCliente = (iso, tzOff) =>
+  new Date(new Date(iso).getTime() + (tzOff || 0) * 60000)
+    .toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit", hour12: true });
+
+// Qué se pone junto a la hora. Sin desfase se sigue diciendo «hora Colombia»,
+// que es lo que el mensaje decía antes de existir esta función. Con desfase la
+// hora YA está convertida, y decir «hora Colombia» sería mentira.
+export const etiquetaZona = tzOff =>
+  (tzOff === null || tzOff === undefined || tzOff === 0) ? "(hora Colombia)" : "(tu hora)";
+
 /* ---------- embudo de venta: los tres zooms ----------
    Viven en el CLIENTE, no en la venta: la presentación pasa ANTES de que haya
    una venta que apuntarla, y una persona con upgrade tenía dos filas de venta

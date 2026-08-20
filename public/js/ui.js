@@ -4,6 +4,7 @@ import { NIVEL } from "./config.js";
 import {
   state, $, esc, fmtF, hoyISO, uid, toast, copyNum, norm, bandera, ZOOMS,
   todos, esRequerido, esAdicional, esLead, progreso, siguiente,
+  OPCIONES_TZ, etiquetaOffset, horaDeCliente,
 } from "./state.js";
 import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio } from "./data.js";
 // repaso.js importa a ui.js: para no crear un ciclo, aquí solo se usa el
@@ -501,10 +502,47 @@ function opcionesNivel(sel) {
   return NIVELES.map(m => `<option ${m === sel ? 'selected' : ''}>${m}</option>`).join("");
 }
 
+/* ---------- desfase horario en el perfil ---------- */
+
+// "" es un valor distinto de "0": sin definir se sigue anunciando hora Colombia.
+// Las opciones van agrupadas por DIRECCIÓN porque el signo por sí solo no dice
+// nada: «−1 h» no se lee como «allá es más temprano» hasta que alguien lo pone
+// en palabras.
+function pintarSelectorTz(valor) {
+  const grupo = (etiqueta, mins) =>
+    `<optgroup label="${etiqueta}">` + mins.map(m =>
+      `<option value="${m}">${esc(etiquetaOffset(m))}</option>`).join("") + `</optgroup>`;
+  const atras = OPCIONES_TZ.filter(m => m < 0).sort((a, b) => b - a);   // −30 min primero
+  const adelante = OPCIONES_TZ.filter(m => m > 0);
+
+  $("fTz").innerHTML =
+    `<option value="">Sin definir · se anuncia hora Colombia</option>`
+    + `<option value="0">Igual que Colombia</option>`
+    + grupo("Va atrasada (allá es más temprano)", atras)
+    + grupo("Va adelantada (allá es más tarde)", adelante);
+  $("fTz").value = (valor === null || valor === undefined) ? "" : String(valor);
+  pintarEjemploTz();
+}
+
+// Ejemplo vivo con la hora de AHORA. Es lo único que delata un signo invertido
+// («+6» cuando era «−6») antes de que el error salga por WhatsApp.
+function pintarEjemploTz() {
+  const v = $("fTz").value, prev = $("fTzPrev");
+  if (v === "") {
+    prev.textContent = "Los mensajes dirán la hora de Colombia y la persona la convierte.";
+    return;
+  }
+  const off = Number(v), ahora = new Date().toISOString();
+  prev.textContent = off === 0
+    ? "Tiene la misma hora que tú."
+    : `Si aquí son las ${horaDeCliente(ahora, 0)}, para esta persona son las ${horaDeCliente(ahora, off)}`;
+}
+
 function abrirPerfil(c) {
   state.cliEdit = c.id;
   $("cliTitulo").textContent = "Perfil de " + c.nombre;
   $("fNombre").value = c.nombre; $("fPais").value = c.pais || ""; $("fTel").value = c.tel || "";
+  pintarSelectorTz(c.tzOff);
   $("fMem").innerHTML = opcionesNivel(c.mem);
   $("fCreado").value = c.creado || ""; $("fComunidad").value = c.comunidadDesde || ""; $("fUpgrade").value = c.upgradeFecha || "";
   $("fNota").value = c.nota || "";
@@ -607,6 +645,7 @@ function construirActividades(c) {
 function cerrarM() {
   $("overlay").classList.remove("open"); state.cliEdit = null;
   ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fComunidad", "fUpgrade"].forEach(i => $(i).value = "");
+  pintarSelectorTz(null);
   $("fMem").innerHTML = opcionesNivel(state.modulo === "leads" ? "Lead" : "Beca");
   $("fActividades").innerHTML = ""; $("btnConvertir").classList.add("hidden");
 }
@@ -628,12 +667,14 @@ $("abrirModal").onclick = () => {
   state.cliEdit = null;
   $("cliTitulo").textContent = state.modulo === "leads" ? "Nuevo lead" : "Nuevo cliente";
   ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fComunidad", "fUpgrade"].forEach(i => $(i).value = "");
+  pintarSelectorTz(null);
   $("fMem").innerHTML = opcionesNivel(state.modulo === "leads" ? "Lead" : "Beca");
   $("fActividades").innerHTML = ""; $("btnConvertir").classList.add("hidden");
   renderDueno(state.me.id);
   import("./ftd.js").then(m => m.pintarCasillaFtd());
   $("overlay").classList.add("open");
 };
+$("fTz").onchange = pintarEjemploTz;
 $("cerrarModal").onclick = cerrarM;
 $("overlay").onclick = e => { if (e.target.id === "overlay") cerrarM(); };
 
@@ -674,6 +715,7 @@ $("guardarBtn").onclick = async () => {
 
   const datos = {
     nombre, pais: $("fPais").value.trim(), tel: telN ? "+" + telN : "",
+    tzOff: $("fTz").value === "" ? null : Number($("fTz").value),
     mem: $("fMem").value, creado: $("fCreado").value || "",
     comunidadDesde: $("fComunidad").value || "", upgradeFecha: $("fUpgrade").value || "",
     nota: $("fNota").value.trim(),

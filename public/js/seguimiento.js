@@ -4,7 +4,8 @@
 // Las plantillas de mensajes son editables por agente (tabla plantillas_seguimiento).
 // Tablas: actividades, seguimientos, mensajes_programados, plantillas_seguimiento.
 import { SB } from "./supabase.js";
-import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom } from "./state.js";
+import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
+  horaDeCliente, etiquetaZona } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { avisarSiCanalCaido } from "./salud.js";
@@ -18,14 +19,17 @@ const TIPOS = ["invitacion", "rec_60", "rec_15", "enlace", "confirmacion"];
 // Claves de plantilla editables (incluye la invitación extra).
 const CLAVES_TPL = ["invitacion", "invitacion_extra", "rec_60", "rec_15", "enlace", "confirmacion"];
 
-// Plantillas por defecto. Etiquetas: {nombre} {actividad} {hora} {enlace}
+// Plantillas por defecto. Etiquetas: {nombre} {actividad} {hora} {zona} {enlace}
+// {hora} sale en la hora de pared de cada persona si su perfil tiene desfase;
+// {zona} dice «(hora Colombia)» o «(tu hora)» según corresponda. Van juntas:
+// una hora ya convertida etiquetada como «hora Colombia» es peor que no convertir.
 // Además admiten snippets {a|b|c}: se elige una opción al azar POR PERSONA,
 // así no salen 50 mensajes con el texto idéntico. No anidar llaves dentro de
 // un snippet, y no meter datos clave (hora, enlace) dentro de las variantes.
 const PLANTILLAS_DEF = {
-  invitacion:       `{¡Hola|¡Buenas|¡Qué más} {nombre}! 👋 {Hoy tenemos|Hoy nos vemos en|Hoy está} *{actividad}* a las {hora} (hora Colombia). {¡Te esperamos!|¡Ahí te espero!|¡No te la pierdas!} {¿Cuento contigo?|¿Te veo por allá?|¿Vienes?}`,
+  invitacion:       `{¡Hola|¡Buenas|¡Qué más} {nombre}! 👋 {Hoy tenemos|Hoy nos vemos en|Hoy está} *{actividad}* a las {hora} {zona}. {¡Te esperamos!|¡Ahí te espero!|¡No te la pierdas!} {¿Cuento contigo?|¿Te veo por allá?|¿Vienes?}`,
   // Se usa cuando la persona YA recibió una invitación hoy (otra actividad): sin saludo.
-  invitacion_extra: `{Y hoy también tienes|Y ojo, hoy también está|Ah, y hoy además tenemos} *{actividad}* a las {hora} (hora Colombia). {¡Ahí te espero!|¡Te esperamos!|¡No te la pierdas!} {🙌|💪|✨}`,
+  invitacion_extra: `{Y hoy también tienes|Y ojo, hoy también está|Ah, y hoy además tenemos} *{actividad}* a las {hora} {zona}. {¡Ahí te espero!|¡Te esperamos!|¡No te la pierdas!} {🙌|💪|✨}`,
   rec_60:           `{nombre}, {te recuerdo que|recuerda que|ojo que} en 1 hora empieza *{actividad}* ({hora}). {¡Ve preparándote!|¡Alístate!|¡Que no se te pase!} {🙌|⏰|💪}`,
   rec_15:           `¡{nombre}, en 15 minutos {arrancamos|empezamos|comenzamos} *{actividad}*! {🔥|🚀|⚡}`,
   enlace:           `¡{nombre}, {ya empezamos|ya arrancamos|estamos en vivo}! {Este es el enlace para entrar|Entra por aquí|Aquí tienes el enlace} 👉 {enlace}`,
@@ -45,11 +49,12 @@ const fechaHoraCO = iso => new Date(iso).toLocaleString("es-CO",
 // se llama una vez por contacto, cada quien recibe una redacción distinta) y
 // luego sustituye las etiquetas. El token {enlace} no tiene "|", así que los
 // snippets no lo tocan y el worker lo resuelve al enviar.
-function aplicar(tpl, { nombre, actividad, hora, enlace }) {
+function aplicar(tpl, { nombre, actividad, hora, zona, enlace }) {
   return resolverSnippets(tpl)
     .replaceAll("{nombre}", nombre)
     .replaceAll("{actividad}", actividad)
     .replaceAll("{hora}", hora)
+    .replaceAll("{zona}", zona ?? "(hora Colombia)")
     .replaceAll("{enlace}", enlace);
 }
 
@@ -61,8 +66,15 @@ function aplicar(tpl, { nombre, actividad, hora, enlace }) {
 // msgInv: texto propio de la actividad. Si viene, MANDA sobre la plantilla del
 // agente y también sobre la variante "extra" — quien escribió una invitación a
 // mano para un lanzamiento quiere que salga esa, no otra.
-function plantillas(nombre, actividad, inicioISO, enlace, yaInvitado, msgInv) {
-  const base = { nombre: nombre.trim().split(/\s+/)[0], actividad, hora: horaCO(inicioISO) };
+function plantillas(nombre, actividad, inicioISO, enlace, yaInvitado, msgInv, tzOff) {
+  // La hora se calcula POR PERSONA: es el único dato del mensaje que depende de
+  // dónde vive quien lo recibe. `tzOff` nulo = se anuncia hora Colombia, que es
+  // lo que hacía el sistema antes de existir esta columna.
+  const base = {
+    nombre: nombre.trim().split(/\s+/)[0], actividad,
+    hora: horaDeCliente(inicioISO, tzOff),
+    zona: etiquetaZona(tzOff),
+  };
   const out = {};
   for (const t of TIPOS) {
     const clave = (t === "invitacion" && yaInvitado) ? "invitacion_extra" : t;
@@ -125,7 +137,10 @@ function volcarPlantillasAlForm() {
 // azar (como al enviar) y las etiquetas se llenan con datos de ejemplo. Así el
 // agente ve el mensaje tal como le llegará a una persona antes de guardar.
 function renderPrevPlantillas() {
-  const ej = { nombre: "Ana", actividad: "Operativa", hora: "7:00 p. m.", enlace: "https://…" };
+  // El ejemplo usa una persona SIN desfase: es el caso mayoritario y así la
+  // vista previa muestra el mismo texto que verá casi todo el mundo.
+  const ej = { nombre: "Ana", actividad: "Operativa", hora: "7:00 p. m.",
+    zona: etiquetaZona(null), enlace: "https://…" };
   for (const t of CLAVES_TPL) {
     const ta = $("tpl_" + t), prev = $("prev_" + t);
     if (!ta || !prev) continue;
@@ -334,7 +349,9 @@ function renderPrevInvitacion() {
   const hora = $("segHora").value
     ? horaCO(new Date(`2026-01-01T${$("segHora").value}:00`).toISOString())
     : "7:00 p. m.";
-  prev.textContent = txt ? aplicar(txt, { nombre: "Ana", actividad: nombreAct, hora, enlace: "" }) : "";
+  prev.textContent = txt
+    ? aplicar(txt, { nombre: "Ana", actividad: nombreAct, hora, zona: etiquetaZona(null), enlace: "" })
+    : "";
 }
 
 function setImgActividad(url) {
@@ -763,7 +780,8 @@ function renderPrevMiInvitacion() {
   if (!prev || !actSel) return;
   const txt = ($("segMiInv").value || "").trim();
   prev.textContent = txt
-    ? aplicar(txt, { nombre: "Ana", actividad: actSel.nombre, hora: horaCO(actSel.inicio), enlace: "" })
+    ? aplicar(txt, { nombre: "Ana", actividad: actSel.nombre, hora: horaCO(actSel.inicio),
+        zona: etiquetaZona(null), enlace: "" })
     : "";
 }
 
@@ -1060,7 +1078,7 @@ async function programar() {
     for (const seg of segs) {
       const c = seleccion.find(x => x.id === seg.cliente_id);
       const tpl = plantillas(c.nombre, actSel.nombre, actSel.inicio, actSel.enlace,
-        yaInvitados.has(c.tel), invEfectiva);
+        yaInvitados.has(c.tel), invEfectiva, c.tzOff);
       for (const [tipo, cuando] of tiempos()) {
         if (tipo !== "invitacion" && cuando <= ahora) continue; // ya pasó
         const fila = {
@@ -1314,12 +1332,13 @@ async function contarSeguimientosDe(actividadId) {
 // cambiaría la redacción a alguien más. A esos solo se les corrige la hora.
 async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace, msgInv) {
   const { data: segs } = await SB.from("seguimientos")
-    .select("id, owner_id, clientes(nombre)")
+    .select("id, owner_id, clientes(nombre, tz_offset_min)")
     .eq("actividad_id", actividadId).eq("estado", "activo");
   if (!segs || !segs.length) return { movidos: 0, cancelados: 0 };
 
   const info = new Map(segs.map(s =>
-    [s.id, { mio: s.owner_id === state.me.id, nombre: s.clientes?.nombre || "" }]));
+    [s.id, { mio: s.owner_id === state.me.id, nombre: s.clientes?.nombre || "",
+             tzOff: s.clientes?.tz_offset_min ?? null }]));
 
   const { data: msgs } = await SB.from("mensajes_programados")
     .select("id, tipo, seguimiento_id")
@@ -1339,7 +1358,7 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
   // una sola vez por persona, igual que al programar.
   const textos = new Map();
   for (const [id, d] of info) {
-    if (d.mio && d.nombre) textos.set(id, plantillas(d.nombre, nombreAct, nuevoInicioISO, enlace, false, msgInv));
+    if (d.mio && d.nombre) textos.set(id, plantillas(d.nombre, nombreAct, nuevoInicioISO, enlace, false, msgInv, d.tzOff));
   }
 
   const aCancelar = [];

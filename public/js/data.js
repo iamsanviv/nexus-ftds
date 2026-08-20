@@ -6,6 +6,9 @@ import { state, toast } from "./state.js";
 export const mapDesdeDB = r => ({
   id: r.id, owner_id: r.owner_id, nombre: r.nombre, tel: r.telefono || "",
   pais: r.pais || "", mem: r.membresia, creado: r.creado || "",
+  // Desfase con Colombia en minutos. Se conserva el null: 0 («igual que
+  // Colombia») y «no se sabe» son cosas distintas para el texto del mensaje.
+  tzOff: r.tz_offset_min ?? null,
   comunidadDesde: r.comunidad_desde || "", upgradeFecha: r.upgrade_fecha || "",
   nota: r.nota || "", acc: r.acc || {}, conf: r.conf || {},
   // Asistencia a actividades puntuales (fuera del catálogo), auto-contenida:
@@ -18,6 +21,7 @@ export const mapDesdeDB = r => ({
 });
 export const mapAEditar = c => ({
   nombre: c.nombre, telefono: c.tel || null, pais: c.pais || null,
+  tz_offset_min: c.tzOff ?? null,
   membresia: c.mem, creado: c.creado || null,
   comunidad_desde: c.comunidadDesde || null, upgrade_fecha: c.upgradeFecha || null,
   nota: c.nota || null, acc: c.acc || {}, conf: c.conf || {},

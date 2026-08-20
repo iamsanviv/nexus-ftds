@@ -28,6 +28,14 @@ La fila de cliente fue compactada para mostrar nombre, nivel/indicadores, teléf
 
 No asumir que la composición de escritorio aplica a móvil. Varias mejoras recientes se diseñaron explícitamente para dejar móvil intacto.
 
+## Desfase horario
+
+El perfil guarda la diferencia de hora del cliente con Colombia (`tz_offset_min`, en minutos; `NULL` = sin definir). Existe para que la hora del mensaje llegue ya convertida.
+
+Lo pone el agente a mano y **no se deduce del país**: un mismo país puede tener varios husos —México tiene tres— así que adivinar acierta a veces y falla en silencio el resto. El selector va en saltos de media hora y agrupado por dirección (atrasada / adelantada), con un ejemplo vivo debajo: es lo único que delata un signo invertido antes de que el error salga por WhatsApp.
+
+Ver [[../03-domain/messaging-rules]] para cómo se usa en el texto.
+
 ## Seguimiento
 
 La programación desde Personas debe respetar:
