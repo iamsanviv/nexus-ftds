@@ -2,7 +2,7 @@
 import Sortable from "https://esm.sh/sortablejs@1.15.3";
 import { NIVEL } from "./config.js";
 import {
-  state, $, esc, fmtF, hoyISO, uid, toast, copyNum, norm, bandera, ZOOMS,
+  state, $, esc, fmtF, hoyISO, uid, toast, copyNum, norm, normBusqueda, bandera, ZOOMS,
   todos, esRequerido, esAdicional, esLead, progreso, siguiente,
   OPCIONES_TZ, etiquetaOffset, horaDeCliente,
   MOTIVOS_INACTIVO, esInactivo, nombreMotivo, motivoCorto,
@@ -177,7 +177,7 @@ export function render() {
 
   /* ----- filtrar ----- */
   const crudo = $("buscar").value.trim();
-  const q = norm(crudo);
+  const q = normBusqueda(crudo);
   // Búsqueda por teléfono: se buscan los DÍGITOS de la consulta dentro de los
   // dígitos del teléfono. Es aditiva —el nombre sigue funcionando igual—, así
   // que "3390" o "55 3390" encuentran al cliente sin romper nada. Mínimo 2
@@ -185,7 +185,7 @@ export function render() {
   const qDig = crudo.replace(/\D/g, "");
   let vis = base.filter(c => {
     if (q) {
-      const porNombre = norm(c.nombre).includes(q);
+      const porNombre = normBusqueda(c.nombre).includes(q);
       const porTel = qDig.length >= 2 && (c.tel || "").replace(/\D/g, "").includes(qDig);
       if (!porNombre && !porTel) return false;
     }
@@ -454,7 +454,7 @@ function renderServicio() {
   const sid = sel.value, s = todos().find(x => x.id === sid);
   if (!s) { $("srvStats").innerHTML = ""; $("srvLista").innerHTML = `<div class="vacio"><b>No hay servicios en el catálogo</b></div>`; return; }
 
-  const q = norm($("buscar").value.trim());
+  const q = normBusqueda($("buscar").value);
   const conf = c => (c.conf || {})[sid];
   const asis = c => c.acc[sid];
   const asistieron = base.filter(c => asis(c));
@@ -463,7 +463,7 @@ function renderServicio() {
   const total = base.length;
   const pct = total ? Math.round(asistieron.length / total * 100) : 0;
 
-  const filt = arr => arr.filter(c => !q || norm(c.nombre).includes(q));
+  const filt = arr => arr.filter(c => !q || normBusqueda(c.nombre).includes(q));
   const aA = filt(asistieron).sort((a, b) => (a.acc[sid] || "").localeCompare(b.acc[sid] || "") * -1);
   const aC = filt(invitados).sort((a, b) => (conf(b) || "").localeCompare(conf(a) || ""));
   const aP = filt(porInvitar).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));

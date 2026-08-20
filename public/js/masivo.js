@@ -2,7 +2,7 @@
 // Cada persona recibe un texto ya resuelto: {nombre} + snippets {a|b|c} para
 // que no llegue idéntico (más seguro). Crea una "campaña" y N mensajes en cola.
 import { SB } from "./supabase.js";
-import { state, $, esc, toast, norm, resolverSnippets,
+import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
   esInactivo, nombreMotivo, motivoCorto,
   MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto,
   rellenarEtiquetas, horaDeCliente, etiquetaZona } from "./state.js";
@@ -136,10 +136,10 @@ function renderSegs() {
 }
 
 function visibles() {
-  const q = norm($("masBuscar").value.trim());
+  const q = normBusqueda($("masBuscar").value);
   return pool().filter(c => {
     const okMem = masFiltro === "todos" || (masFiltro === "invitadas" ? yaInvitada(c) : c.mem === masFiltro);
-    return okMem && (!q || norm(c.nombre).includes(q));
+    return okMem && (!q || normBusqueda(c.nombre).includes(q));
   });
 }
 

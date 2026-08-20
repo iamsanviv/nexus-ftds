@@ -6,7 +6,8 @@
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
   horaDeCliente, etiquetaZona, esInactivo, nombreMotivo, motivoCorto,
-  ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas } from "./state.js";
+  ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas,
+  normBusqueda } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { avisarSiCanalCaido } from "./salud.js";
@@ -955,10 +956,12 @@ function renderFaltan() {
   });
 
   // Filtro combinado: membresía + búsqueda por nombre.
-  const q = segBuscarTxt.trim().toLowerCase();
+  // `normBusqueda` y no `toLowerCase`: buscar «jose» tiene que encontrar a
+  // «José», que es como está escrito en la lista.
+  const q = normBusqueda(segBuscarTxt);
   const visibles = lista.filter(c =>
     (segFiltroMem === "todos" || c.mem === segFiltroMem) &&
-    (!q || c.nombre.toLowerCase().includes(q)));
+    (!q || normBusqueda(c.nombre).includes(q)));
 
   $("segFaltan").innerHTML = visibles.length
     ? visibles.map(c => {

@@ -8,6 +8,12 @@ La vista de Personas concentra clientes, membresía/progreso, filtros, búsqueda
 
 La búsqueda vigente contempla nombre y teléfono. Para teléfono se comparan dígitos normalizados; no romper la búsqueda por nombre al ampliar criterios.
 
+Para el nombre se usa `normBusqueda()` de `state.js`, **en los cuatro buscadores**: Personas, vista por servicio, selección de una actividad y masivo. Reduce el texto a letras y números en minúscula con un espacio simple, así que da igual la tilde, la ñ, la mayúscula, el punto de «Ma. José» o un espacio doble invisible en el nombre guardado.
+
+Es más agresiva que `norm()` a propósito. `norm()` se sigue usando donde el texto se compara consigo mismo (país, detección de nombres duplicados); un buscador necesita perdonar más que una comparación.
+
+Si aparece un quinto buscador, tiene que usar la misma función: tener uno que distinga tildes y otro que no es peor que que ninguno lo haga, porque nadie sabe cuál es cuál.
+
 ## Filtros
 
 En escritorio existen filtros combinables de progreso y membresía. La UI reciente permite usar tarjetas de conteo como filtros y mantener una tira de estado que explica el conjunto visible.

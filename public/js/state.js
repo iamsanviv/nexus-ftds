@@ -50,6 +50,15 @@ export const fmtF = iso => { const p = (iso || "").split("-"); return p.length =
 export const esc = s => (s || "").replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m]));
 // Para búsquedas: minúsculas y sin acentos ("César" → "cesar").
 export const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+
+// Normalización para BUSCAR un nombre, que es más agresiva que `norm`.
+//
+// `norm` quita tildes y mayúsculas, pero conserva la puntuación y los espacios
+// de más. Eso hacía imposible encontrar a alguien sin escribir su nombre con
+// los mismos signos: «Ma. José» no aparecía buscando «ma jose», y un nombre
+// guardado con dos espacios seguidos —cosa que no se ve en pantalla— no
+// aparecía nunca. Acá todo se reduce a letras y números con un espacio simple.
+export const normBusqueda = s => norm(s).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 export const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 // Snippets: reemplaza cada {a|b|c} por una opción al azar. Se resuelve POR
