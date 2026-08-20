@@ -63,11 +63,21 @@ Un mensaje nunca debe salir por el canal de otro owner cuando el canal esperado 
 
 El worker resuelve recursos al enviar según su implementación vigente. Históricamente:
 
+- el `worker.py` es **agnóstico al tipo**: baja el archivo a un temporal conservando la extensión de la URL y le pasa la ruta al bridge. Quien decide si algo va como imagen, video, nota de voz o documento es el **bridge**, y lo decide por la **extensión**;
 - imágenes están soportadas;
-- notas de voz han tenido restricciones de reproducción;
-- video no debe habilitarse desde UI hasta confirmar soporte real del worker.
+- video (`mp4`, `mov`) está mapeado a `VideoMessage` en el binario en uso; habilitado en Masivo desde el 20/08/2026 y pendiente de una prueba real en teléfono;
+- `webm` no tiene rama y cae en `DocumentMessage`, lo que probablemente explica el defecto de las notas de voz;
+- notas de voz han tenido restricciones de reproducción.
 
 No habilitar una capacidad de frontend porque el formulario la acepte si el worker no sabe entregarla correctamente.
+
+## Dónde vive de verdad (verificado 20/08/2026)
+
+- VM: `ubuntu@141.148.40.31`, llave `~/.ssh/nexus_oracle`;
+- worker: servicio `nexus-worker` en `/home/ubuntu/nexus-worker`;
+- bridges: un servicio por agente con plantilla `nexus-bridge@<slug>`, directorio por agente en `/home/ubuntu/nexus-bridges/<slug>` y `provisionar.sh` para dar de alta uno nuevo (tiene guardia anti-duplicados por owner y por puerto);
+- **los nueve bridges comparten un único ejecutable**: `/home/ubuntu/whatsapp-mcp/whatsapp-bridge/whatsapp-bridge-mt`. Cambiarlo los afecta a todos y exige recompilar y reiniciar los nueve servicios;
+- la copia de `whatsapp-mcp` que hay en WSL es de desarrollo y **no** es la que corre en producción; no confundirlas al leer código.
 
 ## Tope diario y zona horaria
 

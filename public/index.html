@@ -646,27 +646,25 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <div class="masprevbox hidden" id="masPrevBox"><span class="prevlbl">Así le llega a Ana</span><span id="masPrev"></span></div>
     </div>
 
-    <!-- VIDEO DESACTIVADO (31/07). El archivo se sube perfecto al Storage con su
-         mimetype correcto (video/mp4, video/quicktime) y el worker lo marca como
-         "enviado", pero llega al cliente COMO NOTA DE VOZ: el worker solo tiene
-         rama para imagen, y todo lo que no reconoce como imagen lo manda como
-         PTT. Comprobado con dos envíos reales (un .mp4 y un .mov).
-         No se puede arreglar desde este repo — el worker no vive acá.
-         Para reactivar cuando el worker sepa mandar video: devolver
-         `video/mp4,video/quicktime` al accept y el texto de ayuda de abajo.
-         La previsualización y la validación ya están hechas y quedan intactas. -->
+    <!-- VIDEO ACTIVADO (20/08). El bridge de produccion mapea por extension
+         mp4/mov/avi a VideoMessage; verificado en la VM contra el binario en uso.
+         Solo MP4 y MOV: `webm` lo acepta el bucket pero el bridge no tiene rama
+         para esa extension y llegaria como archivo adjunto.
+         El tope de 16 MB es el mismo del bucket `mensajes`; los dos numeros
+         tienen que moverse juntos. -->
     <div class="frow">
-      <label>Imagen (opcional)</label>
+      <label>Imagen o video <span class="opt">(opcional)</span></label>
       <div class="imgfield">
         <img id="masImgPrev" class="imgprev hidden" alt="">
         <video id="masVidPrev" class="imgprev hidden" muted controls></video>
         <div class="imgbtns">
           <input type="file" id="masImgFile"
-                 accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
-          <button type="button" class="tbtn" id="masImgPick">Subir imagen</button>
+                 accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime" class="hidden">
+          <button type="button" class="tbtn" id="masImgPick">Subir imagen o video</button>
           <button type="button" class="tbtn hidden" id="masImgDel" style="color:var(--bad)">Quitar</button>
           <span id="masImgEstado" class="imgestado"></span>
         </div>
+        <div class="msgshelp">Video en MP4 o MOV, hasta 16 MB. MP4 es el que mejor se reproduce en todos los teléfonos.</div>
       </div>
     </div>
 

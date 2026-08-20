@@ -19,15 +19,26 @@ let masImgTipo = null;      // "imagen" | "video" — para la vista previa y el 
 // sube hasta el final para morir con un error en inglés que no dice nada.
 const MAX_VIDEO_MB = 16;
 
-// Esta lista tiene que decir lo MISMO que el `accept` del input. El bucket
-// acepta además los tipos de video, y a propósito: el día que el worker sepa
-// mandarlos, se reactiva desde acá sin tocar la base.
+// Esta lista tiene que decir lo MISMO que el `accept` del input, y NO puede
+// decir más que lo que el bridge sabe entregar. El `accept` es una sugerencia
+// que algunos navegadores dejan saltarse; esta lista es la red de verdad.
 //
-// VIDEO FUERA (31/07): sube bien y el worker lo da por enviado, pero llega al
-// cliente como NOTA DE VOZ — solo tiene rama para imagen y lo que no reconoce
-// lo manda como PTT. Esta lista es la red que de verdad lo impide: el `accept`
-// del input es una sugerencia que algunos navegadores dejan saltarse.
-const TIPOS_OK = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+// VIDEO DENTRO (20/08). La nota anterior decía que el video llegaba como nota
+// de voz y que el bridge «solo tenía rama para imagen». Verificado contra la VM
+// de producción, eso ya no es cierto —y probablemente confundía la prueba de
+// video con la de audio—: el binario que corre hoy mapea por extensión
+//   mp4 → MediaVideo · mov → MediaVideo · avi → MediaVideo
+//   ogg → MediaAudio (PTT) · el resto → MediaDocument
+// y las tres cadenas `video/*` están dentro del ejecutable en uso.
+//
+// WEBM FUERA a propósito: el bucket lo acepta, pero el bridge NO tiene rama
+// para esa extensión, así que caería en MediaDocument y llegaría como archivo
+// adjunto en vez de video. Es el mismo agujero que tiene hoy la nota de voz
+// (ver brain/08-memory/known-issues.md KI-002).
+const TIPOS_OK = [
+  "image/jpeg", "image/png", "image/webp", "image/gif",
+  "video/mp4", "video/quicktime",
+];
 let masCuando = "ahora";    // ahora | prog
 // ¿Se muestran las personas inactivas? Apagado SIEMPRE al abrir: incluirlas es
 // una decisión deliberada de esta tanda (una reactivación), no una preferencia
@@ -415,8 +426,11 @@ $("masImgFile").onchange = async () => {
   // veía «mime type video/quicktime is not supported» y no tenía cómo saber que
   // eso significaba «convierte el video a MP4».
   if (!TIPOS_OK.includes(file.type)) {
+    // El video sí se puede, pero solo en los formatos que el bridge sabe
+    // mandar COMO video. Un .webm llegaría como archivo adjunto, así que se
+    // rechaza acá con una instrucción concreta en vez de dejarlo pasar.
     $("masImgEstado").textContent = esVideo
-      ? "⚠ Por ahora no se puede enviar video: llegaría como nota de voz"
+      ? `⚠ Ese formato de video no se puede enviar (${file.type || "desconocido"}) — conviértelo a MP4`
       : `⚠ Ese tipo de archivo no se puede enviar (${file.type || "desconocido"})`;
     limpiar();
     return;

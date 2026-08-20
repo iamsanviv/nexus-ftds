@@ -24,11 +24,17 @@ No habilitar audio solo porque exista código parcial. Probar subida, envío, re
 
 ## KI-003 — Video
 
-El worker documentado históricamente no tenía una rama segura de video y podía tratar `.mp4`/`.mov` como nota de voz.
+**Reabierto y reinterpretado el 20/08/2026.**
 
-### Regla
+La nota original decía que `.mp4`/`.mov` llegaban como nota de voz porque el bridge «solo tenía rama para imagen». Inspeccionado el bridge real en la VM de producción (`whatsapp-bridge-mt`, compilado el 24/07, que es el que corre hoy para los nueve agentes), eso **no es cierto**: mapea `mp4`/`mov`/`avi` a `MediaVideo` y las tres cadenas `video/*` están dentro del ejecutable en uso.
 
-Video debe permanecer deshabilitado hasta confirmar soporte del worker real de extremo a extremo. Ver [[../04-features/media-attachments]].
+Lo que sí es cierto y explica el síntoma parecido: **no hay rama para `webm`**, y `webm` cae en `MediaDocument`. Las notas de voz del navegador se graban en `.webm`, lo que encaja con KI-002.
+
+### Qué falta para cerrarlo
+
+La contradicción es entre lectura de código (dice que sí) y una observación real registrada el 30/07 (dice que no). Solo la cierra un envío de prueba a un número propio: subir un MP4, enviarlo y **mirar el teléfono**. Hasta entonces, la UI ya lo permite pero nadie debería mandar video a una lista de clientes.
+
+Ver [[../04-features/media-attachments]].
 
 ---
 

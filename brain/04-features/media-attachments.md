@@ -40,9 +40,25 @@ No reactivar audio por presencia de código. Hace falta prueba real de extremo a
 
 ## Video
 
-El video debe permanecer deshabilitado mientras el worker vigente no tenga una rama explícita y comprobada para `video/*`.
+Habilitado en Masivo desde el 20/08/2026, **solo MP4 y MOV**.
 
-Históricamente un `.mp4`/`.mov` podía terminar tratado como PTT. Del lado web ya existieron piezas de validación/previsualización, pero eso no significa que el contrato completo esté soportado.
+El bridge decide el tipo de mensaje por la **extensión del archivo**, no por el MIME que declara el navegador ni por el que guarda el Storage:
+
+| extensión | qué manda el bridge |
+|---|---|
+| `mp4`, `mov`, `avi` | VideoMessage |
+| `ogg` | AudioMessage con PTT |
+| `jpg`, `png`, `gif`, `webp` | ImageMessage |
+| **cualquier otra** | DocumentMessage |
+
+De ahí las dos exclusiones deliberadas de la UI:
+
+- **`webm` fuera**: el bucket lo acepta pero el bridge no tiene esa rama, así que llegaría como archivo adjunto. Es el mismo agujero que hoy afecta a la nota de voz — ver [[../08-memory/known-issues]] KI-002;
+- **`avi` fuera**: el bridge sí lo mapea, pero el bucket no acepta ese MIME.
+
+La nota anterior decía que `.mp4`/`.mov` llegaban como nota de voz porque el bridge «solo tenía rama para imagen». Verificado contra la VM el 20/08: eso no es cierto del binario en uso, que sí trae las tres cadenas `video/*` compiladas. Queda la duda de qué se observó realmente en la prueba del 30/07; ver [[../08-memory/known-issues]] KI-003.
+
+El `VideoMessage` no manda `Seconds`, `Width/Height` ni miniatura. Son opcionales: el video se reproduce, pero la vista previa en el chat puede salir sosa.
 
 ## Regla operativa
 
