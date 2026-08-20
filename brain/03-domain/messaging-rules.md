@@ -55,6 +55,30 @@ Una hora convertida sin avisar es peor que no convertir: el cliente la vuelve a 
 
 Es un desfase fijo, no un huso: los países con horario de verano hay que corregirlos a mano dos veces al año. Las plantillas viejas que escribieron «(hora Colombia)» como literal siguen funcionando, pero no se adaptan.
 
+## Los dos cuellos de envío
+
+Todo mensaje a un cliente sale por una de dos funciones, y **solo dos**:
+
+- `mios()` en `public/js/seguimiento.js` — actividades: alimenta `elegibles()`, la aplicación de segmentos guardados y la programación;
+- `pool()` en `public/js/masivo.js` — campañas: alimenta lista, filtros, segmentos, conteo y el envío final.
+
+Cualquier regla sobre **a quién se le puede escribir** va en esas dos funciones, no en cada pantalla. Hoy filtran por propiedad (`owner_id`), por tener teléfono y por estado.
+
+Las personas inactivas quedan fuera por defecto en las dos, y en las dos se pueden incluir a propósito con un interruptor que **nace apagado**: en Masivo al abrir el panel, en actividades al elegir cada actividad. Incluirlas es una decisión de esa tanda, nunca una preferencia que sobrevive.
+
+Cada flujo avisa donde se decide de verdad:
+
+- **actividades**: el diálogo de confirmación las nombra con su motivo («😴 4 de ellas están inactivas: Dani (no responde)…»). Ahí se encolan cinco mensajes por persona;
+- **masivo**: no hay diálogo, así que el aviso va en la barra de acción, junto al total («incluye 4 inactivas»).
+
+En ambas, la lista muestra el motivo en cada fila.
+
+Al apagar el interruptor hay que **sacar de la selección** a quien deja de verse, y decir cuántas salieron. Si no, quedarían marcadas y contadas sin aparecer en pantalla: la selección invisible de [[../08-memory/dangerous-patterns]] DP-001. Es la comprobación que no se puede omitir al tocar cualquiera de los dos.
+
+Importa que el filtro esté en el envío y no solo en la lista: un segmento guardado hace meses puede traer gente que se marcó inactiva después.
+
+Antes de agregar una tercera vía de envío, preguntar por qué no puede pasar por una de estas dos.
+
 ## Orden de los mensajes
 
 La invitación es el primer contacto del seguimiento. **Ningún otro mensaje puede salir antes que ella.**

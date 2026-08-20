@@ -2,7 +2,8 @@
 // Cada persona recibe un texto ya resuelto: {nombre} + snippets {a|b|c} para
 // que no llegue idéntico (más seguro). Crea una "campaña" y N mensajes en cola.
 import { SB } from "./supabase.js";
-import { state, $, esc, toast, norm, resolverSnippets } from "./state.js";
+import { state, $, esc, toast, norm, resolverSnippets,
+  esInactivo, nombreMotivo, motivoCorto } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento } from "./data.js";
 import { canalVinculado } from "./canal.js";
 
@@ -28,6 +29,10 @@ const MAX_VIDEO_MB = 16;
 // del input es una sugerencia que algunos navegadores dejan saltarse.
 const TIPOS_OK = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 let masCuando = "ahora";    // ahora | prog
+// ¿Se muestran las personas inactivas? Apagado SIEMPRE al abrir: incluirlas es
+// una decisión deliberada de esta tanda (una reactivación), no una preferencia
+// que se queda pegada de la vez pasada.
+let masIncInact = false;
 let segmentos = [];         // segmentos guardados
 
 const primerNombre = n => (n || "").trim().split(/\s+/)[0];
@@ -37,7 +42,15 @@ const resolverMensaje = (tpl, nombre) => resolverSnippets(tpl).replaceAll("{nomb
 // Solo los clientes PROPIOS. Un director ve los de sus agentes para
 // supervisar, pero un masivo saldría desde SU WhatsApp a gente que agregó otro:
 // cada quien le escribe a los suyos.
-const pool = () => state.clientes.filter(c => c.tel && c.owner_id === state.me.id);
+// CUELLO 2 de 2. Igual que `mios()` en seguimiento.js: los cinco usos de
+// `pool()` —lista, segmentos, filtros, conteo y el envío final— pasan por aquí,
+// así que las personas inactivas se tratan en un solo punto.
+//
+// Acá, y a diferencia de las actividades, las inactivas SE PUEDEN incluir a
+// propósito: un masivo de reactivación es justo el mensaje que tiene sentido
+// mandarle a quien se enfrió. Pero solo si se pide en esta tanda.
+const pool = () => state.clientes.filter(c =>
+  c.tel && c.owner_id === state.me.id && (masIncInact || !esInactivo(c)));
 
 /* ---------- render ---------- */
 // Vista previa del mensaje ya resuelto: con etiquetas y variantes {a|b|c}, lo
@@ -111,10 +124,11 @@ function renderLista() {
   const vis = visibles();
   $("masLista").innerHTML = vis.length
     ? vis.map(c => `
-        <label class="seg-row">
+        <label class="seg-row${esInactivo(c) ? " inact" : ""}">
           <input type="checkbox" data-cid="${c.id}" ${masSel.has(c.id) ? "checked" : ""}>
           <span class="badge b-${c.mem}">${c.mem}</span>
-          <span>${esc(c.nombre)}</span>
+          <span class="nm">${esc(c.nombre)}</span>
+          ${esInactivo(c) ? `<span class="badge b-inact" title="${esc(nombreMotivo(c.inactivoMotivo))}">😴 ${esc(motivoCorto(c.inactivoMotivo))}</span>` : ""}
         </label>`).join("")
     : `<div class="naplica">Nadie en este filtro.</div>`;
   $("masLista").querySelectorAll("input[data-cid]").forEach(inp => inp.onchange = () => {
@@ -124,12 +138,45 @@ function renderLista() {
   renderCount();
 }
 
+// El interruptor de inactivas. Al APAGARLO hay que sacar de la selección a las
+// que dejan de verse: si no, quedarían marcadas y contadas sin aparecer en
+// pantalla, que es exactamente la selección invisible que ya costó una vez
+// (DP-001). Se dice cuántas salieron; nunca se descarta gente en silencio.
+function pintarIncInact() {
+  const n = state.clientes.filter(c =>
+    c.tel && c.owner_id === state.me.id && esInactivo(c)).length;
+  const b = $("masIncInact");
+  b.textContent = `😴 Incluir inactivas · ${n}`;
+  b.classList.toggle("on", masIncInact);
+  b.disabled = n === 0;
+}
+
+function alternarIncInact() {
+  masIncInact = !masIncInact;
+  if (!masIncInact) {
+    const visibles = new Set(pool().map(c => c.id));
+    const fuera = [...masSel].filter(id => !visibles.has(id));
+    fuera.forEach(id => masSel.delete(id));
+    if (fuera.length) toast(`${fuera.length} inactiva(s) salieron de la selección`);
+  }
+  pintarIncInact();
+  renderFiltros(); renderLista();
+}
+
 function renderCount() {
   const total = pool().length;
   $("masCount").textContent = masSel.size ? `${masSel.size} de ${total}` : "";
   // La barra de acción de abajo repite la cifra: es lo último que se mira
-  // antes de enviar, y ahí ya no se ve la lista.
+  // antes de enviar, y ahí ya no se ve la lista. Si hay inactivas dentro, ahí
+  // se dice: este masivo no tiene diálogo de confirmación, así que esta cifra
+  // es la última oportunidad de notarlo.
+  const inact = pool().filter(c => masSel.has(c.id) && esInactivo(c)).length;
   $("masFootN").textContent = masSel.size;
+  const av = $("masFootInact");
+  if (av) {
+    av.textContent = inact ? `incluye ${inact} inactiva${inact === 1 ? "" : "s"}` : "";
+    av.classList.toggle("hidden", !inact);
+  }
   $("masEnviar").disabled = masSel.size === 0;
 }
 
@@ -235,14 +282,14 @@ function setImg(url, tipo) {
 
 /* ---------- abrir / enviar ---------- */
 async function abrir() {
-  masSel = new Set(); masFiltro = "todos"; masCuando = "ahora";
+  masSel = new Set(); masFiltro = "todos"; masCuando = "ahora"; masIncInact = false;
   $("masTexto").value = ""; $("masBuscar").value = ""; $("masBuscarX").classList.add("hidden");
   setImg(null, null); $("masImgEstado").textContent = ""; renderPrev();
   if (rec && rec.state !== "inactive") { recDescartar = true; rec.stop(); }
   limpiarAudio(); $("masAudEstado").textContent = "";
   $("masProgRow").classList.add("hidden");
   $("masCuandoSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.cuando === "ahora"));
-  renderFiltros(); renderLista(); renderCuando();
+  pintarIncInact(); renderFiltros(); renderLista(); renderCuando();
   $("masOverlay").classList.add("open");
   await cargarSegs();
 }
@@ -343,6 +390,7 @@ $("masBuscarX").onclick = () => {
   renderLista();
   $("masBuscar").focus();
 };
+$("masIncInact").onclick = alternarIncInact;
 $("masMarcar").onclick = () => { visibles().forEach(c => masSel.add(c.id)); renderLista(); };
 $("masDesmarcar").onclick = () => { visibles().forEach(c => masSel.delete(c.id)); renderLista(); };
 

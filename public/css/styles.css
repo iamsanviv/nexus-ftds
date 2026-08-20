@@ -67,6 +67,25 @@
   .b-Platino{background:rgba(159,182,201,.16);color:var(--plat)}
   .b-Oro{background:rgba(232,184,75,.18);color:var(--oro);box-shadow:inset 0 0 0 1px rgba(232,184,75,.35)}
   .owner{font-size:.62rem;font-weight:700;color:var(--muted);background:var(--surface2);border:1px solid var(--border);padding:2px 8px;border-radius:999px}
+  /* Persona inactiva: no recibe mensajes. Se apaga la fila entera en vez de
+     solo poner una insignia, para que al recorrer la lista se distinga sin
+     leer. `.chead` y no `.card`, porque el cuerpo desplegado se lee igual. */
+  .badge.b-inact{background:var(--surface2);color:var(--muted);border:1px solid var(--border);text-transform:none;letter-spacing:.02em}
+  /* En la lista de un masivo la insignia va al final de la fila: el nombre
+     manda, y el motivo se lee justo antes de marcar la casilla.
+
+     El reparto importa. Con el motivo más largo («Número equivocado o dado de
+     baja», 212 px) y un nombre largo, la fila se partía en tres renglones y el
+     nombre quedaba espichado a 64 px. El ellipsis va en el NOMBRE —que es lo
+     que se puede adivinar a medias— y la insignia NO cede nunca: el motivo es
+     justo el dato que se viene a leer antes de marcar la casilla, y cortado a
+     la mitad no sirve para decidir. Por eso la forma corta del motivo. */
+  .seg-row .nm{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .seg-row.inact .badge.b-inact{margin-left:auto;flex:0 0 auto;white-space:nowrap}
+  .seg-row.inact{opacity:.75}
+  .seg-row.inact:hover{opacity:1}
+  .card.inact .chead{opacity:.62}
+  .card.inact .chead:hover{opacity:1}
   .barra{height:6px;background:var(--surface2);border-radius:99px;margin-top:9px;overflow:hidden}
   .barra i{display:block;height:100%;background:linear-gradient(90deg,var(--gold-dim),var(--gold-fill));border-radius:99px;transition:width .3s}
   .pct{font-size:.74rem;color:var(--muted);margin-top:5px}
@@ -310,6 +329,11 @@
 .segtoggle{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);
   margin-bottom:8px;cursor:pointer;padding:2px 0}
 .segtoggle input{width:auto;accent-color:var(--gold)}
+/* El número al lado de «Incluir inactivas»: dice cuántas hay antes de marcar.
+   Se queda vacío cuando no hay ninguna y la casilla va deshabilitada. */
+.segtoggle .segtoggle-n{color:var(--gold);font-variant-numeric:tabular-nums}
+.segtoggle input:disabled{opacity:.5}
+.segtoggle:has(input:disabled){opacity:.55}
 /* Misma trampa que con `.chkline`: `.frow label` (0,1,1) le gana a `.segtoggle`
    (0,1,0), y dentro del formulario de actividad las casillas salían en
    MAYÚSCULAS DIMINUTAS, como si fueran el título de un campo en vez de algo que
@@ -801,8 +825,12 @@ body.segwide .tabinner{max-width:1180px}
 .masmodal .mhead .mx:active{color:var(--bad);background:var(--surface2)}
 
 /* el único scroll del modal */
+/* `minmax(0,1fr)` y no el `auto` implícito: sin él la columna se dimensiona al
+   contenido más ancho, y una fila que no puede partirse —un nombre largo junto
+   a la insignia de motivo— estiraba la rejilla a 658 px dentro de una pantalla
+   de 390. La variante de escritorio ya lo hacía; a la de móvil le faltaba. */
 .masmodal .mbody{flex:1;min-height:0;overflow-y:auto;padding:16px 18px;
-  display:grid;gap:20px;align-content:start}
+  display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-content:start}
 .masmodal .paneh{font-size:.69rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
   color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:9px}
 .masmodal .paneh .rule{flex:1;height:1px;background:var(--border)}
@@ -835,6 +863,13 @@ body.segwide .tabinner{max-width:1180px}
 .masmodal .fsum b{font-family:'Archivo';font-size:1.05rem;font-weight:800;color:var(--gold);
   font-variant-numeric:tabular-nums}
 .masmodal .fs2{display:block;font-size:.71rem;color:var(--muted);margin-top:1px}
+/* Aviso de inactivas en la barra de acción: es lo último que se ve antes de
+   enviar, y este masivo no tiene diálogo de confirmación.
+   Vive AQUÍ y no en la sección base porque comparte elemento con `.fs2`: una
+   clase suelta declarada antes perdía por orden aunque el selector fuera igual
+   de específico. Misma familia de trampa que `.frow label`; se resuelve con el
+   selector, no con !important. */
+.masmodal .fsum .avisoinact{color:var(--gold)}
 .masmodal .cuando{display:flex;gap:4px;background:var(--bg);border:1px solid var(--border);
   border-radius:10px;padding:3px;margin-left:auto}
 .masmodal .cuando button{font-size:.77rem;font-weight:600;padding:7px 13px;border-radius:7px;

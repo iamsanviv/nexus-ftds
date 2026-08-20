@@ -146,6 +146,30 @@ export const horaDeCliente = (iso, tzOff) =>
 export const etiquetaZona = tzOff =>
   (tzOff === null || tzOff === undefined || tzOff === 0) ? "" : "(tu hora)";
 
+/* ---------- persona inactiva ----------
+   Dejó de responder, pidió no seguir o su número ya no sirve. No se borra:
+   conserva asistencia, ventas e historial. Solo deja de recibir mensajes.
+
+   `inactivoDesde` nulo = activa. Membresía y estado son ejes independientes:
+   alguien puede ser Oro e inactivo, por eso esto NO es un nivel más.
+
+   El motivo es solo un dato. Los cuatro excluyen igual y reactivar es un clic
+   en todos los casos; se guarda para poder distinguir después «se enfrió» de
+   «pidió que no le escriba» si esa diferencia llega a pesar. */
+// Dos textos por motivo: el largo explica en el perfil, donde hay sitio; el
+// corto va en la insignia de una fila. Con el largo, «Número equivocado o dado
+// de baja» junto a un nombre largo se cortaba a la mitad en un celular, y un
+// motivo cortado no sirve para decidir a quién escribirle.
+export const MOTIVOS_INACTIVO = [
+  ["no_responde", "No responde",                      "No responde"],
+  ["no_quiere",   "No quiere continuar",              "No quiere continuar"],
+  ["numero_malo", "Número equivocado o dado de baja", "Número inválido"],
+  ["otro",        "Otra razón",                       "Otra razón"],
+];
+export const esInactivo = c => !!(c && c.inactivoDesde);
+export const nombreMotivo = m => (MOTIVOS_INACTIVO.find(([v]) => v === m) || [, "Inactiva"])[1];
+export const motivoCorto  = m => (MOTIVOS_INACTIVO.find(([v]) => v === m) || [, , "Inactiva"])[2];
+
 /* ---------- embudo de venta: los tres zooms ----------
    Viven en el CLIENTE, no en la venta: la presentación pasa ANTES de que haya
    una venta que apuntarla, y una persona con upgrade tenía dos filas de venta

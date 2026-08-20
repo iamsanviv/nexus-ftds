@@ -5,6 +5,7 @@ import {
   state, $, esc, fmtF, hoyISO, uid, toast, copyNum, norm, bandera, ZOOMS,
   todos, esRequerido, esAdicional, esLead, progreso, siguiente,
   OPCIONES_TZ, etiquetaOffset, horaDeCliente,
+  MOTIVOS_INACTIVO, esInactivo, nombreMotivo, motivoCorto,
 } from "./state.js";
 import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio } from "./data.js";
 // repaso.js importa a ui.js: para no crear un ciclo, aquí solo se usa el
@@ -114,7 +115,13 @@ export function render() {
   // repaso.js: ftd.js necesita render() de aquí y no puede haber ciclo.
   import("./ftd.js").then(m => m.renderBloqueFtd());
 
-  const base = state.clientes.filter(c => isLead ? esLead(c) : !esLead(c));
+  // Las inactivas viven FUERA de la lista normal: no cuentan para membresías ni
+  // progreso, y solo se ven con su propio filtro. Es lo mismo que hacen los dos
+  // cuellos de envío, para que lo que ves sea a quién le puedes escribir.
+  const universo = state.clientes.filter(c => isLead ? esLead(c) : !esLead(c));
+  const inactivas = universo.filter(esInactivo);
+  const activas = universo.filter(c => !esInactivo(c));
+  const base = state.filtro === "inactivas" ? inactivas : activas;
   const pr = c => progreso(c);
 
   // Escritorio: las tarjetas de conteo son filtros por membresía (combinables
@@ -127,16 +134,16 @@ export function render() {
 
   /* ----- stats ----- */
   if (isLead) {
-    const con = base.filter(c => pr(c).extra > 0).length;
-    $("stats").innerHTML = stat("lead", base.length, "Leads") + stat("ok", con, "Con actividad") + stat("mut", base.length - con, "Sin actividad");
+    const con = activas.filter(c => pr(c).extra > 0).length;
+    $("stats").innerHTML = stat("lead", activas.length, "Leads") + stat("ok", con, "Con actividad") + stat("mut", activas.length - con, "Sin actividad");
   } else if (!desk) {
     $("stats").innerHTML = ["Beca", "VIP", "Platino", "Oro"]
-      .map(m => stat(m.toLowerCase().slice(0, 4), base.filter(c => c.mem === m).length, m)).join("");
+      .map(m => stat(m.toLowerCase().slice(0, 4), activas.filter(c => c.mem === m).length, m)).join("");
   } else {
     // Escritorio: cada tarjeta es un botón de filtro; la activa se marca.
     $("stats").innerHTML = ["Beca", "VIP", "Platino", "Oro"].map(m => {
       const cls = m.toLowerCase().slice(0, 4);
-      const n = base.filter(c => c.mem === m).length;
+      const n = activas.filter(c => c.mem === m).length;
       return `<button class="stat ${cls} filtrable ${state.filtroMem === m ? 'on' : ''}" data-mem="${m}"><b>${n}</b><span>${m}</span></button>`;
     }).join("");
     $("stats").querySelectorAll("[data-mem]").forEach(b => b.onclick = () => {
@@ -149,11 +156,15 @@ export function render() {
   // En escritorio, la membresía la dan las tarjetas de conteo, así que aquí
   // quedan solo tres (Todos / En progreso / Completos). En móvil, el set de
   // siempre con las píldoras de membresía.
+  // «Inactivas» va siempre, aunque el conteo sea 0: si se escondiera cuando no
+  // hay ninguna, nadie descubriría que la opción existe. Lleva el número porque
+  // esas personas ya no salen en ningún otro filtro.
+  const pillInact = ["inactivas", `😴 Inactivas · ${inactivas.length}`];
   const defs = isLead
-    ? [["todos", "Todos"], ["activos", "🔥 Con actividad"], ["inactivos", "Sin actividad"]]
+    ? [["todos", "Todos"], ["activos", "🔥 Con actividad"], ["inactivos", "Sin actividad"], pillInact]
     : desk
-      ? [["incompletos", "⏳ En progreso"], ["completos", "✓ Completos"], ["todos", "Todos"]]
-      : [["todos", "Todos"], ["Beca", "Beca"], ["VIP", "VIP"], ["Platino", "Platino"], ["Oro", "Oro"], ["incompletos", "⏳ En progreso"], ["completos", "✓ Completos"]];
+      ? [["incompletos", "⏳ En progreso"], ["completos", "✓ Completos"], ["todos", "Todos"], pillInact]
+      : [["todos", "Todos"], ["Beca", "Beca"], ["VIP", "VIP"], ["Platino", "Platino"], ["Oro", "Oro"], ["incompletos", "⏳ En progreso"], ["completos", "✓ Completos"], pillInact];
   $("filtros").innerHTML = defs.map(([v, l]) => `<button class="pill ${state.filtro === v ? 'on' : ''}" data-f="${v}">${l}</button>`).join("");
   $("filtros").querySelectorAll(".pill").forEach(b => b.onclick = () => { state.filtro = b.dataset.f; render(); });
 
@@ -180,7 +191,7 @@ export function render() {
     }
     // Filtro por membresía (escritorio): se combina con el de progreso de abajo.
     if (state.filtroMem && c.mem !== state.filtroMem) return false;
-    if (state.filtro === "todos") return true;
+    if (state.filtro === "todos" || state.filtro === "inactivas") return true;
     if (state.filtro === "activos") return pr(c).extra > 0;
     if (state.filtro === "inactivos") return pr(c).extra === 0;
     if (state.filtro === "incompletos") return pr(c).pct < 100;
@@ -212,8 +223,14 @@ export function render() {
       if (state.filtroMem) partes.push(`nivel ${state.filtroMem}`);
       if (state.filtro === "incompletos") partes.push("en progreso");
       else if (state.filtro === "completos") partes.push("completos");
+      else if (state.filtro === "inactivas") partes.push("inactivas · no reciben mensajes");
       if (crudo) partes.push(`"${esc(crudo)}"`);
-      const hayFiltro = !!state.filtroMem || !!crudo || state.filtro === "completos";
+      // Las inactivas no aparecen en ningún otro filtro. Decir cuántas quedaron
+      // fuera evita que alguien las dé por perdidas o las vuelva a agregar.
+      if (state.filtro !== "inactivas" && inactivas.length)
+        partes.push(`${inactivas.length} inactiva${inactivas.length === 1 ? "" : "s"} sin mostrar`);
+      const hayFiltro = !!state.filtroMem || !!crudo
+        || state.filtro === "completos" || state.filtro === "inactivas";
       estadoEl.innerHTML = `<span>${partes.join(" · ")}</span>`
         + (hayFiltro ? ` <button class="quitarf" id="quitarFiltros">Quitar filtros</button>` : "");
       const qf = $("quitarFiltros");
@@ -251,6 +268,11 @@ function cardHTML(c, p, rank, isLead, dir) {
   }
 
   const ownerBadge = (dir && c.owner_id !== state.me.id) ? `<span class="owner">👤 ${esc(state.perfiles[c.owner_id] || "agente")}</span>` : "";
+  // La fila de una inactiva tiene que leerse distinta de un vistazo: si no, al
+  // verla en el filtro se confunde con alguien a quien sí se le escribe.
+  const inactTag = esInactivo(c)
+    ? ` <span class="badge b-inact" title="${esc(nombreMotivo(c.inactivoMotivo))} · inactiva desde el ${esc(new Date(c.inactivoDesde).toLocaleDateString("es-CO"))}">😴 ${esc(motivoCorto(c.inactivoMotivo))}</span>`
+    : "";
   // La bandera sube a la línea del nombre: es un dato de la persona, no de su
   // progreso, y ahí no le roba renglón a las cifras.
   const paisTag = banderaTag(c);
@@ -279,11 +301,11 @@ function cardHTML(c, p, rank, isLead, dir) {
 
   const nota = c.nota ? `<div class="notaimp"><span class="nlbl">Nota</span>${esc(c.nota)}</div>` : "";
 
-  return `<div class="card ${open ? 'open' : ''}" data-id="${c.id}">
+  return `<div class="card ${open ? 'open' : ''} ${esInactivo(c) ? 'inact' : ''}" data-id="${c.id}">
       <div class="chead">
         ${rankChip || `<div class="cav">${esc(iniciales(c.nombre))}</div>`}
         <div class="cinfo">
-          <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span>${paisTag} ${ownerBadge}</div>
+          <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span>${paisTag}${inactTag} ${ownerBadge}</div>
           ${isLead || !c.tel ? '' : `<span class="cheadtel" title="${esc(c.tel)}">${esc(c.tel)}</span>`}
           ${isLead ? '' : `<div class="barra"><i style="width:${p.pct}%"></i></div>`}
           <div class="pct">${metric}</div>
@@ -417,7 +439,10 @@ $("tabMas").onclick = () => { state.vista = "mas"; render(); };
 /* ================= VISTA POR SERVICIO ================= */
 function renderServicio() {
   const isLead = state.modulo === "leads";
-  const base = state.clientes.filter(c => isLead ? esLead(c) : !esLead(c));
+  // Sin las inactivas: esta vista existe para saber a quién falta invitar, y a
+  // ellas no se les va a invitar.
+  const base = state.clientes.filter(c =>
+    (isLead ? esLead(c) : !esLead(c)) && !esInactivo(c));
 
   const sel = $("srvPick"), cur = sel.value;
   sel.innerHTML = state.catalogo.map(g => `<optgroup label="${esc(g.g)}">` +
@@ -502,6 +527,30 @@ function opcionesNivel(sel) {
   return NIVELES.map(m => `<option ${m === sel ? 'selected' : ''}>${m}</option>`).join("");
 }
 
+/* ---------- estado activa/inactiva en el perfil ---------- */
+
+// Un solo selector con los motivos aplanados, en vez de una casilla más un
+// selector que aparece: el motivo no cambia el comportamiento —los cuatro
+// excluyen igual— así que no merece un control aparte.
+function pintarSelectorEstado(c) {
+  $("fEstado").innerHTML =
+    `<option value="">Activa · recibe mensajes</option>`
+    + MOTIVOS_INACTIVO.map(([v, l]) =>
+      `<option value="${v}">Inactiva · ${esc(l)}</option>`).join("");
+  $("fEstado").value = esInactivo(c) ? (c.inactivoMotivo || "otro") : "";
+  pintarAyudaEstado(c && c.inactivoDesde);
+}
+
+// La fecha de cuándo se marcó es la que ya está guardada: cambiar el motivo no
+// la reinicia, porque lo que importa es desde cuándo dejó de recibir mensajes.
+function pintarAyudaEstado(desde) {
+  const el = $("fEstadoAyuda"), inactiva = $("fEstado").value !== "";
+  if (!inactiva) { el.textContent = "Aparece en la lista y puede recibir mensajes."; return; }
+  const d = desde ? new Date(desde) : null;
+  el.textContent = "No aparece para programar ni en masivos. Conserva su historial y sus ventas."
+    + (d ? ` Inactiva desde el ${d.toLocaleDateString("es-CO")}.` : "");
+}
+
 /* ---------- desfase horario en el perfil ---------- */
 
 // "" es un valor distinto de "0": sin definir se sigue anunciando hora Colombia.
@@ -543,6 +592,7 @@ function abrirPerfil(c) {
   $("cliTitulo").textContent = "Perfil de " + c.nombre;
   $("fNombre").value = c.nombre; $("fPais").value = c.pais || ""; $("fTel").value = c.tel || "";
   pintarSelectorTz(c.tzOff);
+  pintarSelectorEstado(c);
   $("fMem").innerHTML = opcionesNivel(c.mem);
   $("fCreado").value = c.creado || ""; $("fComunidad").value = c.comunidadDesde || ""; $("fUpgrade").value = c.upgradeFecha || "";
   $("fNota").value = c.nota || "";
@@ -646,6 +696,7 @@ function cerrarM() {
   $("overlay").classList.remove("open"); state.cliEdit = null;
   ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fComunidad", "fUpgrade"].forEach(i => $(i).value = "");
   pintarSelectorTz(null);
+  pintarSelectorEstado(null);
   $("fMem").innerHTML = opcionesNivel(state.modulo === "leads" ? "Lead" : "Beca");
   $("fActividades").innerHTML = ""; $("btnConvertir").classList.add("hidden");
 }
@@ -668,6 +719,7 @@ $("abrirModal").onclick = () => {
   $("cliTitulo").textContent = state.modulo === "leads" ? "Nuevo lead" : "Nuevo cliente";
   ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fComunidad", "fUpgrade"].forEach(i => $(i).value = "");
   pintarSelectorTz(null);
+  pintarSelectorEstado(null);
   $("fMem").innerHTML = opcionesNivel(state.modulo === "leads" ? "Lead" : "Beca");
   $("fActividades").innerHTML = ""; $("btnConvertir").classList.add("hidden");
   renderDueno(state.me.id);
@@ -675,6 +727,10 @@ $("abrirModal").onclick = () => {
   $("overlay").classList.add("open");
 };
 $("fTz").onchange = pintarEjemploTz;
+$("fEstado").onchange = () => {
+  const c = state.cliEdit ? state.clientes.find(x => x.id === state.cliEdit) : null;
+  pintarAyudaEstado(c && c.inactivoDesde);
+};
 $("cerrarModal").onclick = cerrarM;
 $("overlay").onclick = e => { if (e.target.id === "overlay") cerrarM(); };
 
@@ -716,6 +772,18 @@ $("guardarBtn").onclick = async () => {
   const datos = {
     nombre, pais: $("fPais").value.trim(), tel: telN ? "+" + telN : "",
     tzOff: $("fTz").value === "" ? null : Number($("fTz").value),
+    // Al marcar inactiva se sella la fecha; al reactivar se limpian los dos.
+    // Cambiar solo el motivo conserva la fecha original: lo que interesa es
+    // desde cuándo dejó de recibir mensajes, no cuándo se reclasificó.
+    ...(() => {
+      const motivo = $("fEstado").value;
+      const previa = state.cliEdit
+        ? (state.clientes.find(x => x.id === state.cliEdit) || {}).inactivoDesde
+        : null;
+      return motivo
+        ? { inactivoDesde: previa || new Date().toISOString(), inactivoMotivo: motivo }
+        : { inactivoDesde: null, inactivoMotivo: null };
+    })(),
     mem: $("fMem").value, creado: $("fCreado").value || "",
     comunidadDesde: $("fComunidad").value || "", upgradeFecha: $("fUpgrade").value || "",
     nota: $("fNota").value.trim(),
