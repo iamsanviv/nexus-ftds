@@ -76,6 +76,21 @@ La regla `FACTURA_VALOR_AL_SALDAR` hace que, cuando una venta se completa en un 
 - monto cero no es una corrección válida: para retirar el abono se elimina;
 - `abonos` hereda alcance desde su venta mediante la relación correspondiente, no necesita una propiedad duplicada solo para simplificar RLS.
 
+## La venta aplica el nivel
+
+Cuando una venta de categoría `membresia` queda **saldada**, el cliente sube al nivel del producto. Si deja de estarlo —se borra un abono, se corrige a la baja, sube el valor, se da por perdida o se borra la venta— vuelve a lo que tenía.
+
+`ventas.membresia_previa` guarda a dónde volver, y su sola presencia significa «esta venta tiene un nivel aplicado». No se puede deducir: `nivel_origen` solo existe en upgrades (VIP+) y no cubre Beca → membresía, que es el caso más común.
+
+Toda la regla vive en **una** función (`sincronizarMembresia` en `ventas.js`) que llaman los ocho sitios capaces de mover `estaSaldada`. Repartirla por cada botón garantiza que alguno se quede atrás y el nivel se desincronice en silencio.
+
+Dos guardas que no se pueden quitar:
+
+- **solo sube**: si el cliente ya está igual o más arriba, no se toca. Una venta de nivel menor a quien ya subió es un dedazo, no una intención;
+- **solo revierte lo suyo**: se devuelve el nivel únicamente si el que tiene hoy es el que puso esa venta. Si cambió después —otra venta, o a mano en el perfil— pisarlo destruiría una decisión más reciente.
+
+Las ventas que ya estaban saldadas antes de este cambio quedan con `membresia_previa` nulo a propósito: no se aplica nada retroactivamente.
+
 ## Upgrade
 
 El upgrade usa la diferencia entre valores de lista de los productos involucrados, no el monto de una venta histórica que quizá ya fue un upgrade.

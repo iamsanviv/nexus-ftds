@@ -359,6 +359,12 @@ export const saldo  = v => Math.max(0, v.valor - pagado(v));
 // puede haber dos verdades que se contradigan.
 export const estaSaldada = v => v.estado !== "perdida" && v.valor > 0 && pagado(v) >= v.valor;
 
+// Nivel de producto -> nombre de membresía. Se deriva de NIVEL para que no haya
+// dos tablas que puedan discrepar. Lead(0) y Beca(1) quedan fuera: no son
+// productos que se vendan, así que ninguna venta puede aplicarlos.
+export const MEMBRESIA_DE_NIVEL = Object.fromEntries(
+  Object.entries(NIVEL).filter(([, n]) => n >= 2).map(([m, n]) => [n, m]));
+
 // Fecha en que la venta quedó saldada = la del abono que completó el valor.
 // Es la que decide en qué mes se causa la comisión.
 export function fechaSaldo(v) {

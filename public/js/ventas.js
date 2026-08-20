@@ -12,6 +12,7 @@ import {
   usd, periodoDe, periodoAntes, mesLegible,
   pagado, saldo, estaSaldada, fechaSaldo, comisionSinDefinir,
   resumenVentas, comisionFtd, metasDe, alertaPago, alertasDelMes,
+  MEMBRESIA_DE_NIVEL,
 } from "./state.js";
 import {
   cargarVentas, vInsert, vPatch, vDelete, abInsert, abPatch, abDelete,
@@ -314,6 +315,7 @@ function engancharLista() {
     if (!(await abPatch(id, campos))) { inp.value = esMonto ? a.monto : a.fecha; return; }
     Object.assign(a, campos);
     toast("Abono corregido ✓");
+    await sincronizarMembresia(v);
     renderVentas();
   });
 
@@ -325,6 +327,7 @@ function engancharLista() {
     if (!(await abDelete(id))) return;
     v.abonos = v.abonos.filter(x => x.id !== id);
     toast("Abono borrado");
+    await sincronizarMembresia(v);
     renderVentas();
   });
 
@@ -337,20 +340,27 @@ function engancharLista() {
   L.querySelectorAll("[data-perder]").forEach(b => b.onclick = async () => {
     if (await vPatch(b.dataset.perder, { estado: "perdida" })) {
       const v = state.ventas.find(x => x.id === b.dataset.perder);
-      v.estado = "perdida"; renderVentas();
+      v.estado = "perdida";
+      await sincronizarMembresia(v);
+      renderVentas();
     }
   });
 
   L.querySelectorAll("[data-revivir]").forEach(b => b.onclick = async () => {
     if (await vPatch(b.dataset.revivir, { estado: "abierta" })) {
       const v = state.ventas.find(x => x.id === b.dataset.revivir);
-      v.estado = "abierta"; renderVentas();
+      v.estado = "abierta";
+      await sincronizarMembresia(v);
+      renderVentas();
     }
   });
 
   L.querySelectorAll("[data-borrar]").forEach(b => b.onclick = async () => {
     const v = state.ventas.find(x => x.id === b.dataset.borrar);
     if (!confirm(`¿Borrar la venta de ${v.cliente_nombre}? Se van también sus abonos.`)) return;
+    // Se devuelve el nivel ANTES de borrar: después no quedaría de dónde leer
+    // a qué membresía volver.
+    await sincronizarMembresia(v, { seBorra: true });
     if (await vDelete(v.id)) {
       state.ventas = state.ventas.filter(x => x.id !== v.id);
       toast("Venta borrada"); renderVentas();
@@ -379,12 +389,64 @@ function engancharLista() {
   });
 }
 
+/* ================= LA VENTA APLICA EL NIVEL ================= */
+// Cuando una venta de membresía queda saldada, el cliente sube al nivel del
+// producto. Si deja de estarlo —se borra un abono, se corrige a la baja, se da
+// por perdida o se borra la venta— vuelve a lo que tenía.
+//
+// Vive en UNA sola función, y todos los sitios que pueden mover `estaSaldada`
+// la llaman. Repartir la regla por cada botón garantizaba que alguno se
+// quedara atrás y el nivel se desincronizara en silencio.
+//
+// `v.membresia_previa` hace dos trabajos: guarda a dónde volver, y su sola
+// presencia significa «esta venta tiene un nivel aplicado».
+async function sincronizarMembresia(v, { seBorra = false } = {}) {
+  const p = prod(v.producto_id);
+  if (!p || p.categoria !== "membresia" || !p.nivel) return;
+  const c = state.clientes.find(x => x.id === v.cliente_id);
+  if (!c) return;                       // venta de un cliente que ya no está
+
+  const destino = MEMBRESIA_DE_NIVEL[p.nivel];
+  if (!destino) return;
+  const aplicada = !!v.membresia_previa;
+  const debe = !seBorra && estaSaldada(v);
+  if (debe === aplicada) return;        // nada que hacer
+
+  if (debe) {
+    // Solo SUBE. Si el cliente ya está igual o más arriba, aplicar el nivel de
+    // esta venta lo degradaría; y una venta de nivel menor a alguien que ya
+    // subió es casi siempre un dedazo, no una intención.
+    if (nivelDe(c.mem) >= p.nivel) return;
+    const previa = c.mem;
+    if (!(await vPatch(v.id, { membresia_previa: previa }))) return;
+    v.membresia_previa = previa;
+    if (await dbPatch(c, { membresia: destino })) {
+      c.mem = destino;
+      toast(`${c.nombre.trim().split(/\s+/)[0]} ahora es ${destino} (antes ${previa})`);
+    }
+    return;
+  }
+
+  // Revertir. Solo si el nivel que tiene HOY es el que puso esta venta: si
+  // cambió después —otra venta, o a mano en el perfil— no es nuestro y
+  // pisarlo destruiría una decisión más reciente.
+  const previa = v.membresia_previa;
+  const esNuestro = c.mem === destino;
+  if (esNuestro && !(await dbPatch(c, { membresia: previa }))) return;
+  if (await vPatch(v.id, { membresia_previa: null })) v.membresia_previa = null;
+  if (esNuestro) {
+    c.mem = previa;
+    toast(`${c.nombre.trim().split(/\s+/)[0]} vuelve a ${previa}`);
+  }
+}
+
 async function abonar(ventaId, monto) {
   const a = await abInsert(ventaId, monto, hoyISO());
   if (!a) return renderLista();
   const v = state.ventas.find(x => x.id === ventaId);
   v.abonos.push(a);
   toast(estaSaldada(v) ? "✓ Venta saldada, comisión causada" : "Abono registrado");
+  await sincronizarMembresia(v);
   renderVentas();
 }
 
@@ -634,6 +696,10 @@ $("vGuardar").onclick = async () => {
       if (!(await vPatch(state.ventaEdit.id, campos))) return;
       Object.assign(state.ventaEdit, campos);
       toast("Venta actualizada");
+      // Cambiar el valor mueve `estaSaldada` en los dos sentidos: subirlo puede
+      // dejarla a medio pagar, bajarlo puede saldarla con los abonos que ya
+      // tenía. Y cambiar el producto cambia el nivel de destino.
+      await sincronizarMembresia(state.ventaEdit);
     } else {
       const nueva = await vInsert(campos);
       if (!nueva) return;
@@ -645,6 +711,7 @@ $("vGuardar").onclick = async () => {
         if (a) nueva.abonos.push(a);
       }
       toast(estaSaldada(nueva) ? "✓ Venta registrada y saldada" : "Venta registrada");
+      await sincronizarMembresia(nueva);
     }
     cerrarVenta();
     renderVentas();
