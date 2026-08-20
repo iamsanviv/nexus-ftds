@@ -5,7 +5,7 @@ import {
   state, $, esc, fmtF, hoyISO, uid, toast, copyNum, norm, bandera, ZOOMS,
   todos, esRequerido, esAdicional, esLead, progreso, siguiente,
   OPCIONES_TZ, etiquetaOffset, horaDeCliente,
-  MOTIVOS_INACTIVO, esInactivo, nombreMotivo,
+  MOTIVOS_INACTIVO, esInactivo, nombreMotivo, motivoCorto,
 } from "./state.js";
 import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio } from "./data.js";
 // repaso.js importa a ui.js: para no crear un ciclo, aquí solo se usa el
@@ -271,7 +271,7 @@ function cardHTML(c, p, rank, isLead, dir) {
   // La fila de una inactiva tiene que leerse distinta de un vistazo: si no, al
   // verla en el filtro se confunde con alguien a quien sí se le escribe.
   const inactTag = esInactivo(c)
-    ? ` <span class="badge b-inact" title="Inactiva desde el ${esc(new Date(c.inactivoDesde).toLocaleDateString("es-CO"))}">😴 ${esc(nombreMotivo(c.inactivoMotivo))}</span>`
+    ? ` <span class="badge b-inact" title="${esc(nombreMotivo(c.inactivoMotivo))} · inactiva desde el ${esc(new Date(c.inactivoDesde).toLocaleDateString("es-CO"))}">😴 ${esc(motivoCorto(c.inactivoMotivo))}</span>`
     : "";
   // La bandera sube a la línea del nombre: es un dato de la persona, no de su
   // progreso, y ahí no le roba renglón a las cifras.

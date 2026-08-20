@@ -706,6 +706,9 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <button class="pill" id="masMarcar">✓ Marcar visibles</button>
       <button class="pill" id="masDesmarcar">✗ Desmarcar</button>
       <button class="pill" id="masGuardarSeg">＋ Guardar como segmento</button>
+      <!-- Las inactivas no se ven por defecto. Se muestran a propósito para una
+           tanda de reactivación, y cada fila dice por qué lo está. -->
+      <button class="pill" id="masIncInact" title="Mostrar también a quienes marcaste inactivas">😴 Incluir inactivas</button>
     </div>
     <div id="masLista" class="maslista"></div>
     </div><!-- /pane audiencia -->
@@ -719,7 +722,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         <div class="pf"><label for="masHora">Hora (Colombia)</label><input type="time" id="masHora"></div>
       </div>
       <div class="mfootmain">
-        <div class="fsum"><b id="masFootN">0</b> destinatarios<span class="fs2" id="masFootCuando">Se envía ahora mismo</span></div>
+        <div class="fsum"><b id="masFootN">0</b> destinatarios<span class="fs2" id="masFootCuando">Se envía ahora mismo</span><span class="fs2 avisoinact hidden" id="masFootInact"></span></div>
         <div class="cuando" id="masCuandoSeg" role="group" aria-label="Cuándo enviar">
           <button class="on" data-cuando="ahora">Ahora</button>
           <button data-cuando="prog">Programar</button>

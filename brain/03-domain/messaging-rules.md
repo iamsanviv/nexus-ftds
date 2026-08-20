@@ -62,7 +62,14 @@ Todo mensaje a un cliente sale por una de dos funciones, y **solo dos**:
 - `mios()` en `public/js/seguimiento.js` — actividades: alimenta `elegibles()`, la aplicación de segmentos guardados y la programación;
 - `pool()` en `public/js/masivo.js` — campañas: alimenta lista, filtros, segmentos, conteo y el envío final.
 
-Cualquier regla sobre **a quién se le puede escribir** va en esas dos funciones, no en cada pantalla. Hoy filtran por propiedad (`owner_id`), por tener teléfono y por no estar inactivo.
+Cualquier regla sobre **a quién se le puede escribir** va en esas dos funciones, no en cada pantalla. Hoy filtran por propiedad (`owner_id`), por tener teléfono y por estado.
+
+Las dos difieren en un punto a propósito:
+
+- **actividades**: las personas inactivas nunca entran. Un seguimiento son cinco mensajes durante horas; no es algo que se le manda a quien pidió no recibir nada;
+- **masivo**: se pueden incluir con un interruptor, apagado siempre al abrir. Un masivo de reactivación es justo el mensaje que tiene sentido mandarle a quien se enfrió. Cada fila muestra el motivo y la barra de acción dice cuántas inactivas lleva la tanda, porque este flujo no tiene diálogo de confirmación.
+
+Al apagar ese interruptor hay que **sacar de la selección** a quien deja de verse. Si no, quedarían marcadas y contadas sin aparecer en pantalla: la selección invisible de [[../08-memory/dangerous-patterns]] DP-001.
 
 Importa que el filtro esté en el envío y no solo en la lista: un segmento guardado hace meses puede traer gente que se marcó inactiva después.
 

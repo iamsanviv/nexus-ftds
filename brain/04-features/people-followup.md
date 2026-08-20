@@ -39,7 +39,9 @@ Reglas:
 - **no se borra**: conserva asistencia, ventas e historial;
 - queda fuera de la lista de Personas, de los conteos por membresía y de la vista por servicio;
 - se ve con su propio filtro, y la tira de estado dice cuántas quedaron sin mostrar;
-- el motivo es **solo un dato**: los cuatro excluyen igual y reactivar es un clic en todos los casos;
+- el motivo es **solo un dato** para excluir, pero **sí se muestra**: cada motivo tiene una forma larga (perfil) y una corta (insignia de fila);
+- reactivar es un clic, sin distinción por motivo;
+- en Masivo se pueden incluir a propósito con un interruptor; en actividades, nunca;
 - la fecha se sella al marcar y **no se reinicia** al cambiar el motivo: interesa desde cuándo dejó de recibir mensajes.
 
 La base sostiene la coherencia: fecha y motivo existen o faltan juntos, y el motivo está restringido a los cuatro valores. La UI nunca puede producir un par inválido, pero la restricción cubre la llamada directa.
