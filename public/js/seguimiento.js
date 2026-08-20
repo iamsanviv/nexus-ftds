@@ -40,7 +40,7 @@ const NOMBRE_HITO = {
 
 // Plantillas por defecto. Etiquetas: {nombre} {actividad} {hora} {zona} {enlace}
 // {hora} sale en la hora de pared de cada persona si su perfil tiene desfase.
-// {zona} solo escribe algo cuando esa hora vino convertida —«(tu hora)»— y se
+// {zona} solo escribe algo cuando esa hora vino convertida —«(hora de tu país)»— y se
 // va vacía, con su espacio, cuando la persona tiene la misma hora que Colombia.
 // Van juntas: una hora convertida sin avisar hace que la persona la convierta
 // otra vez y llegue tarde.

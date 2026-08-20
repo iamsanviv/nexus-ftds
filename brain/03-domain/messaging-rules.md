@@ -48,7 +48,7 @@ Dos etiquetas que deben ir siempre juntas:
 
 - `{hora}` se resuelve **por persona**, no por actividad;
 - también funcionan en un **masivo**, que no cuelga de ninguna actividad: ahí la hora la elige el agente en un campo que solo aparece cuando el texto menciona `{hora}`. Si la menciona y no la elige, no se puede enviar — un hueco donde iba la hora no lo revisaría nadie. La fecha para convertir husos es la del envío, no la de hoy;
-- `{zona}` escribe `(tu hora)` solo cuando esa hora vino convertida. Sin desfase —el caso de casi todos— se va **vacía**, y con ella el espacio que la precede: aclarar «hora Colombia» en todos los mensajes es ruido para que lo aproveche casi nadie.
+- `{zona}` escribe `(hora de tu país)` solo cuando esa hora vino convertida. Sin desfase —el caso de casi todos— se va **vacía**, y con ella el espacio que la precede: aclarar «hora Colombia» en todos los mensajes es ruido para que lo aproveche casi nadie.
 
 La sustitución vive en `rellenarEtiquetas()` de `state.js`, compartida por las plantillas de actividad y por el masivo. Ahí está el consumo del espacio vecino de `{zona}` y el colapso de puntos dobles; si se duplica en un módulo, ese módulo empieza a sacar mensajes con un espacio suelto antes del punto.
 

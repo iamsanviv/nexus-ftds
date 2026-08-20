@@ -141,10 +141,10 @@ export const horaDeCliente = (iso, tzOff) =>
 // de casi todos— la hora del mensaje ya es la suya: aclarar «hora Colombia» es
 // ruido en todos los mensajes para que lo aproveche casi nadie.
 //
-// Solo hay algo que decir cuando la hora viene convertida: ahí «(tu hora)»
+// Solo hay algo que decir cuando la hora viene convertida: ahí «(hora de tu país)»
 // evita que la persona la convierta otra vez y llegue tarde.
 export const etiquetaZona = tzOff =>
-  (tzOff === null || tzOff === undefined || tzOff === 0) ? "" : "(tu hora)";
+  (tzOff === null || tzOff === undefined || tzOff === 0) ? "" : "(hora de tu país)";
 
 /* ---------- etiquetas de los mensajes ----------
    Compartido por las plantillas de actividad y por el masivo: los dos escriben
