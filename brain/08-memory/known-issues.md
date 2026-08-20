@@ -22,21 +22,36 @@ No habilitar audio solo porque exista código parcial. Probar subida, envío, re
 
 ---
 
-## KI-003 — Video
+## KI-003 — Video llega como nota de voz
 
-**Reabierto y reinterpretado el 20/08/2026.**
+**Causa raíz encontrada el 20/08/2026, y no estaba donde decía la nota vieja.**
 
-La nota original decía que `.mp4`/`.mov` llegaban como nota de voz porque el bridge «solo tenía rama para imagen». Inspeccionado el bridge real en la VM de producción (`whatsapp-bridge-mt`, compilado el 24/07, que es el que corre hoy para los nueve agentes), eso **no es cierto**: mapea `mp4`/`mov`/`avi` a `MediaVideo` y las tres cadenas `video/*` están dentro del ejecutable en uso.
+En `worker.py` de la VM:
 
-Lo que sí es cierto y explica el síntoma parecido: **no hay rama para `webm`**, y `webm` cae en `MediaDocument`. Las notas de voz del navegador se graban en `.webm`, lo que encaja con KI-002.
+```python
+AUDIO_EXTS = {".webm", ".m4a", ".mp4", ".aac", ".ogg", ...}
+def es_audio(url):
+    return os.path.splitext(...)[1].lower() in AUDIO_EXTS
+```
 
-### Qué falta para cerrarlo
+`.mp4` está en esa lista, así que **todo** mp4 se clasifica como audio y pasa por `convertir_a_ogg`, que lleva `-vn` — le arranca la pista de video — y sale como PTT.
 
-La contradicción es entre lectura de código (dice que sí) y una observación real registrada el 30/07 (dice que no). Solo la cierra un envío de prueba a un número propio: subir un MP4, enviarlo y **mirar el teléfono**. Hasta entonces, la UI ya lo permite pero nadie debería mandar video a una lista de clientes.
+Comprobado sobre el archivo real enviado el 20/08: `ffprobe` reporta `h264` + `aac`, y `es_audio()` del worker en producción devuelve `True` para esa misma URL.
 
-Ver [[../04-features/media-attachments]].
+`.mov` **no** está en `AUDIO_EXTS`, así que MOV sí sale como video. Ese es el motivo de que las dos pruebas del 30/07 no se comportaran igual, aunque la nota de entonces las metiera en el mismo saco.
 
----
+### La lección, que es más general que el video
+
+El bridge y el worker se reparten la decisión de qué tipo de mensaje sale, y **los dos deciden por la extensión del archivo**. `.mp4` y `.webm` son contenedores: valen igual para audio que para video. Cualquier regla basada solo en la extensión va a equivocarse con ellos.
+
+Verificar el bridge no basta: el worker puede haber transformado el archivo antes de que el bridge lo vea. Ese fue justamente el error de diagnóstico del 20/08 — se leyó el bridge, se dio por bueno, y el `-vn` estaba un paso antes.
+
+### Estado
+
+- frontend: listo, MP4 y MOV habilitados (rama `claude/masivo-video`);
+- Storage: acepta video, tope 16 MB;
+- bridge: mapea `mp4`/`mov`/`avi` a `VideoMessage` — verificado en el binario en uso;
+- **worker: pendiente.** Mientras `.mp4` siga en `AUDIO_EXTS`, MP4 sale como nota de voz. MOV ya funciona.
 
 ## KI-004 — Estado de bridges/canales
 

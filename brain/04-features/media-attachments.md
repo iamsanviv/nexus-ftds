@@ -56,7 +56,9 @@ De ahí las dos exclusiones deliberadas de la UI:
 - **`webm` fuera**: el bucket lo acepta pero el bridge no tiene esa rama, así que llegaría como archivo adjunto. Es el mismo agujero que hoy afecta a la nota de voz — ver [[../08-memory/known-issues]] KI-002;
 - **`avi` fuera**: el bridge sí lo mapea, pero el bucket no acepta ese MIME.
 
-La nota anterior decía que `.mp4`/`.mov` llegaban como nota de voz porque el bridge «solo tenía rama para imagen». Verificado contra la VM el 20/08: eso no es cierto del binario en uso, que sí trae las tres cadenas `video/*` compiladas. Queda la duda de qué se observó realmente en la prueba del 30/07; ver [[../08-memory/known-issues]] KI-003.
+**Ojo: el bridge no es el único que decide.** El `worker.py` clasifica el archivo ANTES, también por extensión, y si lo cree audio lo convierte a ogg con `-vn` —que le quita la imagen— antes de que el bridge lo vea. Hoy `.mp4` está en su lista de audio, así que un MP4 sale como nota de voz por más que el bridge sepa mandar video. Ver [[../08-memory/known-issues]] KI-003.
+
+MOV sí funciona hoy, porque `.mov` no está en esa lista.
 
 El `VideoMessage` no manda `Seconds`, `Width/Height` ni miniatura. Son opcionales: el video se reproduce, pero la vista previa en el chat puede salir sosa.
 
