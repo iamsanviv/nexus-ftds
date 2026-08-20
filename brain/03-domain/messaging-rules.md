@@ -64,12 +64,16 @@ Todo mensaje a un cliente sale por una de dos funciones, y **solo dos**:
 
 Cualquier regla sobre **a quién se le puede escribir** va en esas dos funciones, no en cada pantalla. Hoy filtran por propiedad (`owner_id`), por tener teléfono y por estado.
 
-Las dos difieren en un punto a propósito:
+Las personas inactivas quedan fuera por defecto en las dos, y en las dos se pueden incluir a propósito con un interruptor que **nace apagado**: en Masivo al abrir el panel, en actividades al elegir cada actividad. Incluirlas es una decisión de esa tanda, nunca una preferencia que sobrevive.
 
-- **actividades**: las personas inactivas nunca entran. Un seguimiento son cinco mensajes durante horas; no es algo que se le manda a quien pidió no recibir nada;
-- **masivo**: se pueden incluir con un interruptor, apagado siempre al abrir. Un masivo de reactivación es justo el mensaje que tiene sentido mandarle a quien se enfrió. Cada fila muestra el motivo y la barra de acción dice cuántas inactivas lleva la tanda, porque este flujo no tiene diálogo de confirmación.
+Cada flujo avisa donde se decide de verdad:
 
-Al apagar ese interruptor hay que **sacar de la selección** a quien deja de verse. Si no, quedarían marcadas y contadas sin aparecer en pantalla: la selección invisible de [[../08-memory/dangerous-patterns]] DP-001.
+- **actividades**: el diálogo de confirmación las nombra con su motivo («😴 4 de ellas están inactivas: Dani (no responde)…»). Ahí se encolan cinco mensajes por persona;
+- **masivo**: no hay diálogo, así que el aviso va en la barra de acción, junto al total («incluye 4 inactivas»).
+
+En ambas, la lista muestra el motivo en cada fila.
+
+Al apagar el interruptor hay que **sacar de la selección** a quien deja de verse, y decir cuántas salieron. Si no, quedarían marcadas y contadas sin aparecer en pantalla: la selección invisible de [[../08-memory/dangerous-patterns]] DP-001. Es la comprobación que no se puede omitir al tocar cualquiera de los dos.
 
 Importa que el filtro esté en el envío y no solo en la lista: un segmento guardado hace meses puede traer gente que se marcó inactiva después.
 

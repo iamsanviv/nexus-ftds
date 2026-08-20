@@ -329,6 +329,11 @@
 .segtoggle{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);
   margin-bottom:8px;cursor:pointer;padding:2px 0}
 .segtoggle input{width:auto;accent-color:var(--gold)}
+/* El número al lado de «Incluir inactivas»: dice cuántas hay antes de marcar.
+   Se queda vacío cuando no hay ninguna y la casilla va deshabilitada. */
+.segtoggle .segtoggle-n{color:var(--gold);font-variant-numeric:tabular-nums}
+.segtoggle input:disabled{opacity:.5}
+.segtoggle:has(input:disabled){opacity:.55}
 /* Misma trampa que con `.chkline`: `.frow label` (0,1,1) le gana a `.segtoggle`
    (0,1,0), y dentro del formulario de actividad las casillas salían en
    MAYÚSCULAS DIMINUTAS, como si fueran el título de un campo en vez de algo que

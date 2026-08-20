@@ -294,6 +294,9 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <div class="masbuscarwrap"><input type="search" id="segBuscar" placeholder="🔎 Buscar por nombre…" autocomplete="off"><button id="segBuscarX" class="masbuscarx hidden" title="Limpiar">✕</button></div>
       <div id="segFiltros" class="segfiltros"></div>
       <label class="segtoggle"><input type="checkbox" id="segIncAsis"> Incluir a quienes ya asistieron (para reinvitar)</label>
+      <!-- Las inactivas no aparecen por defecto. Se incluyen a propósito para
+           esta tanda, y cada fila dice por qué lo está. -->
+      <label class="segtoggle"><input type="checkbox" id="segIncInact"> 😴 Incluir inactivas<span class="segtoggle-n"></span></label>
       <label class="segtoggle"><input type="checkbox" id="segSinInv"> No enviar invitación — ya los invité por llamada o por otro mensaje</label>
       <!-- Enlace rastreado. Va acá y no en el formulario de la actividad porque
            la decisión es de esta tanda: a una lista de confianza se le rastrea,

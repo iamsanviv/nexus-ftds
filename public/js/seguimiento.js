@@ -5,7 +5,7 @@
 // Tablas: actividades, seguimientos, mensajes_programados, plantillas_seguimiento.
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
-  horaDeCliente, etiquetaZona, esInactivo } from "./state.js";
+  horaDeCliente, etiquetaZona, esInactivo, nombreMotivo, motivoCorto } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { avisarSiCanalCaido } from "./salud.js";
@@ -131,6 +131,10 @@ let segSel = new Set();       // ids de clientes seleccionados para programar
 let segFiltroMem = "todos";   // filtro de membresía en el selector
 let segBuscarTxt = "";        // texto de búsqueda por nombre en el selector
 let segIncAsis = false;       // incluir a quienes ya asistieron (para reinvitar)
+// Incluir a las personas inactivas. Apagado al elegir cada actividad: meterlas
+// es una decisión de ESTA tanda. Un seguimiento son cinco mensajes durante
+// horas, así que aquí pesa más que en un masivo suelto.
+let segIncInact = false;
 let segInvitarTarde = null;   // Date para diferir la invitación, o null = ahora
 // Programar el seguimiento SIN mandar la invitación: para gente que ya se
 // invitó por llamada o por otro mensaje. Los recordatorios, el enlace y la
@@ -767,7 +771,7 @@ async function cargarActividades() {
 // puede traer gente que se marcó inactiva después: por eso el filtro tiene que
 // estar en el envío y no solo en la lista.
 const mios = () => state.clientes.filter(c =>
-  c.tel && c.owner_id === state.me.id && !esInactivo(c));
+  c.tel && c.owner_id === state.me.id && (segIncInact || !esInactivo(c)));
 
 // Universo elegible para programar: los que faltan, y —si el toggle está
 // activo— también quienes ya asistieron (para reinvitarlos).
@@ -847,16 +851,48 @@ async function guardarMiInvitacion(actividadId) {
   miInvOrig = txt;
 }
 
+// La casilla de inactivas lleva el número al lado: si dice 0 no hay nada que
+// incluir, y se apaga en vez de dejar un control muerto (igual que «incluir a
+// quienes ya asistieron» se esconde en las actividades sin servicio).
+function pintarIncInact() {
+  const el = $("segIncInact");
+  if (!el) return;
+  const n = state.clientes.filter(c =>
+    c.tel && c.owner_id === state.me.id && esInactivo(c)).length;
+  el.checked = segIncInact;
+  el.disabled = n === 0;
+  const txt = el.parentElement.querySelector(".segtoggle-n");
+  if (txt) txt.textContent = n ? ` · ${n}` : "";
+}
+
+// Al APAGARLA hay que sacar de la selección a las que dejan de verse. Si no,
+// quedarían marcadas y contadas sin aparecer en pantalla: la selección
+// invisible que ya costó una vez (DP-001). Nunca en silencio.
+function alternarIncInact(marcada) {
+  segIncInact = marcada;
+  if (!segIncInact && actSel) {
+    const visibles = new Set(elegibles(actSel.servicio_id).map(c => c.id));
+    const fuera = [...segSel].filter(id => !visibles.has(id));
+    fuera.forEach(id => segSel.delete(id));
+    if (fuera.length) toast(`${fuera.length} inactiva(s) salieron de la selección`);
+  }
+  pintarIncInact();
+  if (actSel) renderFaltan();
+}
+
 async function seleccionarActividad(a) {
   actSel = a;
   segFiltroMem = "todos";
   segBuscarTxt = "";
   segIncAsis = false;
+  segIncInact = false;
   segInvitarTarde = null;
   segSinInvitacion = false;
   const bs = $("segBuscar"); if (bs) bs.value = "";
   const bx = $("segBuscarX"); if (bx) bx.classList.add("hidden");
   const ia = $("segIncAsis"); if (ia) ia.checked = false;
+  const ii = $("segIncInact"); if (ii) ii.checked = false;
+  pintarIncInact();
   // Sin servicio no hay asistencia, así que «incluir a quienes ya asistieron»
   // no significa nada: se esconde en vez de dejar un control muerto.
   const iaRow = $("segIncAsis").closest("label");
@@ -908,7 +944,7 @@ function renderFaltan() {
   // Este aviso acompaña a `lista`, así que cuenta sobre el mismo universo: sin
   // el `!esInactivo` diría «faltan 3 sin teléfono» de gente que ya no aparece.
   const sinTel = state.clientes.filter(c =>
-    c.owner_id === state.me.id && !esInactivo(c)
+    c.owner_id === state.me.id && (segIncInact || !esInactivo(c))
     && (!sid || !c.acc[sid] || segIncAsis) && !c.tel).length;
 
   // Chips de filtro: "Todos" + solo las membresías presentes en la lista.
@@ -931,10 +967,11 @@ function renderFaltan() {
     ? visibles.map(c => {
         const prog = segYaProg.has(c.id);
         return `
-        <label class="seg-row${prog ? " yaprogfila" : ""}">
+        <label class="seg-row${prog ? " yaprogfila" : ""}${esInactivo(c) ? " inact" : ""}">
           <input type="checkbox" data-cid="${c.id}" ${segSel.has(c.id) ? "checked" : ""}>
           <span class="badge b-${c.mem}">${c.mem}</span>
-          <span>${esc(c.nombre)}</span>
+          <span class="nm">${esc(c.nombre)}</span>
+          ${esInactivo(c) ? `<span class="badge b-inact" title="${esc(nombreMotivo(c.inactivoMotivo))}">😴 ${esc(motivoCorto(c.inactivoMotivo))}</span>` : ""}
           ${prog ? `<span class="yaprog" title="Ya tiene los mensajes programados para esta actividad">✓ ya programado</span>` : ""}
           ${sid && c.acc[sid] ? `<span class="yaasis">ya asistió</span>` : ""}
         </label>`; }).join("")
@@ -1081,10 +1118,21 @@ async function programar() {
     ? `\n\nNo se programa${seOmiten.length === 1 ? "" : "n"} ${seOmiten.join(" ni ")}: ${porQue}.`
     : "";
 
+  // Las inactivas se dicen en el confirm con nombre propio: es la última
+  // pantalla antes de encolar cinco mensajes por persona.
+  const inact = seleccion.filter(esInactivo);
+  const avisoInact = inact.length
+    ? `
+
+😴 ${inact.length} de ellas están inactivas: `
+      + inact.slice(0, 4).map(c => `${c.nombre.split(" ")[0]} (${motivoCorto(c.inactivoMotivo).toLowerCase()})`).join(", ")
+      + (inact.length > 4 ? ` y ${inact.length - 4} más` : "") + "."
+    : "";
+
   const n = seleccion.length;
   const primeros = seleccion.slice(0, 8).map(c => c.nombre.split(" ")[0]).join(", ");
   const mas = n > 8 ? ` y ${n - 8} más` : "";
-  const aviso = `Vas a programar los mensajes de «${actSel.nombre}» para ${n} persona${n === 1 ? "" : "s"}:\n${primeros}${mas}.${omitidos}${avisoOmitidos}`;
+  const aviso = `Vas a programar los mensajes de «${actSel.nombre}» para ${n} persona${n === 1 ? "" : "s"}:\n${primeros}${mas}.${omitidos}${avisoInact}${avisoOmitidos}`;
   if (!confirm(aviso + `\n\n¿Programar?`)) return;
 
   const btn = $("segProgramar");
@@ -2047,6 +2095,7 @@ $("segTardeCuando").onchange = e => {
 
 // Toggle "incluir a quienes ya asistieron" (Req 2).
 $("segIncAsis").onchange = e => { segIncAsis = e.target.checked; if (actSel) renderFaltan(); };
+$("segIncInact").onchange = e => alternarIncInact(e.target.checked);
 
 // Toggle "sin invitación": si no se manda invitación, diferirla no significa
 // nada, así que se esconde ese botón y se descarta la hora elegida.
