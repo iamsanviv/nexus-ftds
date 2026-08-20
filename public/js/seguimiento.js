@@ -6,7 +6,7 @@
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
   horaDeCliente, etiquetaZona, esInactivo, nombreMotivo, motivoCorto,
-  ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto } from "./state.js";
+  ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { avisarSiCanalCaido } from "./salud.js";
@@ -48,13 +48,13 @@ const NOMBRE_HITO = {
 // así no salen 50 mensajes con el texto idéntico. No anidar llaves dentro de
 // un snippet, y no meter datos clave (hora, enlace) dentro de las variantes.
 const PLANTILLAS_DEF = {
-  invitacion:       `{¡Hola|¡Buenas|¡Qué más} {nombre}! 👋 {Hoy tenemos|Hoy nos vemos en|Hoy está} *{actividad}* a las {hora} {zona}. {¡Te esperamos!|¡Ahí te espero!|¡No te la pierdas!} {¿Cuento contigo?|¿Te veo por allá?|¿Vienes?}`,
+  invitacion:       `{Hola|Buenas|Hey|Buen día|Cómo vas} {nombre}! {El día de hoy tenemos|Hoy tenemos|Te recuerdo que hoy tenemos|Nos vemos hoy en} *{actividad}* a las *{hora}* {zona} 🙌🏼 ¿{Puedes asistir|Te conectas|Te envío el link|Te agendo para que entres|Puedes entrar}?`,
   // Se usa cuando la persona YA recibió una invitación hoy (otra actividad): sin saludo.
-  invitacion_extra: `{Y hoy también tienes|Y ojo, hoy también está|Ah, y hoy además tenemos} *{actividad}* a las {hora} {zona}. {¡Ahí te espero!|¡Te esperamos!|¡No te la pierdas!} {🙌|💪|✨}`,
-  rec_60:           `{nombre}, {te recuerdo que|recuerda que|ojo que} en 1 hora empieza *{actividad}* ({hora}). {¡Ve preparándote!|¡Alístate!|¡Que no se te pase!} {🙌|⏰|💪}`,
-  rec_15:           `¡{nombre}, en 15 minutos {arrancamos|empezamos|comenzamos} *{actividad}*! {🔥|🚀|⚡}`,
-  enlace:           `¡{nombre}, {ya empezamos|ya arrancamos|estamos en vivo}! {Este es el enlace para entrar|Entra por aquí|Aquí tienes el enlace} 👉 {enlace}`,
-  confirmacion:     `{nombre}, ¿{ya lograste entrar a la sala|pudiste entrar|lograste conectarte}? {Si tuviste algún problema, escríbeme y te ayudo|Cualquier cosa me escribes y te ayudo|Si algo falla, dime y lo resolvemos} 🙏`,
+  invitacion_extra: `{nombre}, {y hoy también tienes|y también hay|y hoy además tenemos} *{actividad}* a las {hora} {zona}. {Ahí te espero!|Te veo ahí!|Te enviaré el link} {🙌🏼|💪🏼|🤝🏼}`,
+  rec_60:           `{nombre}, bendiciones! {Paso a recordarte que|Recuerda que|Te recuerdo que} en 1 hora {tenemos|empieza|arrancamos con} {actividad}. {Que no se te olvide!|No lo olvides!|No te la pierdas!}`,
+  rec_15:           `¡{nombre}, en 15 minutos {arrancamos|empezamos|comenzamos} con *{actividad}*! {🔥|💪🏼}`,
+  enlace:           `{Ya empezamos|Ya arrancamos|Estamos en vivo}, {nombre}! {Este es el enlace para entrar|Entra por aquí|Aquí tienes el enlace} 👉: {enlace}`,
+  confirmacion:     `{nombre}, ¿{pudiste entrar a la sala|ya estás dentro|lograste entrar}? {Si necesitas ayuda me dices|Si no pudiste entrar, escríbeme|Cualquier cosa me avisas y te ayudo}.`,
 };
 
 let plantillasUsuario = { ...PLANTILLAS_DEF };  // se sobreescribe al cargar
@@ -71,28 +71,11 @@ const fechaHoraCO = iso => new Date(iso).toLocaleString("es-CO",
 // luego sustituye las etiquetas. El token {enlace} no tiene "|", así que los
 // snippets no lo tocan y el worker lo resuelve al enviar.
 //
-// {zona} se va VACÍA la mayor parte del tiempo (ver etiquetaZona), y la
-// plantilla la escribe pegada a un espacio: «a las {hora} {zona}.». Si solo se
-// sustituyera el token quedaría «a las 7:00 p. m. .» —espacio suelto y punto
-// separado— en casi todos los mensajes. Por eso se consume también el espacio
-// vecino: primero el de delante, después el de detrás (para un {zona} que abra
-// la frase) y al final un {zona} pegado a otra cosa.
+// La sustitución vive en state.js porque el masivo escribe las mismas etiquetas
+// y tiene que resolverlas igual, sobre todo el espacio de `{zona}`.
 function aplicar(tpl, { nombre, actividad, hora, zona, enlace }) {
-  const z = zona || "";
-  const txt = resolverSnippets(tpl)
-    .replaceAll("{nombre}", nombre)
-    .replaceAll("{actividad}", actividad)
-    .replaceAll("{hora}", hora)
-    .replaceAll(" {zona}", z ? " " + z : "")
-    .replaceAll("{zona} ", z ? z + " " : "")
-    .replaceAll("{zona}", z)
-    .replaceAll("{enlace}", enlace);
-  // Segundo arreglo del mismo hueco: la hora en español TERMINA en punto
-  // («7:00 p. m.»), así que «{hora} {zona}.» con la zona vacía dejaba
-  // «7:00 p. m..». Se colapsan solo los pares de puntos —el lookbehind y el
-  // lookahead dejan intactos los suspensivos— y solo cuando la zona se fue
-  // vacía: con etiqueta el punto de la plantilla es el único que hay.
-  return z ? txt : txt.replace(/(?<!\.)\.\.(?!\.)/g, ".");
+  return rellenarEtiquetas(resolverSnippets(tpl),
+    { nombre, actividad, hora, zona, enlace });
 }
 
 // yaInvitado: si la persona ya recibió una invitación hoy, la invitación de

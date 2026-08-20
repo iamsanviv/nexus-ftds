@@ -47,9 +47,10 @@ La hora del mensaje es el único dato que depende de dónde vive quien lo recibe
 Dos etiquetas que deben ir siempre juntas:
 
 - `{hora}` se resuelve **por persona**, no por actividad;
+- también funcionan en un **masivo**, que no cuelga de ninguna actividad: ahí la hora la elige el agente en un campo que solo aparece cuando el texto menciona `{hora}`. Si la menciona y no la elige, no se puede enviar — un hueco donde iba la hora no lo revisaría nadie. La fecha para convertir husos es la del envío, no la de hoy;
 - `{zona}` escribe `(tu hora)` solo cuando esa hora vino convertida. Sin desfase —el caso de casi todos— se va **vacía**, y con ella el espacio que la precede: aclarar «hora Colombia» en todos los mensajes es ruido para que lo aproveche casi nadie.
 
-Como `{zona}` se va vacía la mayor parte del tiempo, quien toque `aplicar()` debe conservar el consumo del espacio anterior; si no, casi todos los mensajes salen con un espacio suelto antes del punto.
+La sustitución vive en `rellenarEtiquetas()` de `state.js`, compartida por las plantillas de actividad y por el masivo. Ahí está el consumo del espacio vecino de `{zona}` y el colapso de puntos dobles; si se duplica en un módulo, ese módulo empieza a sacar mensajes con un espacio suelto antes del punto.
 
 Una hora convertida sin avisar es peor que no convertir: el cliente la vuelve a convertir y llega tarde. Si se toca `{hora}`, revisar que `{zona}` viaje con ella — incluida la ruta de cambio de hora, que regenera el texto y necesita leer el desfase del cliente en su consulta.
 

@@ -4,7 +4,8 @@
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, norm, resolverSnippets,
   esInactivo, nombreMotivo, motivoCorto,
-  MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto } from "./state.js";
+  MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto,
+  rellenarEtiquetas, horaDeCliente, etiquetaZona } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento } from "./data.js";
 import { canalVinculado } from "./canal.js";
 
@@ -23,7 +24,37 @@ let segmentos = [];         // segmentos guardados
 
 const primerNombre = n => (n || "").trim().split(/\s+/)[0];
 // resolverSnippets vive en state.js (lo comparten masivo y las actividades).
-const resolverMensaje = (tpl, nombre) => resolverSnippets(tpl).replaceAll("{nombre}", primerNombre(nombre));
+// Un masivo no cuelga de ninguna actividad, así que la hora la pone el agente:
+// escribe {hora} en el texto y elige a qué hora se refiere. A partir de ahí cada
+// persona con desfase en su perfil la recibe convertida a la suya, igual que en
+// las invitaciones.
+//
+// `tzOff` nulo (casi todo el mundo) = la hora sale tal cual y {zona} se va
+// vacía, así que el mensaje se lee igual que antes de existir esta función.
+const usaHora = t => /\{hora\}|\{zona\}/.test(t || "");
+
+// La fecha es la del ENVÍO, no la de hoy: si la campaña está programada para
+// mañana, «a las 7» es la de mañana. Solo importa para convertir husos, porque
+// del instante solo se imprime la hora.
+function instanteReferencia() {
+  const hhmm = $("masHoraRef").value;
+  if (!hhmm) return null;
+  const fecha = (masCuando === "prog" && $("masFecha").value)
+    ? $("masFecha").value
+    : new Date().toISOString().slice(0, 10);
+  const d = new Date(`${fecha}T${hhmm}:00`);   // hora local = Colombia
+  return isNaN(d) ? null : d.toISOString();
+}
+
+// `crudo` es solo para la vista previa: mientras no haya hora elegida se deja
+// el token a la vista. Vaciarlo dejaba «a las **», que se puede confundir con
+// el resultado final; unas llaves se leen como «esto todavía no está puesto».
+const resolverMensaje = (tpl, nombre, iso, tzOff, crudo = false) =>
+  rellenarEtiquetas(resolverSnippets(tpl), {
+    nombre: primerNombre(nombre),
+    hora: iso ? horaDeCliente(iso, tzOff) : (crudo ? "{hora}" : ""),
+    zona: iso ? etiquetaZona(tzOff) : (crudo ? "{zona}" : ""),
+  });
 
 // Solo los clientes PROPIOS. Un director ve los de sus agentes para
 // supervisar, pero un masivo saldría desde SU WhatsApp a gente que agregó otro:
@@ -43,8 +74,14 @@ const pool = () => state.clientes.filter(c =>
 // que se escribe no es lo que llega, así que se muestra el resultado real.
 function renderPrev() {
   const t = $("masTexto").value.trim();
+  // El campo de hora solo se muestra si el texto la menciona.
+  $("masHoraRow").classList.toggle("hidden", !usaHora(t));
   $("masPrevBox").classList.toggle("hidden", !t);
-  $("masPrev").textContent = t ? resolverMensaje(t, "Ana Bermúdez") : "";
+  // La previa usa una persona SIN desfase, que es el caso de casi todos: así
+  // muestra el texto que verá la mayoría. Por eso {zona} sale vacía acá.
+  $("masPrev").textContent = t
+    ? resolverMensaje(t, "Ana Bermúdez", instanteReferencia(), null, true)
+    : "";
 }
 
 // ¿La persona ya fue invitada a alguna actividad? (tiene al menos un conf)
@@ -270,6 +307,7 @@ function setImg(url, tipo) {
 async function abrir() {
   masSel = new Set(); masFiltro = "todos"; masCuando = "ahora"; masIncInact = false;
   $("masTexto").value = ""; $("masBuscar").value = ""; $("masBuscarX").classList.add("hidden");
+  $("masHoraRef").value = ""; $("masHoraRow").classList.add("hidden");
   setImg(null, null); $("masImgEstado").textContent = ""; renderPrev();
   if (rec && rec.state !== "inactive") { recDescartar = true; rec.stop(); }
   limpiarAudio(); $("masAudEstado").textContent = "";
@@ -302,6 +340,14 @@ async function enviar() {
   const sel = pool().filter(c => masSel.has(c.id));
   if (!sel.length) { toast("No hay destinatarios seleccionados"); return; }
 
+  // Si el texto menciona la hora, tiene que haber una hora. Sin esto el mensaje
+  // saldría con un hueco donde debía ir, y a nadie se le ocurriría revisarlo.
+  if (usaHora(tpl) && !$("masHoraRef").value) {
+    toast("Escribiste {hora} en el mensaje: elige a qué hora te refieres");
+    $("masHoraRef").focus();
+    return;
+  }
+
   let enviarEn = new Date();
   if (masCuando === "prog") {
     const f = $("masFecha").value, h = $("masHora").value;
@@ -309,6 +355,10 @@ async function enviar() {
     enviarEn = new Date(`${f}T${h}:00`);
     if (isNaN(enviarEn) || enviarEn <= new Date()) { toast("Programa una fecha futura"); return; }
   }
+
+  // Un solo instante para toda la tanda: lo que cambia por persona es su
+  // desfase, no la hora del evento.
+  const isoRef = instanteReferencia();
 
   const btn = $("masEnviar");
   btn.disabled = true; btn.textContent = "Enviando…";
@@ -331,7 +381,9 @@ async function enviar() {
 
     const rows = sel.map(c => ({
       campana_id: camp.id, tipo: "masivo", enviar_en: enviarEn.toISOString(),
-      telefono: c.tel, texto: tpl ? resolverMensaje(tpl, c.nombre) : null, media_url: media,
+      telefono: c.tel,
+      texto: tpl ? resolverMensaje(tpl, c.nombre, isoRef, c.tzOff) : null,
+      media_url: media,
     }));
     const { error: e2 } = await SB.from("mensajes_programados").insert(rows);
     if (e2) throw e2;
@@ -393,6 +445,9 @@ $("masHora").onchange = renderCuando;
 // HTML se desfasaba del validador y el formulario ofrecía algo que luego
 // rechazaba.
 $("masImgFile").accept = ACCEPT_ADJUNTO;
+// La previa depende de la hora elegida y de la fecha de envío.
+$("masHoraRef").oninput = renderPrev;
+$("masFecha").addEventListener("change", renderPrev);
 $("masImgPick").onclick = () => $("masImgFile").click();
 $("masImgFile").onchange = async () => {
   const file = $("masImgFile").files[0];

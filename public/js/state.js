@@ -146,6 +146,29 @@ export const horaDeCliente = (iso, tzOff) =>
 export const etiquetaZona = tzOff =>
   (tzOff === null || tzOff === undefined || tzOff === 0) ? "" : "(tu hora)";
 
+/* ---------- etiquetas de los mensajes ----------
+   Compartido por las plantillas de actividad y por el masivo: los dos escriben
+   `{hora} {zona}` y los dos tienen que resolverlo igual.
+
+   `{zona}` se va VACÍA la mayor parte del tiempo (ver etiquetaZona), y las
+   plantillas la escriben pegada a un espacio: «a las {hora} {zona}.». Si solo se
+   sustituyera el token quedaría «7:00 p. m. .» en casi todos los mensajes. Por
+   eso se consume también el espacio vecino, y al final se colapsan los pares de
+   puntos —la hora en español ya termina en punto— sin tocar los suspensivos. */
+export function rellenarEtiquetas(txt, valores) {
+  const z = valores.zona || "";
+  let out = txt;
+  for (const [k, v] of Object.entries(valores)) {
+    if (k === "zona") continue;
+    out = out.replaceAll(`{${k}}`, v ?? "");
+  }
+  out = out
+    .replaceAll(" {zona}", z ? " " + z : "")
+    .replaceAll("{zona} ", z ? z + " " : "")
+    .replaceAll("{zona}", z);
+  return z ? out : out.replace(/(?<!\.)\.\.(?!\.)/g, ".");
+}
+
 /* ---------- adjuntos de mensajes ----------
    Vive acá y no en cada módulo porque hay DOS formularios que suben adjuntos
    —el masivo y la invitación de una actividad— y dos atributos `accept` en el

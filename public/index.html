@@ -644,7 +644,14 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <h3 class="paneh">Mensaje<span class="rule"></span></h3>
 
     <div class="frow"><textarea id="masTexto" rows="4" placeholder="¡Hola {nombre}! Te comparto algo importante…"></textarea>
-      <div class="msgshelp">Etiqueta <code>{nombre}</code>. Para variar el texto entre personas (más seguro): <code>{Hola|Buenas|Qué tal}</code>.</div>
+      <div class="msgshelp">Etiquetas: <code>{nombre}</code> <code>{hora}</code> <code>{zona}</code>. Para variar el texto entre personas (más seguro): <code>{Hola|Buenas|Qué tal}</code>.</div>
+      <!-- La hora de referencia solo aparece si el texto la menciona: un campo
+           que casi nunca se usa estorba, y vacío no significa nada. -->
+      <div class="frow hidden" id="masHoraRow">
+        <label for="masHoraRef">¿A qué hora? <span class="opt">(hora Colombia)</span></label>
+        <input type="time" id="masHoraRef">
+        <div class="msgshelp" id="masHoraAyuda">A cada persona con diferencia horaria en su perfil le llega convertida a su hora, y <code>{zona}</code> lo aclara.</div>
+      </div>
       <div class="masprevbox hidden" id="masPrevBox"><span class="prevlbl">Así le llega a Ana</span><span id="masPrev"></span></div>
     </div>
 
