@@ -55,6 +55,19 @@ Una hora convertida sin avisar es peor que no convertir: el cliente la vuelve a 
 
 Es un desfase fijo, no un huso: los países con horario de verano hay que corregirlos a mano dos veces al año. Las plantillas viejas que escribieron «(hora Colombia)» como literal siguen funcionando, pero no se adaptan.
 
+## Los dos cuellos de envío
+
+Todo mensaje a un cliente sale por una de dos funciones, y **solo dos**:
+
+- `mios()` en `public/js/seguimiento.js` — actividades: alimenta `elegibles()`, la aplicación de segmentos guardados y la programación;
+- `pool()` en `public/js/masivo.js` — campañas: alimenta lista, filtros, segmentos, conteo y el envío final.
+
+Cualquier regla sobre **a quién se le puede escribir** va en esas dos funciones, no en cada pantalla. Hoy filtran por propiedad (`owner_id`), por tener teléfono y por no estar inactivo.
+
+Importa que el filtro esté en el envío y no solo en la lista: un segmento guardado hace meses puede traer gente que se marcó inactiva después.
+
+Antes de agregar una tercera vía de envío, preguntar por qué no puede pasar por una de estas dos.
+
 ## Orden de los mensajes
 
 La invitación es el primer contacto del seguimiento. **Ningún otro mensaje puede salir antes que ella.**

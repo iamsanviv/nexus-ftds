@@ -67,6 +67,12 @@
   .b-Platino{background:rgba(159,182,201,.16);color:var(--plat)}
   .b-Oro{background:rgba(232,184,75,.18);color:var(--oro);box-shadow:inset 0 0 0 1px rgba(232,184,75,.35)}
   .owner{font-size:.62rem;font-weight:700;color:var(--muted);background:var(--surface2);border:1px solid var(--border);padding:2px 8px;border-radius:999px}
+  /* Persona inactiva: no recibe mensajes. Se apaga la fila entera en vez de
+     solo poner una insignia, para que al recorrer la lista se distinga sin
+     leer. `.chead` y no `.card`, porque el cuerpo desplegado se lee igual. */
+  .badge.b-inact{background:var(--surface2);color:var(--muted);border:1px solid var(--border);text-transform:none;letter-spacing:.02em}
+  .card.inact .chead{opacity:.62}
+  .card.inact .chead:hover{opacity:1}
   .barra{height:6px;background:var(--surface2);border-radius:99px;margin-top:9px;overflow:hidden}
   .barra i{display:block;height:100%;background:linear-gradient(90deg,var(--gold-dim),var(--gold-fill));border-radius:99px;transition:width .3s}
   .pct{font-size:.74rem;color:var(--muted);margin-top:5px}

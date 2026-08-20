@@ -5,7 +5,7 @@
 // Tablas: actividades, seguimientos, mensajes_programados, plantillas_seguimiento.
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
-  horaDeCliente, etiquetaZona } from "./state.js";
+  horaDeCliente, etiquetaZona, esInactivo } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { avisarSiCanalCaido } from "./salud.js";
@@ -760,7 +760,14 @@ async function cargarActividades() {
 // Solo se le escribe a los clientes PROPIOS. Un director ve los de sus agentes
 // para supervisar, pero los mensajes saldrían desde SU WhatsApp a gente que no
 // lo agregó: eso no se hace. Cada quien escribe a los suyos.
-const mios = () => state.clientes.filter(c => c.tel && c.owner_id === state.me.id);
+// CUELLO 1 de 2 por donde sale todo mensaje de actividad. Las personas
+// inactivas se van AQUÍ, no en cada pantalla: `elegibles()`, la aplicación de
+// segmentos guardados y la programación pasan todas por esta función, así que
+// filtrar en un solo punto cubre las tres. Un segmento guardado hace meses
+// puede traer gente que se marcó inactiva después: por eso el filtro tiene que
+// estar en el envío y no solo en la lista.
+const mios = () => state.clientes.filter(c =>
+  c.tel && c.owner_id === state.me.id && !esInactivo(c));
 
 // Universo elegible para programar: los que faltan, y —si el toggle está
 // activo— también quienes ya asistieron (para reinvitarlos).
@@ -898,8 +905,11 @@ function renderFaltan() {
   if (!actSel) return;
   const sid = actSel.servicio_id;          // null si es una actividad puntual
   const lista = elegibles(sid);
+  // Este aviso acompaña a `lista`, así que cuenta sobre el mismo universo: sin
+  // el `!esInactivo` diría «faltan 3 sin teléfono» de gente que ya no aparece.
   const sinTel = state.clientes.filter(c =>
-    c.owner_id === state.me.id && (!sid || !c.acc[sid] || segIncAsis) && !c.tel).length;
+    c.owner_id === state.me.id && !esInactivo(c)
+    && (!sid || !c.acc[sid] || segIncAsis) && !c.tel).length;
 
   // Chips de filtro: "Todos" + solo las membresías presentes en la lista.
   const presentes = MEMS.filter(m => lista.some(c => c.mem === m));

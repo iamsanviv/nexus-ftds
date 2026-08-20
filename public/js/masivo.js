@@ -2,7 +2,7 @@
 // Cada persona recibe un texto ya resuelto: {nombre} + snippets {a|b|c} para
 // que no llegue idéntico (más seguro). Crea una "campaña" y N mensajes en cola.
 import { SB } from "./supabase.js";
-import { state, $, esc, toast, norm, resolverSnippets } from "./state.js";
+import { state, $, esc, toast, norm, resolverSnippets, esInactivo } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento } from "./data.js";
 import { canalVinculado } from "./canal.js";
 
@@ -37,7 +37,11 @@ const resolverMensaje = (tpl, nombre) => resolverSnippets(tpl).replaceAll("{nomb
 // Solo los clientes PROPIOS. Un director ve los de sus agentes para
 // supervisar, pero un masivo saldría desde SU WhatsApp a gente que agregó otro:
 // cada quien le escribe a los suyos.
-const pool = () => state.clientes.filter(c => c.tel && c.owner_id === state.me.id);
+// CUELLO 2 de 2. Igual que `mios()` en seguimiento.js: los cinco usos de
+// `pool()` —lista, segmentos, filtros, conteo y el envío final— pasan por aquí,
+// así que las personas inactivas se excluyen en un solo punto.
+const pool = () => state.clientes.filter(c =>
+  c.tel && c.owner_id === state.me.id && !esInactivo(c));
 
 /* ---------- render ---------- */
 // Vista previa del mensaje ya resuelto: con etiquetas y variantes {a|b|c}, lo

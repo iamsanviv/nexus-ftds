@@ -28,6 +28,24 @@ La fila de cliente fue compactada para mostrar nombre, nivel/indicadores, teléf
 
 No asumir que la composición de escritorio aplica a móvil. Varias mejoras recientes se diseñaron explícitamente para dejar móvil intacto.
 
+## Personas inactivas
+
+`clientes.inactivo_desde` (con `inactivo_motivo`) marca a quien dejó de responder, pidió no seguir o tiene el número dado de baja. `NULL` = activa.
+
+No es una membresía: estado y nivel son ejes independientes, alguien puede ser Oro e inactivo. Meterlo en `membresia` habría contaminado FTD y comisiones.
+
+Reglas:
+
+- **no se borra**: conserva asistencia, ventas e historial;
+- queda fuera de la lista de Personas, de los conteos por membresía y de la vista por servicio;
+- se ve con su propio filtro, y la tira de estado dice cuántas quedaron sin mostrar;
+- el motivo es **solo un dato**: los cuatro excluyen igual y reactivar es un clic en todos los casos;
+- la fecha se sella al marcar y **no se reinicia** al cambiar el motivo: interesa desde cuándo dejó de recibir mensajes.
+
+La base sostiene la coherencia: fecha y motivo existen o faltan juntos, y el motivo está restringido a los cuatro valores. La UI nunca puede producir un par inválido, pero la restricción cubre la llamada directa.
+
+Ver [[../03-domain/messaging-rules]] para dónde se aplica la exclusión.
+
 ## Desfase horario
 
 El perfil guarda la diferencia de hora del cliente con Colombia (`tz_offset_min`, en minutos; `NULL` = sin definir). Existe para que la hora del mensaje llegue ya convertida.

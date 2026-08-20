@@ -9,6 +9,9 @@ export const mapDesdeDB = r => ({
   // Desfase con Colombia en minutos. Se conserva el null: 0 («igual que
   // Colombia») y «no se sabe» son cosas distintas para el texto del mensaje.
   tzOff: r.tz_offset_min ?? null,
+  // Persona inactiva: no recibe mensajes. null = activa.
+  inactivoDesde: r.inactivo_desde || null,
+  inactivoMotivo: r.inactivo_motivo || null,
   comunidadDesde: r.comunidad_desde || "", upgradeFecha: r.upgrade_fecha || "",
   nota: r.nota || "", acc: r.acc || {}, conf: r.conf || {},
   // Asistencia a actividades puntuales (fuera del catálogo), auto-contenida:
@@ -22,6 +25,9 @@ export const mapDesdeDB = r => ({
 export const mapAEditar = c => ({
   nombre: c.nombre, telefono: c.tel || null, pais: c.pais || null,
   tz_offset_min: c.tzOff ?? null,
+  // Los dos campos viajan juntos: la base rechaza un motivo sin fecha.
+  inactivo_desde: c.inactivoDesde || null,
+  inactivo_motivo: c.inactivoDesde ? (c.inactivoMotivo || "otro") : null,
   membresia: c.mem, creado: c.creado || null,
   comunidad_desde: c.comunidadDesde || null, upgrade_fecha: c.upgradeFecha || null,
   nota: c.nota || null, acc: c.acc || {}, conf: c.conf || {},

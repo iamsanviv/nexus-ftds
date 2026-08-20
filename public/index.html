@@ -535,6 +535,14 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
          haya FTD declarados sin subir a la plataforma. -->
     <div class="frow hidden" id="ftdChkRow"></div>
     <button class="convert hidden" id="btnConvertir">⬆ Convertir a Beca</button>
+    <!-- Estado. Es un eje aparte de la membresía: alguien puede ser Oro e
+         inactivo. Marcar inactiva la saca de la lista para programar y de los
+         masivos; no borra nada ni toca sus ventas. -->
+    <div class="frow">
+      <label>Estado</label>
+      <select id="fEstado"></select>
+      <div class="msgshelp" id="fEstadoAyuda"></div>
+    </div>
     <div class="frow"><label>Nota</label><textarea id="fNota" rows="3" placeholder="Contexto, acuerdos, resumen…"></textarea></div>
     <div class="profsec" id="fActividades"></div>
     <div class="mbtns">
