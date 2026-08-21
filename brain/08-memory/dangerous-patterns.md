@@ -144,3 +144,28 @@ Con la invitación inmediata el defecto no se ve: todo lo pasado ya se descartab
 ### Señal para el futuro
 
 Cuando dos mensajes de un mismo flujo se calculan desde orígenes distintos, comparar contra `ahora` no ordena nada. Hay que comparar contra el hito que los ordena de verdad.
+
+---
+
+## DP-010 — Botón de guardar sin bloquear
+
+### Incidente
+
+20/08/2026. Se reportó que los clientes se creaban por duplicado. En la base había tres pares idénticos, creados con **8, 64 y 163 ms de diferencia**: un doble clic, no dos capturas.
+
+`guardarBtn` no se deshabilitaba. Las dos ejecuciones del manejador leían `state.clientes` antes de que ninguna inserción llegara, así que la comprobación de «ese número ya es de alguien» pasaba en las dos.
+
+Dos de esos duplicados ya tenían seguimientos colgando, o sea que esas personas recibieron los mensajes dos veces.
+
+### Protección
+
+- bloquear el botón **antes del primer `await`**, y liberarlo en `finally` para que un fallo a mitad no deje el formulario muerto;
+- restaurar la etiqueta con un literal, no con lo que hubiera en el DOM: leerla puede dejar «Guardando…» pegado para siempre;
+- un botón deshabilitado no despacha clics, así que el bloqueo síncrono basta contra el doble clic. **No basta contra dos pestañas**: eso solo lo cierra una restricción en base.
+
+### Señal para el futuro
+
+Cualquier manejador `async` que inserte una fila tiene esta carrera. Al escribir uno, la pregunta es «¿qué pasa si lo tocan dos veces seguidas?», y la respuesta no puede depender de la comprobación previa contra el estado en memoria: ese estado es viejo desde el primer `await`.
+
+`seguimiento.js`, `ventas.js` y `masivo.js` ya bloqueaban los suyos; `ui.js` era el único que no.
+

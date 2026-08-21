@@ -742,6 +742,31 @@ $("btnConvertir").onclick = () => {
 };
 
 $("guardarBtn").onclick = async () => {
+  // El botón se bloquea ANTES de cualquier `await`. Sin esto, un doble clic
+  // ejecutaba el guardado dos veces: las dos lecturas de `state.clientes`
+  // ocurrían antes de que ninguna inserción llegara, así que la comprobación de
+  // teléfono repetido pasaba en ambas y se creaban dos personas. Pasó de
+  // verdad: tres pares en la base, creados con 8, 64 y 163 ms de diferencia.
+  //
+  // Un botón deshabilitado no despacha clics, y el bloqueo es síncrono, así que
+  // el segundo clic no encuentra nada que disparar.
+  const btn = $("guardarBtn");
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = "Guardando…";
+  // `finally` y no al final del cuerpo: si algo falla a mitad, el botón tiene
+  // que volver a servir o el formulario queda muerto con los datos escritos.
+  try {
+    await guardarCliente();
+  } finally {
+    btn.disabled = false;
+    // Literal, no lo que hubiera antes en el DOM: si por lo que sea el botón
+    // quedara en «Guardando…», restaurar «lo anterior» dejaría ese texto pegado.
+    btn.textContent = "Guardar";
+  }
+};
+
+async function guardarCliente() {
   const nombre = $("fNombre").value.trim();
   if (!nombre) { toast("Falta el nombre"); return; }
   const telN = $("fTel").value.replace(/\D/g, "");
@@ -816,7 +841,7 @@ $("guardarBtn").onclick = async () => {
     }
   }
   cerrarM(); render();
-};
+}
 
 /* ================= CATÁLOGO (solo director) ================= */
 $("btnCat").onclick = () => { renderCat(); $("catOverlay").classList.add("open"); };
