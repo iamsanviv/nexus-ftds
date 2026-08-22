@@ -1862,6 +1862,24 @@ async function renderActivos() {
   }
   const activos = (data || []).filter(s => finConf(s) > ahora);
   setTile("segTileActivos", "segTActivos", activos.length, "acc");
+
+  // Estado de la CONFIRMACIÓN de cada uno, para poder silenciarla sin cancelar
+  // el seguimiento entero. Cancelar el seguimiento tambien serviria —a esta
+  // altura la confirmacion suele ser el unico pendiente— pero saca a la persona
+  // del panel de «quiénes entraron», que excluye los cancelados. Aquí solo se
+  // toca ese mensaje.
+  //
+  // No hace falta comprobar si ya pasó: todo lo que se ve en esta lista tiene
+  // `inicio + 10 min` en el futuro, que es justo cuando sale la confirmación.
+  const confPorSeg = new Map();
+  if (activos.length) {
+    const { data: cf } = await SB.from("mensajes_programados")
+      .select("seguimiento_id, estado")
+      .in("seguimiento_id", activos.map(s => s.id))
+      .eq("tipo", "confirmacion")
+      .in("estado", ["pendiente", "cancelado"]);
+    for (const m of cf || []) confPorSeg.set(m.seguimiento_id, m.estado);
+  }
   if (!activos.length) {
     $("segActivos").innerHTML = `<div class="segempty">
       <div class="eh">Nada en curso ahora mismo</div>
@@ -1880,6 +1898,7 @@ async function renderActivos() {
         </div>
       </div>
       <div class="ab">
+        ${confBoton(confPorSeg.get(s.id), s.id)}
         <button class="pmark off" data-cancel="${s.id}">✕ Cancelar</button>
       </div>
     </article>`).join("");
@@ -1888,6 +1907,35 @@ async function renderActivos() {
     const s = activos.find(x => x.id === b.dataset.cancel);
     if (s) abrirCancelar(s);
   });
+
+  // Silenciar / volver a activar la confirmación. Es un interruptor y no una
+  // acción de una sola dirección: un clic de más no puede costar un mensaje que
+  // sí se quería mandar.
+  $("segActivos").querySelectorAll("[data-conf]").forEach(b => b.onclick = async () => {
+    const [id, accion] = b.dataset.conf.split("|");
+    b.disabled = true;
+    const { error } = await SB.from("mensajes_programados")
+      .update({ estado: accion === "silenciar" ? "cancelado" : "pendiente" })
+      .eq("seguimiento_id", id).eq("tipo", "confirmacion")
+      .eq("estado", accion === "silenciar" ? "pendiente" : "cancelado");
+    if (error) { toast("⚠ " + error.message); b.disabled = false; return; }
+    toast(accion === "silenciar"
+      ? "No se enviará la confirmación · sigue contando en la actividad"
+      : "La confirmación vuelve a salir");
+    renderActivos();
+  });
+}
+
+// El botón solo existe si hay confirmación que tocar: si esa tanda se programó
+// sin ella —porque su hora ya había pasado— no se ofrece un control muerto.
+function confBoton(estado, segId) {
+  if (estado === "pendiente")
+    return `<button class="pmark off" data-conf="${segId}|silenciar"
+      title="No enviarle el mensaje de confirmación. Sigue contando en la asistencia y en las entradas.">🔕 Sin confirmación</button>`;
+  if (estado === "cancelado")
+    return `<button class="pmark" data-conf="${segId}|activar"
+      title="Volver a enviarle la confirmación">🔔 Confirmación silenciada</button>`;
+  return "";
 }
 
 // Diálogo de cancelación: además de cancelar los mensajes pendientes, deja
