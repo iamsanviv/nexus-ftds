@@ -12,6 +12,18 @@
   input,select,textarea{font-family:inherit;font-size:.95rem;color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;width:100%}
   input:focus,select:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:transparent}
   ::placeholder{color:#5d6876}
+  /* Safari de iOS le da al campo de fecha un ancho intrínseco propio —el del
+     texto de su reloj interno más el icono— que IGNORA `width:100%` y se sale
+     de su contenedor. Pasa en TODAS las fechas de la app, no solo en el
+     formulario de persona. `appearance:none` le quita ese tamaño de sistema,
+     `min-width:0` deja que encoja dentro de un flex, y el valor se alinea a la
+     izquierda porque si no queda centrado dentro de la caja. */
+  input[type="date"]{appearance:none;-webkit-appearance:none;min-width:0;display:block}
+  input[type="date"]::-webkit-date-and-time-value{text-align:left;margin:0;min-width:0}
+  input[type="date"]::-webkit-calendar-picker-indicator{margin:0}
+  /* Las dos mitades de una fila doble tampoco pueden encoger por debajo de su
+     contenido si no se dice: `min-width:auto` es el defecto de un ítem flex. */
+  .dual > div{min-width:0}
 
   /* ---- topbar ---- */
   .topbar{display:flex;align-items:center;gap:10px;margin-bottom:12px}
