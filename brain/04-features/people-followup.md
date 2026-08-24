@@ -16,7 +16,9 @@ Si aparece un quinto buscador, tiene que usar la misma función: tener uno que d
 
 ## Filtros
 
-En escritorio existen filtros combinables de progreso y membresía. La UI reciente permite usar tarjetas de conteo como filtros y mantener una tira de estado que explica el conjunto visible.
+Los filtros de progreso (`En progreso` / `Completos` / `Todos` / `Inactivas`) y el de membresía son combinables y **funcionan igual en escritorio y en móvil**. La membresía se elige tocando las tarjetas de conteo, que son botones; las píldoras por nivel que existían solo en móvil se eliminaron porque eran un segundo mando para lo mismo. La vista abre en `En progreso` y una tira de estado explica el conjunto visible con un «Quitar filtros».
+
+En móvil el buscador vive entre los filtros y la lista (`#buscarFila` en `index.html`); en escritorio se reubica por JS a la fila de filtros, junto a «+ Cliente»; en las demás vistas vuelve al encabezado. Es **un solo nodo** que se mueve, no copias: duplicarlo partiría el texto escrito.
 
 Distinguir siempre:
 

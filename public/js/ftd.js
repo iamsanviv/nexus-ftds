@@ -51,87 +51,65 @@ export function renderBloqueFtd() {
   // La comisión de ventas del mes, solo para el total discreto de la esquina.
   const vent = resumenVentas(p, yo()).causada;
 
-  // En ESCRITORIO la tarjeta es de tres columnas (FTD del mes · Comisión FTD ·
-  // Total del mes), sin el resto de texto —eso vive en el asistente—: a un ancho
-  // grande el flujo vertical de móvil abrumaba. En móvil, el diseño de siempre.
+  // La misma tarjeta en los dos anchos: una fila principal con la cifra del mes
+  // y su barra, y debajo comisión y total. Escritorio la reparte en tres
+  // columnas porque le sobra ancho; móvil apila esas dos piezas en dos mitades.
+  // El texto explicativo (base, notas) no está en ninguna de las dos: vive en el
+  // asistente, que es donde se puede leer con calma.
   const desk = window.matchMedia("(min-width:1040px)").matches;
+  // La cifra grande y el «de N · te faltan M» comparten línea base (mockup): el
+  // número solo, con la meta en un renglón aparte, desbalanceaba la columna.
+  const metaTxt = g.meta
+    ? (g.cumplida
+        ? `de <b>${g.meta}</b> · cumplida ✓`
+        : `de <b>${g.meta}</b> · te faltan <b class="fuerte">${g.faltan}</b>`)
+    : "sin meta puesta";
+  const enlaces = `
+    <div class="ftdlinks">
+      <button class="metalink" id="ftdAjustar">${f.declaro ? "Ajustar" : "Poner mis números"}</button>
+      <button class="metalink quiet" id="ftdMeses">Meses anteriores</button>
+    </div>`;
+  const hero = `
+    <span class="ftdlbl oro">FTD de ${mesLegible(p)}</span>
+    <div class="ftdcifra">
+      <b class="ftdbig">${f.reales}</b>
+      <span class="ftdmeta">${metaTxt}</span>
+    </div>
+    <div class="barra dos ${g.cumplida ? "full" : ""}">
+      <u style="width:${g.pctCargados}%"></u><i style="width:${g.pct}%"></i>
+    </div>`;
+  const comision = `
+    <span class="ftdlbl">Comisión FTD</span>
+    <div class="ftdbig md ${f.pago ? "" : "mut"}">${usd(f.pago)}</div>
+    <div class="ftdsup">${f.cargados} cargados${f.base ? ` · ${f.base} con tu base` : ""}</div>`;
+  const total = `
+    <span class="ftdlbl">Total del mes</span>
+    <div class="ftdbig gold">${usd(f.pago + vent)}</div>`;
+
   if (desk) {
-    // La cifra grande y el «de N · te faltan M» comparten línea base (mockup):
-    // el número solo, con la meta en un renglón aparte, desbalanceaba la columna.
-    const metaTxt = g.meta
-      ? (g.cumplida
-          ? `de <b>${g.meta}</b> · cumplida ✓`
-          : `de <b>${g.meta}</b> · te faltan <b class="fuerte">${g.faltan}</b>`)
-      : "sin meta puesta";
     cont.innerHTML = `
       <div class="metacard ftdcard ftddesk">
-        <div class="ftdcol">
-          <span class="ftdlbl oro">FTD de ${mesLegible(p)}</span>
-          <div class="ftdcifra">
-            <b class="ftdbig">${f.reales}</b>
-            <span class="ftdmeta">${metaTxt}</span>
-          </div>
-          <div class="barra dos ${g.cumplida ? "full" : ""}">
-            <u style="width:${g.pctCargados}%"></u><i style="width:${g.pct}%"></i>
-          </div>
-        </div>
+        <div class="ftdcol">${hero}</div>
         <div class="ftdsep"></div>
-        <div class="ftdcol">
-          <span class="ftdlbl">Comisión FTD</span>
-          <div class="ftdbig md ${f.pago ? "" : "mut"}">${usd(f.pago)}</div>
-          <div class="ftdsup">${f.cargados} cargados${f.base ? ` · ${f.base} con tu base` : ""}</div>
-        </div>
+        <div class="ftdcol">${comision}</div>
         <div class="ftdsep"></div>
-        <div class="ftdcol">
-          <span class="ftdlbl">Total del mes</span>
-          <div class="ftdbig gold">${usd(f.pago + vent)}</div>
-          <div class="ftdlinks">
-            <button class="metalink" id="ftdAjustar">${f.declaro ? "Ajustar" : "Poner mis números"}</button>
-            <button class="metalink quiet" id="ftdMeses">Meses anteriores</button>
-          </div>
-        </div>
+        <div class="ftdcol">${total}${enlaces}</div>
       </div>`;
   } else {
+    // El chip de «sin subir» es el único aviso de que faltan comprobantes, así
+    // que se queda en móvil, pegado a la cifra a la que le falta respaldo.
     cont.innerHTML = `
-    <div class="metacard ftdcard">
-      <div class="fhead">
-        <span class="lbl">FTD de ${mesLegible(p)}</span>
-        <span class="fpago ${f.pago ? "on" : ""}">${usd(f.pago)}</span>
-      </div>
-
-      <div class="fbig"><b>${f.reales}</b><span>FTD este mes</span></div>
-
-      <div class="fsub">
-        <span><b>${f.cargados}</b> cargados</span>
-        ${f.sinSubir ? `<button class="chipsub" id="ftdSinSubir">↑ ${f.sinSubir} sin subir</button>` : ""}
-      </div>
-
-      <div class="barrawrap">
-        <div class="barra dos ${g.cumplida ? "full" : ""}">
-          <u style="width:${g.pctCargados}%"></u><i style="width:${g.pct}%"></i>
+      <div class="metacard ftdcard ftdmov">
+        <div class="ftdcol">${hero}
+          ${f.sinSubir ? `<button class="chipsub" id="ftdSinSubir">↑ ${f.sinSubir} sin subir</button>` : ""}
         </div>
-        <span class="metafin">${g.meta || "—"}</span>
-      </div>
-
-      <div class="fpie">
-        ${g.meta
-          ? (g.cumplida
-              ? `<span class="ok">✓ Cumpliste tu meta de
-                   <button class="metalink" id="ftdMeta">${g.meta}</button></span>`
-              : `Te faltan <b>${g.faltan}</b> para ${g.propia ? "tu meta" : "la meta"} de
-                   <button class="metalink" id="ftdMeta">${g.meta}</button>`)
-          : `<button class="metalink" id="ftdMeta">Ponte una meta</button>`}
-        <button class="ftdajuste" id="ftdAjustar">${f.declaro ? "Ajustar" : "Poner mis números"}</button>
-      </div>
-
-      ${f.base ? `<div class="fcom">Aparte, tus <b>${f.base}</b> de base suman
-        <b>${f.efectivos}</b> para la comisión${f.meta ? `: pagan ${usd(f.pago)}` : ""}.
-        <span>No cuentan para tu meta del mes.</span></div>` : ""}
-
-
-      <div class="totalmes">Total del mes con ventas (${usd(vent)}) · <b>${usd(f.pago + vent)}</b></div>
-      <div class="fmeses"><button class="metalink" id="ftdMeses">📅 Ver meses anteriores</button></div>
-    </div>`;
+        <div class="ftdsep"></div>
+        <div class="ftdduo">
+          <div class="ftdcol">${comision}</div>
+          <div class="ftdcol">${total}</div>
+        </div>
+        ${enlaces}
+      </div>`;
   }
 
   const chip = $("ftdSinSubir");

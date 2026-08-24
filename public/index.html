@@ -105,10 +105,9 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
   </div>
   <input type="file" id="fileInput" accept=".csv,text/csv" style="display:none">
 
-  <!-- Envoltorio solo para poder ponerlos en FILA en escritorio. En celular es
-       un bloque normal y todo sigue apilado igual que siempre. En escritorio el
-       buscador se reubica (por JS) a la fila de filtros; aquí queda su sitio de
-       móvil. -->
+  <!-- Envoltorio solo para poder ponerlos en FILA en escritorio. Aquí queda el
+       sitio del buscador para las vistas que no son Personas; en Personas lo
+       reubica el JS (escritorio: fila de filtros · móvil: #buscarFila). -->
   <div class="headctl">
     <div class="vtoggle hidden" id="viewToggle"></div>
     <input class="buscar" id="buscar" placeholder="Buscar cliente…">
@@ -132,7 +131,10 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         <button class="fab clifab" id="abrirModal">+ Cliente</button>
       </div>
     </div>
-    <!-- Tira de estado (solo escritorio): resumen del filtro activo. -->
+    <!-- En móvil el buscador baja aquí, entre los filtros y la lista: es lo que
+         se busca justo antes de mirar la lista. En escritorio queda vacío. -->
+    <div class="buscarfila" id="buscarFila"></div>
+    <!-- Tira de estado: resumen del filtro activo. -->
     <div class="cliestado" id="cliEstado"></div>
     <div id="lista"></div>
   </div>

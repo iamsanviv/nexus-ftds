@@ -422,10 +422,88 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 /* El teléfono en el encabezado de la fila es solo de escritorio: en móvil la
    fila no cambia (el número sigue en el cuerpo, con el botón de copiar). */
 .cheadtel{display:none}
-/* En móvil el envoltorio de la derecha es transparente (el +Cliente flota como
-   siempre) y la tira de estado no existe. */
+/* Tarjeta de FTD en móvil: la cifra del mes con su barra arriba, y debajo
+   comisión y total en dos mitades. El separador es un filete corto centrado, no
+   un borde de celda: a altura completa partía la tarjeta en cajas. */
+.ftdmov{display:flex;flex-direction:column;gap:14px;padding:16px}
+.ftdmov .ftdcol{display:flex;flex-direction:column;gap:8px;min-width:0}
+.ftdmov .ftdduo{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.ftdmov .ftdsep{height:1px;background:var(--border)}
+/* Solo la etiqueta del mes va en dorado; si las tres lo van, ninguna destaca. */
+.ftdmov .ftdlbl{font-size:9px;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--muted);font-weight:800;white-space:nowrap}
+.ftdmov .ftdlbl.oro{color:var(--gold)}
+.ftdmov .ftdcifra{display:flex;align-items:baseline;gap:9px;min-width:0}
+.ftdmov .ftdbig{font-family:'Archivo';font-weight:800;font-size:30px;line-height:1;
+  font-variant-numeric:tabular-nums;color:var(--text)}
+.ftdmov .ftdbig.md{font-size:20px}
+.ftdmov .ftdbig.gold{color:var(--gold)}
+/* Comisión en cero: el número no compite con el total que sí se cobra. */
+.ftdmov .ftdbig.mut{color:var(--muted)}
+.ftdmov .ftdmeta{font-size:12px;color:var(--muted);min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ftdmov .ftdmeta b{color:var(--gold);font-variant-numeric:tabular-nums}
+.ftdmov .ftdmeta b.fuerte{color:var(--text)}
+.ftdmov .ftdsup{font-size:11px;color:var(--muted)}
+.ftdmov .barra{margin-top:0}
+.ftdmov .chipsub{align-self:flex-start}
+.ftdmov .ftdlinks{display:flex;align-items:baseline;gap:14px}
+.ftdmov .ftdlinks .metalink{font-size:12px;padding:0;
+  border-bottom:1px dotted var(--gold-dim);opacity:.7}
+.ftdmov .ftdlinks .metalink.quiet{color:var(--muted);border-bottom-color:var(--border)}
+
+/* En móvil el envoltorio de la derecha es transparente: el «+ Cliente» sigue
+   flotando (position:fixed lo saca del flujo) y el «Orden» sale de la vista,
+   igual que en escritorio: la lista ya viene ordenada por progreso. */
 .clifiltros-r{display:contents}
-.cliestado{display:none}
+.ordwrap{display:none}
+
+/* Tira de estado, también en móvil: es donde menos cabe la lista y donde más
+   fácil es olvidar que hay un filtro puesto. «Quitar filtros» se lee como parte
+   de la frase (punteado), no como un botón más. */
+.cliestado{display:flex;align-items:center;gap:8px;margin:0 0 10px;
+  font-size:.76rem;color:var(--muted)}
+.quitarf{background:none;border:0;border-bottom:1px dotted var(--gold-dim);
+  color:var(--gold);font:inherit;font-size:.76rem;font-weight:700;
+  cursor:pointer;padding:0;border-radius:0}
+
+/* El buscador baja a su propia fila, entre los filtros y la lista. */
+.buscarfila .buscar{margin-bottom:12px}
+
+/* Tarjetas de conteo como botones de filtro por membresía. Cifra y etiqueta
+   comparten línea base y el color del nivel manda en TODO el botón, para que el
+   filo de la activa salga de `currentColor` y no de un token por nivel. */
+.stat.filtrable{cursor:pointer;font:inherit;display:flex;align-items:baseline;
+  justify-content:center;gap:6px;text-align:left;padding:10px 8px}
+.stat.filtrable b{display:inline;font-size:1.15rem;color:currentColor}
+.stat.filtrable span{font-size:.6rem}
+.stat.filtrable.beca{color:var(--beca)}
+.stat.filtrable.vip{color:var(--vip)}
+.stat.filtrable.plat{color:var(--plat)}
+.stat.filtrable.oro{color:var(--oro)}
+.stat.filtrable.on{background:var(--surface2);border-color:currentColor;
+  box-shadow:inset 0 0 0 1px currentColor}
+
+/* La lista es UNA tarjeta con filas dentro, no una pila de tarjetas sueltas:
+   los márgenes entre tarjetas cortaban la lectura vertical. Cada fila sigue
+   siendo el mismo acordeón; solo pierde su marco. Las filas se mantienen a dos
+   líneas en móvil: comprimirlas a una recortaría el nombre. */
+#lista{background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden}
+#lista .card{background:transparent;border:0;border-radius:0;margin-bottom:0;
+  border-bottom:1px solid var(--surface2)}
+#lista .card:last-child{border-bottom:0}
+#lista .vacio{border:0;border-radius:0;padding:34px 16px}
+
+/* Comunidad/Leads como un solo segmento con marco, en vez de dos píldoras
+   sueltas: son dos caras de la misma lista, no dos destinos distintos. */
+.modswitch{gap:4px;padding:3px;background:var(--surface);
+  border:1px solid var(--border);border-radius:12px}
+.modswitch .mbtn{background:transparent;border:0;border-radius:9px;padding:9px}
+/* El marco lo pone ahora el segmento, así que el botón activo se marca solo con
+   fondo y color: el aro dorado de antes sería un segundo marco dentro del marco. */
+.modswitch .mbtn.on{background:var(--surface2);color:var(--gold);box-shadow:none}
+.modswitch .mbtn.leads.on{color:var(--lead)}
 
 /* fab por encima de la tab bar */
 .fab{bottom:calc(96px + env(safe-area-inset-bottom))}
@@ -606,7 +684,7 @@ body.segwide .tabinner{max-width:1180px}
   .clifiltros .pill{font-size:13px;padding:7px 14px}
   .clifiltros .pill.on{border-color:transparent}
   .clifiltros-r{display:flex;align-items:center;gap:12px;flex:0 0 auto;margin-bottom:10px}
-  .clifiltros-r .ordwrap{display:none}
+  .buscarfila{display:none}
   .clifiltros-r .buscar{flex:0 0 290px;margin:0;font-size:14px}
   /* «+ Cliente» deja de flotar: se acomoda en la fila, con el mismo radio que
      el buscador de al lado (la píldora de móvil desentonaba en la fila). */

@@ -51,10 +51,17 @@ export function render() {
   // Solo en Personas de ESCRITORIO se reubica a la fila de filtros, junto a
   // «+ Cliente», como en el mockup. Se mueve el nodo real —no un duplicado— para
   // no partir el estado de búsqueda, y nunca queda dentro de una vista oculta.
-  const busc = $("buscar"), enFila = desk && state.vista === "cliente";
-  const destino = enFila ? document.querySelector(".clifiltros-r") : document.querySelector(".headctl");
+  // El buscador tiene TRES sitios según dónde estemos, y se mueve el nodo real
+  // —no un duplicado— para no partir el texto que haya escrito:
+  //   escritorio + Personas -> en la fila de filtros, junto a «+ Cliente»
+  //   móvil + Personas      -> debajo de los filtros, justo encima de la lista
+  //   cualquier otra vista   -> en el encabezado, que es su sitio de siempre
+  const busc = $("buscar"), enPersonas = state.vista === "cliente";
+  const destino = (enPersonas && desk) ? document.querySelector(".clifiltros-r")
+                : enPersonas            ? $("buscarFila")
+                :                         document.querySelector(".headctl");
   if (destino && busc.parentElement !== destino) {
-    enFila ? destino.insertBefore(busc, $("abrirModal")) : destino.appendChild(busc);
+    (enPersonas && desk) ? destino.insertBefore(busc, $("abrirModal")) : destino.appendChild(busc);
   }
   // Seguimiento usa dos columnas en escritorio, así que necesita más ancho que
   // el resto de la app (las demás vistas son listas y se leen mejor angostas).
@@ -127,20 +134,20 @@ export function render() {
   // Escritorio: las tarjetas de conteo son filtros por membresía (combinables
   // con el progreso), abre en «En progreso» y hay tira de estado. En móvil NADA
   // de esto aplica: se mantiene el comportamiento de siempre.
-  if (desk && !isLead && !state.filtroDefDesk && state.filtro === "todos") {
+  // Abre en «En progreso» y las tarjetas de conteo filtran por membresía. Antes
+  // esto era solo de escritorio; ahora móvil se comporta igual, que era el
+  // motivo de tener dos pantallas distintas para el mismo trabajo.
+  if (!isLead && !state.filtroDefDesk && state.filtro === "todos") {
     state.filtro = "incompletos"; state.filtroDefDesk = true;
   }
-  if (!desk) state.filtroMem = null;   // el filtro por membresía es solo de escritorio
 
   /* ----- stats ----- */
   if (isLead) {
     const con = activas.filter(c => pr(c).extra > 0).length;
     $("stats").innerHTML = stat("lead", activas.length, "Leads") + stat("ok", con, "Con actividad") + stat("mut", activas.length - con, "Sin actividad");
-  } else if (!desk) {
-    $("stats").innerHTML = ["Beca", "VIP", "Platino", "Oro"]
-      .map(m => stat(m.toLowerCase().slice(0, 4), activas.filter(c => c.mem === m).length, m)).join("");
   } else {
-    // Escritorio: cada tarjeta es un botón de filtro; la activa se marca.
+    // Cada tarjeta es un botón de filtro; la activa se marca con un filo de su
+    // propio color.
     $("stats").innerHTML = ["Beca", "VIP", "Platino", "Oro"].map(m => {
       const cls = m.toLowerCase().slice(0, 4);
       const n = activas.filter(c => c.mem === m).length;
@@ -162,9 +169,7 @@ export function render() {
   const pillInact = ["inactivas", `😴 Inactivas · ${inactivas.length}`];
   const defs = isLead
     ? [["todos", "Todos"], ["activos", "🔥 Con actividad"], ["inactivos", "Sin actividad"], pillInact]
-    : desk
-      ? [["incompletos", "⏳ En progreso"], ["completos", "✓ Completos"], ["todos", "Todos"], pillInact]
-      : [["todos", "Todos"], ["Beca", "Beca"], ["VIP", "VIP"], ["Platino", "Platino"], ["Oro", "Oro"], ["incompletos", "⏳ En progreso"], ["completos", "✓ Completos"], pillInact];
+    : [["incompletos", "⏳ En progreso"], ["completos", "✓ Completos"], ["todos", "Todos"], pillInact];
   $("filtros").innerHTML = defs.map(([v, l]) => `<button class="pill ${state.filtro === v ? 'on' : ''}" data-f="${v}">${l}</button>`).join("");
   $("filtros").querySelectorAll(".pill").forEach(b => b.onclick = () => { state.filtro = b.dataset.f; render(); });
 
@@ -218,7 +223,7 @@ export function render() {
   // «Quitar filtros» cuando hay alguno activo (membresía, progreso o búsqueda).
   const estadoEl = $("cliEstado");
   if (estadoEl) {
-    if (desk && !isLead) {
+    if (!isLead) {
       const partes = [`${vis.length} persona${vis.length === 1 ? "" : "s"}`];
       if (state.filtroMem) partes.push(`nivel ${state.filtroMem}`);
       if (state.filtro === "incompletos") partes.push("en progreso");

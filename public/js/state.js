@@ -12,11 +12,11 @@ export const state = {
   me: null,
   modulo: "comunidad",   // "comunidad" | "leads"
   filtro: "todos",
-  // Solo escritorio: filtro por membresía (Beca/VIP/Platino/Oro) que se COMBINA
-  // con `filtro` (todos/incompletos/completos). En móvil no se usa (allá la
-  // membresía sigue siendo una píldora más dentro de `filtro`). null = sin filtro.
+  // Filtro por membresía (Beca/VIP/Platino/Oro) que se COMBINA con `filtro`
+  // (todos/incompletos/completos). Lo ponen las tarjetas de conteo, que son
+  // botones en los dos anchos. null = sin filtro.
   filtroMem: null,
-  filtroDefDesk: false,  // ¿ya se aplicó el defecto "En progreso" de escritorio?
+  filtroDefDesk: false,  // ¿ya se aplicó el defecto "En progreso"?
   orden: "cerca",
   vista: "cliente",      // "cliente" | "servicio"
   abiertos: new Set(),
