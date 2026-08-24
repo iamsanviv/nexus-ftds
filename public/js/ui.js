@@ -528,8 +528,24 @@ function renderServicio() {
 }
 
 /* ================= PERFIL (crear / editar persona) ================= */
-function opcionesNivel(sel) {
-  return NIVELES.map(m => `<option ${m === sel ? 'selected' : ''}>${m}</option>`).join("");
+// Clase de color por nivel; la misma familia que usan las tarjetas de conteo.
+const CLASE_NIVEL = { Lead: "lead", Beca: "beca", VIP: "vip", Platino: "plat", Oro: "oro" };
+
+/* El nivel decide QUÉ MÁS se pregunta, así que va primero y como fichas: un
+   <select> escondía esa consecuencia detrás de un desplegable cerrado.
+   `fMem` sigue existiendo como campo oculto, así que todo lo que lee el nivel
+   (guardado, conversión) lo lee igual que antes. */
+function ponerNivel(sel) {
+  $("fMem").value = sel;
+  $("fNiveles").innerHTML = NIVELES.map(m =>
+    `<button type="button" class="nivchip ${CLASE_NIVEL[m]}${m === sel ? " on" : ""}" data-niv="${m}">${m}</button>`
+  ).join("");
+  // Un lead se REGISTRA; de Beca en adelante, INGRESA A LA COMUNIDAD. Son dos
+  // fechas distintas y nunca coexisten: pedir las dos hacía que se llenara la
+  // que no tocaba.
+  const lead = sel === "Lead";
+  $("rowCreado").classList.toggle("hidden", !lead);
+  $("rowComunidad").classList.toggle("hidden", lead);
 }
 
 /* ---------- estado activa/inactiva en el perfil ---------- */
@@ -598,10 +614,9 @@ function abrirPerfil(c) {
   $("fNombre").value = c.nombre; $("fPais").value = c.pais || ""; $("fTel").value = c.tel || "";
   pintarSelectorTz(c.tzOff);
   pintarSelectorEstado(c);
-  $("fMem").innerHTML = opcionesNivel(c.mem);
+  ponerNivel(c.mem);
   $("fCreado").value = c.creado || ""; $("fComunidad").value = c.comunidadDesde || ""; $("fUpgrade").value = c.upgradeFecha || "";
   $("fNota").value = c.nota || "";
-  $("btnConvertir").classList.toggle("hidden", c.mem !== "Lead");
   // Al editar se precarga el dueño actual: el director también puede
   // reasignar un cliente a otro agente de su equipo.
   renderDueno(c.owner_id);
@@ -702,8 +717,8 @@ function cerrarM() {
   ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fComunidad", "fUpgrade"].forEach(i => $(i).value = "");
   pintarSelectorTz(null);
   pintarSelectorEstado(null);
-  $("fMem").innerHTML = opcionesNivel(state.modulo === "leads" ? "Lead" : "Beca");
-  $("fActividades").innerHTML = ""; $("btnConvertir").classList.add("hidden");
+  ponerNivel(state.modulo === "leads" ? "Lead" : "Beca");
+  $("fActividades").innerHTML = "";
 }
 
 // Selector de dueño: solo tiene sentido para un director, que es el único que
@@ -725,8 +740,8 @@ $("abrirModal").onclick = () => {
   ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fComunidad", "fUpgrade"].forEach(i => $(i).value = "");
   pintarSelectorTz(null);
   pintarSelectorEstado(null);
-  $("fMem").innerHTML = opcionesNivel(state.modulo === "leads" ? "Lead" : "Beca");
-  $("fActividades").innerHTML = ""; $("btnConvertir").classList.add("hidden");
+  ponerNivel(state.modulo === "leads" ? "Lead" : "Beca");
+  $("fActividades").innerHTML = "";
   renderDueno(state.me.id);
   import("./ftd.js").then(m => m.pintarCasillaFtd());
   $("overlay").classList.add("open");
@@ -737,13 +752,21 @@ $("fEstado").onchange = () => {
   pintarAyudaEstado(c && c.inactivoDesde);
 };
 $("cerrarModal").onclick = cerrarM;
+$("cerrarModalX").onclick = cerrarM;
 $("overlay").onclick = e => { if (e.target.id === "overlay") cerrarM(); };
 
-$("btnConvertir").onclick = () => {
-  $("fMem").value = "Beca";
-  if (!$("fComunidad").value) $("fComunidad").value = hoyISO();
-  $("btnConvertir").classList.add("hidden");
-  toast("Se convertirá a Beca al guardar ✓");
+$("fNiveles").onclick = e => {
+  const ficha = e.target.closest(".nivchip");
+  if (!ficha) return;
+  const antes = $("fMem").value, ahora = ficha.dataset.niv;
+  if (antes === ahora) return;
+  ponerNivel(ahora);
+  // Salir de Lead ES la conversión. La fecha de ingreso a la comunidad no puede
+  // quedar vacía: es la que cuenta el FTD del mes.
+  if (antes === "Lead" && !$("fComunidad").value) {
+    $("fComunidad").value = hoyISO();
+    if (state.cliEdit) toast(`Se convertirá a ${ahora} al guardar ✓`);
+  }
 };
 
 $("guardarBtn").onclick = async () => {

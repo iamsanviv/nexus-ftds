@@ -21,6 +21,10 @@ No contar FTD por `membresia = 'Beca'` como fuente histórica. La membresía rep
 
 La fecha `comunidad_desde` es la referencia estable para saber cuándo esa persona ingresó como FTD.
 
+Por eso el formulario de persona no la deja vacía al convertir: al salir de `Lead` se rellena con la fecha de hoy si no había ninguna. El formulario pide **una sola fecha, la que corresponde al nivel** —`Registrado el` para `Lead`, `Ingreso a la Comunidad` de `Beca` en adelante—, nunca las dos.
+
+`upgrade_fecha` ya no se escribe a mano: salió del formulario y viaja en un campo oculto para no perderse al guardar.
+
 ## Borrado simétrico
 
 Crear un FTD puede aumentar la cifra declarada. Borrar ese mismo cliente del mes debe deshacer el efecto cuando corresponda.

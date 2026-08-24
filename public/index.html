@@ -500,58 +500,81 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
 <!-- modal perfil (crear / editar persona) -->
 <div class="overlay" id="overlay">
   <div class="modal">
-    <h2 id="cliTitulo">Nuevo cliente</h2>
-    <!-- solo para directores: a nombre de qué agente de su equipo queda -->
-    <div class="frow hidden" id="fDuenoRow">
-      <label>A nombre de</label>
-      <select id="fDueno"></select>
-      <div class="msgshelp">Queda como cliente de esa persona: ella lo verá en su lista y podrá enviarle mensajes.</div>
+    <div class="mhead">
+      <h2 id="cliTitulo">Nuevo cliente</h2>
+      <button class="mclose" id="cerrarModalX" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
     </div>
-    <div class="frow"><label>Nombre</label><input id="fNombre" placeholder="Ej: Carlos Pérez"></div>
-    <div class="frow"><div class="dual">
-      <div style="flex:1.3"><label>WhatsApp (con código de país)</label><input id="fTel" inputmode="tel" placeholder="+573001234567"></div>
-      <div style="flex:1"><label>País</label><select id="fPais">
-        <option value="">Selecciona un país</option>
-        <option value="Colombia">Colombia</option>
-        <option value="México">México</option>
-        <option value="Venezuela">Venezuela</option>
-        <option value="Ecuador">Ecuador</option>
-        <option value="Perú">Perú</option>
-        <option value="Panamá">Panamá</option>
-        <option value="EEUU">EEUU</option>
-        <option value="España">España</option>
-      </select></div>
-    </div></div>
-    <!-- Desfase horario: hace que {hora} llegue en la hora de pared de la
-         persona en vez de la de Colombia. Se pone A MANO: el país no sirve para
-         deducirlo (México tiene tres husos). `fTzPrev` muestra un ejemplo vivo,
-         que es la única forma de que el agente note si eligió al revés. -->
-    <div class="frow">
-      <label>Diferencia de hora con Colombia <span class="opt">(opcional)</span></label>
-      <select id="fTz"></select>
-      <div class="msgshelp" id="fTzPrev"></div>
+
+    <!-- El NIVEL va primero porque decide qué se pregunta después: un lead se
+         registra, alguien de Beca en adelante entra a la comunidad. Nunca las
+         dos fechas a la vez. `fMem` es oculto para que el valor se lea igual
+         que cuando era un <select>; lo pintan las fichas de `fNiveles`. -->
+    <div class="fblk">
+      <div class="fblk-t">Nivel</div>
+      <div class="nivchips" id="fNiveles"></div>
+      <input type="hidden" id="fMem">
+      <div class="frow fdate" id="rowCreado"><label>Registrado el</label><input id="fCreado" type="date"></div>
+      <div class="frow fdate" id="rowComunidad">
+        <label>Ingreso a la Comunidad</label><input id="fComunidad" type="date">
+        <div class="msgshelp">Es la fecha con la que cuenta como FTD del mes.</div>
+      </div>
+      <!-- Casilla de FTD ya contado. La llena ftd.js y solo aparece mientras
+           haya FTD declarados sin subir a la plataforma. -->
+      <div class="frow hidden" id="ftdChkRow"></div>
+      <!-- El último upgrade salió del formulario: no se escribe a mano. Queda
+           oculto para que su valor viaje intacto al guardar. -->
+      <input type="hidden" id="fUpgrade">
     </div>
-    <div class="frow"><div class="dual">
-      <div style="flex:1"><label>Nivel</label><select id="fMem"></select></div>
-      <div style="flex:1"><label>Registrado el</label><input id="fCreado" type="date"></div>
-    </div></div>
-    <div class="frow"><div class="dual">
-      <div style="flex:1"><label>Ingreso a la Comunidad</label><input id="fComunidad" type="date"></div>
-      <div style="flex:1"><label>Último upgrade</label><input id="fUpgrade" type="date"></div>
-    </div></div>
-    <!-- Casilla de FTD ya contado. La llena ftd.js y solo aparece mientras
-         haya FTD declarados sin subir a la plataforma. -->
-    <div class="frow hidden" id="ftdChkRow"></div>
-    <button class="convert hidden" id="btnConvertir">⬆ Convertir a Beca</button>
-    <!-- Estado. Es un eje aparte de la membresía: alguien puede ser Oro e
-         inactivo. Marcar inactiva la saca de la lista para programar y de los
-         masivos; no borra nada ni toca sus ventas. -->
-    <div class="frow">
-      <label>Estado</label>
-      <select id="fEstado"></select>
-      <div class="msgshelp" id="fEstadoAyuda"></div>
+
+    <div class="fblk">
+      <div class="fblk-t">Quién es</div>
+      <!-- solo para directores: a nombre de qué agente de su equipo queda -->
+      <div class="frow hidden" id="fDuenoRow">
+        <label>A nombre de</label>
+        <select id="fDueno"></select>
+        <div class="msgshelp">Queda como cliente de esa persona: ella lo verá en su lista y podrá enviarle mensajes.</div>
+      </div>
+      <div class="frow"><label>Nombre</label><input id="fNombre" placeholder="Ej: Carlos Pérez"></div>
+      <div class="frow"><div class="dual">
+        <div style="flex:1.3"><label>WhatsApp (con código de país)</label><input id="fTel" inputmode="tel" placeholder="+573001234567"></div>
+        <div style="flex:1"><label>País</label><select id="fPais">
+          <option value="">Selecciona un país</option>
+          <option value="Colombia">Colombia</option>
+          <option value="México">México</option>
+          <option value="Venezuela">Venezuela</option>
+          <option value="Ecuador">Ecuador</option>
+          <option value="Perú">Perú</option>
+          <option value="Panamá">Panamá</option>
+          <option value="EEUU">EEUU</option>
+          <option value="España">España</option>
+        </select></div>
+      </div></div>
+      <!-- Desfase horario: hace que {hora} llegue en la hora de pared de la
+           persona en vez de la de Colombia. Se pone A MANO: el país no sirve para
+           deducirlo (México tiene tres husos). `fTzPrev` muestra un ejemplo vivo,
+           que es la única forma de que el agente note si eligió al revés. -->
+      <div class="frow">
+        <label>Diferencia de hora con Colombia <span class="opt">(opcional)</span></label>
+        <select id="fTz"></select>
+        <div class="msgshelp" id="fTzPrev"></div>
+      </div>
     </div>
-    <div class="frow"><label>Nota</label><textarea id="fNota" rows="3" placeholder="Contexto, acuerdos, resumen…"></textarea></div>
+
+    <div class="fblk">
+      <div class="fblk-t">Seguimiento</div>
+      <!-- Estado. Es un eje aparte de la membresía: alguien puede ser Oro e
+           inactivo. Marcar inactiva la saca de la lista para programar y de los
+           masivos; no borra nada ni toca sus ventas. -->
+      <div class="frow">
+        <label>Estado</label>
+        <select id="fEstado"></select>
+        <div class="msgshelp" id="fEstadoAyuda"></div>
+      </div>
+      <div class="frow"><label>Nota</label><textarea id="fNota" rows="3" placeholder="Contexto, acuerdos, resumen…"></textarea></div>
+    </div>
+
     <div class="profsec" id="fActividades"></div>
     <div class="mbtns">
       <button class="cancelar" id="cerrarModal">Cancelar</button>
