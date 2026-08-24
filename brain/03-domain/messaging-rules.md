@@ -46,6 +46,7 @@ La hora del mensaje es el único dato que depende de dónde vive quien lo recibe
 
 Dos etiquetas que deben ir siempre juntas:
 
+- `{dia}` dice «hoy», «mañana», «el martes» o la fecha. Se calcula contra la hora en que **sale** el mensaje, no contra ahora: la invitación se puede diferir. Y se mira en la hora de pared del cliente, igual que `{hora}` — si su hora se convierte, su día también;
 - `{hora}` se resuelve **por persona**, no por actividad;
 - también funcionan en un **masivo**, que no cuelga de ninguna actividad: ahí la hora la elige el agente en un campo que solo aparece cuando el texto menciona `{hora}`. Si la menciona y no la elige, no se puede enviar — un hueco donde iba la hora no lo revisaría nadie. La fecha para convertir husos es la del envío, no la de hoy;
 - `{zona}` escribe `(hora de tu país)` solo cuando esa hora vino convertida. Sin desfase —el caso de casi todos— se va **vacía**, y con ella el espacio que la precede: aclarar «hora Colombia» en todos los mensajes es ruido para que lo aproveche casi nadie.
@@ -79,6 +80,14 @@ Al apagar el interruptor hay que **sacar de la selección** a quien deja de vers
 Importa que el filtro esté en el envío y no solo en la lista: un segmento guardado hace meses puede traer gente que se marcó inactiva después.
 
 Antes de agregar una tercera vía de envío, preguntar por qué no puede pasar por una de estas dos.
+
+## Etiquetas antes que variantes
+
+`aplicar()` sustituye las etiquetas **antes** de sortear los grupos `{a|b|c}`, no al revés. Es lo que permite escribir `{Hoy tenemos|{dia} tenemos}`: para cuando el sorteo mira el texto, la etiqueta ya es una palabra y el grupo no tiene llaves adentro.
+
+Invertirlo rompe esa posibilidad y devuelve el texto crudo al cliente.
+
+Todo pasa por `componerMensaje()` en `state.js`: etiquetas, luego variantes, y al final la mayúscula del día cuando la variante elegida abre la frase con él. Ese último paso **no se puede hacer antes**: mientras `{dia}` viva dentro de un grupo, no se sabe qué habrá delante.
 
 ## Orden de los mensajes
 

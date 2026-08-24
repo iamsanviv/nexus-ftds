@@ -132,3 +132,17 @@ Cuando se confirme que un asunto fue corregido:
 1. registrar qué cambió y dónde;
 2. mover la lección permanente a `dangerous-patterns.md`, `database-security-traps.md` o una decisión si todavía protege arquitectura;
 3. retirar el asunto de esta lista para no hacer que Claude diagnostique defectos fantasmas.
+
+---
+
+## KI-007 — Plantillas guardadas que dicen «hoy» a mano
+
+Las plantillas por defecto ya usan `{dia}`, pero **cada agente puede tener la suya guardada**, y esa manda. Al 21/08/2026:
+
+- Santiago: dice «El día de hoy» — hay que restaurar para adoptar `{dia}`;
+- Daniel: dice «Esta noche tenemos» — mismo problema, y encima falla también si la actividad es de mañana por la tarde.
+
+Mientras no las actualicen, la red que los protege es el aviso del diálogo de programación, que detecta «hoy», «esta noche», «esta tarde» y «esta mañana».
+
+Se cierra cuando las dos plantillas guardadas usen `{dia}`.
+

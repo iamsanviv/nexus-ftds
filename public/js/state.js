@@ -65,7 +65,12 @@ export const uid = p => p + Date.now().toString(36) + Math.random().toString(36)
 // PERSONA, así dos contactos nunca reciben el texto idéntico (menos riesgo de
 // que WhatsApp lo marque como spam). Solo toca grupos que tengan "|", por eso
 // las etiquetas normales ({nombre}, {hora}, {enlace}…) quedan intactas.
-// OJO: no anidar llaves dentro de un snippet — el grupo no puede contener { }.
+//
+// El grupo NO puede contener llaves, así que las etiquetas se sustituyen ANTES
+// (ver `aplicar`): así `{Hoy tenemos|{dia} tenemos}` funciona, porque para
+// cuando el sorteo mira el texto ya dice `{Hoy tenemos|mañana tenemos}`.
+// Sustituir primero es seguro: el valor que entra no lleva llaves alrededor,
+// así que no puede inventar un grupo nuevo.
 export const resolverSnippets = t => (t || "").replace(/\{([^{}]*\|[^{}]*)\}/g,
   (m, g) => { const o = g.split("|"); return o[Math.floor(Math.random() * o.length)].trim(); });
 
@@ -155,6 +160,33 @@ export const horaDeCliente = (iso, tzOff) =>
 export const etiquetaZona = tzOff =>
   (tzOff === null || tzOff === undefined || tzOff === 0) ? "" : "(hora de tu país)";
 
+// Qué día es la actividad DESDE EL PUNTO DE VISTA de quien recibe el mensaje.
+//
+// Se compara contra la hora en que SALE el mensaje, no contra ahora: la
+// invitación se puede diferir, y «hoy» tiene que ser el hoy de ese momento.
+//
+// Y el día se mira en la hora de pared del cliente, igual que `{hora}`: una
+// actividad de las 19:00 en Colombia le cae a las 2:00 del día siguiente a
+// quien está en España, así que para él es «mañana». Si el día no se convirtiera
+// junto con la hora saldría «hoy a las 2:00 a. m.».
+const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+               "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+export function etiquetaDia(isoEvento, isoEnvio, tzOff) {
+  const corrido = iso => new Date(new Date(iso).getTime() + (tzOff || 0) * 60000);
+  const ev = corrido(isoEvento), en = corrido(isoEnvio);
+  if (isNaN(ev) || isNaN(en)) return "";
+  const soloDia = d => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  const dif = Math.round((soloDia(ev) - soloDia(en)) / 86400000);
+  if (dif === 0) return "hoy";
+  if (dif === 1) return "mañana";
+  // Dentro de la semana el nombre del día se lee mejor que una fecha.
+  if (dif > 1 && dif < 7) return "el " + DIAS[ev.getDay()];
+  // Más lejos —o hacia atrás, que no debería pasar— la fecha no deja dudas.
+  return `el ${ev.getDate()} de ${MESES[ev.getMonth()]}`;
+}
+
 /* ---------- etiquetas de los mensajes ----------
    Compartido por las plantillas de actividad y por el masivo: los dos escriben
    `{hora} {zona}` y los dos tienen que resolverlo igual.
@@ -164,19 +196,51 @@ export const etiquetaZona = tzOff =>
    sustituyera el token quedaría «7:00 p. m. .» en casi todos los mensajes. Por
    eso se consume también el espacio vecino, y al final se colapsan los pares de
    puntos —la hora en español ya termina en punto— sin tocar los suspensivos. */
+// Compone el mensaje final: etiquetas, luego variantes, y al final los retoques
+// que solo se pueden decidir con el texto ya armado.
+//
+// El único retoque es la mayúscula del día. Si la variante elegida abre la
+// frase con él —«Ana! hoy tenemos»— hay que subirla, porque quien escribió
+// «Hoy tenemos» la tenía. Solo se toca la palabra exacta que puso la etiqueta,
+// justo detrás de un signo de cierre: no es un capitalizador general del texto.
+export function componerMensaje(tpl, valores) {
+  const txt = resolverSnippets(rellenarEtiquetas(tpl, valores));
+  const dia = valores.dia || "";
+  if (!dia) return txt;
+  const escapado = dia.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return txt.replace(new RegExp(`(^|[!?.]\\s+)${escapado}`, "g"),
+    (m, pre) => pre + dia.charAt(0).toUpperCase() + dia.slice(1));
+}
+
 export function rellenarEtiquetas(txt, valores) {
   const z = valores.zona || "";
+  const dia = valores.dia || "";
   let out = txt;
   for (const [k, v] of Object.entries(valores)) {
-    if (k === "zona") continue;
+    if (k === "zona" || k === "dia") continue;
     out = out.replaceAll(`{${k}}`, v ?? "");
   }
+
+  // `{dia}` necesita dos ajustes de castellano que dependen de DÓNDE esté
+  // escrito. No cambian el texto del agente: hacen que la palabra que produce
+  // la etiqueta encaje donde él ya la puso.
+  //
+  //   «El día de {dia}»  ->  «El día del martes», no «de el martes».
+  //     Solo con minúscula: «de El Salvador» no se contrae.
+  //
+  // La MAYÚSCULA al abrir la frase no se puede decidir aquí: cuando `{dia}`
+  // vive dentro de un grupo de variantes, todavía no se sabe cuál se elegirá ni
+  // qué habrá delante. Eso lo hace `componerMensaje`, ya con el texto sorteado.
+  out = out.replaceAll("de {dia}", dia.startsWith("el ") ? "del " + dia.slice(3) : "de " + dia);
+  out = out.replaceAll("{dia}", dia);
+
   out = out
     .replaceAll(" {zona}", z ? " " + z : "")
     .replaceAll("{zona} ", z ? z + " " : "")
     .replaceAll("{zona}", z);
   return z ? out : out.replace(/(?<!\.)\.\.(?!\.)/g, ".");
 }
+
 
 /* ---------- adjuntos de mensajes ----------
    Vive acá y no en cada módulo porque hay DOS formularios que suben adjuntos

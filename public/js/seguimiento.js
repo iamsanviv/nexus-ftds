@@ -5,7 +5,8 @@
 // Tablas: actividades, seguimientos, mensajes_programados, plantillas_seguimiento.
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
-  horaDeCliente, etiquetaZona, esInactivo, nombreMotivo, motivoCorto,
+  horaDeCliente, etiquetaZona, etiquetaDia, componerMensaje,
+  esInactivo, nombreMotivo, motivoCorto,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas,
   normBusqueda } from "./state.js";
 import { render } from "./ui.js";
@@ -49,9 +50,9 @@ const NOMBRE_HITO = {
 // así no salen 50 mensajes con el texto idéntico. No anidar llaves dentro de
 // un snippet, y no meter datos clave (hora, enlace) dentro de las variantes.
 const PLANTILLAS_DEF = {
-  invitacion:       `{Hola|Buenas|Hey|Buen día|Cómo vas} {nombre}! {El día de hoy tenemos|Hoy tenemos|Te recuerdo que hoy tenemos|Nos vemos hoy en} *{actividad}* a las *{hora}* {zona} 🙌🏼 ¿{Puedes asistir|Te conectas|Te envío el link|Te agendo para que entres|Puedes entrar}?`,
+  invitacion:       `{Hola|Buenas|Hey|Buen día|Cómo vas} {nombre}! {El día de {dia} tenemos|{dia} tenemos|Te recuerdo que {dia} tenemos|Nos vemos {dia} en} *{actividad}* a las *{hora}* {zona} 🙌🏼 ¿{Puedes asistir|Te conectas|Te envío el link|Te agendo para que entres|Puedes entrar}?`,
   // Se usa cuando la persona YA recibió una invitación hoy (otra actividad): sin saludo.
-  invitacion_extra: `{nombre}, {y hoy también tienes|y también hay|y hoy además tenemos} *{actividad}* a las {hora} {zona}. {Ahí te espero!|Te veo ahí!|Te enviaré el link} {🙌🏼|💪🏼|🤝🏼}`,
+  invitacion_extra: `{nombre}, {y {dia} también tienes|y también hay|y {dia} además tenemos} *{actividad}* a las {hora} {zona}. {Ahí te espero!|Te veo ahí!|Te enviaré el link} {🙌🏼|💪🏼|🤝🏼}`,
   rec_60:           `{nombre}, bendiciones! {Paso a recordarte que|Recuerda que|Te recuerdo que} en 1 hora {tenemos|empieza|arrancamos con} {actividad}. {Que no se te olvide!|No lo olvides!|No te la pierdas!}`,
   rec_15:           `¡{nombre}, en 15 minutos {arrancamos|empezamos|comenzamos} con *{actividad}*! {🔥|💪🏼}`,
   enlace:           `{Ya empezamos|Ya arrancamos|Estamos en vivo}, {nombre}! {Este es el enlace para entrar|Entra por aquí|Aquí tienes el enlace} 👉: {enlace}`,
@@ -74,9 +75,12 @@ const fechaHoraCO = iso => new Date(iso).toLocaleString("es-CO",
 //
 // La sustitución vive en state.js porque el masivo escribe las mismas etiquetas
 // y tiene que resolverlas igual, sobre todo el espacio de `{zona}`.
-function aplicar(tpl, { nombre, actividad, hora, zona, enlace }) {
-  return rellenarEtiquetas(resolverSnippets(tpl),
-    { nombre, actividad, hora, zona, enlace });
+function aplicar(tpl, { nombre, actividad, dia, hora, zona, enlace }) {
+  // ETIQUETAS PRIMERO y variantes después, al revés de como estaba. Así una
+  // etiqueta puede vivir DENTRO de un grupo —«{Hoy tenemos|{dia} tenemos}»—,
+  // que es lo que hacía falta para poder decir el día correcto sin reescribir
+  // la redacción de cada variante.
+  return componerMensaje(tpl, { nombre, actividad, dia, hora, zona, enlace });
 }
 
 // yaInvitado: si la persona ya recibió una invitación hoy, la invitación de
@@ -87,7 +91,11 @@ function aplicar(tpl, { nombre, actividad, hora, zona, enlace }) {
 // msgInv: texto propio de la actividad. Si viene, MANDA sobre la plantilla del
 // agente y también sobre la variante "extra" — quien escribió una invitación a
 // mano para un lanzamiento quiere que salga esa, no otra.
-function plantillas(nombre, actividad, inicioISO, enlace, yaInvitado, msgInv, tzOff) {
+// `cuandoInvISO` = cuándo sale la INVITACIÓN. Importa solo para `{dia}`: es el
+// único mensaje que puede salir en un día distinto al de la actividad, porque
+// se puede diferir. Los otros cuatro se cuelgan del inicio, así que para ellos
+// el día es siempre el de la actividad.
+function plantillas(nombre, actividad, inicioISO, enlace, yaInvitado, msgInv, tzOff, cuandoInvISO) {
   // La hora se calcula POR PERSONA: es el único dato del mensaje que depende de
   // dónde vive quien lo recibe. `tzOff` nulo = se anuncia hora Colombia, que es
   // lo que hacía el sistema antes de existir esta columna.
@@ -103,7 +111,10 @@ function plantillas(nombre, actividad, inicioISO, enlace, yaInvitado, msgInv, tz
     const tpl = (t === "invitacion" && msgInv && msgInv.trim())
       ? msgInv
       : (plantillasUsuario[clave] || PLANTILLAS_DEF[clave]);
-    out[t] = aplicar(tpl, { ...base, enlace: linkVal });
+    const sale = (t === "invitacion" && cuandoInvISO) ? cuandoInvISO : inicioISO;
+    out[t] = aplicar(tpl, {
+      ...base, enlace: linkVal, dia: etiquetaDia(inicioISO, sale, tzOff),
+    });
   }
   return out;
 }
@@ -165,7 +176,7 @@ function renderPrevPlantillas() {
   // El ejemplo usa una persona SIN desfase: es el caso mayoritario y así la
   // vista previa muestra el mismo texto que verá casi todo el mundo.
   const ej = { nombre: "Ana", actividad: "Operativa", hora: "7:00 p. m.",
-    zona: etiquetaZona(null), enlace: "https://…" };
+    dia: "hoy", zona: etiquetaZona(null), enlace: "https://…" };
   for (const t of CLAVES_TPL) {
     const ta = $("tpl_" + t), prev = $("prev_" + t);
     if (!ta || !prev) continue;
@@ -378,7 +389,8 @@ function renderPrevInvitacion() {
     ? horaCO(new Date(`2026-01-01T${$("segHora").value}:00`).toISOString())
     : "7:00 p. m.";
   prev.textContent = txt
-    ? aplicar(txt, { nombre: "Ana", actividad: nombreAct, hora, zona: etiquetaZona(null), enlace: "" })
+    ? aplicar(txt, { nombre: "Ana", actividad: nombreAct, hora, dia: diaDelForm(),
+        zona: etiquetaZona(null), enlace: "" })
     : "";
 }
 
@@ -388,6 +400,14 @@ function renderPrevInvitacion() {
 // Al reabrir una actividad guardada solo se conoce la URL, no el tipo: se
 // deduce de la extensión, que es exactamente el criterio con el que el worker y
 // el bridge deciden después. Si alguna vez dejan de coincidir, se ve aquí.
+// Para la vista previa del formulario: qué diría `{dia}` con la fecha que hay
+// escrita ahora mismo. Si todavía no hay fecha, se asume hoy.
+function diaDelForm() {
+  const f = $("segFecha").value, h = $("segHora").value || "12:00";
+  if (!f) return "hoy";
+  return etiquetaDia(new Date(`${f}T${h}:00`).toISOString(), new Date().toISOString(), null);
+}
+
 function setImgActividad(url, tipo) {
   segImg = url || null;
   segImgTipo = url ? (tipo || (/\.(mp4|mov)(\?|$)/i.test(url) ? "video" : "imagen")) : null;
@@ -826,6 +846,7 @@ function renderPrevMiInvitacion() {
   const txt = ($("segMiInv").value || "").trim();
   prev.textContent = txt
     ? aplicar(txt, { nombre: "Ana", actividad: actSel.nombre, hora: horaCO(actSel.inicio),
+        dia: etiquetaDia(actSel.inicio, new Date().toISOString(), null),
         zona: etiquetaZona(null), enlace: "" })
     : "";
 }
@@ -1114,6 +1135,27 @@ async function programar() {
   const porQue = segSinInvitacion
     ? "esa hora ya pasó"
     : `saldría${seOmiten.length === 1 ? "" : "n"} antes que la invitación`;
+  // Si la invitación sale un día distinto al de la actividad y el texto dice
+  // «hoy» a mano en vez de usar {dia}, ese mensaje va a mentir. Pasó de verdad:
+  // 64 invitaciones salieron diciendo «hoy» para actividades de 1 y 2 días
+  // después. Las plantillas por defecto ya usan {dia}, pero cada agente puede
+  // tener la suya guardada, así que el aviso protege también a quien no la haya
+  // actualizado.
+  const invTexto = (puedoPersonalizarInvitacion(actSel) && miInvitacion.trim())
+    ? miInvitacion
+    : (actSel.msg_invitacion
+       || plantillasUsuario.invitacion || PLANTILLAS_DEF.invitacion);
+  const diaQueDira = etiquetaDia(actSel.inicio, cuandoInv.toISOString(), null);
+  // No basta con buscar «hoy»: hay plantillas que dicen «esta noche tenemos»,
+  // que miente igual y además también se rompe si la actividad es de mañana.
+  const DICE_HOY = /\bhoy\b|\besta (noche|tarde|mañana)\b/i;
+  const loQueDice = (invTexto.match(DICE_HOY) || [""])[0].toLowerCase();
+  const avisoDia = (!segSinInvitacion && diaQueDira !== "hoy"
+                    && loQueDice && !invTexto.includes("{dia}"))
+    ? `\n\n⚠ La invitación dice «${loQueDice}», pero la actividad es ${diaQueDira}.`
+      + `\nCámbialo por {dia} en «✎ Mensajes» y saldrá solo.`
+    : "";
+
   const avisoOmitidos = seOmiten.length
     ? `\n\nNo se programa${seOmiten.length === 1 ? "" : "n"} ${seOmiten.join(" ni ")}: ${porQue}.`
     : "";
@@ -1132,7 +1174,7 @@ async function programar() {
   const n = seleccion.length;
   const primeros = seleccion.slice(0, 8).map(c => c.nombre.split(" ")[0]).join(", ");
   const mas = n > 8 ? ` y ${n - 8} más` : "";
-  const aviso = `Vas a programar los mensajes de «${actSel.nombre}» para ${n} persona${n === 1 ? "" : "s"}:\n${primeros}${mas}.${omitidos}${avisoInact}${avisoOmitidos}`;
+  const aviso = `Vas a programar los mensajes de «${actSel.nombre}» para ${n} persona${n === 1 ? "" : "s"}:\n${primeros}${mas}.${omitidos}${avisoInact}${avisoOmitidos}${avisoDia}`;
   if (!confirm(aviso + `\n\n¿Programar?`)) return;
 
   const btn = $("segProgramar");
@@ -1188,7 +1230,7 @@ async function programar() {
     for (const seg of segs) {
       const c = seleccion.find(x => x.id === seg.cliente_id);
       const tpl = plantillas(c.nombre, actSel.nombre, actSel.inicio, actSel.enlace,
-        yaInvitados.has(c.tel), invEfectiva, c.tzOff);
+        yaInvitados.has(c.tel), invEfectiva, c.tzOff, cuandoInv.toISOString());
       for (const [tipo, cuando] of tiempos()) {
         if (tipo !== "invitacion" && cuando <= primerContacto) continue;
         const fila = {
@@ -1472,7 +1514,11 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
   // una sola vez por persona, igual que al programar.
   const textos = new Map();
   for (const [id, d] of info) {
-    if (d.mio && d.nombre) textos.set(id, plantillas(d.nombre, nombreAct, nuevoInicioISO, enlace, false, msgInv, d.tzOff));
+    // La invitación de este seguimiento puede seguir pendiente para otro día:
+    // se usa su `enviar_en` real para que `{dia}` no diga «hoy» de más.
+    if (d.mio && d.nombre) textos.set(id, plantillas(d.nombre, nombreAct, nuevoInicioISO,
+      enlace, false, msgInv, d.tzOff,
+      invPendiente.has(id) ? new Date(invPendiente.get(id)).toISOString() : nuevoInicioISO));
   }
 
   const aCancelar = [];

@@ -5,7 +5,7 @@ import { SB } from "./supabase.js";
 import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
   esInactivo, nombreMotivo, motivoCorto,
   MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto,
-  rellenarEtiquetas, horaDeCliente, etiquetaZona } from "./state.js";
+  componerMensaje, horaDeCliente, etiquetaZona } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento } from "./data.js";
 import { canalVinculado } from "./canal.js";
 
@@ -49,8 +49,9 @@ function instanteReferencia() {
 // `crudo` es solo para la vista previa: mientras no haya hora elegida se deja
 // el token a la vista. Vaciarlo dejaba «a las **», que se puede confundir con
 // el resultado final; unas llaves se leen como «esto todavía no está puesto».
+// Mismo orden que en las plantillas de actividad: etiquetas y luego variantes.
 const resolverMensaje = (tpl, nombre, iso, tzOff, crudo = false) =>
-  rellenarEtiquetas(resolverSnippets(tpl), {
+  componerMensaje(tpl, {
     nombre: primerNombre(nombre),
     hora: iso ? horaDeCliente(iso, tzOff) : (crudo ? "{hora}" : ""),
     zona: iso ? etiquetaZona(tzOff) : (crudo ? "{zona}" : ""),

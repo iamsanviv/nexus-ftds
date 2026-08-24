@@ -172,7 +172,8 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <!-- editor de plantillas (oculto por defecto) -->
     <div id="segMsgsPanel" class="hidden msgspanel">
       <div class="pstitle">✎ Mensajes automáticos</div>
-      <div class="msgshelp">Usa estas etiquetas y se reemplazan solas: <code>{nombre}</code> <code>{actividad}</code> <code>{hora}</code> <code>{zona}</code> <code>{enlace}</code><br>
+      <div class="msgshelp">Usa estas etiquetas y se reemplazan solas: <code>{nombre}</code> <code>{actividad}</code> <code>{dia}</code> <code>{hora}</code> <code>{zona}</code> <code>{enlace}</code><br>
+        <code>{dia}</code> dice «hoy», «mañana» o el día que sea, según cuándo salga el mensaje. Escribirlo a mano hace que la invitación mienta si programas para otro día.<br>
         <code>{hora}</code> llega en la hora de cada persona si su perfil tiene diferencia horaria. <code>{zona}</code> aclara «(hora de tu país)» <b>solo</b> cuando esa hora vino convertida: con quien tiene tu misma hora no escribe nada, por eso en la vista previa de aquí abajo no se ve. Si escribiste «(hora Colombia)» a mano, cámbialo por <code>{zona}</code>.</div>
       <div class="msgshelp">Variantes: <code>{Hola|Qué más|Hey}</code> → a cada persona le llega una al azar, así no sale el mismo texto a todos (menos riesgo de bloqueo). No metas la hora ni el enlace dentro de una variante.</div>
       <div class="frow"><label>Invitación (bienvenida — al programar)</label><textarea id="tpl_invitacion" rows="3"></textarea><div class="tplprev" id="prev_invitacion"></div></div>
