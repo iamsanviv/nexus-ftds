@@ -531,6 +531,18 @@ function renderServicio() {
 // Clase de color por nivel; la misma familia que usan las tarjetas de conteo.
 const CLASE_NIVEL = { Lead: "lead", Beca: "beca", VIP: "vip", Platino: "plat", Oro: "oro" };
 
+/* Un date vacío se ve en blanco desde que le quitamos el «appearance» de iOS,
+   así que su placeholder (`data-ph`) se pinta por CSS solo mientras lleve la
+   clase `.fecha-vacia`. Esto la mantiene al día pase lo que pase con el valor:
+   al abrir, al escribir y al vaciarse. Se autoinstala una vez sobre los date
+   del formulario. */
+function refrescarPh(inp) { inp.classList.toggle("fecha-vacia", !inp.value); }
+["fCreado", "fComunidad"].forEach(id => {
+  const inp = $(id);
+  refrescarPh(inp);
+  inp.addEventListener("input", () => refrescarPh(inp));
+});
+
 /* El nivel decide QUÉ MÁS se pregunta, así que va primero y como fichas: un
    <select> escondía esa consecuencia detrás de un desplegable cerrado.
    `fMem` sigue existiendo como campo oculto, así que todo lo que lee el nivel
@@ -616,6 +628,7 @@ function abrirPerfil(c) {
   pintarSelectorEstado(c);
   ponerNivel(c.mem);
   $("fCreado").value = c.creado || ""; $("fComunidad").value = c.comunidadDesde || ""; $("fUpgrade").value = c.upgradeFecha || "";
+  refrescarPh($("fCreado")); refrescarPh($("fComunidad"));
   $("fNota").value = c.nota || "";
   // Al editar se precarga el dueño actual: el director también puede
   // reasignar un cliente a otro agente de su equipo.
@@ -715,6 +728,7 @@ function construirActividades(c) {
 function cerrarM() {
   $("overlay").classList.remove("open"); state.cliEdit = null;
   ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fComunidad", "fUpgrade"].forEach(i => $(i).value = "");
+  refrescarPh($("fCreado")); refrescarPh($("fComunidad"));
   pintarSelectorTz(null);
   pintarSelectorEstado(null);
   ponerNivel(state.modulo === "leads" ? "Lead" : "Beca");
@@ -738,6 +752,7 @@ $("abrirModal").onclick = () => {
   state.cliEdit = null;
   $("cliTitulo").textContent = state.modulo === "leads" ? "Nuevo lead" : "Nuevo cliente";
   ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fComunidad", "fUpgrade"].forEach(i => $(i).value = "");
+  refrescarPh($("fCreado")); refrescarPh($("fComunidad"));
   pintarSelectorTz(null);
   pintarSelectorEstado(null);
   ponerNivel(state.modulo === "leads" ? "Lead" : "Beca");
@@ -765,6 +780,7 @@ $("fNiveles").onclick = e => {
   // quedar vacía: es la que cuenta el FTD del mes.
   if (antes === "Lead" && !$("fComunidad").value) {
     $("fComunidad").value = hoyISO();
+    refrescarPh($("fComunidad"));
     if (state.cliEdit) toast(`Se convertirá a ${ahora} al guardar ✓`);
   }
 };

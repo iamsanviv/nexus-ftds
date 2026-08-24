@@ -21,6 +21,13 @@
   input[type="date"]{appearance:none;-webkit-appearance:none;min-width:0;display:block}
   input[type="date"]::-webkit-date-and-time-value{text-align:left;margin:0;min-width:0}
   input[type="date"]::-webkit-calendar-picker-indicator{margin:0}
+  /* Al quitarle el `appearance` de sistema, iOS deja de dibujar su propio
+     «dd/mm/aaaa» y el campo vacio queda en blanco. Se le devuelve un placeholder
+     desde `data-ph`: webkit SI pinta `::before` en un date, y solo cuando esta
+     vacio (`.fecha-vacia`, que pone el JS). El valor real, si lo hay, se dibuja
+     encima con su color normal. */
+  input[type="date"].fecha-vacia::before{content:attr(data-ph);color:#5d6876}
+  input[type="date"].fecha-vacia::-webkit-datetime-edit{opacity:0}
   /* Las dos mitades de una fila doble tampoco pueden encoger por debajo de su
      contenido si no se dice: `min-width:auto` es el defecto de un ítem flex. */
   .dual > div{min-width:0}
