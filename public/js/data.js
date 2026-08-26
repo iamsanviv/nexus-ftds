@@ -196,6 +196,22 @@ export async function guardarHistorialSegmento({ clienteIds, nombre, clave }) {
 // Si la migración de ventas todavía no se aplicó, las tablas no existen y esto
 // falla. En vez de tumbar la app entera, devuelve `instalado: false` y la vista
 // muestra un aviso: el resto del sistema tiene que seguir funcionando igual.
+/* Chats recientes del WhatsApp del agente, para «registrar desde un chat».
+   La llena el worker leyendo los bridges; aquí solo se lee.
+
+   Se pide A DEMANDA (al abrir el selector) y no en `cargarTodo`: son cientos
+   de filas que la mayoría de las sesiones no va a mirar nunca. El RLS ya
+   limita esto a los chats propios, así que no hay filtro por dueño acá. */
+export async function cargarChatsRecientes() {
+  const { data, error } = await SB
+    .from("chats_recientes")
+    .select("telefono,nombre_wa,ultimo_en")
+    .order("ultimo_en", { ascending: false })
+    .limit(300);
+  if (error) throw error;
+  return data || [];
+}
+
 export async function cargarVentas() {
   try {
     const [prod, par, met, ven, base, notas, mag] = await Promise.all([

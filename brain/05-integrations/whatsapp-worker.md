@@ -79,6 +79,27 @@ No habilitar una capacidad de frontend porque el formulario la acepte si el work
 - **los nueve bridges comparten un único ejecutable**: `/home/ubuntu/whatsapp-mcp/whatsapp-bridge/whatsapp-bridge-mt`. Cambiarlo los afecta a todos y exige recompilar y reiniciar los nueve servicios;
 - la copia de `whatsapp-mcp` que hay en WSL es de desarrollo y **no** es la que corre en producción; no confundirlas al leer código.
 
+## Identidades ocultas (LID) y nombres de usuario
+
+WhatsApp está retirando el teléfono como identificador visible. Con LID —y con los nombres de usuario, en despliegue por países desde julio de 2026— quien escribe llega identificado por una identidad oculta y la app **no muestra su número**.
+
+Medido el 26/08/2026 en los doce bridges: 9.157 chats `@lid` frente a 967 con número. El 99% de esos LID se resuelve a un teléfono real porque whatsmeow mantiene la tabla `whatsmeow_lid_map` (`lid` → `pn`) en el `whatsapp.db` de cada bridge.
+
+**No existe forma de escribirle a alguien conociendo solo su nombre de usuario.** Verificado en whatsmeow: no hay servidor de JID para usernames, `IsOnWhatsApp()` solo acepta teléfonos y no hay función que resuelva un handle a una identidad enviable. Lo único disponible es leer el username de alguien cuyo JID ya se conoce. Lo que sí se puede es registrar a quien **ya escribió**, resolviendo su LID.
+
+## Sincronización de chats recientes
+
+El worker corre además `chats_sync.py`, que cada `SYNC_CHATS` ciclos (15, ~5 min) lee los SQLite de los bridges en **solo lectura** y publica en `chats_recientes` los chats 1:1 de los últimos 30 días con su teléfono ya resuelto.
+
+Decisiones que conviene no deshacer:
+
+- **Lee los SQLite; no le pregunta al bridge.** Los doce bridges comparten un ejecutable: añadirle un endpoint obliga a recompilar y reiniciar los doce, y cada sesión caída se revincula por QR. El worker ya es vecino de los bridges y corre como el mismo usuario.
+- **Sube un agente por petición.** Un lote único se cae entero por una sola fila mala. Pasó de verdad: el bridge `juan_narvaez` apunta a un `owner_id` que ya no existe en `auth.users` y viola la FK; aislado, solo falla ese.
+- **Filtra números degenerados.** Un LID resolvía a `0`; sin filtro esa fila rompía el CHECK y perdía la sincronización de todo su agente.
+- **La poda calcula el corte explícitamente**, no a partir de lo sincronizado: un bridge caído no aporta filas y deducirlo de los datos daría un corte equivocado. El `DELETE` **siempre** lleva filtro.
+
+`WA_OWNER` del archivo `env` de cada bridge es lo que mapea directorio → agente.
+
 ## Tope diario y zona horaria
 
 Existe antecedente de un defecto donde el tope diario se calculaba con el día UTC. En Colombia la medianoche UTC ocurre a las 19:00, por lo que consumos nocturnos podían contarse contra el día siguiente y bloquear invitaciones legítimas.

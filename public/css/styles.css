@@ -195,6 +195,27 @@
   .nivchip.vip.on{color:var(--vip)}   .nivchip.plat.on{color:var(--plat)}
   .nivchip.oro.on{color:var(--oro)}
 
+  /* Traer los datos de un chat reciente. Va DENTRO del bloque «Quién es» y
+     con el verde de WhatsApp, no con el dorado de la app: es un atajo hacia
+     otro sitio, no la acción principal del formulario (esa es «Guardar»). */
+  .deschat{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+    background:rgba(70,194,138,.12);border:1px solid #2e6b50;color:var(--lead);
+    font-weight:700;font-size:.82rem;border-radius:11px;padding:11px;margin-bottom:11px}
+  .deschat svg{width:16px;height:16px}
+  .deschat:active{background:rgba(70,194,138,.2)}
+
+  /* Filas del selector: nombre arriba, número y cuándo escribió abajo. El
+     número se muestra SIEMPRE aunque haya nombre — es lo que se va a guardar,
+     y el agente tiene que poder reconocerlo antes de tocar. */
+  .chatfila{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;
+    text-align:left;padding:11px 12px;border-radius:11px;border:1px solid var(--border);
+    background:var(--surface2);margin-bottom:7px}
+  .chatfila:active{background:var(--hover)}
+  .chatnom{font-weight:700;font-size:.9rem;color:var(--text)}
+  .chatmeta{font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums}
+  #chatLista{max-height:52vh;overflow-y:auto}
+  #chatOverlay .buscar{margin-bottom:6px}
+
   .mbtns{display:flex;gap:8px;margin-top:16px}
   .mbtns .guardar{flex:2;background:var(--gold-fill);color:var(--on-gold);font-family:'Archivo';font-weight:800;border-radius:12px;padding:13px;font-size:.95rem}
   .mbtns .cancelar{flex:1;border:1px solid var(--border);border-radius:12px;color:var(--muted)}

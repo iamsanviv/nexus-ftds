@@ -7,7 +7,7 @@ import {
   OPCIONES_TZ, etiquetaOffset, horaDeCliente,
   MOTIVOS_INACTIVO, esInactivo, nombreMotivo, motivoCorto,
 } from "./state.js";
-import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio } from "./data.js";
+import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio, cargarChatsRecientes } from "./data.js";
 // repaso.js importa a ui.js: para no crear un ciclo, aquí solo se usa el
 // contador (función pura sobre `state`) y el modo manual se carga a demanda.
 import { repasoPendientes } from "./repaso.js";
@@ -560,6 +560,96 @@ function ponerNivel(sel) {
   $("rowComunidad").classList.toggle("hidden", lead);
 }
 
+/* ---------- registrar desde un chat reciente ----------
+
+   WhatsApp dejó de mostrar el número de quien escribe: con identidad oculta
+   —y con los nombres de usuario, desplegados por países desde julio de 2026—
+   el agente ve un nombre pero no puede copiar un número que no aparece.
+
+   El bridge sí lo sabe (whatsmeow guarda el mapa identidad→teléfono), y el
+   worker lo publica en `chats_recientes`. Esto solo lo lee y rellena el
+   formulario; el alta sigue siendo la de siempre.
+
+   Lo que se ofrece son los chats del WHATSAPP DEL AGENTE que consulta: el RLS
+   de la tabla es `owner_id = auth.uid()`, sin `puede_ver_de`. Un director no
+   ve los chats de su equipo — supervisa clientes, no su agenda personal. */
+let chatsCache = [];
+
+// El teléfono se compara SIEMPRE por dígitos: la tabla guarda '+57300…' y un
+// cliente viejo pudo quedar con espacios o guiones. Comparar el texto crudo
+// daría por «no registrado» a alguien que sí está.
+const soloDigitos = t => (t || "").replace(/\D/g, "");
+
+function pintarChats() {
+  const q = normBusqueda($("chatBuscar").value);
+  // Ya registrados: se comparan contra TODA la cartera visible, no solo contra
+  // el módulo abierto. Ofrecer a alguien que ya existe como lead terminaría en
+  // un duplicado con otro nivel.
+  const registrados = new Set(state.clientes.map(c => soloDigitos(c.tel)).filter(Boolean));
+  const libres = chatsCache.filter(c => !registrados.has(soloDigitos(c.telefono)));
+  const vis = q
+    ? libres.filter(c => normBusqueda(c.nombre_wa || "").includes(q) || soloDigitos(c.telefono).includes(soloDigitos(q) || "\u0000"))
+    : libres;
+
+  if (!vis.length) {
+    const motivo = !chatsCache.length
+      ? "No hay chats recientes. Aparecen aquí unos minutos después de que alguien te escriba."
+      : libres.length
+        ? "Ningún chat coincide con esa búsqueda."
+        : "Ya tienes registrados a todos los que te escribieron.";
+    $("chatLista").innerHTML = `<div class="vacio">${motivo}</div>`;
+    return;
+  }
+  $("chatLista").innerHTML = vis.slice(0, 120).map(c => `
+    <button type="button" class="chatfila" data-tel="${esc(c.telefono)}" data-nom="${esc(c.nombre_wa || "")}">
+      <span class="chatnom">${esc(c.nombre_wa || "Sin nombre en WhatsApp")}</span>
+      <span class="chatmeta">${esc(c.telefono)} · ${fechaCorta(c.ultimo_en)}</span>
+    </button>`).join("");
+}
+
+// «hoy» / «ayer» / «12 ago» — la fecha exacta no aporta para reconocer un chat.
+function fechaCorta(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  const dias = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if (dias <= 0) return "hoy";
+  if (dias === 1) return "ayer";
+  if (dias < 7) return `hace ${dias} días`;
+  return d.toLocaleDateString("es-CO", { day: "numeric", month: "short" });
+}
+
+async function abrirChats() {
+  $("chatBuscar").value = "";
+  $("chatLista").innerHTML = `<div class="vacio">Buscando tus chats…</div>`;
+  $("chatOverlay").classList.add("open");
+  try {
+    chatsCache = await cargarChatsRecientes();
+  } catch (e) {
+    chatsCache = [];
+    $("chatLista").innerHTML = `<div class="vacio">No pude leer tus chats recientes.</div>`;
+    return;
+  }
+  pintarChats();
+}
+
+function cerrarChats() { $("chatOverlay").classList.remove("open"); }
+
+$("btnDesdeChat").onclick = abrirChats;
+$("chatCerrar").onclick = cerrarChats;
+$("chatOverlay").onclick = e => { if (e.target.id === "chatOverlay") cerrarChats(); };
+$("chatBuscar").oninput = pintarChats;
+
+$("chatLista").onclick = e => {
+  const fila = e.target.closest(".chatfila");
+  if (!fila) return;
+  $("fTel").value = fila.dataset.tel;
+  // El nombre de WhatsApp es un punto de partida, no la verdad: el agente lo
+  // corrige si hace falta. Por eso no se pisa un nombre ya escrito.
+  if (!$("fNombre").value.trim() && fila.dataset.nom) $("fNombre").value = fila.dataset.nom;
+  cerrarChats();
+  $("fNombre").focus();
+};
+
 /* ---------- estado activa/inactiva en el perfil ---------- */
 
 // Un solo selector con los motivos aplanados, en vez de una casilla más un
@@ -623,6 +713,7 @@ function pintarEjemploTz() {
 function abrirPerfil(c) {
   state.cliEdit = c.id;
   $("cliTitulo").textContent = "Perfil de " + c.nombre;
+  $("btnDesdeChat").classList.add("hidden");
   $("fNombre").value = c.nombre; $("fPais").value = c.pais || ""; $("fTel").value = c.tel || "";
   pintarSelectorTz(c.tzOff);
   pintarSelectorEstado(c);
@@ -751,6 +842,7 @@ function renderDueno(seleccionado) {
 $("abrirModal").onclick = () => {
   state.cliEdit = null;
   $("cliTitulo").textContent = state.modulo === "leads" ? "Nuevo lead" : "Nuevo cliente";
+  $("btnDesdeChat").classList.remove("hidden");
   ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fComunidad", "fUpgrade"].forEach(i => $(i).value = "");
   refrescarPh($("fCreado")); refrescarPh($("fComunidad"));
   pintarSelectorTz(null);

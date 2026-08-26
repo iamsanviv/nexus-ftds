@@ -536,6 +536,13 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         <select id="fDueno"></select>
         <div class="msgshelp">Queda como cliente de esa persona: ella lo verá en su lista y podrá enviarle mensajes.</div>
       </div>
+      <!-- WhatsApp ya no muestra el número de quien escribe (identidad oculta y
+           nombres de usuario). Esto lo trae desde el propio chat, que es donde
+           el bridge sí lo sabe. Solo al CREAR: editando ya hay número. -->
+      <button type="button" class="deschat" id="btnDesdeChat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.9 8.9 0 0 1-4-.9L3 21l1.9-4.5A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg>
+        <span>Traer de un chat reciente</span>
+      </button>
       <div class="frow"><label>Nombre</label><input id="fNombre" placeholder="Ej: Carlos Pérez"></div>
       <div class="frow"><div class="dual">
         <div style="flex:1.3"><label>WhatsApp (con código de país)</label><input id="fTel" inputmode="tel" placeholder="+573001234567"></div>
@@ -580,6 +587,23 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <button class="cancelar" id="cerrarModal">Cancelar</button>
       <button class="guardar" id="guardarBtn">Guardar</button>
     </div>
+  </div>
+</div>
+
+<!-- Selector de chat reciente. Capa propia y no anidada dentro del modal de
+     persona: `.overlay` es position:fixed, así que anidarlo heredaría el
+     desplazamiento del formulario. -->
+<div class="overlay" id="chatOverlay">
+  <div class="modal">
+    <div class="mhead">
+      <h2>Chats recientes</h2>
+      <button class="mclose" id="chatCerrar" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <input class="buscar" id="chatBuscar" placeholder="Buscar por nombre o número…">
+    <div class="msgshelp">Quien te escribió en los últimos 30 días y todavía no está en tu lista.</div>
+    <div id="chatLista"></div>
   </div>
 </div>
 

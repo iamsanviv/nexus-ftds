@@ -14,6 +14,16 @@ Es más agresiva que `norm()` a propósito. `norm()` se sigue usando donde el te
 
 Si aparece un quinto buscador, tiene que usar la misma función: tener uno que distinga tildes y otro que no es peor que que ninguno lo haga, porque nadie sabe cuál es cuál.
 
+## Registrar desde un chat reciente
+
+WhatsApp ya no muestra el número de quien escribe, así que el agente no puede copiarlo. En el alta de persona hay «Traer de un chat reciente», que lista los chats de **su propio** WhatsApp de los últimos 30 días que todavía no están en su cartera, y rellena nombre y teléfono.
+
+- La tabla es `chats_recientes`, la llena el worker (ver `brain/05-integrations/whatsapp-worker.md`) y su RLS es **`owner_id = auth.uid()`, no `puede_ver_de`**. El contenido no es una cartera sino quién escribió a un WhatsApp personal, incluida gente que no es cliente. Un director supervisa clientes, no la agenda de su equipo.
+- Los agentes **no pueden escribir** en esa tabla: sin política de escritura, solo el service role. Si pudieran, se fabricarían un chat inexistente.
+- El botón solo aparece al CREAR. Editando ya hay número.
+- Los duplicados se descartan comparando **solo dígitos**: la tabla guarda `+57300…` y hay clientes viejos guardados con espacios.
+- El nombre de WhatsApp no pisa un nombre ya escrito: es punto de partida, no verdad.
+
 ## Filtros
 
 Los filtros de progreso (`En progreso` / `Completos` / `Todos` / `Inactivas`) y el de membresía son combinables y **funcionan igual en escritorio y en móvil**. La membresía se elige tocando las tarjetas de conteo, que son botones; las píldoras por nivel que existían solo en móvil se eliminaron porque eran un segundo mando para lo mismo. La vista abre en `En progreso` y una tira de estado explica el conjunto visible con un «Quitar filtros».
