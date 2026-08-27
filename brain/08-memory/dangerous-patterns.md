@@ -169,3 +169,29 @@ Cualquier manejador `async` que inserte una fila tiene esta carrera. Al escribir
 
 `seguimiento.js`, `ventas.js` y `masivo.js` ya bloqueaban los suyos; `ui.js` era el único que no.
 
+
+---
+
+## DP-011 — Leer el SQLite de un proceso vivo lo bloquea
+
+Detectado el 26/08/2026, en producción, con un mensaje real perdido.
+
+`chats_sync.py` lee las bases de los bridges para publicar los chats recientes. Se abrieron con `mode=ro`, dando por hecho que «solo lectura» no molesta a nadie.
+
+No es así. Las bases de los bridges están en **`journal_mode = delete`**, no WAL. En ese modo **un lector toma candado COMPARTIDO y con eso bloquea al escritor**. El bridge de Santiago Viveros falló al guardar una clave de remitente:
+
+```
+Error decrypting message ...: failed to store sender key ...: database is locked
+```
+
+Ese mensaje entrante se quedó sin descifrar. No hubo error visible en el panel ni en el worker: el daño ocurrió del lado del bridge.
+
+### Protección
+
+- para leer la base de otro proceso, `mode=ro` **no basta**: hay que añadir **`nolock=1`**, que no toma ningún candado;
+- el precio es leer a mitad de una escritura, así que cada lectura va en su propio `try/except` y una lectura corrupta (`database disk image is malformed`) solo salta a ese agente hasta el ciclo siguiente;
+- comprobar el modo antes de asumir nada: `PRAGMA journal_mode`. En WAL un lector no estorba; en `delete`, sí.
+
+### Señal para el futuro
+
+Cuando una función accesoria toca los datos de un proceso crítico, la pregunta no es «¿puedo leerlo?» sino «¿qué le cuesta a él que yo lea?». Enviar y recibir es lo que no puede fallar; publicar una lista de chats puede esperar un ciclo. Cuando las dos cosas compiten, la accesoria cede siempre.

@@ -97,8 +97,21 @@ Decisiones que conviene no deshacer:
 - **Sube un agente por petición.** Un lote único se cae entero por una sola fila mala. Pasó de verdad: el bridge `juan_narvaez` apunta a un `owner_id` que ya no existe en `auth.users` y viola la FK; aislado, solo falla ese.
 - **Filtra números degenerados.** Un LID resolvía a `0`; sin filtro esa fila rompía el CHECK y perdía la sincronización de todo su agente.
 - **La poda calcula el corte explícitamente**, no a partir de lo sincronizado: un bridge caído no aporta filas y deducirlo de los datos daría un corte equivocado. El `DELETE` **siempre** lleva filtro.
+- **Abre las bases con `nolock=1`, no solo con `mode=ro`.** Los SQLite de los bridges están en `journal_mode=delete`, donde un lector toma candado compartido y **bloquea al escritor**. Con solo `mode=ro` se vio al bridge de Santiago Viveros fallar al guardar una clave de remitente con «database is locked», y ese mensaje se quedó sin descifrar (26/08/2026). Enviar y recibir es lo que no puede fallar; esta sincronización es accesoria. El precio de `nolock=1` es leer a mitad de una escritura: por eso cada bridge va en su propio `try/except` y una lectura corrupta solo salta a ese agente hasta el ciclo siguiente.
 
 `WA_OWNER` del archivo `env` de cada bridge es lo que mapea directorio → agente.
+
+## `comando`: la orden de desvincular se queda encolada
+
+`canales_wa.comando` es cómo el panel le habla al bridge («desvincular»). El bridge la consume y la borra.
+
+**Un bridge que no lee esa columna deja la orden viva indefinidamente.** Pasó el 26/08/2026: Santiago Viveros corría el bridge original de un solo agente, que ni escribe estado/QR ni consume `comando`. Su «Desvincular» quedó guardado; al migrarlo al bridge multi-agente, este arrancó, se emparejó correctamente a las 00:39:34 y **cuatro segundos después consumió la orden vieja y cerró la sesión**. El panel mostró «vinculado» durante esos segundos y luego se congeló.
+
+Antes de vincular a alguien que venía de un bridge que no consumía comandos, comprobar que `comando is null`.
+
+## No todos los canales viven en la misma máquina
+
+`canales_wa` tenía 18 filas el 26/08/2026 y esta VM solo alberga 12 bridges; el resto corre en `10.0.0.23`. El constraint de unicidad de `puerto` es **global**, así que «el siguiente puerto libre en esta VM» no basta: al provisionar hay que elegir uno libre en la TABLA. Un intento de usar el 8093 chocó con el de María José, que corre en la otra máquina.
 
 ## Tope diario y zona horaria
 
