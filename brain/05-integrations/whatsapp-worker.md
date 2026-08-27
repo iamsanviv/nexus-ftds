@@ -109,6 +109,14 @@ Decisiones que conviene no deshacer:
 
 Antes de vincular a alguien que venía de un bridge que no consumía comandos, comprobar que `comando is null`.
 
+**Arreglado el 27/08/2026** en tres capas, porque una sola no bastaba:
+
+1. `canales_wa.comando_en` guarda cuándo se pidió la orden. La sella un **trigger** (`sellar_comando_canal`), no el panel: `authenticated` solo tiene UPDATE sobre `comando`, y dejarle escribir la fecha permitiría antedatar una orden para que pareciera fresca. El trigger solo la toca cuando el comando CAMBIA, así que un latido del bridge no rejuvenece una orden vieja.
+2. El panel (`canal.js`) no acepta la orden si el bridge no da señales de vida, y si a los 20 s nadie la recogió **la retira** y lo dice. Antes volvía a «Vinculado» sin explicar nada: ese era el bug que veía el agente.
+3. El worker caduca cada ciclo las órdenes de más de `COMANDO_TTL` (180 s) sin recoger. Cubre el caso de que el agente cierre el panel y no quede nadie del lado del navegador para limpiarla.
+
+`canales_wa.actualizado` es el **latido**: los bridges `-mt` lo reescriben cada ~30 s aunque no pase nada. El panel lo usa para no afirmar «vinculado» sobre una fila congelada — el 26/08/2026 la de Santiago Viveros llevaba un mes sin tocarse y el panel la mostraba como verdad mientras todos los envíos fallaban.
+
 ## No todos los canales viven en la misma máquina
 
 `canales_wa` tenía 18 filas el 26/08/2026 y esta VM solo alberga 12 bridges; el resto corre en `10.0.0.23`. El constraint de unicidad de `puerto` es **global**, así que «el siguiente puerto libre en esta VM» no basta: al provisionar hay que elegir uno libre en la TABLA. Un intento de usar el 8093 chocó con el de María José, que corre en la otra máquina.
