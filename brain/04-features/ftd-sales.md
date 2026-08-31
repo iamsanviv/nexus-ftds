@@ -67,6 +67,22 @@ La comisión aplicable se copia a la venta al crearla. Cambiar el catálogo desp
 
 `comision = 0` significa sin definir.
 
+## Comisión de los bots: no hay un porcentaje único
+
+`productos.comision` guarda un **monto**, no un porcentaje, así que el
+porcentaje solo existe en la cabeza de quien carga el precio. Hoy conviven dos:
+
+- familia **GoPro** → 25 % (siete precios, de $320 a $735 — `sql/2026-08-31_17_...`);
+- **Bot IA, GoTraders y Gold** → 30 %.
+
+Excepción viva: `gopro_vip` («Bot GoPro (Servicios VIP)», $135) sigue al 30 %
+porque no venía en la lista de precios del dueño; queda pendiente de que él
+decida.
+
+Consecuencia práctica: al cambiar el precio de un bot hay que **recalcular la
+comisión a mano** con el porcentaje de SU familia. Asumir 30 % para todos ya es
+un error.
+
 ## Facturado y saldada
 
 No existe un booleano autoritativo de "saldada": se deduce de los abonos.
