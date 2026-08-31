@@ -75,9 +75,8 @@ porcentaje solo existe en la cabeza de quien carga el precio. Hoy conviven dos:
 - familia **GoPro** → 25 % (siete precios, de $320 a $735 — `sql/2026-08-31_17_...`);
 - **Bot IA, GoTraders y Gold** → 30 %.
 
-Excepción viva: `gopro_vip` («Bot GoPro (Servicios VIP)», $135) sigue al 30 %
-porque no venía en la lista de precios del dueño; queda pendiente de que él
-decida.
+No hay excepciones dentro de cada familia: `gopro_vip` («Servicios VIP», $135)
+era la única y quedó retirada (`activo = false`, `sql/2026-08-31_18_...`).
 
 Consecuencia práctica: al cambiar el precio de un bot hay que **recalcular la
 comisión a mano** con el porcentaje de SU familia. Asumir 30 % para todos ya es
