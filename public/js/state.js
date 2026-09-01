@@ -2,6 +2,28 @@
 // Todos los módulos leen y mutan este mismo objeto `state`.
 import { NIVEL, REQ_DESDE } from "./config.js";
 
+/* ---------- el día de hoy, SIEMPRE en hora Colombia ----------
+   Antes esto era `new Date().toISOString()`, que da la fecha en UTC. Colombia
+   es UTC-5, así que entre las 7 p. m. y la medianoche el sistema ya estaba en
+   el día siguiente: el 31 de agosto a las 8 p. m. el panel decía septiembre y
+   el mes se cerraba cinco horas antes de tiempo.
+
+   Se fija la zona en vez de usar la del equipo a propósito: el cierre de mes
+   es el mismo para todo el equipo, y no puede depender de cómo tenga
+   configurado el reloj quien abra el panel (o de que viaje). Colombia no tiene
+   horario de verano, pero se declara la zona y no un -5 fijo para que sea el
+   navegador —no nosotros— quien mantenga esa regla. */
+const FECHA_CO = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit",
+});
+// formatToParts y no format(): así el resultado no depende de con qué
+// separador ni en qué orden decida escribir la fecha la configuración regional.
+function fechaCO(d = new Date()) {
+  const p = {};
+  for (const { type, value } of FECHA_CO.formatToParts(d)) p[type] = value;
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
 export const state = {
   clientes: [],
   catalogo: [],
@@ -38,14 +60,14 @@ export const state = {
   // en vez de dejar la pantalla en blanco.
   ventasOk: false,
   ventasError: "",
-  ventasPeriodo: new Date().toISOString().slice(0, 7),   // "YYYY-MM"
+  ventasPeriodo: fechaCO().slice(0, 7),   // "YYYY-MM", en hora Colombia
   ventaEdit: null,
   ventasAbiertas: new Set(),
 };
 
 /* ---------- utilidades DOM ---------- */
 export const $ = id => document.getElementById(id);
-export const hoyISO = () => new Date().toISOString().slice(0, 10);
+export const hoyISO = () => fechaCO();
 export const fmtF = iso => { const p = (iso || "").split("-"); return p.length === 3 ? `${p[2]}/${p[1]}` : (iso || ""); };
 export const esc = s => (s || "").replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m]));
 // Para búsquedas: minúsculas y sin acentos ("César" → "cesar").

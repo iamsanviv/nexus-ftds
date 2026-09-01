@@ -195,3 +195,32 @@ Ese mensaje entrante se quedó sin descifrar. No hubo error visible en el panel 
 ### Señal para el futuro
 
 Cuando una función accesoria toca los datos de un proceso crítico, la pregunta no es «¿puedo leerlo?» sino «¿qué le cuesta a él que yo lea?». Enviar y recibir es lo que no puede fallar; publicar una lista de chats puede esperar un ciclo. Cuando las dos cosas compiten, la accesoria cede siempre.
+
+## `toISOString()` para fechas de calendario: el mes se cierra en UTC
+
+`hoyISO()` era `new Date().toISOString().slice(0, 10)`. `toISOString()` devuelve
+**UTC**, y Colombia es UTC-5: entre las 7 p. m. y la medianoche el sistema ya
+estaba en el día siguiente. El 31 de agosto a las 8 p. m. el panel decía
+septiembre, con lo que el mes de FTD y ventas se cerraba **cinco horas antes de
+tiempo** y lo vendido esa noche caía en el periodo equivocado.
+
+Es traicionero porque no falla nunca en horario de oficina: solo aparece en la
+franja de la noche, y justo la última noche del mes es cuando hace daño.
+
+### Protección
+
+- para una fecha de CALENDARIO (día, mes, periodo) hay que fijar la zona:
+  `Intl.DateTimeFormat` con `timeZone: "America/Bogota"`, no `toISOString()`;
+- se fija la zona en vez de usar la del equipo porque el cierre de mes es el
+  mismo para todo el equipo: no puede depender de cómo tenga el reloj quien
+  abra el panel;
+- se declara la zona y no un `-5` fijo, para que sea el navegador quien
+  mantenga esa regla;
+- `formatToParts` y no `format`, para no depender del separador ni del orden
+  que decida la configuración regional.
+
+### Dónde NO aplica
+
+Una DURACIÓN (por ejemplo «días desde la última asistencia» en `stats.js`) resta
+dos instantes y no cruza ningún borde de calendario: ahí `new Date()` está bien.
+La distinción es día-calendario contra instante.
