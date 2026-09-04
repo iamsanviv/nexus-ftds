@@ -224,3 +224,31 @@ franja de la noche, y justo la última noche del mes es cuando hace daño.
 Una DURACIÓN (por ejemplo «días desde la última asistencia» en `stats.js`) resta
 dos instantes y no cruza ningún borde de calendario: ahí `new Date()` está bien.
 La distinción es día-calendario contra instante.
+
+## Descargar un recurso una vez por destinatario
+
+El worker de WhatsApp bajaba el archivo de Storage por cada mensaje, no por cada
+archivo. Enviar un video de 9 MB a 60 personas costaba 540 MB de egress. En
+agosto de 2026 eso se comió ~4 GB de los 5 GB/mes del plan free de Supabase.
+
+Es traicionero por dos razones. Primero, **no se ve**: el envío funciona
+perfecto, nadie reporta nada y el costo solo aparece semanas después en un aviso
+de cuota. Segundo, **escala con el éxito**: cuanto mejor funciona una campaña,
+más caro sale, y el salto fue de 180 MB en julio a 4 GB en agosto sin que nadie
+cambiara código.
+
+### Protección
+
+- separar SIEMPRE «cuántos envíos» de «cuántos recursos distintos». Si un bucle
+  por destinatario contiene una descarga, una subida o una llamada externa que
+  depende solo del contenido, está multiplicando por N algo que es 1;
+- cachear en disco y no en memoria cuando el proceso puede reiniciarse entre
+  lotes;
+- al meter una caché, revisar quién BORRA el archivo: el borrado que era
+  correcto con un temporal por mensaje destruye la caché compartida.
+
+### Señal para el futuro
+
+Cuando un costo crece de golpe sin que nadie haya tocado el código, el candidato
+no es el volumen de datos sino un factor de multiplicación escondido en un bucle.
+Medir recursos distintos contra operaciones totales lo delata en una consulta.

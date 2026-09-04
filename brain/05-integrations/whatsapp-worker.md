@@ -71,6 +71,29 @@ El worker resuelve recursos al enviar según su implementación vigente. Histór
 
 No habilitar una capacidad de frontend porque el formulario la acepte si el worker no sabe entregarla correctamente.
 
+### Caché de multimedia (04/09/2026)
+
+El worker bajaba el archivo **una vez por destinatario**. Un video de 9 MB a 60
+personas eran 540 MB de egress para mandar 9 MB. En agosto de 2026 eso consumió
+~4 GB de los 5 GB/mes del plan free de Supabase y disparó el aviso de cuota: el
+81 % del egress lo generaron 337 envíos de video, el 11 % de los envíos.
+
+Se preparó `media_cache.py` (caché en disco, junto al worker, sin dependencias
+nuevas). Los mismos envíos de agosto habrían costado 118 MB: 84 archivos
+distintos en vez de 3.571 descargas.
+
+Dos invariantes al integrarla:
+
+- **quien envía NO borra la ruta.** El worker borraba el temporal al terminar;
+  con caché eso hay que quitarlo, o no sirve de nada y además puede destruir el
+  archivo mientras otro envío lo lee;
+- **la clave conserva la extensión.** El bridge decide imagen/video/nota de voz
+  por la extensión: una caché que guarde sin ella manda todo como documento.
+
+La caché es en disco y no en memoria porque el servicio puede reiniciarse entre
+lotes, justo entre las dos campañas que más se benefician.
+
+
 ## Dónde vive de verdad (verificado 20/08/2026)
 
 - VM: `ubuntu@141.148.40.31`, llave `~/.ssh/nexus_oracle`;
