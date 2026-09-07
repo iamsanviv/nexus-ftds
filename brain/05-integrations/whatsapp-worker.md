@@ -87,8 +87,17 @@ Dos invariantes al integrarla:
 - **quien envía NO borra la ruta.** El worker borraba el temporal al terminar;
   con caché eso hay que quitarlo, o no sirve de nada y además puede destruir el
   archivo mientras otro envío lo lee;
-- **la clave conserva la extensión.** El bridge decide imagen/video/nota de voz
-  por la extensión: una caché que guarde sin ella manda todo como documento.
+- **la clave conserva la extensión**, incluido el fallback `.jpg` que tenía
+  `descargar_media`. El bridge decide imagen/video/nota de voz por la
+  extensión: una caché que guarde sin ella manda todo como documento;
+- **el audio NO se convierte desde el archivo cacheado.** `convertir_a_ogg`
+  arma su salida como `ruta + ".conv.ogg"` y ffmpeg corre con `-y`. Con la
+  caché, la entrada pasa a ser una ruta COMPARTIDA, así que dos envíos
+  simultáneos de la misma nota de voz escribirían y borrarían el mismo `.ogg`
+  y uno de los dos saldría corrupto. Se convierte desde una copia local de
+  nombre único (`mkstemp`), que no cuesta egress. Antes no podía ocurrir
+  porque cada descarga era un `mkstemp` distinto: la caché es la que
+  introduce el recurso compartido.
 
 La caché es en disco y no en memoria porque el servicio puede reiniciarse entre
 lotes, justo entre las dos campañas que más se benefician.
