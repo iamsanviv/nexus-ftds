@@ -51,3 +51,27 @@ El SMTP de desarrollo de Supabase no debe asumirse suficiente para uso real o pr
 - [[../03-domain/roles-hierarchy]]
 - [[../02-architecture/security-rls]]
 - [[../08-memory/database-security-traps]]
+## Modo mantenimiento
+
+`window.NX_MANT`, en el `<head>` de `public/index.html`. Para apagarlo:
+`activo: false`. Es lo único que hay que tocar.
+
+Son **dos puertas y hacen falta las dos**:
+
+- la del `<head>` decide quién CARGA la app. Vive fuera de los módulos a
+  propósito: `main.js` habla con Supabase apenas carga, así que un aviso
+  pintado desde dentro de la app mostraría el error de red encima del aviso
+  cuando el servicio esté caído. Se pasa con `?acceso=<clave>`, que queda
+  recordado en `localStorage` y se borra de la URL;
+- la de `auth.js` (`entrar()`) decide quién ENTRA, comparando `user.id` contra
+  `duenoId`. La primera no puede mirar la sesión porque corre antes de que
+  exista, y la segunda no puede evitar que se carguen los módulos.
+
+**Nada de esto es seguridad.** La clave viaja en la URL y está en el bundle
+público; el `duenoId` se comprueba en el cliente. Es una puerta de servicio
+para revisar el sistema mientras el equipo ve el aviso. Lo que protege los
+datos sigue siendo RLS.
+
+La vista (`#mantScreen`, `.mant*` en `styles.css`) usa solo tokens, incluido
+`--gold-soft` para el degradado —que sí está definido en los dos temas, a
+diferencia del de `.authpane`—, así que sigue el modo claro/oscuro sola.
