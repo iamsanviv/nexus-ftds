@@ -80,6 +80,12 @@ window.NX_MANT = {
     </div>
     <div class="manttit">Estamos en mantenimiento</div>
     <p class="manttxt">Volvemos pronto. Tus clientes, tus ventas y tus FTD están intactos.</p>
+    <div class="mantreloj">
+      <div class="mantu"><b id="mrD">--</b><span>Días</span></div>
+      <div class="mantu"><b id="mrH">--</b><span>Horas</span></div>
+      <div class="mantu"><b id="mrM">--</b><span>Min</span></div>
+      <div class="mantu"><b id="mrS">--</b><span>Seg</span></div>
+    </div>
   </div>
 </div>
 
@@ -946,6 +952,28 @@ window.NX_MANT = {
   var m = window.NX_MANT;
   if (m.activo && !m.pasa) {
     document.getElementById("mantScreen").classList.remove("hidden");
+
+    // Cuenta regresiva al sábado 12 de septiembre, 00:00 en Colombia.
+    //
+    // Se fija el INSTANTE en UTC (Colombia es UTC-5 y no tiene horario de
+    // verano) en vez de armar la fecha con el reloj del equipo. Así marca lo
+    // mismo para todos: un agente en México, Perú, Chile o España ve el mismo
+    // tiempo restante, porque lo que falta para un instante dado es igual en
+    // todas partes. Con `new Date("2026-09-12T00:00")` cada quien vería su
+    // propia medianoche, que es justo el error que ya nos costó un mes.
+    var META = Date.UTC(2026, 8, 12, 5, 0, 0);
+    var pon = function (id, v) {
+      document.getElementById(id).textContent = v < 10 ? "0" + v : String(v);
+    };
+    var pinta = function () {
+      var s = Math.max(0, Math.floor((META - Date.now()) / 1000));
+      pon("mrD", Math.floor(s / 86400));
+      pon("mrH", Math.floor(s / 3600) % 24);
+      pon("mrM", Math.floor(s / 60) % 60);
+      pon("mrS", s % 60);
+    };
+    pinta();
+    setInterval(pinta, 1000);
     return;
   }
   var s = document.createElement("script");
