@@ -103,6 +103,35 @@ La caché es en disco y no en memoria porque el servicio puede reiniciarse entre
 lotes, justo entre las dos campañas que más se benefician.
 
 
+## Sondeo adaptativo (12/09/2026)
+
+`main()` sondeaba la cola cada `CICLO_SEG` (20 s) SIEMPRE, 24/7. Como `ciclo()`
+corta con `return` apenas la cola viene vacía, en reposo cada vuelta solo
+gastaba dos llamadas —`caducar_comandos()` (PATCH) y `pendientes()` (GET)—,
+pero eran ~4.320 vueltas al día. Ese es el gasto PLANO que se vio en la gráfica
+de egress: un domingo de 5 mensajes costaba lo mismo que un jueves de 984,
+porque no dependía de los mensajes sino del reloj.
+
+El arreglo NO toca esas dos funciones: cuando no hay cola, `main()` duerme
+hasta el próximo `enviar_en` (`proximo_pendiente()`), con piso `SLEEP_MIN` (5 s)
+y techo por franja de Colombia —`TOPE_DIA` 60 s entre 8 y 22 h, `TOPE_NOCHE`
+300 s de madrugada—. Con cola, drena a `CICLO_SEG`. Así las dos llamadas de
+reposo bajan de frecuencia solas.
+
+Lo que NO se hizo, a propósito:
+
+- **`cargar_canales()` no se cachea.** Solo se pide cuando SÍ hay mensajes, y
+  su frescura sostiene la regla de enrutar por `owner_id`: una lista de canales
+  vieja podría mandar por el bridge de un agente que acaba de desvincularse.
+- **`chats_sync` pasó a cadencia por RELOJ** (`SYNC_SEG`, 300 s) en vez de por
+  número de vueltas. Con el sondeo durmiendo distinto cada vez, atarlo a las
+  vueltas lo volvía impredecible; por reloj mantiene su comportamiento de hoy
+  (~cada 5 min). Sigue siendo un origen de egress de fondo: si tras esto el
+  gasto no baja lo suficiente, es el siguiente a medir.
+
+La franja usa hora de Colombia fijando UTC-5 (sin horario de verano), la misma
+regla que `hoyISO()`.
+
 ## Dónde vive de verdad (verificado 20/08/2026)
 
 - VM: `ubuntu@141.148.40.31`, llave `~/.ssh/nexus_oracle`;
