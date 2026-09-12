@@ -75,15 +75,3 @@ datos sigue siendo RLS.
 La vista (`#mantScreen`, `.mant*` en `styles.css`) usa solo tokens, incluido
 `--gold-soft` para el degradado —que sí está definido en los dos temas, a
 diferencia del de `.authpane`—, así que sigue el modo claro/oscuro sola.
-
-### Cuenta regresiva
-
-El aviso lleva un reloj a días/horas/minutos/segundos. El objetivo se fija como
-un **instante en UTC** (`Date.UTC(2026, 8, 12, 5, 0, 0)` = 12 sep 00:00 en
-Colombia), no como una fecha local: lo que falta para un instante dado es igual
-en todas partes, así que un agente en México, Perú, Chile o España ve el mismo
-tiempo restante. Con `new Date("2026-09-12T00:00")` cada quien vería su propia
-medianoche — la misma familia de error que costó el mes en `hoyISO()`.
-
-Se queda en ceros al llegar, nunca en negativo, y no recarga sola. Cambiar la
-fecha o quitar el reloj es editar ese bloque en el `<head>`.

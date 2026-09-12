@@ -314,15 +314,6 @@
   .mantico svg{width:27px;height:27px}
   .manttit{font-family:'Archivo';font-size:1.5rem;font-weight:800;letter-spacing:-.02em;line-height:1.15;margin-top:20px}
   .manttxt{font-size:.88rem;color:var(--muted);line-height:1.55;margin:10px auto 0;max-width:32ch}
-  /* Cuatro bloques, mismo vocabulario que las tarjetas de conteo de Personas.
-     `tabular-nums` es obligatorio: sin él los dígitos cambian de ancho cada
-     segundo y el reloj entero baila. */
-  .mantreloj{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:26px}
-  .mantu{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:11px 4px}
-  .mantu b{display:block;font-family:'Archivo';font-size:1.5rem;font-weight:800;line-height:1;
-    color:var(--gold);font-variant-numeric:tabular-nums}
-  .mantu span{display:block;font-size:.6rem;font-weight:700;letter-spacing:.1em;
-    text-transform:uppercase;color:var(--muted);margin-top:7px}
   .hidden{display:none!important}
   @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 
