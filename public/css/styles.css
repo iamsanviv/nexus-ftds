@@ -296,24 +296,6 @@
   .autherr{background:rgba(242,85,90,.12);border:1px solid rgba(242,85,90,.35);color:#ff9ca0;font-size:.8rem;padding:10px 12px;border-radius:10px;margin-bottom:14px;display:none}
   .autherr.show{display:block}
   .setup{background:rgba(232,184,75,.08);border:1px solid var(--gold-dim);color:#e8cf95;font-size:.8rem;padding:14px;border-radius:12px;line-height:1.5}
-  /* ---- Aviso de mantenimiento ----
-     Se pinta antes de cargar los módulos y sin tocar Supabase, así que no
-     depende de que el servicio responda. Solo tokens: sigue el tema como
-     cualquier otra vista, incluido el degradado (`--gold-soft` sí está
-     definido en los dos temas, a diferencia del de `.authpane`). */
-  #mantScreen{position:fixed;inset:0;z-index:80;background:var(--bg);
-    display:flex;align-items:center;justify-content:center;padding:24px}
-  .mantcard{width:100%;max-width:420px;background:var(--surface);
-    border:1px solid var(--border);border-radius:18px;padding:36px 30px;text-align:center;
-    background-image:radial-gradient(110% 80% at 50% 0%, var(--gold-soft), transparent 62%)}
-  .mantmarca{font-family:'Archivo';font-size:.82rem;font-weight:800;letter-spacing:-.01em;color:var(--muted)}
-  .mantmarca span{color:var(--gold)}
-  .mantico{width:58px;height:58px;margin:26px auto 0;border-radius:16px;
-    background:var(--surface2);border:1px solid var(--border);color:var(--gold);
-    display:flex;align-items:center;justify-content:center}
-  .mantico svg{width:27px;height:27px}
-  .manttit{font-family:'Archivo';font-size:1.5rem;font-weight:800;letter-spacing:-.02em;line-height:1.15;margin-top:20px}
-  .manttxt{font-size:.88rem;color:var(--muted);line-height:1.55;margin:10px auto 0;max-width:32ch}
   .hidden{display:none!important}
   @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 

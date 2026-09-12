@@ -31,57 +31,8 @@
 // /i (o /i/) y no somos i.html, es que la red se activó: se reenvía al puente.
 if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.search);
 </script>
-
-<script>
-// ================= MANTENIMIENTO =================
-//
-// Para APAGARLO: `activo: false`. Es lo único que hay que tocar.
-//
-// La puerta vive aquí, en el <head> y fuera de los módulos, por una razón
-// concreta: `main.js` habla con Supabase apenas carga. Si el aviso se pintara
-// desde dentro de la app, con el servicio caído el agente vería el error crudo
-// de red encima del aviso. Así los módulos ni siquiera se cargan.
-//
-// `clave` NO es seguridad, es una puerta de servicio para revisar el sistema
-// mientras los demás ven el aviso: viaja en la URL y cualquiera que la vea
-// puede repetirla. Lo que protege los datos sigue siendo RLS, no esto. Por eso
-// además se comprueba el DUEÑO después de iniciar sesión (ver auth.js): entrar
-// por la puerta de servicio te deja ver el login, pero no te vuelve el dueño.
-window.NX_MANT = {
-  activo: true,
-  duenoId: "a70d2670-74b2-4eb7-be6e-ed3c92068c14",
-  clave: "nx-santiago",
-};
-
-(function () {
-  var m = window.NX_MANT;
-  if (!m.activo) { m.pasa = true; return; }
-  var url = new URLSearchParams(location.search);
-  var deUrl = url.get("acceso") === m.clave;
-  try {
-    // Se recuerda en el equipo para no tener que repetir la clave en cada
-    // recarga, y se limpia la URL para que no quede a la vista de nadie.
-    if (deUrl) { localStorage.setItem("nx.mant", m.clave); history.replaceState(null, "", location.pathname); }
-    m.pasa = localStorage.getItem("nx.mant") === m.clave;
-  } catch (e) {
-    m.pasa = deUrl;   // navegación privada: sirve para esta visita
-  }
-})();
-</script>
 </head>
 <body>
-
-<!-- ===== AVISO DE MANTENIMIENTO (lo enciende/apaga NX_MANT en el <head>) ===== -->
-<div id="mantScreen" class="hidden">
-  <div class="mantcard">
-    <div class="mantmarca">Seguimiento <span>FTDs y Ventas</span></div>
-    <div class="mantico">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-    </div>
-    <div class="manttit">Estamos en mantenimiento</div>
-    <p class="manttxt">Volvemos pronto. Tus clientes, tus ventas y tus FTD están intactos.</p>
-  </div>
-</div>
 
 <!-- ================= PANTALLA DE LOGIN ================= -->
 <div id="authScreen" class="hidden">
@@ -939,20 +890,7 @@ window.NX_MANT = {
 
 <div class="toast" id="toast"></div>
 
-<script>
-// Los módulos se cargan SOLO si no hay mantenimiento (o si se pasó la puerta).
-// Ver el porqué en el bloque NX_MANT del <head>.
-(function () {
-  var m = window.NX_MANT;
-  if (m.activo && !m.pasa) {
-    document.getElementById("mantScreen").classList.remove("hidden");
-    return;
-  }
-  var s = document.createElement("script");
-  s.type = "module"; s.src = "js/main.js";
-  document.body.appendChild(s);
-})();
-</script>
+<script type="module" src="js/main.js"></script>
 
 </body>
 </html>

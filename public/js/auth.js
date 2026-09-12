@@ -44,21 +44,6 @@ function traducirError(err) {
 
 async function entrar() {
   const { data: { user } } = await SB.auth.getUser();
-
-  // Mantenimiento: la puerta del <head> decide quién CARGA la app; esto decide
-  // quién ENTRA. Hacen falta las dos. La primera no puede mirar la sesión
-  // (corre antes de que exista) y esta no puede evitar que se carguen los
-  // módulos, así que una sin la otra deja un hueco: con solo la del <head>,
-  // quien tuviera la clave de servicio entraría como si nada.
-  const mant = window.NX_MANT;
-  if (mant && mant.activo && user && user.id !== mant.duenoId) {
-    $("app").classList.add("hidden");
-    $("authScreen").classList.add("hidden");
-    $("pendScreen").classList.add("hidden");
-    $("mantScreen").classList.remove("hidden");
-    return;
-  }
-
   let { data: prof } = await SB.from("profiles")
     .select("id,full_name,role,aprobado,director_id,rechazado_en").eq("id", user.id).single();
   if (!prof) { prof = { id: user.id, full_name: "", role: "agente", aprobado: false }; }
