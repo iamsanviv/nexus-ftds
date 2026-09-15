@@ -300,3 +300,46 @@ realidad no liberaba nada; el caso pasó a verde por el motivo equivocado.
 Cuando lo que se prueba es el comportamiento de OTRA herramienta, hay que
 preguntárselo a esa herramienta. La prueba de `bajas.py` lanza `bash -c 'for d
 in .../*/'` justamente por esto.
+
+## Una ruta absoluta como contrato entre dos máquinas
+
+El 15/09/2026, un video enviado por José Leonardo Angarita (bridge en
+`10.0.0.23`, no en la máquina del worker) empezó a fallar con `no pude copiar
+la imagen: [Errno 2] No such file or directory`. 17 invitaciones a un Zoom no
+salieron.
+
+`_copiar_media()` hace `scp ruta ubuntu@host:ruta` — copia al **mismo camino
+absoluto** en la otra máquina. Eso era correcto mientras `descargar_media()`
+bajaba a `/tmp`, que existe igual en las dos VM. El 07/09 se integró una caché
+de multimedia (ver arriba) que cambió el origen a
+`/home/ubuntu/nexus-worker/cache-media/...`, un directorio que solo se crea
+donde corre el worker. Nadie tocó `_copiar_media()`: dejó de ser cierto sin que
+cambiara una sola línea suya.
+
+Se rompió en silencio **diez días**: la última multimedia hacia esa máquina
+antes del cambio fue el 05/09, la siguiente el 15/09, y para entonces nadie
+recordaba que la caché tocaba esa ruta.
+
+### Protección
+
+Una ruta de archivo que cruza a otra máquina por `scp`/`rsync`/similar es un
+**contrato de infraestructura**, no un detalle interno de quien la genera. Antes
+de cambiar DÓNDE vive un archivo (mover un temporal a una caché, cambiar de
+`/tmp` a un directorio propio, etc.), buscar todo lo que asume ese camino en
+la OTRA punta — típicamente `grep` por el nombre de la función que lo genera,
+no solo por la ruta literal, porque quien la consume puede reconstruirla en
+vez de recibirla.
+
+La revisión de la caché de multimedia (04/09) sí cazó dos usos compartidos
+(el borrado al terminar, la conversión de audio) pero no este tercero, porque
+vive en una función distinta (`_copiar_media`, en la sección de envío, no en
+la de descarga) que nunca menciona `descargar_media` por nombre. Buscar por
+quién LEE la ruta que devuelve una función es más seguro que enumerar de
+memoria quién la usa.
+
+### Señal para el futuro
+
+Un error que dice literalmente el nombre del host remoto y "No such file or
+directory" casi siempre significa que el lado local y el remoto dejaron de
+compartir un supuesto sobre rutas. Confirmar en minutos con un SSH manual
+(`ls` del directorio esperado en la otra punta) antes de teorizar.

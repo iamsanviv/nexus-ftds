@@ -97,7 +97,19 @@ Dos invariantes al integrarla:
   y uno de los dos saldría corrupto. Se convierte desde una copia local de
   nombre único (`mkstemp`), que no cuesta egress. Antes no podía ocurrir
   porque cada descarga era un `mkstemp` distinto: la caché es la que
-  introduce el recurso compartido.
+  introduce el recurso compartido;
+- **la copia a un bridge en OTRA máquina también comparte la ruta, y esta sí
+  se rompió en producción.** `_copiar_media()` copia el archivo al mismo
+  camino absoluto en el host remoto (`scp ruta ubuntu@host:ruta`). Mientras
+  `descargar_media` bajaba a `/tmp`, ese camino existía en las dos máquinas.
+  Desde la caché (07/09), el origen es
+  `/home/ubuntu/nexus-worker/cache-media/...`, que **no existe en la otra
+  VM**, y el `scp` fallaba con «No such file or directory». Se rompió en
+  silencio: la última multimedia hacia esa máquina antes del defecto fue el
+  05/09 y la siguiente fue el 15/09 — diez días dormido — y esa vez costó 17
+  invitaciones de un Zoom que no salieron. Arreglado el 15/09: la copia
+  remota vuelve a ir a `/tmp` con nombre único por envío (mismo motivo que el
+  `.ogg`: la clave es un hash del contenido, no del destinatario).
 
 La caché es en disco y no en memoria porque el servicio puede reiniciarse entre
 lotes, justo entre las dos campañas que más se benefician.
