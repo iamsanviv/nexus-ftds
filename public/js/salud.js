@@ -20,7 +20,7 @@ async function leerSalud() {
   // ellas: el panel sigue funcionando (sin el botón «Ya lo vi») en vez de
   // romperse, así el orden entre desplegar y correr el SQL deja de importar.
   let { data, error } = await SB.from("salud_canales")
-    .select(CAMPOS_BASE + ", alertar, alerta_vista_en, ultimo_fallo_en");
+    .select(CAMPOS_BASE + ", alertar, alerta_vista_en, ultimo_fallo_en, baja_en, puerto");
   if (error) {
     ({ data, error } = await SB.from("salud_canales").select(CAMPOS_BASE));
     if (error) return null;
@@ -111,15 +111,30 @@ const SALUD_ETIQUETA = {
   // Nunca envió nada: es un pendiente de activación, no una avería. Va en
   // gris y al final, para no competir con los problemas de verdad.
   sin_uso:   ["gris", "Sin estrenar"],
+  // Retirado a propósito. Tampoco es una avería, y va después de todo.
+  baja:      ["gris", "Retirado"],
 };
 
-// Orden: primero lo que necesita atención, al final lo que nunca arrancó.
-const PRIORIDAD = { fallando: 0, sin_canal: 1, atascado: 2, degradado: 3, ok: 4, sin_uso: 5 };
+// Orden: primero lo que necesita atención, al final lo que nunca arrancó o
+// lo que ya se retiró.
+const PRIORIDAD = { fallando: 0, sin_canal: 1, atascado: 2, degradado: 3, ok: 4, sin_uso: 5, baja: 6 };
 // Lo ya revisado baja, aunque siga roto: arriba va lo que aún no has visto.
 const orden = (a, b) =>
   (b.alertar === true) - (a.alertar === true) ||
   (PRIORIDAD[a.salud] ?? 9) - (PRIORIDAD[b.salud] ?? 9) ||
   (a.nombre || "").localeCompare(b.nombre || "", "es");
+
+/* ================= BAJA DE CANAL (solo admin) =================
+   Retirar a alguien que dejó la empresa. NO borra nada suyo: sus clientes,
+   ventas e historial siguen intactos y puede seguir entrando al panel. Lo
+   único que se apaga es su bridge en la VM, para que su puerto vuelva a
+   estar disponible — son menos de veinte repartidos entre dos máquinas y
+   `provisionar.sh` se niega a repetir uno.
+
+   El panel no alcanza la VM, así que esto solo deja la señal en la base;
+   el ejecutor de la máquina la recoge cada dos minutos y hace el apagado.
+   Mientras tanto el puerto sigue en la fila, y por eso la baja se puede
+   deshacer: en cuanto el servidor la toma, ya no. */
 
 async function renderAgentes() {
   const body = $("agentesBody");
@@ -128,9 +143,15 @@ async function renderAgentes() {
     body.innerHTML = `<div class="naplica">Falta correr <code>sql/2026-07-27_02_salud_canales.sql</code> en Supabase.</div>`;
     return;
   }
+  const soyAdmin = state.me?.role === "admin";
   body.innerHTML = [...filas].sort(orden).map(f => {
     const [cls, txt] = SALUD_ETIQUETA[f.salud] || ["ojo", f.salud];
-    const roto = f.salud !== "ok" && f.salud !== "sin_uso";
+    const roto = f.salud !== "ok" && f.salud !== "sin_uso" && f.salud !== "baja";
+    const dado = !!f.baja_en;
+    // El puerto es justamente lo que está en juego: si la fila ya no tiene,
+    // no hay nada que liberar y el botón sobra. Sirve igual para el caso de
+    // quien nunca fue aprovisionado (sin fila en canales_wa).
+    const ofrecerBaja = soyAdmin && !dado && f.puerto != null && f.owner_id !== state.me?.id;
     return `
       <div class="agrow${roto && !f.alertar ? " visto" : ""}">
         <div class="agtop">
@@ -141,7 +162,18 @@ async function renderAgentes() {
           ${f.alertar ? `<button class="pmark agok" data-visto="${f.owner_id}">Ya lo vi</button>` : ""}
         </div>
         <div class="agmeta">
-          ${f.salud === "sin_uso"
+          ${dado
+            ? `<span>Retirado el ${fechaCorta(f.baja_en)}</span>
+               ${f.puerto != null
+                 // El ejecutor corre cada dos minutos. Si lleva mucho más que
+                 // eso sin cerrar, es que nadie tomó la fila —la máquina de
+                 // ese bridge está caída, o el bridge nunca existió en disco—
+                 // y hay que decirlo en vez de dejar un «⏳» eterno.
+                 ? (Date.now() - new Date(f.baja_en).getTime() > 15 * 60 * 1000
+                     ? `<span class="agbad">⚠ El servidor no ha liberado el puerto ${f.puerto}</span>`
+                     : `<span>⏳ Liberando el puerto ${f.puerto}…</span>`)
+                 : `<span>✓ Bridge apagado y puerto liberado</span>`}`
+            : f.salud === "sin_uso"
             ? `<span>Nunca ha enviado mensajes</span>`
             : `<span>✓ ${f.enviados_24h} enviados · 24 h</span>
                <span class="${f.fallidos_24h > 0 ? "agbad" : ""}">⚠ ${f.fallidos_24h} fallidos · 24 h</span>
@@ -151,6 +183,13 @@ async function renderAgentes() {
         </div>
         ${f.ultimo_error && roto
           ? `<div class="agerr">${esc(String(f.ultimo_error).slice(0, 120))}</div>` : ""}
+        ${ofrecerBaja
+          ? `<div class="agacc fin"><button class="pmark off" data-baja="${f.owner_id}"
+               data-nombre="${esc(f.nombre || "esta persona")}" data-puerto="${f.puerto}">Dar de baja</button></div>`
+          : ""}
+        ${soyAdmin && dado && f.puerto != null
+          ? `<div class="agacc fin"><button class="pmark" data-desbaja="${f.owner_id}">Deshacer</button></div>`
+          : ""}
       </div>`;
   }).join("");
 
@@ -158,6 +197,33 @@ async function renderAgentes() {
     b.disabled = true; b.textContent = "…";
     if (!(await marcarVisto(b.dataset.visto))) { b.disabled = false; b.textContent = "Ya lo vi"; return; }
     toast("Alerta silenciada · vuelve si falla otra vez");
+    renderAgentes(); refrescarIndicadorAgentes();
+  });
+
+  body.querySelectorAll("[data-baja]").forEach(b => b.onclick = async () => {
+    const { baja, nombre, puerto } = b.dataset;
+    if (!confirm(
+      `¿Dar de baja el canal de ${nombre}?\n\n` +
+      `• Se apaga su WhatsApp en el servidor y el puerto ${puerto} queda libre para otra persona.\n` +
+      `• Se cancela lo que tenga en cola sin enviar.\n` +
+      `• NO se borra nada: sus clientes, ventas e historial siguen igual, y puede seguir entrando al panel.\n\n` +
+      `El servidor lo ejecuta en un par de minutos. Hasta entonces puedes deshacerlo.`
+    )) return;
+    b.disabled = true; b.textContent = "…";
+    const { data, error } = await SB.rpc("dar_de_baja_canal", { p_owner: baja });
+    if (error) { toast("⚠ " + error.message); b.disabled = false; b.textContent = "Dar de baja"; return; }
+    const n = data?.cancelados || 0;
+    toast(`Canal dado de baja${n ? ` · ${n} mensaje(s) cancelados` : ""}`);
+    renderAgentes(); refrescarIndicadorAgentes();
+  });
+
+  body.querySelectorAll("[data-desbaja]").forEach(b => b.onclick = async () => {
+    b.disabled = true; b.textContent = "…";
+    const { error } = await SB.rpc("deshacer_baja_canal", { p_owner: b.dataset.desbaja });
+    // El error esperado aquí es «ya se está ejecutando»: el servidor ganó la
+    // carrera. No es un fallo, es la respuesta correcta, y hay que mostrarla.
+    if (error) { toast("⚠ " + error.message); }
+    else toast("Baja deshecha · los mensajes cancelados no se reviven");
     renderAgentes(); refrescarIndicadorAgentes();
   });
 }

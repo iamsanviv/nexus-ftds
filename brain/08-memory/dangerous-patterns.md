@@ -252,3 +252,51 @@ cambiara código.
 Cuando un costo crece de golpe sin que nadie haya tocado el código, el candidato
 no es el volumen de datos sino un factor de multiplicación escondido en un bucle.
 Medir recursos distintos contra operaciones totales lo delata en una consulta.
+
+## Usar como señal una columna que escribe otro proceso
+
+Para la baja de agentes (15/09/2026) el primer diseño ponía `canales_wa.estado
+= 'baja'` desde el panel y el ejecutor de la VM buscaba ese valor.
+
+Habría durado **medio minuto**. Los bridges reescriben `estado` en cada latido
+(~30 s) con su realidad (`vinculado`/`vinculando`). La señal desaparecía sola y
+la baja nunca se ejecutaba — o peor, se ejecutaba a veces, según quién escribiera
+último.
+
+### Protección
+
+Antes de usar una columna como señal entre dos procesos, preguntarse **quién
+más la escribe y cada cuánto**. Si el dueño de esa columna es otro proceso, la
+señal necesita columna propia; no es una bandera redundante, es lo único que
+sobrevive al dueño.
+
+`canales_wa.baja_en` es esa columna. El resto del estado sí se deriva de lo que
+ya existía (`puerto` no nulo = pendiente), así que la columna nueva es una, no
+tres.
+
+### Y el reverso
+
+`estado` deja de ser volátil en cuanto el bridge muere: por eso el ejecutor lo
+fija a `'baja'` **al final**, ya con el proceso apagado, y ahí sí se queda. La
+misma columna es poco fiable o perfectamente fiable según quién siga vivo.
+
+## Renombrar a `.bak` no saca nada de un glob de bash
+
+`provisionar.sh` se niega a repetir un puerto que aparezca en algún
+`/home/ubuntu/nexus-bridges/*/env`. Para liberar el puerto de un agente retirado
+hay que sacar su directorio de ese glob.
+
+El propio script sugiere `mv $d $d.bak`. **No sirve**: bash sí expande
+`fabian.bak/` en `*/`. Lo único que lo saca es un punto delante
+(`.baja-fabian-20260915/`), porque `*` no hace match con nombres ocultos salvo
+con `dotglob`.
+
+### Y la trampa al probarlo
+
+`pathlib.Path(x).glob("*/")` en Python **sí devuelve los nombres con punto**, al
+revés que bash. Una prueba escrita en Python daba por bueno un archivado que en
+realidad no liberaba nada; el caso pasó a verde por el motivo equivocado.
+
+Cuando lo que se prueba es el comportamiento de OTRA herramienta, hay que
+preguntárselo a esa herramienta. La prueba de `bajas.py` lanza `bash -c 'for d
+in .../*/'` justamente por esto.

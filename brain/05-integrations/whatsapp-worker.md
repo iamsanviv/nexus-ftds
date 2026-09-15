@@ -182,6 +182,22 @@ Antes de vincular a alguien que venía de un bridge que no consumía comandos, c
 
 `canales_wa` tenía 18 filas el 26/08/2026 y esta VM solo alberga 12 bridges; el resto corre en `10.0.0.23`. El constraint de unicidad de `puerto` es **global**, así que «el siguiente puerto libre en esta VM» no basta: al provisionar hay que elegir uno libre en la TABLA. Un intento de usar el 8093 chocó con el de María José, que corre en la otra máquina.
 
+## Bajas de canal: `bajas.py` (15/09/2026)
+
+Cuando alguien deja la empresa hay que apagar su bridge y devolver su puerto al conjunto disponible. El panel no alcanza la VM, así que lo hace un ejecutor local que sondea la base.
+
+- Unidad: `nexus-bajas.service` + `nexus-bajas.timer`, oneshot cada 2 min, `User=ubuntu`.
+- Archivo: `/home/ubuntu/nexus-worker/bajas.py`, solo biblioteca estándar (urllib, no `requests`).
+- Consulta: `canales_wa?baja_en=not.is.null&puerto=not.is.null`. Que `puerto` siga puesto ES lo pendiente; ponerlo en `null` es lo que cierra la baja.
+
+**Va aparte de `worker.py` a propósito.** Enviar mensajes es lo único que no puede fallar; una baja ocurre unas pocas veces al año y aguanta dos minutos. Además así se instala en cualquier máquina con bridges, corra o no el worker en ella.
+
+**Hay que instalarlo en LAS DOS máquinas.** Cada ejecutor resuelve el bridge recorriendo `/home/ubuntu/nexus-bridges/*/env` en busca de `WA_OWNER=<uuid>`; una fila cuyo bridge vive en la otra VM no encuentra nada y se deja pendiente. Si solo se instala en una, las bajas de la otra quedan sin ejecutar (el panel lo avisa a los 15 minutos, pero nadie las hace).
+
+**Liberar el puerto = renombrar con punto delante.** `provisionar.sh` rechaza un puerto que aparezca en algún `*/env`, y su glob es `*/`: bash SÍ incluye `fabian.bak/` y NO `.baja-fabian-20260915/`. El `mv $d $d.bak` que sugiere el propio script **no libera nada**. El directorio se archiva, no se borra: dentro va `store/`, la sesión de WhatsApp, por si hay que revertir.
+
+**Seguridad del `sudo`.** `ubuntu` tiene `NOPASSWD: ALL`, así que el ejecutor puede hacer cualquier cosa. Lo que lo contiene: de la base solo se acepta un UUID (validado por regex, usado únicamente como texto a comparar); lo que llega a la línea de comandos es un nombre de directorio de este disco, validado contra `^[a-z0-9][a-z0-9_-]{0,31}$`, con `subprocess.run([...], shell=False)`. Un directorio con nombre raro se salta **antes** de reclamar la fila, para no dejarla en `bajando` sin salida.
+
 ## Tope diario y zona horaria
 
 Existe antecedente de un defecto donde el tope diario se calculaba con el día UTC. En Colombia la medianoche UTC ocurre a las 19:00, por lo que consumos nocturnos podían contarse contra el día siguiente y bloquear invitaciones legítimas.

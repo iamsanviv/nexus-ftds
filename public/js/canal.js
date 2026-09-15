@@ -29,11 +29,13 @@ const ESTADOS = {
   solicitado:   "◌ Preparando…",
   sin_vincular: "○ Sin vincular",
 };
+// `estado` se congela cuando el bridge se apaga, así que la baja manda sobre él.
+const etiqueta = c => c?.baja_en ? "⊘ Retirado" : (ESTADOS[c?.estado] || ESTADOS.sin_vincular);
 
 async function leerCanal() {
   if (!state.me) return null;
   const { data } = await SB.from("canales_wa")
-    .select("estado, qr, telefono, actualizado, comando, comando_en")
+    .select("estado, qr, telefono, actualizado, comando, comando_en, baja_en")
     .eq("owner_id", state.me.id)
     .maybeSingle();
   return data;
@@ -44,13 +46,16 @@ export async function refrescarCanal() {
   const el = $("canalEstado");
   if (!el || !state.me) return;
   const c = await leerCanal();
-  el.textContent = ESTADOS[c?.estado] || ESTADOS.sin_vincular;
+  el.textContent = etiqueta(c);
 }
 
 // ¿El WhatsApp de este agente está vinculado? (para habilitar Seguimiento).
 export async function canalVinculado() {
   const c = await leerCanal();
-  return c?.estado === "vinculado";
+  // La baja se comprueba aparte y no por `estado`: entre que el admin la pide
+  // y el servidor apaga el bridge pasan un par de minutos, y en ese rato el
+  // bridge sigue latiendo y reescribiendo `estado` a 'vinculado'.
+  return !c?.baja_en && c?.estado === "vinculado";
 }
 
 async function pintarQR(cont, texto) {
@@ -69,6 +74,23 @@ async function pintarQR(cont, texto) {
 function renderBody(c) {
   const body = $("canalBody");
   const estado = c?.estado || "sin_vincular";
+
+  /* Canal retirado por el administrador. Va ANTES que todo lo demás porque
+     `estado` se queda congelado en lo último que escribió el bridge antes de
+     apagarse: sin esto, quien tenía «vinculado» vería «Sin señal de tu
+     WhatsApp — avisa al administrador», que es justo la persona que lo
+     retiró a propósito. */
+  if (c?.baja_en) {
+    body.innerHTML = `
+      <div style="text-align:center;padding:18px 0">
+        <div style="font-size:2.4rem">🚫</div>
+        <div style="margin-top:6px"><b>Tu canal de WhatsApp fue retirado</b></div>
+        <div class="naplica" style="margin:10px 0 4px">El administrador dio de baja este canal, así que
+          desde aquí ya no salen mensajes. Tu cuenta y tu información siguen intactas.
+          Si crees que es un error, avísale.</div>
+      </div>`;
+    return;
+  }
 
   if (estado === "vinculado") {
     /* «Vinculado» sale de una fila que escribe el bridge. Si el bridge está
@@ -207,10 +229,10 @@ async function tick() {
     desvinculando = false;
     ultimo = null;   // fuerza re-render del nuevo estado
   }
-  const sig = (c?.estado || "") + "|" + (c?.qr || "") + "|" + (bridgeVivo(c) ? "1" : "0");
+  const sig = (c?.estado || "") + "|" + (c?.qr || "") + "|" + (bridgeVivo(c) ? "1" : "0") + "|" + (c?.baja_en || "");
   if (sig !== ultimo) { ultimo = sig; renderBody(c); }
   const el = $("canalEstado");
-  if (el) el.textContent = ESTADOS[c?.estado] || ESTADOS.sin_vincular;
+  if (el) el.textContent = etiqueta(c);
 }
 
 function abrir() {

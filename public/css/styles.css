@@ -1213,6 +1213,10 @@ body.segwide .tabinner{max-width:1180px}
 .agstate.pend{color:var(--gold)}
 .agrow.pend{border-color:var(--gold-dim);background:rgba(232,184,75,.06)}
 .agacc{display:flex;gap:7px;margin-top:9px}
+/* Dar de baja es raro (unas veces al año) e irreversible una vez que el
+   servidor la toma. A la derecha y apagada no compite con el estado del
+   canal, que es lo que se viene a leer a este panel. */
+.agacc.fin{justify-content:flex-end}
 
 /* directorio de clientes del admin: nombre + de quién es, nada más */
 .dirrow{display:flex;align-items:center;gap:10px;padding:7px 11px;
