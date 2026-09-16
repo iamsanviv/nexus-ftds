@@ -309,6 +309,15 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
            La misma actividad puede querer las dos cosas. -->
       <label class="segtoggle"><input type="checkbox" id="segRastrear" checked> Saber quién entra al enlace</label>
       <div class="msgshelp" id="segRastrearAyuda">Cada persona recibe un enlace propio que la lleva a la misma sala. Quien lo abra queda marcado como asistente, sin tener que preguntárselo. Apágalo si prefieres que vean el enlace de Zoom tal cual.</div>
+      <!-- Qué mensajes de la secuencia se programan. La invitación sale acá en
+           gris y sin casilla: ya tiene la suya («No enviar invitación»), y dos
+           controles para lo mismo se contradicen tarde o temprano. Aparece
+           igual porque es la referencia contra la que se mide todo: el caso que
+           este bloque resuelve —invitar a las 5:48 para una actividad de las 7,
+           con el recordatorio de una hora cayendo a las 6:00— no se ve si la
+           invitación y los recordatorios no están juntos y con su hora. -->
+      <div class="pstitle" style="margin-top:14px">Qué mensajes se programan</div>
+      <div id="segHitos" class="hitos"></div>
       <!-- Invitación propia del agente para una actividad que le compartieron.
            Va acá y no en el formulario de la actividad porque esa actividad no
            es suya y no la puede abrir. El texto es SUYO: solo cambia lo que él

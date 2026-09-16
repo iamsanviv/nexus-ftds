@@ -44,6 +44,48 @@ Cancelar o completar libera la posibilidad de programar un nuevo seguimiento leg
 - Antes de programar se confirma la cantidad real de seleccionados.
 - Los duplicados activos se omiten, no se dejan a decisión del usuario.
 
+## Qué mensajes de la secuencia se programan
+
+La secuencia son cinco: `invitacion` (cuelga de cuándo se invita) y cuatro
+hitos que cuelgan del **inicio** de la actividad — `rec_60`, `rec_15`,
+`enlace`, `confirmacion`.
+
+Dos mecanismos distintos deciden cuáles salen, y no se deben mezclar:
+
+1. **La regla (inapelable).** Nada sale antes que la invitación: un hito cuya
+   hora cae en o antes del primer contacto no se programa aunque esté marcado.
+   Existe porque pasó en producción — actividad de las 19:00, invitación
+   diferida a las 18:01, y 61 personas leyeron «en 1 hora empieza X» sin haber
+   sido invitadas.
+2. **La preferencia del agente (16/09/2026).** Un selector por tanda permite
+   desmarcar cualquiera de los cuatro hitos. Resuelve el caso que la regla no
+   ve: invitar a las 17:48 para una actividad de las 19:00 deja el recordatorio
+   de una hora a las 18:00 — técnicamente válido, pero doce minutos después de
+   la invitación y por tanto redundante.
+
+Arranca **todo marcado**: el estado anterior del sistema era ese, y apagar algo
+por iniciativa propia sería la misma falta que mandarlo de más, solo que en
+silencio. Se reinicia al cambiar de actividad, para no heredar el apagado de
+una tanda a otra.
+
+El selector muestra **la hora de cada mensaje**, que es lo que hace la decisión
+obvia sin explicarla. El aviso de «N min después» solo aplica a `rec_60` y
+`rec_15`: el enlace y la confirmación se cuelgan del inicio a propósito, así
+que salir poco después de la invitación no es un defecto sino lo que pasa al
+invitar sobre la hora.
+
+Invariantes al tocar esto:
+
+- lo omitido por regla y lo desmarcado a mano se dicen **por separado** en el
+  confirm; llamarle a uno lo del otro le miente al agente sobre su propia
+  decisión;
+- si no queda ningún mensaje, no se programa nada: un seguimiento sin mensajes
+  es una fila «activa» que nadie va a recibir y que además bloquea volver a
+  programar a esa persona para esa actividad;
+- desmarcar `enlace` deja a la gente sin poder entrar y sin rastreo de
+  asistencia. Se permite —hay quien reparte el enlace por otra vía— pero se
+  advierte aparte del resto.
+
 ## Rastreo
 
 Cada seguimiento rastreado tiene su propio `clic_token`. El token identifica a esa persona dentro de esa actividad y debe sobrevivir a reprogramaciones de mensajes.

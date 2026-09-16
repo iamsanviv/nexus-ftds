@@ -407,6 +407,40 @@
 .segtoggle .segtoggle-n{color:var(--gold);font-variant-numeric:tabular-nums}
 .segtoggle input:disabled{opacity:.5}
 .segtoggle:has(input:disabled){opacity:.55}
+
+/* Selector de qué mensajes de la secuencia se programan.
+   La hora va a la derecha y alineada porque el bloque se lee EN VERTICAL: lo
+   que delata un recordatorio pegado a la invitación es ver «ahora» y «6:00
+   p. m.» uno debajo del otro, no leer cada fila por separado. */
+.hitos{margin-bottom:10px}
+.hito{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--text);
+  padding:6px 10px;border:1px solid var(--border);border-radius:9px;
+  margin-bottom:5px;cursor:pointer;background:var(--surface2)}
+.hito input{width:auto;accent-color:var(--gold);flex:0 0 auto}
+/* Sin wrap: «Recordatorio 15 min» partido en dos renglones descuadraba la
+   columna de horas y el bloque dejaba de leerse en vertical, que es justo para
+   lo que sirve. A 390 px cabe porque la hora de al lado es corta. */
+.hitolbl{font-weight:600;white-space:nowrap}
+/* La hora y el aviso van como dos piezas que pueden envolverse. Con una sola
+   cadena y `ellipsis`, a 390 px el aviso salía cortado en «· 12 mi…» — o sea,
+   lo único que este bloque existe para que se vea era lo primero que se
+   perdía. Así, cuando no cabe al lado, cae al renglón de abajo entero. */
+.hitoq{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;
+  align-items:baseline;gap:2px 7px;color:var(--muted);
+  font-variant-numeric:tabular-nums;text-align:right}
+/* La invitación no se marca: es la referencia, no una opción de este bloque. */
+.hito.fija{cursor:default;border-style:dashed;padding-left:32px}
+.hito.fija .hitolbl{color:var(--muted)}
+/* Apagado por el agente, o imposible por la regla del primer contacto. */
+.hito.off{background:transparent}
+.hito.off .hitolbl{color:var(--muted);font-weight:500}
+.hito.nula{cursor:default;opacity:.55;background:transparent}
+/* Un recordatorio que cae encima de la invitación: es el caso que hay que ver
+   sin leer, así que se pinta con el color de aviso y no con el de texto. */
+.hitocerca{color:var(--gold);font-weight:700;white-space:nowrap}
+.hitohora{white-space:nowrap}
+.hitonota{font-size:.74rem;color:var(--muted);margin:-2px 0 7px 10px;
+  padding-left:10px;border-left:2px solid var(--border)}
 /* Misma trampa que con `.chkline`: `.frow label` (0,1,1) le gana a `.segtoggle`
    (0,1,0), y dentro del formulario de actividad las casillas salían en
    MAYÚSCULAS DIMINUTAS, como si fueran el título de un campo en vez de algo que

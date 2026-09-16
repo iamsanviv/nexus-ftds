@@ -40,6 +40,31 @@ const NOMBRE_HITO = {
   confirmacion: "la confirmación",
 };
 
+// Etiqueta corta para el selector de esta tanda.
+const HITO_CORTO = {
+  rec_60: "Recordatorio 1 h",
+  rec_15: "Recordatorio 15 min",
+  enlace: "Enlace de la sala",
+  confirmacion: "Confirmación",
+};
+// Lo que se pierde al apagar cada uno. Solo se dice cuando está apagado: un
+// control que explica su consecuencia únicamente cuando la vas a sufrir molesta
+// menos que uno que la repite siempre.
+const CONSECUENCIA_HITO = {
+  rec_60: "nadie recibe aviso una hora antes",
+  rec_15: "nadie recibe aviso 15 minutos antes",
+  enlace: "NADIE recibe el enlace de la sala",
+  confirmacion: "no se pregunta si lograron entrar",
+};
+// Un recordatorio que sale pegado a la invitación es el problema que este
+// selector existe para resolver. Por debajo de esto se avisa en la fila misma.
+const MIN_PEGADO = 45;
+// …pero solo para los RECORDATORIOS. El enlace y la confirmación se cuelgan del
+// inicio de la actividad: que salgan poco después de la invitación no es un
+// defecto, es lo que pasa cuando se invita sobre la hora. Avisar de los cuatro
+// pintaba el bloque entero de dorado y enterraba la única fila que importaba.
+const AVISAN_PEGADO = new Set(["rec_60", "rec_15"]);
+
 // Plantillas por defecto. Etiquetas: {nombre} {actividad} {hora} {zona} {enlace}
 // {hora} sale en la hora de pared de cada persona si su perfil tiene desfase.
 // {zona} solo escribe algo cuando esa hora vino convertida —«(hora de tu país)»— y se
@@ -136,6 +161,10 @@ let segInvitarTarde = null;   // Date para diferir la invitación, o null = ahor
 // invitó por llamada o por otro mensaje. Los recordatorios, el enlace y la
 // confirmación salen igual.
 let segSinInvitacion = false;
+// Qué hitos de la secuencia se programan en ESTA tanda. Arranca todo en sí:
+// es el comportamiento de siempre, y apagar algo por nuestra cuenta sería la
+// misma falta que mandarlo de más, solo que en silencio.
+let segHitos = { rec_60: true, rec_15: true, enlace: true, confirmacion: true };
 // Invitación propia del agente para la actividad elegida (tabla
 // `invitaciones_agente`). Solo aplica a actividades que NO son suyas: las que
 // le comparte su director y por tanto no puede editar. Se guarda por actividad
@@ -907,6 +936,9 @@ async function seleccionarActividad(a) {
   segIncInact = false;
   segInvitarTarde = null;
   segSinInvitacion = false;
+  // Todos en sí otra vez: heredar el apagado de la tanda anterior haría
+  // desaparecer un recordatorio sin que nadie lo pidiera en ESTA.
+  segHitos = { rec_60: true, rec_15: true, enlace: true, confirmacion: true };
   const bs = $("segBuscar"); if (bs) bs.value = "";
   const bx = $("segBuscarX"); if (bx) bx.classList.add("hidden");
   const ia = $("segIncAsis"); if (ia) ia.checked = false;
@@ -926,6 +958,7 @@ async function seleccionarActividad(a) {
   const tt = $("segTardeToggle"); if (tt) { tt.classList.remove("on"); tt.classList.remove("hidden"); }
   await cargarMiInvitacion(a);
   $("segProgTitulo").innerHTML = `Programar para <b>${esc(a.nombre)}</b> · ${fechaHoraCO(a.inicio)}`;
+  renderHitos();
   refrescarBotonProgramar();
   $("segProgBloque").classList.remove("hidden");
   $("segFaltan").innerHTML = `<div class="naplica">Cargando…</div>`;
@@ -1041,6 +1074,57 @@ async function revisarCanal() {
   refrescarBotonProgramar();
 }
 
+/* ---------- selector de hitos ---------- */
+// Cuándo sale el primer mensaje de la tanda. Se calcula igual acá y en
+// `programar()`: es la frontera de la que cuelga todo lo demás.
+function primerContactoAhora() {
+  const ahora = new Date();
+  const cuandoInv = (segInvitarTarde && segInvitarTarde > ahora) ? segInvitarTarde : ahora;
+  return { ahora, cuandoInv, primerContacto: segSinInvitacion ? ahora : cuandoInv };
+}
+
+// Pinta cada mensaje de la secuencia CON SU HORA. La hora es el punto: el
+// agente no necesita que le expliquemos que un recordatorio de una hora antes
+// queda encima de una invitación de las 5:48 — necesita ver «6:00 p. m.» al
+// lado y decidir. Las que la regla ya impide van desactivadas y dicen por qué.
+function renderHitos() {
+  const cont = $("segHitos");
+  if (!cont || !actSel) return;
+  const inicio = new Date(actSel.inicio);
+  const { ahora, cuandoInv, primerContacto } = primerContactoAhora();
+
+  const filaInv = segSinInvitacion
+    ? `<div class="hito nula"><span class="hitolbl">Invitación</span>
+         <span class="hitoq">no se envía</span></div>`
+    : `<div class="hito fija"><span class="hitolbl">Invitación</span>
+         <span class="hitoq">${segInvitarTarde && segInvitarTarde > ahora
+           ? esc(fechaHoraCO(cuandoInv.toISOString())) : "ahora"}</span></div>`;
+
+  cont.innerHTML = filaInv + HITOS(inicio).map(([tipo, cuando]) => {
+    // La regla manda sobre la preferencia: lo que saldría antes que la
+    // invitación no se programa ni marcándolo, así que la casilla se apaga.
+    const fuera = cuando <= primerContacto;
+    const mins = Math.round((cuando - primerContacto) / 60000);
+    const pegado = !fuera && mins <= MIN_PEGADO && AVISAN_PEGADO.has(tipo);
+    const marcado = segHitos[tipo] && !fuera;
+    return `
+      <label class="hito${fuera ? " nula" : ""}${marcado ? "" : " off"}">
+        <input type="checkbox" data-hito="${tipo}" ${marcado ? "checked" : ""} ${fuera ? "disabled" : ""}>
+        <span class="hitolbl">${HITO_CORTO[tipo]}</span>
+        <span class="hitoq">${fuera
+          ? `<span class="hitohora">saldría antes que la invitación</span>`
+          : `<span class="hitohora">${esc(fechaHoraCO(cuando.toISOString()))}</span>`
+            + (pegado ? `<b class="hitocerca">${mins} min después</b>` : "")}</span>
+      </label>
+      ${!marcado && !fuera ? `<div class="hitonota">No se programa: ${CONSECUENCIA_HITO[tipo]}.</div>` : ""}`;
+  }).join("");
+
+  cont.querySelectorAll("[data-hito]").forEach(ch => ch.onchange = e => {
+    segHitos[e.target.dataset.hito] = e.target.checked;
+    renderHitos();
+  });
+}
+
 // El botón dice lo que va a pasar: es el último punto donde el agente puede
 // darse cuenta de que olvidó (o dejó puesto) el modo «sin invitación».
 const etiquetaProgramar = () =>
@@ -1129,8 +1213,15 @@ async function programar() {
 
   // Lo que se omite se DICE. Saltarse un recordatorio en silencio es tan malo
   // como mandarlo fuera de orden, solo que se descubre más tarde.
+  // Dos motivos distintos para que algo no salga, y no se pueden mezclar: uno
+  // lo impone la regla y el otro lo eligió el agente. Decir «saldría antes que
+  // la invitación» de algo que él desmarcó sería mentirle sobre su propia
+  // decisión, y al revés lo dejaría creyendo que puede recuperarlo marcándolo.
   const seOmiten = HITOS(inicio)
-    .filter(([, cuando]) => cuando <= primerContacto)
+    .filter(([tipo, cuando]) => segHitos[tipo] && cuando <= primerContacto)
+    .map(([tipo]) => NOMBRE_HITO[tipo]);
+  const apagados = HITOS(inicio)
+    .filter(([tipo, cuando]) => !segHitos[tipo] && cuando > primerContacto)
     .map(([tipo]) => NOMBRE_HITO[tipo]);
   const porQue = segSinInvitacion
     ? "esa hora ya pasó"
@@ -1156,9 +1247,16 @@ async function programar() {
       + `\nCámbialo por {dia} en «✎ Mensajes» y saldrá solo.`
     : "";
 
-  const avisoOmitidos = seOmiten.length
+  const avisoOmitidos = (seOmiten.length
     ? `\n\nNo se programa${seOmiten.length === 1 ? "" : "n"} ${seOmiten.join(" ni ")}: ${porQue}.`
-    : "";
+    : "")
+    + (apagados.length
+    ? `\n\nNo se programa${apagados.length === 1 ? "" : "n"} ${apagados.join(" ni ")}: lo desmarcaste.`
+    : "")
+    // Quedarse sin enlace es la única omisión que deja a la persona sin poder
+    // entrar. Se dice aparte y en mayúsculas porque es fácil desmarcarlo
+    // pensando que es un recordatorio más.
+    + (!segHitos.enlace ? `\n\n⚠ NADIE va a recibir el enlace de la sala.` : "");
 
   // Las inactivas se dicen en el confirm con nombre propio: es la última
   // pantalla antes de encolar cinco mensajes por persona.
@@ -1170,6 +1268,16 @@ async function programar() {
       + inact.slice(0, 4).map(c => `${c.nombre.split(" ")[0]} (${motivoCorto(c.inactivoMotivo).toLowerCase()})`).join(", ")
       + (inact.length > 4 ? ` y ${inact.length - 4} más` : "") + "."
     : "";
+
+  // Si no queda NI UN mensaje por enviar, programar solo crearía seguimientos
+  // huérfanos: filas «activas» que nadie va a recibir y que después bloquean
+  // volver a programar a esa persona para esta actividad.
+  const quedanMensajes = (segSinInvitacion ? 0 : 1)
+    + HITOS(inicio).filter(([tipo, cuando]) => segHitos[tipo] && cuando > primerContacto).length;
+  if (!quedanMensajes) {
+    toast("Así no se enviaría ningún mensaje. Marca al menos uno.");
+    return;
+  }
 
   const n = seleccion.length;
   const primeros = seleccion.slice(0, 8).map(c => c.nombre.split(" ")[0]).join(", ");
@@ -1215,7 +1323,10 @@ async function programar() {
     // arriba, antes del confirm, para poder avisar allí qué se omite.
     const msgs = [];
     const tiempos = () => {
-      const t = HITOS(inicio);
+      // Acá es donde el selector deja de ser interfaz: lo desmarcado no llega
+      // a existir como fila. La regla del primer contacto sigue aparte, abajo,
+      // porque esa no la puede desactivar nadie.
+      const t = HITOS(inicio).filter(([tipo]) => segHitos[tipo]);
       if (!segSinInvitacion) t.unshift(["invitacion", cuandoInv]);
       return t;
     };
@@ -2182,9 +2293,13 @@ $("segTardeToggle").onclick = () => {
   } else {
     segInvitarTarde = null;   // vuelve a "ahora"
   }
+  // Mover la invitación mueve la frontera: lo que antes cabía puede dejar de
+  // caber, y al revés. Las horas del selector tienen que reflejarlo al instante.
+  renderHitos();
 };
 $("segTardeCuando").onchange = e => {
   segInvitarTarde = e.target.value ? new Date(e.target.value) : null;
+  renderHitos();
 };
 
 // Toggle "incluir a quienes ya asistieron" (Req 2).
@@ -2206,6 +2321,9 @@ $("segSinInv").onchange = e => {
   const mostrarMiInv = !segSinInvitacion && puedoPersonalizarInvitacion(actSel);
   $("segMiInvRow").classList.toggle("hidden", !mostrarMiInv);
   if (!mostrarMiInv) $("segMiInvBox").classList.add("hidden");
+  // Sin invitación la frontera pasa a ser «ahora», así que cambian las horas
+  // y puede volver a caber algo que antes no.
+  renderHitos();
   refrescarBotonProgramar();
 };
 
