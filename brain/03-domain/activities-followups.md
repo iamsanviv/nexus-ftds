@@ -86,6 +86,46 @@ Invariantes al tocar esto:
   asistencia. Se permite —hay quien reparte el enlace por otra vía— pero se
   advierte aparte del resto.
 
+## Orden del bloque de programación
+
+El bloque se agrupa por **qué se manda** y luego **a quién**, y ese orden es
+deliberado:
+
+1. *Qué mensajes se programan* — si va invitación, si el enlace se rastrea, qué
+   hitos salen, la invitación propia del agente.
+2. *Elige a quién incluir* — incluir asistidos/inactivas, **buscador, filtros**,
+   barra de selección y la lista.
+
+El buscador y los filtros van **pegados a la lista que filtran**. Habían quedado
+a cinco bloques de distancia —y el selector de hitos (16/09) lo empeoró—, así
+que escribir un nombre y ver el efecto exigía desplazarse. Entre el buscador y
+la lista solo puede quedar lo que actúe sobre el mismo conjunto: los filtros y
+«Marcar visibles», que operan justamente sobre lo que el buscador deja ver.
+
+## Buscar dentro de lo ya programado
+
+«Seguimientos activos» tiene su propio buscador (16/09/2026), que aparece a
+partir de **5 seguimientos en curso**: por debajo, la lista entra de un vistazo
+y el control solo estorba.
+
+Busca por nombre **o por teléfono**. El teléfono se compara solo por dígitos en
+las dos puntas: en la base está como `+573229859521` y quien busca suele pegar
+`322 985 9521` desde WhatsApp. Sin normalizar ambos lados, la búsqueda que más
+falta hace —la del número que acabas de recibir— no encontraría nada.
+
+El nombre usa `normBusqueda`, igual que el selector: ignora tildes, mayúsculas y
+**puntuación** (`ma jose` encuentra a «Ma. José»), pero no casa prefijos de
+palabra (`ma jose` no encuentra a «María José»). La misma regla en los dos
+buscadores, a propósito.
+
+Mientras hay texto se muestra «N de M en curso». No es decorativo: cancelar
+actúa sobre lo que se ve, y hay que saber que detrás quedan otros escondidos por
+el filtro.
+
+El filtrado es **en memoria** (`pintarActivos`), sobre lo que `renderActivos`
+dejó en caché. Volver a consultar por cada tecla serían decenas de consultas por
+búsqueda para un filtro que no necesita la base.
+
 ## Rastreo
 
 Cada seguimiento rastreado tiene su propio `clic_token`. El token identifica a esa persona dentro de esa actividad y debe sobrevivir a reprogramaciones de mensajes.

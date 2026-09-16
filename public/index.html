@@ -295,13 +295,10 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <!-- segmentos guardados / historial: reutilizar una selección anterior -->
       <div id="segSegmentos" class="segsegmentos"></div>
 
-      <div class="pstitle">Elige a quién incluir</div>
-      <div class="masbuscarwrap"><input type="search" id="segBuscar" placeholder="🔎 Buscar por nombre…" autocomplete="off"><button id="segBuscarX" class="masbuscarx hidden" title="Limpiar">✕</button></div>
-      <div id="segFiltros" class="segfiltros"></div>
-      <label class="segtoggle"><input type="checkbox" id="segIncAsis"> Incluir a quienes ya asistieron (para reinvitar)</label>
-      <!-- Las inactivas no aparecen por defecto. Se incluyen a propósito para
-           esta tanda, y cada fila dice por qué lo está. -->
-      <label class="segtoggle"><input type="checkbox" id="segIncInact"> 😴 Incluir inactivas<span class="segtoggle-n"></span></label>
+      <!-- QUÉ SE MANDA. Este título encabeza las tres decisiones del envío
+           —si va invitación, si el enlace se rastrea y qué hitos salen— para
+           separarlas de las de A QUIÉN, que van más abajo pegadas a la lista. -->
+      <div class="pstitle">Qué mensajes se programan</div>
       <label class="segtoggle"><input type="checkbox" id="segSinInv"> No enviar invitación — ya los invité por llamada o por otro mensaje</label>
       <!-- Enlace rastreado. Va acá y no en el formulario de la actividad porque
            la decisión es de esta tanda: a una lista de confianza se le rastrea,
@@ -316,7 +313,6 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
            este bloque resuelve —invitar a las 5:48 para una actividad de las 7,
            con el recordatorio de una hora cayendo a las 6:00— no se ve si la
            invitación y los recordatorios no están juntos y con su hora. -->
-      <div class="pstitle" style="margin-top:14px">Qué mensajes se programan</div>
       <div id="segHitos" class="hitos"></div>
       <!-- Invitación propia del agente para una actividad que le compartieron.
            Va acá y no en el formulario de la actividad porque esa actividad no
@@ -334,6 +330,18 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
           <button type="button" class="tbtn" id="segMiInvQuitar" style="color:var(--bad)">Quitar y usar la de la actividad</button>
         </div>
       </div>
+      <!-- A QUIÉN. Va todo junto y pegado a la lista: el buscador y los
+           filtros acabaron a cinco bloques de distancia de las personas que
+           filtran, y para ver el efecto de escribir un nombre había que
+           desplazarse. Arriba queda lo que define el MENSAJE; acá, lo que
+           define A QUIÉN. -->
+      <div class="pstitle">Elige a quién incluir</div>
+      <label class="segtoggle"><input type="checkbox" id="segIncAsis"> Incluir a quienes ya asistieron (para reinvitar)</label>
+      <!-- Las inactivas no aparecen por defecto. Se incluyen a propósito para
+           esta tanda, y cada fila dice por qué lo está. -->
+      <label class="segtoggle"><input type="checkbox" id="segIncInact"> 😴 Incluir inactivas<span class="segtoggle-n"></span></label>
+      <div class="masbuscarwrap"><input type="search" id="segBuscar" placeholder="🔎 Buscar por nombre…" autocomplete="off"><button id="segBuscarX" class="masbuscarx hidden" title="Limpiar">✕</button></div>
+      <div id="segFiltros" class="segfiltros"></div>
       <div class="segselbar">
         <span id="segSelCount" class="segselcount"></span>
         <button class="pill" id="segMarcarVis">✓ Marcar visibles</button>
@@ -353,6 +361,16 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
 
     <section class="segsec">
       <div class="sechead"><h3>Seguimientos activos</h3><span class="rule"></span></div>
+      <!-- Buscar dentro de lo que YA está programado. Con 30-60 seguimientos
+           en curso, sacar a una persona que avisó que no puede era cuestión de
+           recorrer la lista a ojo. Busca por nombre y también por teléfono,
+           porque a veces lo que se tiene a mano es el número desde WhatsApp.
+           Solo aparece cuando hay suficientes como para perderse. -->
+      <div class="masbuscarwrap hidden" id="segActBuscarWrap">
+        <input type="search" id="segActBuscar" placeholder="🔎 Buscar por nombre o teléfono…" autocomplete="off">
+        <button id="segActBuscarX" class="masbuscarx hidden" title="Limpiar">✕</button>
+      </div>
+      <div id="segActConteo" class="segactconteo hidden"></div>
       <div id="segActivos" class="acts"></div>
     </section>
 

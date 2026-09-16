@@ -2001,9 +2001,19 @@ function entradaChip(s) {
   return `<span class="achip miss" title="No ha abierto su enlace">Aún no entra</span>`;
 }
 
+/* ---------- buscar dentro de lo ya programado ---------- */
+// Lo cargado se guarda para que teclear en el buscador no vuelva a consultar
+// la base en cada letra: con 60 seguimientos en curso eso serían decenas de
+// consultas por búsqueda, y el filtro es puramente local.
+let activosCache = [];
+let confCache = new Map();
+let segActBuscarTxt = "";
+// Por debajo de esto la lista entra de un vistazo y un buscador solo estorba.
+const MIN_PARA_BUSCAR = 5;
+
 async function renderActivos() {
   const { data, error } = await SB.from("seguimientos")
-    .select("id, cliente_id, actividad_id, actividad, inicio, estado, clic_token, clic_en, clics, clientes(nombre)")
+    .select("id, cliente_id, actividad_id, actividad, inicio, estado, clic_token, clic_en, clics, clientes(nombre, telefono)")
     .eq("estado", "activo")
     .order("inicio", { ascending: true });
   if (error) { $("segActivos").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
@@ -2037,15 +2047,57 @@ async function renderActivos() {
       .in("estado", ["pendiente", "cancelado"]);
     for (const m of cf || []) confPorSeg.set(m.seguimiento_id, m.estado);
   }
+  activosCache = activos;
+  confCache = confPorSeg;
   if (!activos.length) {
+    $("segActBuscarWrap").classList.add("hidden");
+    $("segActConteo").classList.add("hidden");
     $("segActivos").innerHTML = `<div class="segempty">
       <div class="eh">Nada en curso ahora mismo</div>
       <p>Cuando programes mensajes para una actividad, aquí ves a quién le están saliendo y puedes cancelar.</p>
     </div>`;
     return;
   }
+  pintarActivos();
+}
 
-  $("segActivos").innerHTML = activos.map(s => `
+// Filtra por nombre O por teléfono. El teléfono se compara SOLO por dígitos:
+// en la base está como «+573229859521» y quien busca suele pegar «322 985 9521»
+// o «3229859521» desde WhatsApp. Sin normalizar las dos puntas, la búsqueda que
+// más falta hace —la del número que acabas de recibir— nunca encontraría nada.
+function pintarActivos() {
+  const activos = activosCache;
+  const confPorSeg = confCache;
+  const hayBuscador = activos.length >= MIN_PARA_BUSCAR;
+  $("segActBuscarWrap").classList.toggle("hidden", !hayBuscador);
+  if (!hayBuscador && segActBuscarTxt) {     // la lista encogió: no dejar un filtro invisible puesto
+    segActBuscarTxt = "";
+    $("segActBuscar").value = "";
+    $("segActBuscarX").classList.add("hidden");
+  }
+
+  const q = normBusqueda(segActBuscarTxt);
+  const digitos = segActBuscarTxt.replace(/\D/g, "");
+  const coincide = s => {
+    if (!q && !digitos) return true;
+    const nom = normBusqueda(s.clientes?.nombre || "");
+    const tel = (s.clientes?.telefono || "").replace(/\D/g, "");
+    return (!!q && nom.includes(q)) || (!!digitos && tel.includes(digitos));
+  };
+  const visibles = activos.filter(coincide);
+
+  // El conteo importa: filtrando, «cancelar» actúa sobre lo que se ve, y hay
+  // que saber que detrás quedan otros que el filtro esconde.
+  const cont = $("segActConteo");
+  cont.classList.toggle("hidden", !segActBuscarTxt);
+  if (segActBuscarTxt) cont.textContent = `${visibles.length} de ${activos.length} en curso`;
+
+  if (!visibles.length) {
+    $("segActivos").innerHTML = `<div class="naplica">Nadie en curso coincide con «${esc(segActBuscarTxt)}».</div>`;
+    return;
+  }
+
+  $("segActivos").innerHTML = visibles.map(s => `
     <article class="actcard">
       <div class="am">
         <h4>${esc(s.clientes?.nombre || "(cliente)")}</h4>
@@ -2061,7 +2113,7 @@ async function renderActivos() {
     </article>`).join("");
 
   $("segActivos").querySelectorAll("[data-cancel]").forEach(b => b.onclick = () => {
-    const s = activos.find(x => x.id === b.dataset.cancel);
+    const s = activosCache.find(x => x.id === b.dataset.cancel);
     if (s) abrirCancelar(s);
   });
 
@@ -2278,6 +2330,22 @@ $("segBuscarX").onclick = () => {
   $("segBuscarX").classList.add("hidden");
   if (actSel) renderFaltan();
   $("segBuscar").focus();
+};
+
+// Buscar dentro de lo YA programado. Filtra en memoria (`pintarActivos`) y no
+// vuelve a consultar: cancelar a alguien sí recarga, y ahí el texto del
+// buscador se conserva a propósito, porque normalmente se saca a más de uno
+// de la misma tanda.
+$("segActBuscar").oninput = e => {
+  segActBuscarTxt = e.target.value;
+  $("segActBuscarX").classList.toggle("hidden", !e.target.value);
+  pintarActivos();
+};
+$("segActBuscarX").onclick = () => {
+  $("segActBuscar").value = ""; segActBuscarTxt = "";
+  $("segActBuscarX").classList.add("hidden");
+  pintarActivos();
+  $("segActBuscar").focus();
 };
 
 // Toggle "enviar la invitación más tarde": despliega el campo de hora.
