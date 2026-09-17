@@ -9,11 +9,40 @@ import { refrescarIndicadorAgentes } from "./salud.js";
 
 /* ---------- ver la contraseña ---------- */
 // Un botón dentro del campo que alterna type=password/text. Se arma desde JS y
-// no en el HTML porque son cuatro campos en tres pantallas distintas: repetir
-// el marcado cuatro veces garantiza que un día uno quede sin él.
+// no en el HTML porque son cinco campos en tres pantallas distintas: repetir
+// el marcado cinco veces garantiza que un día uno quede sin él.
 //
 // `type` y no `-webkit-text-security`: el segundo no existe en Firefox y el
 // campo quedaría visible sin que nadie lo pidiera.
+//
+// Los iconos son SVG y no emoji: un emoji lo dibuja el sistema operativo, así
+// que el mismo carácter sale con otro estilo y otro color en cada teléfono y
+// no hay forma de que acompañe a la paleta. Estos usan `currentColor`, de modo
+// que siguen al tema claro/oscuro como cualquier otro trazo del panel.
+const OJO_ABIERTO = `<svg viewBox="0 0 24 24" width="19" height="19" fill="none"
+  stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+  stroke-linejoin="round" aria-hidden="true" focusable="false">
+  <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>
+  <circle cx="12" cy="12" r="3.1"/></svg>`;
+const OJO_TACHADO = `<svg viewBox="0 0 24 24" width="19" height="19" fill="none"
+  stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+  stroke-linejoin="round" aria-hidden="true" focusable="false">
+  <path d="M10.7 5.7A9.7 9.7 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.8 3.6"/>
+  <path d="M6.6 6.8A16.8 16.8 0 0 0 2.5 12S6 18.5 12 18.5a9.6 9.6 0 0 0 3.9-.8"/>
+  <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>
+  <path d="M3.5 3.5 20.5 20.5"/></svg>`;
+
+// El icono y las etiquetas van juntos a propósito: son la misma decisión vista
+// por el ojo y por un lector de pantalla, y separarlas es como se acaban
+// contradiciendo.
+function pintarOjo(btn, oculta) {
+  btn.innerHTML = oculta ? OJO_ABIERTO : OJO_TACHADO;
+  const t = oculta ? "Mostrar la contraseña" : "Ocultar la contraseña";
+  btn.setAttribute("aria-label", t);
+  btn.title = t;
+  btn.setAttribute("aria-pressed", String(!oculta));
+}
+
 function ponerOjo(id) {
   const input = $(id);
   if (!input || input.dataset.ojo) return;
@@ -27,20 +56,15 @@ function ponerOjo(id) {
   const btn = document.createElement("button");
   btn.type = "button";           // dentro de un form, sin esto enviaría el form
   btn.className = "pwojo";
-  btn.textContent = "👁";
   // El campo no lleva `aria-label`: el <label> de al lado ya lo nombra. El que
-  // hace falta es el del botón, que si no se anuncia como «botón 👁».
-  btn.setAttribute("aria-label", "Mostrar la contraseña");
-  btn.title = "Mostrar la contraseña";
+  // hace falta es el del botón, que si no se anuncia solo como «botón».
+  pintarOjo(btn, true);
   caja.appendChild(btn);
 
   btn.onclick = () => {
-    const visible = input.type === "text";
-    input.type = visible ? "password" : "text";
-    btn.textContent = visible ? "👁" : "🙈";
-    const t = visible ? "Mostrar la contraseña" : "Ocultar la contraseña";
-    btn.setAttribute("aria-label", t); btn.title = t;
-    btn.setAttribute("aria-pressed", String(!visible));
+    const oculta = input.type !== "text";
+    input.type = oculta ? "text" : "password";
+    pintarOjo(btn, !oculta);
     input.focus();
   };
 }
@@ -53,7 +77,7 @@ function ocultarOjos(...ids) {
     if (!i || i.type !== "text") return;
     i.type = "password";
     const b = i.parentNode.querySelector(".pwojo");
-    if (b) { b.textContent = "👁"; b.setAttribute("aria-pressed", "false"); }
+    if (b) pintarOjo(b, true);
   });
 }
 

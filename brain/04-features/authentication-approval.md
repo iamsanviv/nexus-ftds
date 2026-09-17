@@ -69,12 +69,20 @@ Piezas y por qué:
 ## Ver la contraseña (el «ojito»)
 
 `ponerOjo(id)` envuelve el campo y le agrega un botón que alterna
-`type=password/text`. Se arma desde JS y no en el HTML porque son cuatro campos
+`type=password/text`. Se arma desde JS y no en el HTML porque son cinco campos
 en tres pantallas (`auPass`, `pass1`, `pass2`, `recu1`, `recu2`): repetir el
 marcado garantiza que algún día uno quede sin él. Se alterna `type` y no
 `-webkit-text-security` porque este último no existe en Firefox y el campo
 quedaría visible sin que nadie lo pidiera. `ocultarOjos()` lo revierte al cerrar
 cada pantalla, para no dejar una contraseña a la vista en la próxima apertura.
+
+El icono es **SVG en línea, no emoji**. Un emoji lo dibuja el sistema operativo:
+el mismo carácter sale con otro estilo y otro color en cada teléfono, y no hay
+forma de que acompañe a la paleta. El SVG usa `currentColor`, así que hereda el
+`color` del botón y sigue al tema claro/oscuro como cualquier otro trazo.
+`pintarOjo()` cambia icono, `aria-label`, `title` y `aria-pressed` **a la vez**:
+son la misma decisión vista por el ojo y por un lector de pantalla, y separarlas
+es justamente como se acaban contradiciendo.
 
 ## Seguridad
 
