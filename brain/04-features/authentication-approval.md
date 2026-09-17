@@ -51,8 +51,16 @@ Piezas y por qué:
   nunca pediría la contraseña nueva, y la olvidada seguiría siendo la única que
   sirve. `onAuthStateChange('PASSWORD_RECOVERY')` queda como red de seguridad,
   pero puede dispararse antes de que el módulo llegue a escucharlo.
-- **`redirectTo` usa `BASE_URL`**, no `location.origin`, y tiene que estar en la
-  lista de *Redirect URLs* de Supabase o el enlace rebota al Site URL.
+- **`redirectTo` usa `BASE_URL`**, no `location.origin`, y **tiene que estar en
+  la lista de *Redirect URLs*** de Supabase. Si no está, Supabase lo descarta
+  sin avisar y usa el **Site URL** en su lugar. Pasó el 17/09/2026 en la primera
+  prueba real: el correo llegó, el enlace era válido y `/verify` devolvió 303
+  con login correcto — pero el Site URL todavía apuntaba al subdominio anterior
+  de Cloudflare, ya sin DNS, así que el navegador terminaba en
+  `ERR_NAME_NOT_RESOLVED`. Nada en los registros de Supabase marca error: hay
+  que mirar a qué dominio aterriza el navegador.
+  `BASE_URL`, Site URL y Redirect URLs son **tres copias del mismo dato** y se
+  cambian juntas o no se cambian.
 - **«Volver al inicio» hace `signOut()`.** Dejar viva la sesión de recuperación
   permitiría entrar al panel con solo el enlace del correo.
 - El aviso tras enviar **no dice si el correo existe** y sí dice a quién avisar

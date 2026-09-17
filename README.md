@@ -114,10 +114,21 @@ npx wrangler deploy
 ## Nota sobre el login y la URL
 
 En Supabase → **Authentication → URL Configuration**, el **Site URL** y las
-**Redirect URLs** deben apuntar a la dirección pública del Worker para que la
-confirmación de correo de nuevos agentes funcione:
+**Redirect URLs** tienen que apuntar a la dirección pública del Worker, que es
+la misma que `BASE_URL` en `public/js/config.js`:
 
 ```
-https://nexus-ftds.santiagoviveros18.workers.dev
-https://nexus-ftds.santiagoviveros18.workers.dev/**
+https://nexus-ftds.nexus-pro.workers.dev
+https://nexus-ftds.nexus-pro.workers.dev/**
 ```
+
+**Si estos tres valores se separan, el correo de recuperación se rompe de una
+forma que no parece un error de URL.** Supabase descarta cualquier `redirectTo`
+que no esté en las *Redirect URLs* y, en silencio, usa el **Site URL** en su
+lugar. El 17/09/2026 el Site URL todavía tenía el subdominio anterior
+(`santiagoviveros18`, que dejó de resolver al renombrar el subdominio de la
+cuenta de Cloudflare): el correo llegaba bien, el enlace era válido, Supabase
+aceptaba el token — y el navegador aterrizaba en `ERR_NAME_NOT_RESOLVED`.
+
+Al cambiar el dominio del Worker hay que actualizar **los tres a la vez**:
+`BASE_URL`, el Site URL y las Redirect URLs.
