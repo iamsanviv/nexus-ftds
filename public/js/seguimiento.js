@@ -391,7 +391,7 @@ function setTipoActividad(tipo) {
     ? "Una actividad puntual no tiene servicio del cual heredar imagen: si no subes nada, la invitación va sin adjunto."
     : "Si no subes nada, se usa la imagen del servicio del catálogo.";
   $("segImgAyuda").textContent =
-    heredada + " Video en MP4 o MOV, hasta 16 MB; el texto de la invitación va como pie.";
+    heredada + " Video en MP4 o MOV, hasta 16 MB.";
 }
 
 // Invitación propia de la actividad. `null` = usar la plantilla del agente.

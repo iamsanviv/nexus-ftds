@@ -28,6 +28,15 @@
      encima con su color normal. */
   input[type="date"].fecha-vacia::before{content:attr(data-ph);color:#5d6876}
   input[type="date"].fecha-vacia::-webkit-datetime-edit{opacity:0}
+  /* La MISMA trampa de iOS, en el campo de hora: su reloj nativo trae un ancho
+     intrínseco que ignora `width:100%` y se sale del modal. Se veía porque el
+     valor salía CENTRADO — señal de que el elemento es más ancho que su caja.
+     Acá NO se usa `appearance:none` como en `date`: eso borraría el «--:--»
+     que iOS dibuja solo, y la hora vacía quedaría en blanco sin un placeholder
+     equivalente al de las fechas. `max-width` es una restricción distinta de
+     `width` y sí la respeta, así que recorta el desborde sin tocar el dibujo. */
+  input[type="time"]{min-width:0;max-width:100%}
+  input[type="time"]::-webkit-date-and-time-value{text-align:left;margin:0;min-width:0}
   /* Las dos mitades de una fila doble tampoco pueden encoger por debajo de su
      contenido si no se dice: `min-width:auto` es el defecto de un ítem flex. */
   .dual > div{min-width:0}

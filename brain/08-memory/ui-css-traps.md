@@ -92,3 +92,37 @@ Se vio en la captura y se confirmó midiendo en el navegador
 Cuando se ajuste un valor que ya viene de otra regla, medir la distancia real en
 el navegador en vez de confiar en que el número nuevo se suma al anterior. Y
 ante la duda, escribir el valor FINAL que se quiere, no el delta.
+
+
+## El ancho intrínseco de iOS también afecta a `input[type="time"]`
+
+Ya estaba resuelto para `input[type="date"]`: Safari de iOS les da a los campos
+de fecha y hora un ancho intrínseco propio —el de su reloj interno más el
+icono— que **ignora `width:100%`** y se sale del contenedor. La regla existente
+solo nombraba `date`, así que el campo de **hora** llevaba el mismo defecto sin
+tratar, y se salía del modal de actividad en móvil (17/09/2026).
+
+**La señal que lo delata: el valor sale CENTRADO.** Si el elemento es más ancho
+que su caja, su contenido centrado queda desplazado a la derecha. Ver «10:00
+a.m.» en el medio del campo en vez de a la izquierda es el síntoma.
+
+### Por qué la hora NO se arregló igual que la fecha
+
+A `date` se le puso `appearance:none`, y eso trajo un efecto de arrastre: iOS
+dejó de dibujar su «dd/mm/aaaa» y el campo vacío quedaba en blanco, lo que
+obligó a inventar un placeholder por CSS (`data-ph` + clase `.fecha-vacia` que
+mantiene el JS, y que hay que refrescar a mano cada vez que el valor se asigna
+por código).
+
+Repetir eso en `time` habría heredado el mismo mantenimiento —y la lista de
+campos con placeholder ya se había quedado corta antes—. Se usó `max-width:100%`
+en su lugar: es una restricción **distinta** de `width` y iOS sí la respeta, así
+que recorta el desborde **sin** tocar el dibujo nativo, y el «--:--» del campo
+vacío se conserva solo.
+
+### Al probarlo
+
+Chromium no reproduce el bug de iOS, así que una captura en el banco no
+demuestra que esté arreglado. Lo que sí se puede medir en cualquier motor —y es
+lo que se midió— es que el borde derecho del campo no pase del borde de su
+contenedor. La confirmación final es en un iPhone real.
