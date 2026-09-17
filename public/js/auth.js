@@ -1,7 +1,7 @@
 // Autenticación: arranque, login/registro, sesión y aplicación del rol a la UI.
 import { SB } from "./supabase.js";
 import { SUPABASE_URL, SUPABASE_ANON } from "./config.js";
-import { state, $, toast } from "./state.js";
+import { state, $, toast, esc } from "./state.js";
 import { cargarTodo } from "./data.js";
 import { render } from "./ui.js";
 import { repasoDiario } from "./repaso.js";
@@ -125,7 +125,13 @@ async function cargarDirectores() {
     sel.innerHTML = `<option value="">(no hay directores disponibles)</option>`;
     return;
   }
-  sel.innerHTML = data.map(d => `<option value="${d.id}">${d.nombre}</option>`).join("");
+  // `full_name` lo escribe cada quien al registrarse, así que es dato de
+  // usuario aunque venga de un director. Sin escapar, un nombre con
+  // `</option><img src=x onerror=...>` inyectaría script en la pantalla de
+  // REGISTRO, que se sirve sin sesión: lo ejecutaría cualquier visitante.
+  // Es el único innerHTML del panel que pintaba dato de usuario en crudo.
+  sel.innerHTML = data.map(d =>
+    `<option value="${esc(d.id)}">${esc(d.nombre)}</option>`).join("");
   directoresCargados = true;
 }
 
