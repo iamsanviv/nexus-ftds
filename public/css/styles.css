@@ -398,7 +398,9 @@
 .recdot{width:10px;height:10px;border-radius:50%;background:#ff5252;animation:recblink 1.1s infinite}
 @keyframes recblink{50%{opacity:.2}}
 .audtimer{font-variant-numeric:tabular-nums;min-width:44px;font-weight:600}
-.segfiltros{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+/* `margin-top` porque los filtros van justo debajo del buscador y quedaban
+   pegados a su borde, como si fueran parte del campo. */
+.segfiltros{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 8px}
 .progrow{display:flex;gap:8px;align-items:stretch}
 .progrow .authbtn{flex:1;margin:0}
 .progtarde{flex:0 0 auto;font-size:.78rem;font-weight:600;padding:0 12px;border-radius:11px;
@@ -1582,3 +1584,44 @@ body.segwide .tabinner{max-width:1180px}
    OJO: es un selector de ID, así que NO ajusta el `margin-top:16px` de
    `.authswitch` — lo reemplaza. Con -4px el enlace se montaba encima del botón. */
 #auOlvidoRow{margin-top:10px}
+
+/* ---------- icono de información ---------- */
+/* Un círculo con una «i» que pliega una explicación larga: la del enlace
+   rastreado ocupaba cuatro renglones fijos para algo que se lee una vez. Se
+   dibuja con borde redondeado y una letra, no con un emoji, por lo mismo que
+   el ojo de la contraseña: un emoji lo pinta el sistema operativo y no sigue
+   la paleta. `currentColor` en el borde lo ata al color del texto. */
+.infoi{flex:0 0 auto;position:relative;width:16px;height:16px;margin-left:7px;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid currentColor;border-radius:50%;background:none;
+  color:var(--muted);opacity:.55;cursor:pointer;
+  font-family:'Archivo',system-ui,sans-serif;font-size:10px;font-weight:700;
+  line-height:1;text-transform:none;letter-spacing:0;
+  transition:opacity .12s ease,color .12s ease}
+.infoi::before{content:"i"}
+.infoi:hover,.infoi:focus-visible,.infoi.abierto{opacity:1;color:var(--gold)}
+.infoi:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* El texto vive en `data-info`, al lado del control que describe, en vez de en
+   una plantilla aparte que se desincroniza. Se resetea la tipografía heredada
+   porque casi siempre cuelga de un <label> en versalitas. */
+.infoi::after{content:attr(data-info);
+  position:absolute;top:calc(100% + 9px);left:50%;transform:translateX(-50%);
+  width:max-content;max-width:min(270px,68vw);
+  background:var(--surface2);color:var(--text);
+  border:1px solid var(--border);border-radius:11px;padding:10px 12px;
+  font-size:.76rem;font-weight:400;line-height:1.45;
+  text-align:left;text-transform:none;letter-spacing:0;white-space:normal;
+  box-shadow:0 10px 28px rgba(0,0,0,.4);
+  opacity:0;visibility:hidden;pointer-events:none;z-index:40;
+  transition:opacity .12s ease}
+.infoi:hover::after,.infoi:focus-visible::after,.infoi.abierto::after{opacity:1;visibility:visible}
+
+/* Dentro de una fila de casilla, el globo se ancla a LA FILA y no al icono.
+   Centrado sobre una «i» que queda cerca del borde derecho, a 320 px se salía
+   de la pantalla y metía scroll horizontal. Ocupando el ancho de la fila no
+   puede salirse a ningún ancho, y además queda alineado con el resto del texto.
+   `position:static` en el icono es lo que traslada el anclaje al <label>. */
+.segtoggle{position:relative}
+.segtoggle .infoi{position:static}
+.segtoggle .infoi::after{left:0;right:0;transform:none;width:auto;max-width:none}

@@ -126,3 +126,24 @@ Chromium no reproduce el bug de iOS, así que una captura en el banco no
 demuestra que esté arreglado. Lo que sí se puede medir en cualquier motor —y es
 lo que se midió— es que el borde derecho del campo no pase del borde de su
 contenedor. La confirmación final es en un iPhone real.
+
+## Un globo de ayuda centrado sobre su icono se sale en pantallas pequeñas
+
+El icono de información (`.infoi`, un círculo con una «i») despliega su texto
+con `::after` y `content:attr(data-info)`. Anclado al propio icono y centrado
+(`left:50%;transform:translateX(-50%)`), a 390 px cabía — pero a **320 px** se
+salía 28 px por la derecha y metía scroll horizontal, porque la «i» va al final
+del texto de la fila, cerca del borde.
+
+Cambiar el centrado por un anclaje a la derecha solo mueve el problema: a 390 px
+se salía por la izquierda. **Ningún anclaje al icono funciona a todos los
+anchos** mientras el icono pueda estar en cualquier punto de la fila.
+
+### Protección
+
+Anclar el globo a **la fila**, no al icono: `position:relative` en el `<label>`,
+`position:static` en el icono (eso traslada el contenedor del `::after`), y
+`left:0;right:0`. Así ocupa el ancho de la fila, que por definición cabe, y de
+paso queda alineado con el resto del texto.
+
+Se detectó midiendo, no mirando: la captura a 390 px se veía perfecta.

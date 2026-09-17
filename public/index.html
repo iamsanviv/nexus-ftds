@@ -317,27 +317,26 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <div id="segProgBloque" class="hidden">
       <div class="actsel" id="segProgTitulo"></div>
 
-      <!-- segmentos guardados / historial: reutilizar una selección anterior -->
-      <div id="segSegmentos" class="segsegmentos"></div>
 
       <!-- QUÉ SE MANDA. Este título encabeza las tres decisiones del envío
            —si va invitación, si el enlace se rastrea y qué hitos salen— para
            separarlas de las de A QUIÉN, que van más abajo pegadas a la lista. -->
       <div class="pstitle">Qué mensajes se programan</div>
-      <label class="segtoggle"><input type="checkbox" id="segSinInv"> No enviar invitación — ya los invité por llamada o por otro mensaje</label>
       <!-- Enlace rastreado. Va acá y no en el formulario de la actividad porque
            la decisión es de esta tanda: a una lista de confianza se le rastrea,
            y a un público frío que ya desconfía se le manda el zoom.us tal cual.
-           La misma actividad puede querer las dos cosas. -->
-      <label class="segtoggle"><input type="checkbox" id="segRastrear" checked> Saber quién entra al enlace</label>
-      <div class="msgshelp" id="segRastrearAyuda">Cada persona recibe un enlace propio que la lleva a la misma sala. Quien lo abra queda marcado como asistente, sin tener que preguntárselo. Apágalo si prefieres que vean el enlace de Zoom tal cual.</div>
-      <!-- Qué mensajes de la secuencia se programan. La invitación sale acá en
-           gris y sin casilla: ya tiene la suya («No enviar invitación»), y dos
-           controles para lo mismo se contradicen tarde o temprano. Aparece
-           igual porque es la referencia contra la que se mide todo: el caso que
-           este bloque resuelve —invitar a las 5:48 para una actividad de las 7,
-           con el recordatorio de una hora cayendo a las 6:00— no se ve si la
-           invitación y los recordatorios no están juntos y con su hora. -->
+           La misma actividad puede querer las dos cosas.
+           La explicación larga se pliega tras el icono de información: ocupaba
+           cuatro renglones fijos para algo que se lee una vez. -->
+      <label class="segtoggle"><input type="checkbox" id="segRastrear" checked> Saber quién entra al enlace<button
+        type="button" class="infoi" data-info="Cada persona recibe un enlace propio que la lleva a la misma sala. Quien lo abra queda marcado como asistente, sin tener que preguntárselo. Apágalo si prefieres que vean el enlace de Zoom tal cual."></button></label>
+      <!-- Qué mensajes de la secuencia se programan. La invitación es UNA FILA
+           MÁS de esta lista: antes tenía su propia casilla («No enviar
+           invitación») separada del resto, y eran dos controles para lo mismo
+           en dos sitios distintos. Acá se ve junto a las horas de los demás,
+           que es lo que hace obvio el caso que este bloque resuelve: invitar a
+           las 5:48 para una actividad de las 7 deja el recordatorio de una hora
+           cayendo a las 6:00. -->
       <div id="segHitos" class="hitos"></div>
       <!-- Invitación propia del agente para una actividad que le compartieron.
            Va acá y no en el formulario de la actividad porque esa actividad no
@@ -367,6 +366,10 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <label class="segtoggle"><input type="checkbox" id="segIncInact"> 😴 Incluir inactivas<span class="segtoggle-n"></span></label>
       <div class="masbuscarwrap"><input type="search" id="segBuscar" placeholder="🔎 Buscar por nombre…" autocomplete="off"><button id="segBuscarX" class="masbuscarx hidden" title="Limpiar">✕</button></div>
       <div id="segFiltros" class="segfiltros"></div>
+      <!-- Reutilizar una selección anterior. Va pegado a los filtros porque es
+           otra forma de lo mismo —acotar a quién— y arriba del todo quedaba
+           lejos de la lista sobre la que actúa. -->
+      <div id="segSegmentos" class="segsegmentos"></div>
       <div class="segselbar">
         <span id="segSelCount" class="segselcount"></span>
         <button class="pill" id="segMarcarVis">✓ Marcar visibles</button>

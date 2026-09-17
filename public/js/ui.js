@@ -1100,3 +1100,24 @@ $("cAddBtn").onclick = () => {
   g.items.push(s); $("cName").value = ""; $("cNewGroup").value = "";
   guardarCatalogo(); renderCat(); render(); toast(`Servicio «${n}» agregado ✓`);
 };
+
+
+/* ---------- icono de información ---------- */
+/* En escritorio basta el `:hover` del CSS, pero en un teléfono no hay hover:
+   el toque alterna una clase. Va DELEGADO en el documento y no atado a cada
+   icono porque hay bloques que se repintan enteros —el selector de hitos se
+   redibuja en cada cambio— y un manejador puesto al iniciar se perdería.
+   Sirve para cualquier `.infoi` que se agregue después, sin cablear nada. */
+document.addEventListener("click", e => {
+  const icono = e.target.closest(".infoi");
+  // Casi siempre cuelga de un <label>: sin frenar la acción por defecto, tocar
+  // la «i» alternaría la misma casilla que la explicación describe.
+  if (icono) e.preventDefault();
+  document.querySelectorAll(".infoi.abierto").forEach(i => {
+    if (i !== icono) i.classList.remove("abierto");
+  });
+  if (icono) icono.classList.toggle("abierto");
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") document.querySelectorAll(".infoi.abierto").forEach(i => i.classList.remove("abierto"));
+});

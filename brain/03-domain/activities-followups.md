@@ -63,6 +63,15 @@ Dos mecanismos distintos deciden cuáles salen, y no se deben mezclar:
    de una hora a las 18:00 — técnicamente válido, pero doce minutos después de
    la invitación y por tanto redundante.
 
+**La invitación es una fila más del selector** (17/09/2026). Antes tenía su
+propia casilla, «No enviar invitación», en otro punto de la pantalla: dos
+controles para la misma decisión, separados, que tarde o temprano se
+contradicen. Ahora se apaga donde se ve su efecto sobre el resto de la
+secuencia. El estado sigue siendo `segSinInvitacion` —todo lo de abajo lo lee
+así— y `alternarInvitacion()` concentra los efectos de arrastre: esconder «Más
+tarde» (diferir algo que no se envía no significa nada) y el editor de la
+invitación propia.
+
 Arranca **todo marcado**: el estado anterior del sistema era ese, y apagar algo
 por iniciativa propia sería la misma falta que mandarlo de más, solo que en
 silencio. Se reinicia al cambiar de actividad, para no heredar el apagado de
@@ -93,8 +102,12 @@ deliberado:
 
 1. *Qué mensajes se programan* — si va invitación, si el enlace se rastrea, qué
    hitos salen, la invitación propia del agente.
-2. *Elige a quién incluir* — incluir asistidos/inactivas, **buscador, filtros**,
-   barra de selección y la lista.
+2. *Elige a quién incluir* — incluir asistidos/inactivas, **buscador, filtros,
+   segmentos guardados**, barra de selección y la lista.
+
+Los segmentos guardados («Invitados recientes») van **pegados a los filtros**:
+son otra forma de lo mismo —acotar a quién— y arriba del bloque quedaban lejos
+de la lista sobre la que actúan.
 
 El buscador y los filtros van **pegados a la lista que filtran**. Habían quedado
 a cinco bloques de distancia —y el selector de hitos (16/09) lo empeoró—, así

@@ -948,7 +948,6 @@ async function seleccionarActividad(a) {
   // no significa nada: se esconde en vez de dejar un control muerto.
   const iaRow = $("segIncAsis").closest("label");
   if (iaRow) iaRow.classList.toggle("hidden", esLibre(a));
-  const si = $("segSinInv"); if (si) si.checked = false;
   // Vuelve a encendido en cada actividad: es lo que se quiere casi siempre, y
   // dejarlo apagado de la tanda anterior significaría perder el rastreo sin
   // que nadie lo pidiera.
@@ -1075,6 +1074,30 @@ async function revisarCanal() {
 }
 
 /* ---------- selector de hitos ---------- */
+// Apagar o encender la invitación. Se llama desde la casilla «Invitación» del
+// selector, que sustituyó a la antigua «No enviar invitación»: la decisión es
+// la misma y ahora vive donde se ve su efecto sobre el resto de la secuencia.
+function alternarInvitacion(sinInvitacion) {
+  segSinInvitacion = sinInvitacion;
+  // Diferir la invitación no significa nada si no se envía: se esconde el
+  // botón y se descarta la hora elegida.
+  $("segTardeToggle").classList.toggle("hidden", segSinInvitacion);
+  if (segSinInvitacion) {
+    segInvitarTarde = null;
+    $("segTardeRow").classList.add("hidden");
+    $("segTardeToggle").classList.remove("on");
+  }
+  // Sin invitación no hay invitación que personalizar: se esconde el editor (y
+  // su caja abierta) en vez de dejar un control que no haría nada.
+  const mostrarMiInv = !segSinInvitacion && puedoPersonalizarInvitacion(actSel);
+  $("segMiInvRow").classList.toggle("hidden", !mostrarMiInv);
+  if (!mostrarMiInv) $("segMiInvBox").classList.add("hidden");
+  // Sin invitación la frontera pasa a ser «ahora», así que cambian las horas
+  // y puede volver a caber algo que antes no.
+  renderHitos();
+  refrescarBotonProgramar();
+}
+
 // Cuándo sale el primer mensaje de la tanda. Se calcula igual acá y en
 // `programar()`: es la frontera de la que cuelga todo lo demás.
 function primerContactoAhora() {
@@ -1093,12 +1116,23 @@ function renderHitos() {
   const inicio = new Date(actSel.inicio);
   const { ahora, cuandoInv, primerContacto } = primerContactoAhora();
 
-  const filaInv = segSinInvitacion
-    ? `<div class="hito nula"><span class="hitolbl">Invitación</span>
-         <span class="hitoq">no se envía</span></div>`
-    : `<div class="hito fija"><span class="hitolbl">Invitación</span>
-         <span class="hitoq">${segInvitarTarde && segInvitarTarde > ahora
-           ? esc(fechaHoraCO(cuandoInv.toISOString())) : "ahora"}</span></div>`;
+  // La invitación es una casilla más, no una fila fija: tenía su propio
+  // «No enviar invitación» en otro sitio de la pantalla, y dos controles para
+  // la misma decisión acaban contradiciéndose. Acá se apaga donde se ve su
+  // efecto sobre el resto de la secuencia.
+  const filaInv = `
+      <label class="hito${segSinInvitacion ? " off" : ""}">
+        <input type="checkbox" data-inv ${segSinInvitacion ? "" : "checked"}>
+        <span class="hitolbl">Invitación</span>
+        <span class="hitoq"><span class="hitohora">${segSinInvitacion
+          ? "no se envía"
+          : (segInvitarTarde && segInvitarTarde > ahora
+             ? esc(fechaHoraCO(cuandoInv.toISOString())) : "ahora")}</span></span>
+      </label>
+      ${segSinInvitacion
+        ? `<div class="hitonota">No se programa: das por hecho que ya los invitaste
+             por llamada o por otro mensaje.</div>`
+        : ""}`;
 
   cont.innerHTML = filaInv + HITOS(inicio).map(([tipo, cuando]) => {
     // La regla manda sobre la preferencia: lo que saldría antes que la
@@ -1123,6 +1157,8 @@ function renderHitos() {
     segHitos[e.target.dataset.hito] = e.target.checked;
     renderHitos();
   });
+  const inv = cont.querySelector("[data-inv]");
+  if (inv) inv.onchange = e => alternarInvitacion(!e.target.checked);
 }
 
 // El botón dice lo que va a pasar: es el último punto donde el agente puede
@@ -2376,24 +2412,7 @@ $("segIncInact").onchange = e => alternarIncInact(e.target.checked);
 
 // Toggle "sin invitación": si no se manda invitación, diferirla no significa
 // nada, así que se esconde ese botón y se descarta la hora elegida.
-$("segSinInv").onchange = e => {
-  segSinInvitacion = e.target.checked;
-  $("segTardeToggle").classList.toggle("hidden", segSinInvitacion);
-  if (segSinInvitacion) {
-    segInvitarTarde = null;
-    $("segTardeRow").classList.add("hidden");
-    $("segTardeToggle").classList.remove("on");
-  }
-  // Sin invitación no hay invitación que personalizar: se esconde el editor (y
-  // su caja abierta) en vez de dejar un control que no haría nada.
-  const mostrarMiInv = !segSinInvitacion && puedoPersonalizarInvitacion(actSel);
-  $("segMiInvRow").classList.toggle("hidden", !mostrarMiInv);
-  if (!mostrarMiInv) $("segMiInvBox").classList.add("hidden");
-  // Sin invitación la frontera pasa a ser «ahora», así que cambian las horas
-  // y puede volver a caber algo que antes no.
-  renderHitos();
-  refrescarBotonProgramar();
-};
+
 
 $("segRastrear").onchange = e => { segRastrear = e.target.checked; refrescarBotonProgramar(); };
 
