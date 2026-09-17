@@ -29,16 +29,44 @@ Históricamente se recomendó desactivar `Confirm email` porque añadía fricci�
 
 Cambiar contraseña desde la propia aplicación usa la sesión autenticada (`updateUser`) y no necesita enviar un correo de recuperación.
 
-## Recuperación de contraseña
+## Recuperación de contraseña (implementada 17/09/2026)
 
-La recuperación desde "olvidé mi contraseña" requiere:
+Todo el mecanismo es de Supabase y **no necesita backend**:
+`resetPasswordForEmail(email, { redirectTo })` manda el correo y `updateUser`
+cierra el cambio.
 
-- envío de correo de recuperación;
-- configuración SMTP apropiada para producción;
-- manejar al volver a la app el enlace/evento de recuperación de Supabase;
-- pantalla para establecer la nueva contraseña.
+**Límite que decide si sirve:** con el SMTP de fábrica, Supabase Auth
+**solo entrega correos a direcciones del equipo del proyecto**. Para los
+demás agentes falla *en silencio* — el correo no llega y `resetPasswordForEmail`
+no devuelve error, porque no revelar si una dirección existe es justamente lo
+que evita que se puedan enumerar cuentas probando correos. Sin SMTP propio
+configurado, el botón existe pero no sirve para 19 de 20 personas.
 
-El SMTP de desarrollo de Supabase no debe asumirse suficiente para uso real o pruebas repetidas.
+Piezas y por qué:
+
+- **`HASH_ENTRADA` se captura en `supabase.js` ANTES de crear el cliente.**
+  `detectSessionInUrl` viene activado por defecto: consume el `#...type=recovery`
+  y lo borra. Si se lee después, ya no hay rastro, `getSession()` ve una sesión
+  válida y `entrar()` mete a la persona al panel — el enlace "funcionaría" pero
+  nunca pediría la contraseña nueva, y la olvidada seguiría siendo la única que
+  sirve. `onAuthStateChange('PASSWORD_RECOVERY')` queda como red de seguridad,
+  pero puede dispararse antes de que el módulo llegue a escucharlo.
+- **`redirectTo` usa `BASE_URL`**, no `location.origin`, y tiene que estar en la
+  lista de *Redirect URLs* de Supabase o el enlace rebota al Site URL.
+- **«Volver al inicio» hace `signOut()`.** Dejar viva la sesión de recuperación
+  permitiría entrar al panel con solo el enlace del correo.
+- El aviso tras enviar **no dice si el correo existe** y sí dice a quién avisar
+  si no llega, que es la única salida honesta mientras el SMTP no esté puesto.
+
+## Ver la contraseña (el «ojito»)
+
+`ponerOjo(id)` envuelve el campo y le agrega un botón que alterna
+`type=password/text`. Se arma desde JS y no en el HTML porque son cuatro campos
+en tres pantallas (`auPass`, `pass1`, `pass2`, `recu1`, `recu2`): repetir el
+marcado garantiza que algún día uno quede sin él. Se alterna `type` y no
+`-webkit-text-security` porque este último no existe en Firefox y el campo
+quedaría visible sin que nadie lo pidiera. `ocultarOjos()` lo revierte al cerrar
+cada pantalla, para no dejar una contraseña a la vista en la próxima apertura.
 
 ## Seguridad
 

@@ -1,11 +1,63 @@
 // Autenticación: arranque, login/registro, sesión y aplicación del rol a la UI.
-import { SB } from "./supabase.js";
-import { SUPABASE_URL, SUPABASE_ANON } from "./config.js";
+import { SB, HASH_ENTRADA } from "./supabase.js";
+import { SUPABASE_URL, SUPABASE_ANON, BASE_URL } from "./config.js";
 import { state, $, toast, esc } from "./state.js";
 import { cargarTodo } from "./data.js";
 import { render } from "./ui.js";
 import { repasoDiario } from "./repaso.js";
 import { refrescarIndicadorAgentes } from "./salud.js";
+
+/* ---------- ver la contraseña ---------- */
+// Un botón dentro del campo que alterna type=password/text. Se arma desde JS y
+// no en el HTML porque son cuatro campos en tres pantallas distintas: repetir
+// el marcado cuatro veces garantiza que un día uno quede sin él.
+//
+// `type` y no `-webkit-text-security`: el segundo no existe en Firefox y el
+// campo quedaría visible sin que nadie lo pidiera.
+function ponerOjo(id) {
+  const input = $(id);
+  if (!input || input.dataset.ojo) return;
+  input.dataset.ojo = "1";
+
+  const caja = document.createElement("div");
+  caja.className = "pwrap";
+  input.parentNode.insertBefore(caja, input);
+  caja.appendChild(input);
+
+  const btn = document.createElement("button");
+  btn.type = "button";           // dentro de un form, sin esto enviaría el form
+  btn.className = "pwojo";
+  btn.textContent = "👁";
+  // El campo no lleva `aria-label`: el <label> de al lado ya lo nombra. El que
+  // hace falta es el del botón, que si no se anuncia como «botón 👁».
+  btn.setAttribute("aria-label", "Mostrar la contraseña");
+  btn.title = "Mostrar la contraseña";
+  caja.appendChild(btn);
+
+  btn.onclick = () => {
+    const visible = input.type === "text";
+    input.type = visible ? "password" : "text";
+    btn.textContent = visible ? "👁" : "🙈";
+    const t = visible ? "Mostrar la contraseña" : "Ocultar la contraseña";
+    btn.setAttribute("aria-label", t); btn.title = t;
+    btn.setAttribute("aria-pressed", String(!visible));
+    input.focus();
+  };
+}
+
+// Se vuelve a ocultar al cerrar la pantalla: dejar una contraseña a la vista
+// para la próxima vez que se abra el modal sería una sorpresa desagradable.
+function ocultarOjos(...ids) {
+  ids.forEach(id => {
+    const i = $(id);
+    if (!i || i.type !== "text") return;
+    i.type = "password";
+    const b = i.parentNode.querySelector(".pwojo");
+    if (b) { b.textContent = "👁"; b.setAttribute("aria-pressed", "false"); }
+  });
+}
+
+["auPass", "pass1", "pass2", "recu1", "recu2"].forEach(ponerOjo);
 
 export function boot() {
   if (SUPABASE_URL.includes("TU-PROYECTO") || SUPABASE_ANON.includes("TU_ANON")) {
@@ -15,8 +67,34 @@ export function boot() {
     ["auName", "auEmail", "auPass", "auBtn", "auToggle"].forEach(i => { const e = $(i); if (e) e.disabled = true; });
     return;
   }
+  /* Volver de un correo de recuperación abre una sesión válida. Sin este
+     desvío, `getSession()` la ve y `entrar()` mete a la persona al panel: el
+     enlace «funcionaría» pero nunca le pediría la contraseña nueva, y la vieja
+     —la que olvidó— seguiría siendo la única que sirve. */
+  if (esRecuperacion()) { mostrarRecuperacion(); return; }
+
   SB.auth.getSession().then(({ data }) => { data.session ? entrar() : mostrarLogin(); });
 }
+
+// El hash se capturó en supabase.js antes de que el cliente lo consumiera.
+// `onAuthStateChange` también avisa, pero puede dispararse antes de que este
+// módulo llegue a escucharlo; el hash no se pierde en esa carrera.
+const esRecuperacion = () => /[#&]type=recovery\b/.test(HASH_ENTRADA);
+
+function mostrarRecuperacion() {
+  $("app").classList.add("hidden");
+  $("authScreen").classList.add("hidden");
+  $("pendScreen").classList.add("hidden");
+  $("recuScreen").classList.remove("hidden");
+  $("recu1").focus();
+}
+
+// Red de seguridad por si el enlace llegara sin hash legible (otro flujo de
+// Supabase, o un navegador que lo limpie antes). No estorba: si ya estamos en
+// la pantalla de recuperación, volver a mostrarla no hace nada.
+SB.auth.onAuthStateChange((evento) => {
+  if (evento === "PASSWORD_RECOVERY") mostrarRecuperacion();
+});
 
 function mostrarLogin() { $("app").classList.add("hidden"); $("authScreen").classList.remove("hidden"); }
 function authError(msg) { const e = $("authErr"); e.textContent = msg; e.classList.add("show"); }
@@ -143,6 +221,8 @@ function toggleSignup() {
   if (state.signupMode) cargarDirectores();
   $("authSub").textContent = state.signupMode ? "Crea tu cuenta de agente" : "Inicia sesión para continuar";
   $("auBtn").textContent = state.signupMode ? "Crear cuenta" : "Entrar";
+  // Al crear cuenta todavía no hay contraseña que recuperar.
+  $("auOlvidoRow").classList.toggle("hidden", state.signupMode);
   $("auSwitch").innerHTML = state.signupMode
     ? '¿Ya tienes cuenta? <button id="auToggle2">Iniciar sesión</button>'
     : '¿No tienes cuenta? <button id="auToggle2">Crear cuenta</button>';
@@ -182,6 +262,93 @@ $("auBtn").onclick = async () => {
   }
 };
 
+/* ---------- recuperar contraseña (sin sesión) ---------- */
+// Todo el mecanismo es de Supabase: `resetPasswordForEmail` manda el correo y
+// `updateUser` lo cierra. No hace falta backend propio.
+//
+// OJO CON EL CORREO: con el SMTP que trae Supabase de fábrica, Auth SOLO
+// entrega mensajes a direcciones del equipo del proyecto. Para el resto del
+// equipo hay que configurar un SMTP propio, o esto falla EN SILENCIO — el
+// correo no llega y nadie ve un error. Por eso el aviso de abajo dice
+// explícitamente a quién avisar si no llega.
+const recuErr = m => { const e = $("recuEnvErr"); e.textContent = m; e.classList.toggle("show", !!m); };
+
+function abrirRecuperar() {
+  recuErr("");
+  $("recuEnviado").classList.add("hidden");
+  $("recuEnviar").disabled = false;
+  $("recuEnviar").textContent = "Enviar el enlace";
+  // Si ya escribió el correo para entrar, no se lo hacemos escribir otra vez.
+  $("recuEmail").value = ($("auEmail").value || "").trim();
+  $("recuOverlay").classList.add("open");
+  $("recuEmail").focus();
+}
+const cerrarRecuperar = () => $("recuOverlay").classList.remove("open");
+
+$("auOlvido").onclick = abrirRecuperar;
+$("recuCerrar").onclick = cerrarRecuperar;
+$("recuOverlay").onclick = e => { if (e.target.id === "recuOverlay") cerrarRecuperar(); };
+$("recuEmail").onkeydown = e => { if (e.key === "Enter") $("recuEnviar").click(); };
+
+$("recuEnviar").onclick = async () => {
+  const email = ($("recuEmail").value || "").trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return recuErr("Escribe un correo válido.");
+
+  const btn = $("recuEnviar");
+  btn.disabled = true; btn.textContent = "Enviando…";
+  // `redirectTo` tiene que estar en la lista de Redirect URLs de Supabase, o el
+  // enlace del correo rebota al Site URL. Se usa BASE_URL —el dominio de
+  // producción— y no `location.origin`, por la misma razón que en los enlaces
+  // rastreados: abrir el panel desde una URL de vista previa no debe decidir a
+  // dónde vuelve un correo.
+  const { error } = await SB.auth.resetPasswordForEmail(email, { redirectTo: BASE_URL });
+  if (error) {
+    btn.disabled = false; btn.textContent = "Enviar el enlace";
+    return recuErr(traducirAuth(textoDeError(error) || "No se pudo enviar el correo."));
+  }
+  // A propósito NO se dice si el correo existe o no: eso permitiría averiguar
+  // quién tiene cuenta probando direcciones.
+  recuErr("");
+  $("recuEnviado").classList.remove("hidden");
+  $("recuEnviado").textContent =
+    "📬 Si esa dirección tiene cuenta, le llega un enlace en unos minutos. "
+    + "Revisa también el correo no deseado. Si no llega, avísale al administrador.";
+  btn.textContent = "Enviado";
+};
+
+/* ---------- elegir la contraseña nueva al volver del correo ---------- */
+const recuSetErr = m => { const e = $("recuErr"); e.textContent = m; e.classList.toggle("show", !!m); };
+
+$("recuCancelar").onclick = async () => {
+  // Se cierra la sesión de recuperación: dejarla abierta permitiría entrar al
+  // panel con solo el enlace del correo, sin haber elegido contraseña.
+  await SB.auth.signOut();
+  // `location.pathname` y no BASE_URL: basta con soltar el hash del enlace y
+  // recargar donde ya estamos. Mandar a BASE_URL sacaría de su sitio a quien
+  // abriera el panel desde otra dirección, sin necesidad.
+  // `replace` para que el botón «atrás» no devuelva al enlace ya gastado.
+  location.replace(location.pathname);
+};
+
+$("recuGuardar").onclick = async () => {
+  const a = $("recu1").value, b = $("recu2").value;
+  if (a.length < 8) return recuSetErr("La contraseña necesita al menos 8 caracteres.");
+  if (a !== b) return recuSetErr("Las dos contraseñas no son iguales.");
+
+  const btn = $("recuGuardar");
+  btn.disabled = true; btn.textContent = "Guardando…";
+  const { error } = await SB.auth.updateUser({ password: a });
+  if (error) {
+    btn.disabled = false; btn.textContent = "Guardar y entrar";
+    return recuSetErr(traducirAuth(textoDeError(error) || "No se pudo cambiar la contraseña."));
+  }
+  ocultarOjos("recu1", "recu2");
+  $("recu1").value = ""; $("recu2").value = ""; recuSetErr("");
+  $("recuScreen").classList.add("hidden");
+  toast("🔑 Contraseña actualizada");
+  entrar();                       // la sesión de recuperación ya vale como sesión normal
+};
+
 /* ---------- cambiar contraseña (con sesión abierta) ---------- */
 // `updateUser` NO manda correo: usa la sesión que ya existe. Por eso esto
 // funciona sin SMTP propio, a diferencia del «olvidé mi contraseña», que sí lo
@@ -208,6 +375,7 @@ function traducirAuth(msg) {
 function cerrarPass() {
   $("passOverlay").classList.remove("open");
   $("pass1").value = ""; $("pass2").value = ""; passErr("");
+  ocultarOjos("pass1", "pass2");
 }
 
 $("btnPass").onclick = () => { cerrarPass(); $("passOverlay").classList.add("open"); $("pass1").focus(); };

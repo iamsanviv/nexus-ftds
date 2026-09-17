@@ -66,6 +66,8 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <div class="frow"><label>Correo</label><input id="auEmail" type="email" inputmode="email" placeholder="tu@correo.com"></div>
     <div class="frow"><label>Contraseña</label><input id="auPass" type="password" placeholder="••••••••"></div>
     <button class="authbtn" id="auBtn">Entrar</button>
+    <!-- Solo en modo «entrar»: al crear cuenta no hay contraseña que recuperar. -->
+    <div class="authswitch" id="auOlvidoRow"><button id="auOlvido">¿Olvidaste tu contraseña?</button></div>
     <div class="authswitch" id="auSwitch">¿No tienes cuenta? <button id="auToggle">Crear cuenta</button></div>
     </div><!-- /authform -->
   </div>
@@ -83,6 +85,29 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <p class="pendsub" id="pendSub">No tienes que hacer nada más. Cuando te aprueben, entra normalmente.</p>
       <button class="authbtn" id="pendRefrescar">Ya me aprobaron · entrar</button>
       <button class="tbtn" id="pendSalir">Cerrar sesión</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== VOLVIÓ DEL CORREO DE RECUPERACIÓN: elegir contraseña nueva ===== -->
+<!-- Es pantalla completa y no un modal porque se llega aquí directo desde el
+     correo, con una sesión de recuperación ya abierta: no hay login detrás. -->
+<div id="recuScreen" class="hidden">
+  <div class="authcard solo">
+    <div class="pendmarca">Seguimiento <span>FTDs y Ventas</span></div>
+    <div class="pendbox">
+      <div class="pendicon">🔑</div>
+      <div class="pendtit">Elige tu contraseña nueva</div>
+      <p class="pendsub">Este enlace solo sirve una vez. Al guardar entras directo.</p>
+      <div class="frow"><label>Contraseña nueva</label>
+        <input id="recu1" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+      </div>
+      <div class="frow"><label>Repítela</label>
+        <input id="recu2" type="password" autocomplete="new-password" placeholder="La misma otra vez">
+      </div>
+      <div class="autherr" id="recuErr"></div>
+      <button class="authbtn" id="recuGuardar">Guardar y entrar</button>
+      <button class="tbtn" id="recuCancelar">Volver al inicio</button>
     </div>
   </div>
 </div>
@@ -821,6 +846,22 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
 </div>
 
 <!-- cambiar contraseña (con sesión abierta: no manda ningún correo) -->
+<div class="overlay" id="recuOverlay">
+  <div class="modal">
+    <h2>🔑 Recuperar mi contraseña</h2>
+    <div class="msgshelp">Te llega un correo con un enlace para elegir una contraseña nueva.</div>
+    <div class="frow"><label>Tu correo</label>
+      <input id="recuEmail" type="email" inputmode="email" autocomplete="email" placeholder="tu@correo.com">
+    </div>
+    <div class="autherr" id="recuEnvErr"></div>
+    <div id="recuEnviado" class="setup hidden"></div>
+    <div class="mbtns">
+      <button class="cancelar" id="recuCerrar">Cancelar</button>
+      <button class="guardar" id="recuEnviar">Enviar el enlace</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="passOverlay">
   <div class="modal">
     <h2>🔑 Cambiar mi contraseña</h2>

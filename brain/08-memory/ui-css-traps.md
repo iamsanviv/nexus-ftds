@@ -75,3 +75,20 @@ No declarar corregido un problema visual únicamente porque el CSS "parece corre
 - [[../04-features/ui-theme-responsive]]
 - [[../07-development/testing]]
 - [[dangerous-patterns]]
+## Un selector de ID no ajusta un margen de clase: lo reemplaza
+
+`.authswitch` trae `margin-top:16px`. Para acercar un poco el enlace de
+«¿olvidaste tu contraseña?» al botón se escribió `#auOlvidoRow{margin-top:-4px}`
+pensando en restar 4 px. Un ID (1,0,0) le gana a una clase (0,1,0), así que el
+margen pasó a ser **-4 px absolutos** y el enlace quedó montado 4 px ENCIMA del
+botón.
+
+Se vio en la captura y se confirmó midiendo en el navegador
+(`olv.top - btn.bottom === -4`). Leer el CSS no bastaba: el número escrito
+(-4) coincidía con el error (-4 px de solapamiento), así que parecía correcto.
+
+### Protección
+
+Cuando se ajuste un valor que ya viene de otra regla, medir la distancia real en
+el navegador en vez de confiar en que el número nuevo se suma al anterior. Y
+ante la duda, escribir el valor FINAL que se quiere, no el delta.

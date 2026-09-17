@@ -1550,3 +1550,23 @@ body.segwide .tabinner{max-width:1180px}
   .f3{grid-template-columns:1fr}
   .metacard .fbig b{font-size:1.5rem}
 }
+/* ---------- ver la contraseña (el «ojito») ---------- */
+/* El botón va DENTRO del campo, así que el texto necesita sitio para no
+   pasarle por debajo: de ahí el padding derecho. */
+.pwrap{position:relative;display:block}
+.pwrap input{width:100%;padding-right:44px}
+.pwojo{position:absolute;right:1px;top:1px;bottom:1px;width:40px;
+  display:flex;align-items:center;justify-content:center;
+  background:none;border:none;border-radius:0 var(--r) var(--r) 0;
+  font-size:1rem;line-height:1;cursor:pointer;opacity:.65;
+  /* Sin esto el emoji se selecciona al dar doble clic rápido en el campo. */
+  user-select:none;-webkit-user-select:none}
+.pwojo:hover{opacity:1}
+.pwojo:focus-visible{outline:2px solid var(--gold);outline-offset:-2px;opacity:1}
+
+/* Enlace de «¿olvidaste tu contraseña?»: mismo tono que el de crear cuenta.
+   Va más pegado al botón que la línea de «crear cuenta» (10 px contra 16) para
+   que se lea como parte de entrar y no como una tercera opción suelta.
+   OJO: es un selector de ID, así que NO ajusta el `margin-top:16px` de
+   `.authswitch` — lo reemplaza. Con -4px el enlace se montaba encima del botón. */
+#auOlvidoRow{margin-top:10px}
