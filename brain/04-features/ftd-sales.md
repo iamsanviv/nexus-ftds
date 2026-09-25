@@ -19,9 +19,11 @@ La casilla de "ya lo conté" no marca un cliente individual; ajusta la cifra dec
 
 No contar FTD por `membresia = 'Beca'` como fuente histórica. La membresía representa el nivel actual y cambia cuando una persona sube de nivel.
 
-La fecha `comunidad_desde` es la referencia estable para saber cuándo esa persona ingresó como FTD.
+El FTD vive en `clientes.ftds`, un mapa `broker -> fecha`. Se cuentan **depósitos, no personas**: quien depositó en ExOption en junio y en IQ Option en septiembre suma uno en cada mes. Ver [[../03-domain/ftd-sales-commissions]].
 
-Por eso el formulario de persona no la deja vacía al convertir: al salir de `Lead` se rellena con la fecha de hoy si no había ninguna. El formulario pide **una sola fecha, la que corresponde al nivel** —`Registrado el` para `Lead`, `Ingreso a la Comunidad` de `Beca` en adelante—, nunca las dos.
+`comunidad_desde` sigue existiendo pero es **derivado**: el FTD más antiguo, mantenido por un trigger. Se lee, no se escribe — el panel ya no lo manda al guardar.
+
+El formulario pide **la fecha que corresponde al nivel**: `Registrado el` para `Lead`, y de `Beca` en adelante la lista de FTD por broker, nunca las dos. Al salir de `Lead` se abre un depósito en el broker vigente con la fecha de hoy si no había ninguno.
 
 `upgrade_fecha` ya no se escribe a mano: salió del formulario y viaja en un campo oculto para no perderse al guardar.
 

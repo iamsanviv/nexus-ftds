@@ -11,6 +11,7 @@
 import {
   state, $, esc, hoyISO, toast, usd, mesLegible, periodoAntes, periodoDe, estaSaldada,
   comisionFtd, metasDe, progresoMeta, periodoSinCerrar, ftdDelMes, resumenVentas,
+  BROKERS, ftdMixDelMes,
 } from "./state.js";
 import { cargarVentas, guardarFtd, guardarMeta } from "./data.js";
 
@@ -69,6 +70,17 @@ export function renderBloqueFtd() {
       <button class="metalink" id="ftdAjustar">${f.declaro ? "Ajustar" : "Poner mis números"}</button>
       <button class="metalink quiet" id="ftdMeses">Meses anteriores</button>
     </div>`;
+  // Desglose por broker. Va DEBAJO de la barra y en tamaño de pie porque es
+  // composición, no progreso: si compite con la cifra grande, la tarjeta deja de
+  // leerse de un vistazo. Solo aparece si hay algo que distinguir — con un solo
+  // broker y sin traslados, la línea no diría nada.
+  const mix = ftdMixDelMes(p, yo());
+  const partes = BROKERS.filter(b => mix.por[b.id]).map(b =>
+    `<span class="bk ${b.id}"><i></i>${esc(b.n).replace(/ /g, "&nbsp;")} <b>${mix.por[b.id]}</b></span>`);
+  if (mix.trasladados) partes.push(
+    `<span class="bk tras"><i></i><b>${mix.trasladados}</b> trasladado${mix.trasladados === 1 ? "" : "s"}</span>`);
+  const desglose = partes.length > 1 ? `<div class="ftdmix">${partes.join("")}</div>` : "";
+
   const hero = `
     <span class="ftdlbl oro">FTD de ${mesLegible(p)}</span>
     <div class="ftdcifra">
@@ -77,7 +89,7 @@ export function renderBloqueFtd() {
     </div>
     <div class="barra dos ${g.cumplida ? "full" : ""}">
       <u style="width:${g.pctCargados}%"></u><i style="width:${g.pct}%"></i>
-    </div>`;
+    </div>${desglose}`;
   const comision = `
     <span class="ftdlbl">Comisión FTD</span>
     <div class="ftdbig md ${f.pago ? "" : "mut"}">${usd(f.pago)}</div>
@@ -572,14 +584,20 @@ export function pintarCasillaFtd() {
 // Al guardar un cliente nuevo: si la casilla quedó DESMARCADA, es un FTD que no
 // estaba en lo declarado, así que sube el declarado en 1. Si quedó marcada no
 // hay nada que hacer: `cargados` sube solo y «sin subir» baja.
+//
+// Se cuenta CUÁNTOS de sus FTD caen en el mes, no si tiene uno: una persona
+// puede traer depósito en los dos brokers y ambos cuentan.
+const ftdsEnMes = (c, p) => Object.values(c?.ftds || {}).filter(f => f.slice(0, 7) === p).length;
+
 export async function trasCrearCliente(nuevo) {
   const chk = $("fFtdContado");
   if (!chk || chk.checked) return;
   if (!state.ventasOk || nuevo.mem === "Lead") return;
   const p = mesActual();
-  if ((nuevo.comunidadDesde || "").slice(0, 7) !== p) return;
+  const n = ftdsEnMes(nuevo, p);
+  if (!n) return;
   const f = comisionFtd(p, yo());
-  await guardarFtd(yo(), p, { base: f.base, declarado: f.reales + 1 });
+  await guardarFtd(yo(), p, { base: f.base, declarado: f.reales + n });
 }
 
 // Al borrar un cliente hay que deshacer lo que hizo `trasCrearCliente`, o el
@@ -596,14 +614,20 @@ export async function trasBorrarCliente(borrado) {
   // ftd_base de otro agente no es de aquí (misma línea que la regla de oro).
   if (borrado.owner_id !== state.me?.id) return;
   const p = mesActual();
-  // Solo si entró a la beca ESTE mes: un cliente de un mes anterior no cuenta
-  // para el FTD del mes en curso, y un mes cerrado no se toca (lo que se pagó,
-  // se pagó — el RLS además lo bloquea).
-  if ((borrado.comunidadDesde || "").slice(0, 7) !== p) return;
+  // Solo los depósitos de ESTE mes: uno de un mes anterior no cuenta para el FTD
+  // en curso, y un mes cerrado no se toca (lo que se pagó, se pagó — el RLS
+  // además lo bloquea).
+  //
+  // Agregar o quitar un FTD editando la ficha NO pasa por aquí, y es
+  // deliberado: al editar no hubo un «crear» que subiera el declarado, así que
+  // no hay nada que deshacer. `reales = max(declarado, cargados)` absorbe el
+  // alta sola.
+  const n = ftdsEnMes(borrado, p);
+  if (!n) return;
   const fila = state.ftdBase[`${yo()}|${p}`];
   // Si nunca se declaró, `reales = cargados` y este ya bajó solo: nada que hacer.
   if (!fila || fila.declarado == null || fila.cerrado) return;
-  const nuevo = Math.max(0, fila.declarado - 1);
+  const nuevo = Math.max(0, fila.declarado - n);
   if (nuevo === fila.declarado) return;
   await guardarFtd(yo(), p, { base: fila.base || 0, declarado: nuevo });
 }

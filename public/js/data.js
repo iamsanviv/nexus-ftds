@@ -12,6 +12,11 @@ export const mapDesdeDB = r => ({
   // Persona inactiva: no recibe mensajes. null = activa.
   inactivoDesde: r.inactivo_desde || null,
   inactivoMotivo: r.inactivo_motivo || null,
+  // Un FTD por broker: { exoption: "2026-06-12", iqoption: "2026-09-03" }. Es un
+  // mapa y no una fecha suelta porque una persona puede depositar en los dos, y
+  // cada fecha cuenta en SU mes.
+  ftds: r.ftds || {},
+  // Derivado en la base (trigger): el FTD más antiguo. Se lee, no se escribe.
   comunidadDesde: r.comunidad_desde || "", upgradeFecha: r.upgrade_fecha || "",
   nota: r.nota || "", acc: r.acc || {}, conf: r.conf || {},
   // Asistencia a actividades puntuales (fuera del catálogo), auto-contenida:
@@ -29,7 +34,11 @@ export const mapAEditar = c => ({
   inactivo_desde: c.inactivoDesde || null,
   inactivo_motivo: c.inactivoDesde ? (c.inactivoMotivo || "otro") : null,
   membresia: c.mem, creado: c.creado || null,
-  comunidad_desde: c.comunidadDesde || null, upgrade_fecha: c.upgradeFecha || null,
+  ftds: c.ftds || {},
+  // `comunidad_desde` NO se manda: lo calcula el trigger desde `ftds`. Mandarlo
+  // no rompería nada (el trigger lo pisa) pero haría creer que se puede fijar a
+  // mano, y son dos fuentes de verdad para el mismo dato.
+  upgrade_fecha: c.upgradeFecha || null,
   nota: c.nota || null, acc: c.acc || {}, conf: c.conf || {},
   puntuales: c.pun || {},
   zooms: c.zooms || {},

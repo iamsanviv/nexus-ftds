@@ -5,7 +5,7 @@ import {
   state, $, esc, fmtF, hoyISO, uid, toast, copyNum, norm, normBusqueda, bandera, ZOOMS,
   todos, esRequerido, esAdicional, esLead, progreso, siguiente,
   OPCIONES_TZ, etiquetaOffset, horaDeCliente,
-  MOTIVOS_INACTIVO, esInactivo, nombreMotivo, motivoCorto,
+  MOTIVOS_INACTIVO, esInactivo, nombreMotivo, motivoCorto, BROKERS, nombreBroker,
 } from "./state.js";
 import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio, cargarChatsRecientes } from "./data.js";
 // repaso.js importa a ui.js: para no crear un ciclo, aquí solo se usa el
@@ -173,6 +173,32 @@ export function render() {
   $("filtros").innerHTML = defs.map(([v, l]) => `<button class="pill ${state.filtro === v ? 'on' : ''}" data-f="${v}">${l}</button>`).join("");
   $("filtros").querySelectorAll(".pill").forEach(b => b.onclick = () => { state.filtro = b.dataset.f; render(); });
 
+  // Broker: EJE APARTE de la membresía y del progreso, no una píldora más de la
+  // misma fila. Se combina con los otros dos, igual que ya pasa con el estado.
+  // Solo se muestra si hay más de uno que distinguir: mientras todo el mundo
+  // esté en el mismo broker, la fila sería una decoración.
+  const brkFila = $("filtrosBrk");
+  if (brkFila) {
+    const presentes = BROKERS.filter(b => activas.some(c => c.ftds?.[b.id]));
+    const mostrar = !isLead && presentes.length > 1;
+    brkFila.classList.toggle("hidden", !mostrar);
+    if (!mostrar) {
+      // Si la fila desaparece, su filtro no puede quedarse activo y escondido
+      // recortando la lista sin que nada lo explique.
+      state.filtroBrk = null;
+      brkFila.innerHTML = "";
+    } else {
+      brkFila.innerHTML = `<span class="ejelbl">Broker</span>`
+        + `<button class="pill ${state.filtroBrk ? "" : "on"}" data-brk="">Todos</button>`
+        + presentes.map(b => `<button class="pill ${state.filtroBrk === b.id ? "on" : ""}" data-brk="${b.id}">`
+          + `${esc(b.n)} (${activas.filter(c => c.ftds?.[b.id]).length})</button>`).join("");
+      brkFila.querySelectorAll("[data-brk]").forEach(b => b.onclick = () => {
+        state.filtroBrk = b.dataset.brk || null;
+        render();
+      });
+    }
+  }
+
   /* ----- orden ----- */
   const ords = isLead
     ? [["cerca", "🔥 Más comprometidos"], ["recientes", "Recientes"], ["az", "A–Z"]]
@@ -196,6 +222,7 @@ export function render() {
     }
     // Filtro por membresía (escritorio): se combina con el de progreso de abajo.
     if (state.filtroMem && c.mem !== state.filtroMem) return false;
+    if (state.filtroBrk && !c.ftds?.[state.filtroBrk]) return false;
     if (state.filtro === "todos" || state.filtro === "inactivas") return true;
     if (state.filtro === "activos") return pr(c).extra > 0;
     if (state.filtro === "inactivos") return pr(c).extra === 0;
@@ -226,6 +253,7 @@ export function render() {
     if (!isLead) {
       const partes = [`${vis.length} persona${vis.length === 1 ? "" : "s"}`];
       if (state.filtroMem) partes.push(`nivel ${state.filtroMem}`);
+      if (state.filtroBrk) partes.push(nombreBroker(state.filtroBrk));
       if (state.filtro === "incompletos") partes.push("en progreso");
       else if (state.filtro === "completos") partes.push("completos");
       else if (state.filtro === "inactivas") partes.push("inactivas · no reciben mensajes");
@@ -234,13 +262,14 @@ export function render() {
       // fuera evita que alguien las dé por perdidas o las vuelva a agregar.
       if (state.filtro !== "inactivas" && inactivas.length)
         partes.push(`${inactivas.length} inactiva${inactivas.length === 1 ? "" : "s"} sin mostrar`);
-      const hayFiltro = !!state.filtroMem || !!crudo
+      const hayFiltro = !!state.filtroMem || !!state.filtroBrk || !!crudo
         || state.filtro === "completos" || state.filtro === "inactivas";
       estadoEl.innerHTML = `<span>${partes.join(" · ")}</span>`
         + (hayFiltro ? ` <button class="quitarf" id="quitarFiltros">Quitar filtros</button>` : "");
       const qf = $("quitarFiltros");
       if (qf) qf.onclick = () => {
-        state.filtroMem = null; state.filtro = "todos"; $("buscar").value = ""; render();
+        state.filtroMem = null; state.filtroBrk = null; state.filtro = "todos";
+        $("buscar").value = ""; render();
       };
     } else estadoEl.innerHTML = "";
   }
@@ -281,6 +310,11 @@ function cardHTML(c, p, rank, isLead, dir) {
   // La bandera sube a la línea del nombre: es un dato de la persona, no de su
   // progreso, y ahí no le roba renglón a las cifras.
   const paisTag = banderaTag(c);
+  // Broker(es) donde depositó. Insignia corta: la línea del nombre ya carga
+  // membresía, bandera, estado y dueño, y «IQ Option» completo le cuesta un
+  // renglón en móvil sin decir más de lo que dice «IQ».
+  const brkTags = BROKERS.filter(b => c.ftds?.[b.id])
+    .map(b => ` <span class="badge b-brk ${b.id}" title="FTD en ${esc(b.n)}">${b.corto}</span>`).join("");
   const extraTag = p.extra ? ` · <span class="extra">+${p.extra} ✦</span>` : "";
 
   const metric = isLead
@@ -310,7 +344,7 @@ function cardHTML(c, p, rank, isLead, dir) {
       <div class="chead">
         ${rankChip || `<div class="cav">${esc(iniciales(c.nombre))}</div>`}
         <div class="cinfo">
-          <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span>${paisTag}${inactTag} ${ownerBadge}</div>
+          <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span>${brkTags}${paisTag}${inactTag} ${ownerBadge}</div>
           ${isLead || !c.tel ? '' : `<span class="cheadtel" title="${esc(c.tel)}">${esc(c.tel)}</span>`}
           ${isLead ? '' : `<div class="barra"><i style="width:${p.pct}%"></i></div>`}
           <div class="pct">${metric}</div>
@@ -537,10 +571,82 @@ const CLASE_NIVEL = { Lead: "lead", Beca: "beca", VIP: "vip", Platino: "plat", O
    al abrir, al escribir y al vaciarse. Se autoinstala una vez sobre los date
    del formulario. */
 function refrescarPh(inp) { inp.classList.toggle("fecha-vacia", !inp.value); }
-["fCreado", "fComunidad"].forEach(id => {
+["fCreado"].forEach(id => {
   const inp = $(id);
   refrescarPh(inp);
   inp.addEventListener("input", () => refrescarPh(inp));
+});
+
+/* ---------- FTD por broker en la ficha ----------
+
+   Una persona puede depositar en más de un broker y cada fecha cuenta en SU
+   mes, así que el FTD no es un campo con una fecha: es una lista de depósitos.
+
+   Se edita en una copia (`fichaFtds`) y no sobre el cliente, porque el
+   formulario se puede cerrar sin guardar; solo se vuelca en `guardarCliente`. */
+let fichaFtds = {};
+
+// Orden cronológico, y lo que todavía no tiene fecha al final: la lista se lee
+// como la historia de la persona, no como el orden del catálogo de brokers.
+const ftdsOrdenados = () => BROKERS
+  .filter(b => fichaFtds[b.id] !== undefined)
+  .sort((a, b) => (fichaFtds[a.id] || "9999").localeCompare(fichaFtds[b.id] || "9999"));
+
+function pintarFtds() {
+  const cont = $("fFtds");
+  if (!cont) return;
+  const puestos = ftdsOrdenados();
+  cont.innerHTML = puestos.map(b => `
+    <div class="ftditem${fichaFtds[b.id] ? "" : " vacio"}">
+      <span class="bdot ${b.id}"></span>
+      <span class="bname">${esc(b.n)}</span>
+      <input type="date" data-ftd="${b.id}" value="${esc(fichaFtds[b.id] || "")}" data-ph="Fecha del FTD">
+      <button type="button" class="bx" data-quitarftd="${b.id}"
+        title="Quitar el FTD en ${esc(b.n)}" aria-label="Quitar el FTD en ${esc(b.n)}">✕</button>
+    </div>`).join("");
+  cont.querySelectorAll("input[data-ftd]").forEach(refrescarPh);
+
+  $("fFtdAdd").innerHTML = BROKERS
+    .filter(b => fichaFtds[b.id] === undefined)
+    .map(b => `<button type="button" class="ftdadd" data-addftd="${b.id}">+ Agregar FTD en ${esc(b.n)}</button>`)
+    .join("");
+
+  const fechas = puestos.map(b => fichaFtds[b.id]).filter(Boolean).sort();
+  // Con año, y no `fmtF` (que da DD/MM): aquí el año es justo lo que distingue a
+  // alguien que entró este junio de alguien que entró el junio pasado.
+  // El «T00:00:00» evita que una fecha sin hora se lea como UTC y retroceda un
+  // día en Colombia.
+  const conAno = f => new Date(f + "T00:00:00").toLocaleDateString("es-CO");
+  $("fFtdNota").innerHTML = fechas.length
+    ? `Ingresó a la comunidad el <b>${conAno(fechas[0])}</b>, su primer FTD.`
+      + (fechas.length > 1 ? " Cada fecha cuenta en su propio mes." : "")
+    : "Es la fecha con la que cuenta como FTD del mes.";
+}
+
+// Delegación: la lista se repinta entera en cada cambio, así que enganchar los
+// controles uno por uno los dejaría muertos al siguiente repintado.
+$("fFtds").addEventListener("input", e => {
+  const inp = e.target.closest("input[data-ftd]");
+  if (!inp) return;
+  fichaFtds[inp.dataset.ftd] = inp.value;
+  refrescarPh(inp);
+  // Repintar aquí movería el foco a media escritura. La nota se actualiza al
+  // cambiar, que es cuando la fecha ya está completa.
+});
+$("fFtds").addEventListener("change", e => {
+  if (e.target.closest("input[data-ftd]")) pintarFtds();
+});
+$("fFtds").addEventListener("click", e => {
+  const b = e.target.closest("[data-quitarftd]");
+  if (!b) return;
+  delete fichaFtds[b.dataset.quitarftd];
+  pintarFtds();
+});
+$("fFtdAdd").addEventListener("click", e => {
+  const b = e.target.closest("[data-addftd]");
+  if (!b) return;
+  fichaFtds[b.dataset.addftd] = "";
+  pintarFtds();
 });
 
 /* El nivel decide QUÉ MÁS se pregunta, así que va primero y como fichas: un
@@ -718,8 +824,10 @@ function abrirPerfil(c) {
   pintarSelectorTz(c.tzOff);
   pintarSelectorEstado(c);
   ponerNivel(c.mem);
-  $("fCreado").value = c.creado || ""; $("fComunidad").value = c.comunidadDesde || ""; $("fUpgrade").value = c.upgradeFecha || "";
-  refrescarPh($("fCreado")); refrescarPh($("fComunidad"));
+  $("fCreado").value = c.creado || ""; $("fUpgrade").value = c.upgradeFecha || "";
+  refrescarPh($("fCreado"));
+  fichaFtds = { ...(c.ftds || {}) };
+  pintarFtds();
   $("fNota").value = c.nota || "";
   // Al editar se precarga el dueño actual: el director también puede
   // reasignar un cliente a otro agente de su equipo.
@@ -818,8 +926,10 @@ function construirActividades(c) {
 
 function cerrarM() {
   $("overlay").classList.remove("open"); state.cliEdit = null;
-  ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fComunidad", "fUpgrade"].forEach(i => $(i).value = "");
-  refrescarPh($("fCreado")); refrescarPh($("fComunidad"));
+  ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fUpgrade"].forEach(i => $(i).value = "");
+  refrescarPh($("fCreado"));
+  fichaFtds = {};
+  pintarFtds();
   pintarSelectorTz(null);
   pintarSelectorEstado(null);
   ponerNivel(state.modulo === "leads" ? "Lead" : "Beca");
@@ -843,8 +953,13 @@ $("abrirModal").onclick = () => {
   state.cliEdit = null;
   $("cliTitulo").textContent = state.modulo === "leads" ? "Nuevo lead" : "Nuevo cliente";
   $("btnDesdeChat").classList.remove("hidden");
-  ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fComunidad", "fUpgrade"].forEach(i => $(i).value = "");
-  refrescarPh($("fCreado")); refrescarPh($("fComunidad"));
+  ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fUpgrade"].forEach(i => $(i).value = "");
+  refrescarPh($("fCreado"));
+  // Un cliente nuevo de comunidad viene de un FTD, así que la fila del broker
+  // vigente se abre sola —vacía, sin fecha inventada— para que el campo esté a
+  // la vista en vez de escondido detrás de un botón de «agregar».
+  fichaFtds = state.modulo === "leads" ? {} : { [BROKERS[0].id]: "" };
+  pintarFtds();
   pintarSelectorTz(null);
   pintarSelectorEstado(null);
   ponerNivel(state.modulo === "leads" ? "Lead" : "Beca");
@@ -868,11 +983,12 @@ $("fNiveles").onclick = e => {
   const antes = $("fMem").value, ahora = ficha.dataset.niv;
   if (antes === ahora) return;
   ponerNivel(ahora);
-  // Salir de Lead ES la conversión. La fecha de ingreso a la comunidad no puede
-  // quedar vacía: es la que cuenta el FTD del mes.
-  if (antes === "Lead" && !$("fComunidad").value) {
-    $("fComunidad").value = hoyISO();
-    refrescarPh($("fComunidad"));
+  // Salir de Lead ES la conversión, y una conversión sin FTD no existe: se abre
+  // el depósito en el broker vigente con la fecha de hoy. Si ya traía alguno no
+  // se toca — puede ser alguien que vuelve a Lead y regresa.
+  if (antes === "Lead" && !Object.values(fichaFtds).some(Boolean)) {
+    fichaFtds[BROKERS[0].id] = hoyISO();
+    pintarFtds();
     if (state.cliEdit) toast(`Se convertirá a ${ahora} al guardar ✓`);
   }
 };
@@ -946,7 +1062,16 @@ async function guardarCliente() {
         : { inactivoDesde: null, inactivoMotivo: null };
     })(),
     mem: $("fMem").value, creado: $("fCreado").value || "",
-    comunidadDesde: $("fComunidad").value || "", upgradeFecha: $("fUpgrade").value || "",
+    // Una fila sin fecha es una que se agregó y no se llenó: no es un depósito y
+    // no puede viajar a la base, donde el CHECK la rechazaría.
+    ...(() => {
+      const ftds = Object.fromEntries(Object.entries(fichaFtds).filter(([, f]) => f));
+      // `comunidadDesde` lo calcula el trigger, pero la copia en memoria no se
+      // entera hasta recargar. Se refleja el mismo cálculo aquí para que la
+      // ficha y la lista no muestren la fecha vieja hasta el próximo F5.
+      return { ftds, comunidadDesde: Object.values(ftds).sort()[0] || "" };
+    })(),
+    upgradeFecha: $("fUpgrade").value || "",
     nota: $("fNota").value.trim(),
     ...(eligeDueno ? { owner_id: eligeDueno } : {}),
   };

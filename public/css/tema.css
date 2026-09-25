@@ -101,3 +101,9 @@ html[data-tema-listo] .topbar{
      #1a1304 / #a9842a -> var(--on-gold) / var(--gold-dim)
    Los verdes de WhatsApp (#3ddc84, #2e6b50) son de marca: se dejan.
    ------------------------------------------------------------ */
+
+/* --- brokers del FTD ---
+   El broker que se deja va en gris pizarra y el nuevo con color: el color mismo
+   dice hacia dónde se está moviendo la operación. */
+:root{ --brk-iq:#5AC8D8; --brk-ex:#9FB6C9; }
+html[data-tema="claro"]{ --brk-iq:#1F6E7C; --brk-ex:#5A6B78; }

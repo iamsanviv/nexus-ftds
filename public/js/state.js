@@ -38,6 +38,9 @@ export const state = {
   // (todos/incompletos/completos). Lo ponen las tarjetas de conteo, que son
   // botones en los dos anchos. null = sin filtro.
   filtroMem: null,
+  // Filtro por broker del FTD. Es un TERCER eje, independiente de los dos
+  // anteriores: se combina con ellos en vez de reemplazarlos. null = sin filtro.
+  filtroBrk: null,
   filtroDefDesk: false,  // ¿ya se aplicó el defecto "En progreso"?
   orden: "cerca",
   vista: "cliente",      // "cliente" | "servicio"
@@ -557,12 +560,46 @@ export function alertasDelMes(ownerId) {
   return { vencidas: vencidas.length, hoy: hoyv.length, pronto: pronto.length, monto };
 }
 
-// FTD del mes. NO se cuentan por `membresia = 'Beca'`: ese es el nivel de HOY, y
-// al subir alguien a VIP desaparecería de los meses ya cerrados y pagados. Se
-// cuentan por `comunidad_desde`, que no se mueve nunca — todo el que hoy es Oro
-// entró en su momento como FTD.
+// Brokers donde se hace el FTD. El primero es el vigente: es el que se ofrece
+// por defecto al agregar. El orden manda en el desglose y en los filtros.
+export const BROKERS = [
+  { id: "iqoption", n: "IQ Option", corto: "IQ" },
+  { id: "exoption", n: "ExOption", corto: "EX" },
+];
+export const nombreBroker = id => (BROKERS.find(b => b.id === id) || {}).n || id;
+
+// FTD del mes. Cuenta DEPÓSITOS, no personas: alguien que depositó en ExOption
+// en junio y en IQ Option en septiembre suma uno en junio y otro en septiembre.
+//
+// NO se cuentan por `membresia = 'Beca'`: ese es el nivel de HOY, y al subir
+// alguien a VIP desaparecería de los meses ya cerrados y pagados. Se cuentan por
+// las fechas de `ftds`, que no se mueven nunca — todo el que hoy es Oro depositó
+// en su momento.
 export const ftdDelMes = (periodo, ownerId) =>
-  state.clientes.filter(c => c.owner_id === ownerId && periodoDe(c.comunidadDesde) === periodo).length;
+  state.clientes.reduce((n, c) => c.owner_id !== ownerId ? n
+    : n + Object.values(c.ftds || {}).filter(f => periodoDe(f) === periodo).length, 0);
+
+// Desglose del mes por broker, y cuántos de esos depósitos son de gente que YA
+// estaba en la comunidad (había depositado antes en otro broker).
+//
+// «Trasladados» es DERIVADO, no una tercera categoría: sale de que la persona
+// tenga una fecha anterior en otro broker. Por eso se suma aparte y no se resta
+// de ningún broker — esos depósitos ya están contados en el suyo.
+export function ftdMixDelMes(periodo, ownerId) {
+  const por = {};
+  let trasladados = 0;
+  for (const c of state.clientes) {
+    if (c.owner_id !== ownerId) continue;
+    const suyos = Object.entries(c.ftds || {});
+    for (const [brk, f] of suyos) {
+      if (periodoDe(f) !== periodo) continue;
+      por[brk] = (por[brk] || 0) + 1;
+      // Comparar cadenas YYYY-MM-DD equivale a comparar fechas.
+      if (suyos.some(([otro, f2]) => otro !== brk && f2 < f)) trasladados++;
+    }
+  }
+  return { por, trasladados };
+}
 
 // Los FTD no se pagan uno por uno sino por meta mensual alcanzada. Lo que sobra
 // de la meta se acumula como "base" y ayuda el mes siguiente.

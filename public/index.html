@@ -148,7 +148,15 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <div class="stats" id="stats"></div>
     </div>
     <div class="clifiltros">
-      <div class="filtros" id="filtros"></div>
+      <!-- Los dos ejes de filtro van en una columna propia: `.clifiltros` es un
+           flex de DOS lados en escritorio (filtros | orden + «+ Cliente»), y un
+           tercer hijo suelto le rompería ese reparto. -->
+      <div class="filtroscol">
+        <div class="filtros" id="filtros"></div>
+        <!-- Eje aparte: se combina con la membresía y con el progreso. Lo pinta
+             ui.js solo cuando hay más de un broker que distinguir. -->
+        <div class="filtros filtrosbrk hidden" id="filtrosBrk"></div>
+      </div>
       <div class="clifiltros-r">
         <div class="ordwrap"><span class="lbl">Orden</span><div class="ordseg" id="orden"></div></div>
         <!-- «+ Cliente» deja de flotar en escritorio y se acomoda aquí. En móvil
@@ -571,9 +579,13 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <div class="nivchips" id="fNiveles"></div>
       <input type="hidden" id="fMem">
       <div class="frow fdate" id="rowCreado"><label>Registrado el</label><input id="fCreado" type="date" data-ph="Fecha del registro"></div>
-      <div class="frow fdate" id="rowComunidad">
-        <label>Ingreso a la Comunidad</label><input id="fComunidad" type="date" data-ph="Fecha del FTD">
-        <div class="msgshelp">Es la fecha con la que cuenta como FTD del mes.</div>
+      <!-- El FTD no es una fecha sino una lista: una persona puede depositar en
+           más de un broker y cada fecha cuenta en su propio mes. -->
+      <div class="frow ftdrow" id="rowComunidad">
+        <label>FTD por broker</label>
+        <div class="ftdlist" id="fFtds"></div>
+        <div id="fFtdAdd"></div>
+        <div class="msgshelp" id="fFtdNota"></div>
       </div>
       <!-- Casilla de FTD ya contado. La llena ftd.js y solo aparece mientras
            haya FTD declarados sin subir a la plataforma. -->

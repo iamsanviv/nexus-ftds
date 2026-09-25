@@ -192,7 +192,8 @@
   .fblk .msgshelp{margin-bottom:0;margin-top:6px}
   /* La fecha que corresponde al nivel. Separada de las fichas para que se lea
      como consecuencia de lo elegido arriba, no como un campo más. */
-  .fblk .fdate{margin-top:12px;margin-bottom:0}
+  .fblk .fdate,
+  .fblk .ftdrow{margin-top:12px;margin-bottom:0}
 
   /* Fichas de nivel. El color del nivel manda en TODA la ficha activa, así que
      el filo sale de `currentColor` y no de un token por nivel. */
@@ -1625,3 +1626,61 @@ body.segwide .tabinner{max-width:1180px}
 .segtoggle{position:relative}
 .segtoggle .infoi{position:static}
 .segtoggle .infoi::after{left:0;right:0;transform:none;width:auto;max-width:none}
+
+/* ============================================================
+   FTD por broker
+   ============================================================ */
+
+/* Desglose en la tarjeta de FTD. Es COMPOSICIÓN, no progreso: va debajo de la
+   barra y en tamaño de pie, para que la cifra del mes siga siendo la única que
+   se lee de lejos. */
+.ftdmix{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:11px;color:var(--muted);line-height:1.3}
+.ftdmix .bk{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.ftdmix .bk i{width:7px;height:7px;border-radius:2px;background:currentColor;flex:0 0 auto}
+.ftdmix .bk b{color:var(--text);font-variant-numeric:tabular-nums;font-weight:700}
+.ftdmix .bk.iqoption{color:var(--brk-iq)}
+.ftdmix .bk.exoption{color:var(--brk-ex)}
+/* «Trasladados» es derivado —la persona ya había depositado en otro broker—, no
+   un tercer broker. Va en gris y con el cuadro hueco para que no se lea como
+   una categoría más que habría que sumar aparte. */
+.ftdmix .bk.tras{color:var(--muted)}
+.ftdmix .bk.tras i{background:none;box-shadow:inset 0 0 0 1px currentColor;border-radius:99px}
+
+/* Insignia de broker en la fila. Reusa `.badge` entera: solo cambia el color. */
+.b-brk{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--border)}
+.b-brk.iqoption{color:var(--brk-iq)}
+.b-brk.exoption{color:var(--brk-ex)}
+
+/* Lista de FTD en la ficha. Cada fila es un depósito: broker + fecha. No es un
+   campo con dos valores, son dos hechos que cuentan en meses distintos, y por
+   eso tienen fila propia. */
+.ftdlist{display:flex;flex-direction:column;gap:7px}
+/* `flex-wrap` no es decorativo: a 320px el campo de fecha se quedaba con ~78px
+   y el año salía cortado. Al permitir el salto, la fecha baja entera a su propio
+   renglón en vez de encogerse hasta ser ilegible. */
+.ftditem{display:flex;flex-wrap:wrap;align-items:center;gap:9px;background:var(--surface);
+  border:1px solid var(--border);border-radius:11px;padding:7px 9px}
+.ftditem .bdot{width:9px;height:9px;border-radius:3px;flex:0 0 auto}
+.ftditem .bdot.iqoption{background:var(--brk-iq)}
+.ftditem .bdot.exoption{background:var(--brk-ex)}
+.ftditem .bname{font-size:.8rem;font-weight:700;flex:0 0 84px}
+.ftditem input[type="date"]{flex:1 1 130px;min-width:130px;max-width:210px;padding:7px 9px;font-size:.85rem}
+.ftditem .bx{flex:0 0 auto;color:var(--muted);font-size:.9rem;padding:3px 6px;border-radius:7px}
+.ftditem .bx:active{background:var(--surface2);color:var(--bad)}
+/* Fila sin fecha: apagada, para que no se lea como un FTD que sí ocurrió. */
+.ftditem.vacio{opacity:.6}
+.ftdadd{margin-top:8px;font-size:.78rem;font-weight:700;color:var(--gold);
+  background:var(--gold-soft);border:1px solid var(--ftd-border);
+  border-radius:999px;padding:7px 13px}
+.ftdadd + .ftdadd{margin-left:6px}
+
+/* Filtro de broker: fila propia bajo la de progreso, con su rótulo de eje. */
+.filtroscol{min-width:0;flex:1 1 auto}
+.filtroscol .filtros{margin-bottom:8px}
+.filtroscol .filtrosbrk{margin-bottom:10px;align-items:center}
+.filtrosbrk .ejelbl{flex:0 0 auto;font-size:.66rem;font-weight:800;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted);margin-right:3px;align-self:center}
+
+@media (min-width:1040px){
+  .ftddesk .ftdmix{font-size:12px}
+}

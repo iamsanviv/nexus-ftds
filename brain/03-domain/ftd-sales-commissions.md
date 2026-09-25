@@ -28,6 +28,14 @@ Un upgrade cobra la diferencia de precio entre producto nuevo y producto previo 
 
 Beca -> membresía no se trata como upgrade pagado porque la beca no representa un producto previo cobrado que deba descontarse.
 
+## Broker del FTD
+
+El FTD se hacía en **ExOption** y se está trasladando a **IQ Option**. El broker es una propiedad del depósito, no de la persona, y una misma persona puede tener **un FTD por broker**, cada uno con su fecha.
+
+Por eso `clientes.ftds` es un mapa `broker -> fecha` (jsonb) y no una columna: hereda el RLS de `clientes` en vez de duplicar `puede_ver_de`, y la lista de brokers queda como dato en `BROKERS` (`state.js`), no como esquema. `comunidad_desde` pasó a ser derivado —el FTD más antiguo— y lo mantiene el trigger `trg_clientes_sync_comunidad`.
+
+**Consecuencia sobre el pago, decidida a propósito:** un segundo depósito de alguien que YA estaba en la comunidad cuenta como un FTD más del mes en que ocurre, y por lo tanto puede subir un escalón de `metas_ftd`. Trasladar gente existente paga igual que traer gente nueva. El desglose de la tarjeta separa esos casos bajo la etiqueta «trasladados», que es **derivada** (la persona tiene una fecha anterior en otro broker) y **no se resta** de ningún broker: esos depósitos ya están contados en el suyo.
+
 ## FTD mensual
 
 El cálculo combina datos declarados y datos cargados según las reglas implementadas en `public/js/ftd.js` y `public/js/state.js`. Al borrar un cliente que había aumentado el FTD del mes, la parte declarada debe deshacerse cuando corresponda para mantener simetría con la creación.

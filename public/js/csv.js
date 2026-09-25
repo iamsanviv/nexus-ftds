@@ -1,5 +1,5 @@
 // Importación y exportación de personas (clientes y leads) en CSV.
-import { state, $, hoyISO, toast, todos } from "./state.js";
+import { state, $, hoyISO, toast, todos, BROKERS } from "./state.js";
 import { dbInsertMany } from "./data.js";
 import { render } from "./ui.js";
 
@@ -69,10 +69,17 @@ $("fileInput").onchange = e => {
 $("btnExport").onclick = () => {
   if (!state.clientes.length) { toast("No hay datos para exportar"); return; }
   const svs = todos(), dir = state.me.role === "director";
-  const head = ["Nombre", "Phone", "Pais", "Membresia", "Creado", "IngresoComunidad", "UltimoUpgrade", "Nota", ...(dir ? ["Agente"] : []), ...svs.map(s => s.n)];
+  // `IngresoComunidad` se queda: es el primer FTD y muchas planillas ya lo
+  // esperan en esa posición. Las columnas por broker van detrás, para que un
+  // archivo viejo siga siendo legible junto a uno nuevo.
+  const head = ["Nombre", "Phone", "Pais", "Membresia", "Creado", "IngresoComunidad",
+    ...BROKERS.map(b => `FTD_${b.n.replace(/ /g, "")}`),
+    "UltimoUpgrade", "Nota", ...(dir ? ["Agente"] : []), ...svs.map(s => s.n)];
   const e2 = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const filas = state.clientes.map(c => [
-    c.nombre, c.tel || "", c.pais || "", c.mem, c.creado || "", c.comunidadDesde || "", c.upgradeFecha || "", c.nota || "",
+    c.nombre, c.tel || "", c.pais || "", c.mem, c.creado || "", c.comunidadDesde || "",
+    ...BROKERS.map(b => (c.ftds || {})[b.id] || ""),
+    c.upgradeFecha || "", c.nota || "",
     ...(dir ? [state.perfiles[c.owner_id] || (c.owner_id === state.me.id ? state.me.name : "")] : []),
     ...svs.map(s => c.acc[s.id] || "")
   ].map(e2).join(";"));
