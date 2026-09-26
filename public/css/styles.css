@@ -1684,3 +1684,9 @@ body.segwide .tabinner{max-width:1180px}
 @media (min-width:1040px){
   .ftddesk .ftdmix{font-size:12px}
 }
+
+/* La casilla de «ya lo conté» es OTRA pregunta, no parte de la lista de FTD.
+   Sin un filete que las separe, su ayuda y la nota del bloque de arriba se leen
+   como un solo párrafo largo — que es justo como se veía. */
+.fblk .chkftd{margin-top:13px;padding-top:12px;border-top:1px solid var(--border)}
+.fblk .chkftd .msgshelp{margin-top:7px}

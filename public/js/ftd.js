@@ -574,11 +574,16 @@ export function pintarCasillaFtd() {
   const aplica = !!f && f.sinSubir > 0 && !state.cliEdit;
   row.classList.toggle("hidden", !aplica);
   if (!aplica) return;
+  // `msgshelp` y no `ayuda`: `.ayuda` solo está definida dentro del asistente
+  // (`.asis .ayuda`), así que aquí salía sin estilo, a tamaño de texto normal, y
+  // el bloque entero se leía como un párrafo suelto.
+  const uno = f.sinSubir === 1;
   row.innerHTML = `
     <label class="chkline"><input type="checkbox" id="fFtdContado" checked>
-      Es uno de los ${f.sinSubir} que ya conté</label>
-    <div class="ayuda">Déjala marcada si este cliente ya estaba en tus ${f.reales}.
-      Quítala si es un FTD <b>nuevo</b>, aparte de los que declaraste.</div>`;
+      ${uno ? "Es el FTD que me falta por subir" : `Es uno de los ${f.sinSubir} que me faltan por subir`}</label>
+    <div class="msgshelp">Déjala marcada si este cliente ya está contado en los
+      <b>${f.reales}</b> que declaraste. Quítala si es un FTD <b>nuevo</b>, que se
+      sumará a tu total.</div>`;
 }
 
 // Al guardar un cliente nuevo: si la casilla quedó DESMARCADA, es un FTD que no

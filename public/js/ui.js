@@ -620,7 +620,9 @@ function pintarFtds() {
   $("fFtdNota").innerHTML = fechas.length
     ? `Ingresó a la comunidad el <b>${conAno(fechas[0])}</b>, su primer FTD.`
       + (fechas.length > 1 ? " Cada fecha cuenta en su propio mes." : "")
-    : "Es la fecha con la que cuenta como FTD del mes.";
+    // Sin ninguna fecha todavía: la nota tiene que explicar qué se espera, no
+    // hablar de «la fecha» como si hubiera una sola casilla que llenar.
+    : "Cada FTD cuenta en el mes de su propia fecha.";
 }
 
 // Delegación: la lista se repinta entera en cada cambio, así que enganchar los
