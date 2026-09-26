@@ -14,6 +14,19 @@
 -- mantiene un trigger. Así ventas, segmentos y todo lo que ya lo leía siguen
 -- funcionando sin tocarse, y las dos fuentes no pueden desincronizarse.
 
+-- APLICADA en producción el 2026-09-26.
+--
+-- Requisito previo que hubo que corregir antes: un cliente tenía
+-- `comunidad_desde = '20269-07-23'` (un 9 de más; su `creado` era 2026-07-23).
+-- El backfill lo habría convertido en la cadena "20269-07-23", que el CHECK de
+-- abajo rechaza, y habría abortado la migración entera:
+--
+--   update public.clientes set comunidad_desde = date '2026-07-23'
+--    where id = 'f8290bac-0d37-4b29-8215-bd6f7f2a170c';
+--
+-- Era seguro: ese mes no tenía fila en `ftd_base`, así que nunca se declaró ni
+-- se pagó. Julio pasó de 132 a 133 FTD.
+
 begin;
 
 alter table public.clientes
@@ -22,6 +35,12 @@ alter table public.clientes
 -- Validación de forma. Una cadena basura dentro del jsonb rompería el conteo del
 -- mes en silencio, y esto paga comisiones: se valida en la base, no solo en la
 -- interfaz. Un CHECK no admite subconsultas, así que va en una función inmutable.
+--
+-- Ojo al orden real: el trigger de abajo corre ANTES que el CHECK, así que una
+-- fecha con forma inválida la para el cast a `date` (error 22007) y no el CHECK.
+-- El CHECK sigue haciendo falta por dos cosas que el cast no mira: el nombre del
+-- broker, y un año de cinco dígitos —que Postgres acepta como fecha válida y es
+-- justo el defecto que traíamos.
 create or replace function public.ftds_valido(p jsonb)
 returns boolean
 language sql
