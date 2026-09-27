@@ -343,3 +343,36 @@ Un error que dice literalmente el nombre del host remoto y "No such file or
 directory" casi siempre significa que el lado local y el remoto dejaron de
 compartir un supuesto sobre rutas. Confirmar en minutos con un SSH manual
 (`ls` del directorio esperado en la otra punta) antes de teorizar.
+
+## Esconder un campo no es vaciarlo (27/09/2026)
+
+La ficha esconde el bloque de FTD cuando el nivel es `Lead`. Pero al SALIR de
+Lead rellena el broker vigente con la fecha de hoy, y al VOLVER a Lead se
+escondía el bloque **conservando esa fecha**. El Lead se guardaba con FTD y
+`ftdDelMes`, que cuenta fechas sin mirar la membresía, lo contaba como FTD del
+mes. O sea: plata.
+
+Camino exacto: «Nuevo cliente» → Lead → Beca → Lead → guardar.
+
+### La forma general
+
+Un formulario con campos que aparecen y desaparecen según otro campo tiene
+**dos estados**: lo que se ve y lo que se va a guardar. Esconder solo toca el
+primero. Cada vez que un control se oculte hay que decidir explícitamente qué
+pasa con su valor, y lo normal es que haya que vaciarlo.
+
+Ya había mordido antes en la selección de destinatarios (DP-001: filtrar
+escondía gente que seguía seleccionada y contada). Es el mismo defecto: estado
+invisible que sigue vivo.
+
+### Protección
+
+1. Vaciar el estado al esconder el bloque, no solo al guardar.
+2. Cinturón en el guardado (`mem === "Lead" ? {} : limpios`).
+3. **CHECK en la base** (`clientes_lead_sin_ftd`), porque una regla que nunca
+   debe violarse no se sostiene con una advertencia de interfaz: no protege
+   contra dos pestañas, contra la API directa ni contra la próxima regresión del
+   mismo formulario.
+
+Y al ocultar un bloque, dejarlo VACÍO en el DOM cuando no aplica: un input
+escondido pero vivo lo sigue leyendo quien lo consulte por id.

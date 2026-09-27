@@ -673,6 +673,12 @@ function ponerNivel(sel) {
   const lead = sel === "Lead";
   $("rowCreado").classList.toggle("hidden", !lead);
   $("rowComunidad").classList.toggle("hidden", lead);
+  // Pasar a Lead VACÍA los FTD, no solo esconde el bloque. Esconder no es
+  // borrar: al salir de Lead el formulario rellena la fecha de hoy, y si se
+  // volvía a Lead esa fecha seguía viva, invisible, y se guardaba — el Lead
+  // terminaba contando como FTD del mes. Nada se pierde en el ida y vuelta,
+  // porque volver a salir de Lead la repone.
+  if (lead && Object.keys(fichaFtds).length) { fichaFtds = {}; pintarFtds(); }
   // Un Lead no tiene FTD, así que la casilla de «ya contado» tampoco aplica.
   refrescarCasillaFtd();
 }
@@ -1076,7 +1082,11 @@ async function guardarCliente() {
     // Una fila sin fecha es una que se agregó y no se llenó: no es un depósito y
     // no puede viajar a la base, donde el CHECK la rechazaría.
     ...(() => {
-      const ftds = Object.fromEntries(Object.entries(fichaFtds).filter(([, f]) => f));
+      const limpios = Object.fromEntries(Object.entries(fichaFtds).filter(([, f]) => f));
+      // Segundo cinturón sobre lo mismo: ser Lead SIGNIFICA no haber hecho FTD.
+      // La base lo sostiene con un CHECK; esto evita que el guardado falle con
+      // un error crudo de Postgres en vez de hacer lo correcto.
+      const ftds = $("fMem").value === "Lead" ? {} : limpios;
       // `comunidadDesde` lo calcula el trigger, pero la copia en memoria no se
       // entera hasta recargar. Se refleja el mismo cálculo aquí para que la
       // ficha y la lista no muestren la fecha vieja hasta el próximo F5.
