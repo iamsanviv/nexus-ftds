@@ -937,6 +937,12 @@ body.segwide .tabinner{max-width:1180px}
 
 /* ---- rejilla y secciones ---- */
 .seggrid{display:grid;gap:18px;align-items:start}
+/* Un item de grid nace con `min-width:auto`, o sea que se dimensiona a su
+   CONTENIDO y no a la pista. Basta con que una fila de la lista no pueda
+   encoger —insignias y mes son de ancho fijo— para que la columna entera se
+   ensanche y la pantalla se desplace de lado. Con `min-width:0` la columna
+   respeta la pista y el nombre, que ya lleva ellipsis, absorbe la diferencia. */
+.seggrid > .segcol{min-width:0}
 .segsec{margin-bottom:20px}
 .segsec:last-child{margin-bottom:0}
 .sechead{display:flex;align-items:center;gap:9px;margin-bottom:9px}
@@ -1678,8 +1684,7 @@ body.segwide .tabinner{max-width:1180px}
 .filtroscol{min-width:0;flex:1 1 auto}
 .filtroscol .filtros{margin-bottom:8px}
 .filtroscol .filtrosbrk{margin-bottom:10px;align-items:center}
-.filtrosbrk .ejelbl{flex:0 0 auto;font-size:.66rem;font-weight:800;letter-spacing:.07em;
-  text-transform:uppercase;color:var(--muted);margin-right:3px;align-self:center}
+
 
 @media (min-width:1040px){
   .ftddesk .ftdmix{font-size:12px}
@@ -1690,3 +1695,19 @@ body.segwide .tabinner{max-width:1180px}
    como un solo párrafo largo — que es justo como se veía. */
 .fblk .chkftd{margin-top:13px;padding-top:12px;border-top:1px solid var(--border)}
 .fblk .chkftd .msgshelp{margin-top:7px}
+
+/* Filtro de broker como desplegable. Va en fila propia y no entre las píldoras
+   de membresía porque es otro eje: dentro de esa fila se leería como una opción
+   más del mismo grupo excluyente. */
+.brkfila{display:flex;align-items:center;gap:7px;margin:0 0 10px}
+/* `width:auto` es obligatorio: la regla global de `select` los pone al 100% y
+   un desplegable de dos opciones ocupando todo el ancho pesa más que los chips
+   que tiene encima. */
+.brksel{width:auto;flex:0 1 auto;min-width:0;font-size:.8rem;padding:7px 11px;border-radius:999px}
+/* El rótulo del eje. Antes vivía dentro de `.filtrosbrk`; ahora lo comparten la
+   lista de personas, el masivo y las invitaciones. */
+.ejelbl{flex:0 0 auto;font-size:.66rem;font-weight:800;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted);margin-right:3px}
+/* Mes de ingreso a la comunidad en las listas de selección. El día no aporta
+   nada al elegir a quién escribirle; el mes sí dice qué tan nueva es la persona. */
+.seg-row .segmes{flex:0 0 auto;color:var(--muted);font-size:.72rem;white-space:nowrap}

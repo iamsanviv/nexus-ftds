@@ -374,6 +374,11 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <label class="segtoggle"><input type="checkbox" id="segIncInact"> 😴 Incluir inactivas<span class="segtoggle-n"></span></label>
       <div class="masbuscarwrap"><input type="search" id="segBuscar" placeholder="🔎 Buscar por nombre…" autocomplete="off"><button id="segBuscarX" class="masbuscarx hidden" title="Limpiar">✕</button></div>
       <div id="segFiltros" class="segfiltros"></div>
+      <!-- Mismo criterio que en masivo: el broker es otro eje, no otra píldora. -->
+      <div class="brkfila hidden" id="segBrkFila">
+        <span class="ejelbl">Broker</span>
+        <select class="brksel" id="segBrk" aria-label="Filtrar por broker del FTD"></select>
+      </div>
       <!-- Reutilizar una selección anterior. Va pegado a los filtros porque es
            otra forma de lo mismo —acotar a quién— y arriba del todo quedaba
            lejos de la lista sobre la que actúa. -->
@@ -828,6 +833,12 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <h3 class="paneh">Destinatarios<span class="cnt" id="masCount"></span><span class="rule"></span></h3>
     <div id="masSegs" class="chips"></div>
     <div id="masFiltros" class="chips"></div>
+    <!-- Broker: eje aparte de la membresía, por eso desplegable y no otra
+         píldora de la misma fila. Lo pinta masivo.js. -->
+    <div class="brkfila hidden" id="masBrkFila">
+      <span class="ejelbl">Broker</span>
+      <select class="brksel" id="masBrk" aria-label="Filtrar por broker del FTD"></select>
+    </div>
     <div class="masbuscarwrap"><input id="masBuscar" placeholder="🔎 Buscar persona…" autocomplete="off"><button id="masBuscarX" class="masbuscarx hidden" title="Limpiar">✕</button></div>
     <div class="segselbar">
       <button class="pill" id="masMarcar">✓ Marcar visibles</button>

@@ -6,6 +6,7 @@ import {
   todos, esRequerido, esAdicional, esLead, progreso, siguiente,
   OPCIONES_TZ, etiquetaOffset, horaDeCliente,
   MOTIVOS_INACTIVO, esInactivo, nombreMotivo, motivoCorto, BROKERS, nombreBroker,
+  insigniasBroker,
 } from "./state.js";
 import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio, cargarChatsRecientes } from "./data.js";
 // repaso.js importa a ui.js: para no crear un ciclo, aquí solo se usa el
@@ -313,8 +314,7 @@ function cardHTML(c, p, rank, isLead, dir) {
   // Broker(es) donde depositó. Insignia corta: la línea del nombre ya carga
   // membresía, bandera, estado y dueño, y «IQ Option» completo le cuesta un
   // renglón en móvil sin decir más de lo que dice «IQ».
-  const brkTags = BROKERS.filter(b => c.ftds?.[b.id])
-    .map(b => ` <span class="badge b-brk ${b.id}" title="FTD en ${esc(b.n)}">${b.corto}</span>`).join("");
+  const brkTags = insigniasBroker(c);
   const extraTag = p.extra ? ` · <span class="extra">+${p.extra} ✦</span>` : "";
 
   const metric = isLead

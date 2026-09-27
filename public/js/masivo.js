@@ -3,7 +3,7 @@
 // que no llegue idéntico (más seguro). Crea una "campaña" y N mensajes en cola.
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
-  esInactivo, nombreMotivo, motivoCorto,
+  esInactivo, nombreMotivo, motivoCorto, BROKERS, insigniasBroker, mesCorto,
   MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto,
   componerMensaje, horaDeCliente, etiquetaZona } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento } from "./data.js";
@@ -12,6 +12,7 @@ import { canalVinculado } from "./canal.js";
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
 let masSel = new Set();     // ids seleccionados
 let masFiltro = "todos";    // filtro de membresía
+let masBroker = "todos";    // filtro por broker del FTD (eje aparte del anterior)
 let masImg = null;          // URL del adjunto subido (imagen o video), o null
 let masImgTipo = null;      // "imagen" | "video" — para la vista previa y el nombre de la campaña
 
@@ -98,6 +99,31 @@ function renderFiltros() {
   $("masFiltros").innerHTML = chips.map(([v, l]) =>
     `<button class="pill ${masFiltro === v ? "on" : ""}" data-fmem="${v}">${l}</button>`).join("");
   $("masFiltros").querySelectorAll("[data-fmem]").forEach(b => b.onclick = () => { masFiltro = b.dataset.fmem; renderLista(); });
+  pintarBrokers(lista);
+}
+
+// Broker: eje APARTE de la membresía, y por eso desplegable y no una píldora más
+// en la misma fila —ahí se leería como otra opción excluyente del mismo grupo—.
+// Solo lista los brokers presentes, igual que los chips.
+function pintarBrokers(lista) {
+  const fila = $("masBrkFila");
+  if (!fila) return;
+  const presentes = BROKERS.filter(b => lista.some(c => c.ftds?.[b.id]));
+  fila.classList.toggle("hidden", !presentes.length);
+  if (!presentes.length) {
+    // Sin brokers que distinguir, un filtro activo y escondido recortaría la
+    // lista sin que nada lo explique.
+    masBroker = "todos";
+    return;
+  }
+  const sel = $("masBrk");
+  sel.innerHTML = `<option value="todos">Todos los brokers</option>`
+    + presentes.map(b => `<option value="${b.id}">${esc(b.n)} (${lista.filter(c => c.ftds?.[b.id]).length})</option>`).join("");
+  // Si el broker elegido ya no está en la lista, el <select> no lo encontraría y
+  // quedaría mostrando otra cosa distinta de lo que filtra.
+  if (!presentes.some(b => b.id === masBroker)) masBroker = "todos";
+  sel.value = masBroker;
+  sel.onchange = () => { masBroker = sel.value; renderLista(); };
 }
 
 // Lee los ids de un segmento sin importar el formato: masivo guarda
@@ -127,7 +153,7 @@ function renderSegs() {
     const ids = idsDeSegmento(s);
     const enPool = new Set(pool().map(c => c.id));
     masSel = new Set(ids.filter(id => enPool.has(id)));
-    masFiltro = "todos";
+    masFiltro = "todos"; masBroker = "todos";
     renderFiltros(); renderLista();
     const omit = ids.length - masSel.size;
     toast(omit > 0
@@ -140,7 +166,8 @@ function visibles() {
   const q = normBusqueda($("masBuscar").value);
   return pool().filter(c => {
     const okMem = masFiltro === "todos" || (masFiltro === "invitadas" ? yaInvitada(c) : c.mem === masFiltro);
-    return okMem && (!q || normBusqueda(c.nombre).includes(q));
+    const okBrk = masBroker === "todos" || !!c.ftds?.[masBroker];
+    return okMem && okBrk && (!q || normBusqueda(c.nombre).includes(q));
   });
 }
 
@@ -150,8 +177,9 @@ function renderLista() {
     ? vis.map(c => `
         <label class="seg-row${esInactivo(c) ? " inact" : ""}">
           <input type="checkbox" data-cid="${c.id}" ${masSel.has(c.id) ? "checked" : ""}>
-          <span class="badge b-${c.mem}">${c.mem}</span>
+          <span class="badge b-${c.mem}">${c.mem}</span>${insigniasBroker(c)}
           <span class="nm">${esc(c.nombre)}</span>
+          ${c.comunidadDesde ? `<span class="segmes" title="Entró a la comunidad">${esc(mesCorto(c.comunidadDesde))}</span>` : ""}
           ${esInactivo(c) ? `<span class="badge b-inact" title="${esc(nombreMotivo(c.inactivoMotivo))}">😴 ${esc(motivoCorto(c.inactivoMotivo))}</span>` : ""}
         </label>`).join("")
     : `<div class="naplica">Nadie en este filtro.</div>`;
@@ -306,7 +334,8 @@ function setImg(url, tipo) {
 
 /* ---------- abrir / enviar ---------- */
 async function abrir() {
-  masSel = new Set(); masFiltro = "todos"; masCuando = "ahora"; masIncInact = false;
+  masSel = new Set(); masFiltro = "todos"; masBroker = "todos";
+  masCuando = "ahora"; masIncInact = false;
   $("masTexto").value = ""; $("masBuscar").value = ""; $("masBuscarX").classList.add("hidden");
   $("masHoraRef").value = ""; $("masHoraRow").classList.add("hidden");
   setImg(null, null); $("masImgEstado").textContent = ""; renderPrev();

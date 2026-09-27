@@ -147,3 +147,34 @@ Anclar el globo a **la fila**, no al icono: `position:relative` en el `<label>`,
 paso queda alineado con el resto del texto.
 
 Se detectó midiendo, no mirando: la captura a 390 px se veía perfecta.
+
+## Un ítem de grid se dimensiona a su contenido (27/09/2026)
+
+Agregar a una fila de lista dos elementos de ancho fijo —la insignia de broker y
+el mes de ingreso— desplazó la pantalla de lado en móvil: 39 px a 390 px.
+
+### Causa
+
+`.segcol` es hijo de `.seggrid` (`display:grid`) y un ítem de grid nace con
+`min-width:auto`, es decir que **se dimensiona a su min-content, no a la pista**.
+Basta con que una fila no pueda encoger para que la columna entera se ensanche y
+arrastre a todos sus ancestros. La pista medía 366 px y la columna 417 px.
+
+El `.nm` de la fila ya tenía `min-width:0` y ellipsis, así que la fila SÍ sabía
+encoger; lo que no sabía era que tenía que hacerlo, porque su contenedor había
+crecido.
+
+### Protección
+
+`min-width:0` en el ítem de grid (`.seggrid > .segcol`). Entonces la columna
+respeta la pista y el ellipsis del nombre absorbe la diferencia.
+
+### Cómo se detectó
+
+Midiendo `scrollWidth - clientWidth` en cada render de la prueba, no mirando la
+captura. Y el culpable no era el elemento que parecía: el desplegable nuevo
+estaba bien; se aisló ocultando un candidato a la vez.
+
+Lo mismo se puede leer al revés: **si un ancestro lejano aparece más ancho que
+la ventana, casi siempre el problema es un descendiente que no puede encoger, no
+el ancestro.**

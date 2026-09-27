@@ -8,7 +8,7 @@ import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
   horaDeCliente, etiquetaZona, etiquetaDia, componerMensaje,
   esInactivo, nombreMotivo, motivoCorto,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas,
-  normBusqueda } from "./state.js";
+  normBusqueda, BROKERS, insigniasBroker, mesCorto } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { avisarSiCanalCaido } from "./salud.js";
@@ -180,6 +180,7 @@ let segYaProg = new Set();
 let logFiltro = "todos";      // filtro del registro de envíos
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
+let segFiltroBrk = "todos";   // broker del FTD: eje aparte de la membresía
 const esLeadMem = m => m === "Lead";
 
 /* ================= PLANTILLAS (editor) ================= */
@@ -931,6 +932,9 @@ function alternarIncInact(marcada) {
 async function seleccionarActividad(a) {
   actSel = a;
   segFiltroMem = "todos";
+  // Igual que los hitos: heredar el filtro de broker de la tanda anterior
+  // escondería gente en ESTA sin que nadie lo haya pedido.
+  segFiltroBrk = "todos";
   segBuscarTxt = "";
   segIncAsis = false;
   segIncInact = false;
@@ -982,10 +986,32 @@ function ocultarProg() {
   $("segProgBloque").classList.add("hidden");
   $("segFaltan").innerHTML = "";
   $("segFiltros").innerHTML = "";
+  segFiltroBrk = "todos";
+  const bf = $("segBrkFila"); if (bf) bf.classList.add("hidden");
   $("segSelCount").textContent = "";
   const seg = $("segSegmentos"); if (seg) seg.innerHTML = "";
   const bs = $("segBuscar"); if (bs) bs.value = "";
   segBuscarTxt = "";
+}
+
+// Broker: eje APARTE de la membresía, y por eso desplegable y no una píldora más
+// en la misma fila —ahí se leería como otra opción excluyente del mismo grupo—.
+function pintarBrokersSeg(lista) {
+  const fila = $("segBrkFila");
+  if (!fila) return;
+  const presentes = BROKERS.filter(b => lista.some(c => c.ftds?.[b.id]));
+  fila.classList.toggle("hidden", !presentes.length);
+  if (!presentes.length) {
+    // Un filtro activo y escondido recortaría la lista sin que nada lo explique.
+    segFiltroBrk = "todos";
+    return;
+  }
+  const sel = $("segBrk");
+  sel.innerHTML = `<option value="todos">Todos los brokers</option>`
+    + presentes.map(b => `<option value="${b.id}">${esc(b.n)} (${lista.filter(c => c.ftds?.[b.id]).length})</option>`).join("");
+  if (!presentes.some(b => b.id === segFiltroBrk)) segFiltroBrk = "todos";
+  sel.value = segFiltroBrk;
+  sel.onchange = () => { segFiltroBrk = sel.value; renderFaltan(); };
 }
 
 function renderFaltan() {
@@ -1007,6 +1033,7 @@ function renderFaltan() {
   $("segFiltros").querySelectorAll("[data-fmem]").forEach(b => b.onclick = () => {
     segFiltroMem = b.dataset.fmem; renderFaltan();
   });
+  pintarBrokersSeg(lista);
 
   // Filtro combinado: membresía + búsqueda por nombre.
   // `normBusqueda` y no `toLowerCase`: buscar «jose» tiene que encontrar a
@@ -1014,6 +1041,7 @@ function renderFaltan() {
   const q = normBusqueda(segBuscarTxt);
   const visibles = lista.filter(c =>
     (segFiltroMem === "todos" || c.mem === segFiltroMem) &&
+    (segFiltroBrk === "todos" || !!c.ftds?.[segFiltroBrk]) &&
     (!q || normBusqueda(c.nombre).includes(q)));
 
   $("segFaltan").innerHTML = visibles.length
@@ -1022,14 +1050,17 @@ function renderFaltan() {
         return `
         <label class="seg-row${prog ? " yaprogfila" : ""}${esInactivo(c) ? " inact" : ""}">
           <input type="checkbox" data-cid="${c.id}" ${segSel.has(c.id) ? "checked" : ""}>
-          <span class="badge b-${c.mem}">${c.mem}</span>
+          <span class="badge b-${c.mem}">${c.mem}</span>${insigniasBroker(c)}
           <span class="nm">${esc(c.nombre)}</span>
+          ${c.comunidadDesde ? `<span class="segmes" title="Entró a la comunidad">${esc(mesCorto(c.comunidadDesde))}</span>` : ""}
           ${esInactivo(c) ? `<span class="badge b-inact" title="${esc(nombreMotivo(c.inactivoMotivo))}">😴 ${esc(motivoCorto(c.inactivoMotivo))}</span>` : ""}
           ${prog ? `<span class="yaprog" title="Ya tiene los mensajes programados para esta actividad">✓ ya programado</span>` : ""}
           ${sid && c.acc[sid] ? `<span class="yaasis">ya asistió</span>` : ""}
         </label>`; }).join("")
     : `<div class="naplica">${q ? "Nadie coincide con la búsqueda." : "Nadie en este filtro."}</div>`;
-  if (sinTel && segFiltroMem === "todos" && !q) $("segFaltan").insertAdjacentHTML("beforeend",
+  // Solo sin filtros: con uno puesto, este número sería del universo entero y no
+  // de lo que se está viendo.
+  if (sinTel && segFiltroMem === "todos" && segFiltroBrk === "todos" && !q) $("segFaltan").insertAdjacentHTML("beforeend",
     `<div class="naplica">${sinTel} persona(s) sin teléfono no aparecen aquí.</div>`);
 
   $("segFaltan").querySelectorAll("input[data-cid]").forEach(inp => inp.onchange = () => {

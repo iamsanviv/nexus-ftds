@@ -568,6 +568,28 @@ export const BROKERS = [
 ];
 export const nombreBroker = id => (BROKERS.find(b => b.id === id) || {}).n || id;
 
+// Insignia(s) de broker para las listas. Vive aquí y no en cada vista porque son
+// tres las que la pintan —personas, masivo e invitaciones— y una copia suelta es
+// justo lo que termina divergiendo.
+export const insigniasBroker = c => BROKERS
+  .filter(b => c.ftds?.[b.id])
+  .map(b => `<span class="badge b-brk ${b.id}" title="FTD en ${esc(b.n)}">${b.corto}</span>`)
+  .join("");
+
+const MES3 = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+// Mes de una fecha, corto, para las listas donde el día no aporta nada.
+//
+// El año solo aparece cuando NO es el actual: en estas listas casi todos son de
+// este año y repetirlo en cada fila es ruido, pero «sep» a secas sería ambiguo
+// para alguien que entró el año pasado.
+export const mesCorto = iso => {
+  const p = (iso || "").split("-");
+  const m = p.length >= 2 ? MES3[Number(p[1]) - 1] : null;
+  if (!m) return "";
+  return Number(p[0]) === new Date().getFullYear() ? m : `${m} ${p[0]}`;
+};
+
 // FTD del mes. Cuenta DEPÓSITOS, no personas: alguien que depositó en ExOption
 // en junio y en IQ Option en septiembre suma uno en junio y otro en septiembre.
 //
