@@ -487,7 +487,12 @@
 .segchip .x{color:var(--muted);font-weight:700;padding:0 2px}
 .segchip .x:hover{color:var(--gold)}
 .segchip .star{color:var(--gold)}
-.segguardar{margin-top:8px;width:100%;justify-content:center}
+/* `white-space:normal` contra el `nowrap` que trae `.pill`: esta píldora ocupa
+   todo el ancho y su texto es largo, así que por debajo de ~360 px no cabía en
+   su propia caja y desplazaba la pantalla de lado. Una píldora suelta sí debe
+   ir en una línea; esta, que es un botón de bloque, puede partirse. */
+.segguardar{margin-top:8px;width:100%;justify-content:center;
+  white-space:normal;line-height:1.3}
 .masbuscarwrap{position:relative;width:100%}
 .masbuscarwrap input{padding-right:38px}
 .masbuscarx{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:26px;height:26px;
