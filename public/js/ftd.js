@@ -571,9 +571,26 @@ export function pintarCasillaFtd() {
   const row = $("ftdChkRow");
   if (!row) return;
   const f = state.ventasOk ? comisionFtd(mesActual(), yo()) : null;
-  const aplica = !!f && f.sinSubir > 0 && !state.cliEdit;
+  // La pregunta es «¿este FTD ya estaba dentro de lo que declaraste?», así que
+  // solo tiene sentido si de verdad se está registrando un FTD que cuenta para
+  // ESTE mes. Antes salía siempre y preguntaba por un FTD inexistente: a un
+  // Lead, que por definición no tiene ninguno, y a alguien con fecha de un mes
+  // anterior, que no toca el conteo del mes en curso.
+  //
+  // La condición es la misma que usa `trasCrearCliente` para actuar: la casilla
+  // se ve exactamente cuando puede tener efecto.
+  const esLead = $("fMem") && $("fMem").value === "Lead";
+  const hayFtdDelMes = [...document.querySelectorAll("#fFtds input[data-ftd]")]
+    .some(i => i.value.slice(0, 7) === mesActual());
+  const aplica = !!f && f.sinSubir > 0 && !state.cliEdit && !esLead && hayFtdDelMes;
   row.classList.toggle("hidden", !aplica);
-  if (!aplica) return;
+  if (!aplica) {
+    // Vaciar y no solo esconder: un `#fFtdContado` escondido pero vivo lo
+    // seguiría leyendo `trasCrearCliente`, que es justo la clase de estado
+    // invisible que no se debe dejar en el DOM.
+    row.innerHTML = "";
+    return;
+  }
   // `msgshelp` y no `ayuda`: `.ayuda` solo está definida dentro del asistente
   // (`.asis .ayuda`), así que aquí salía sin estilo, a tamaño de texto normal, y
   // el bloque entero se leía como un párrafo suelto.

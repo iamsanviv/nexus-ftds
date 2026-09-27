@@ -586,6 +586,11 @@ function refrescarPh(inp) { inp.classList.toggle("fecha-vacia", !inp.value); }
    formulario se puede cerrar sin guardar; solo se vuelca en `guardarCliente`. */
 let fichaFtds = {};
 
+// La casilla de «FTD ya contado» depende de lo que haya en esta lista y del
+// nivel elegido, así que se repinta junto con ellos. `import()` dinámico por el
+// ciclo ui.js <-> ftd.js; el módulo ya está en caché, no cuesta red.
+const refrescarCasillaFtd = () => import("./ftd.js").then(m => m.pintarCasillaFtd());
+
 // Orden cronológico, y lo que todavía no tiene fecha al final: la lista se lee
 // como la historia de la persona, no como el orden del catálogo de brokers.
 const ftdsOrdenados = () => BROKERS
@@ -623,6 +628,8 @@ function pintarFtds() {
     // Sin ninguna fecha todavía: la nota tiene que explicar qué se espera, no
     // hablar de «la fecha» como si hubiera una sola casilla que llenar.
     : "Cada FTD cuenta en el mes de su propia fecha.";
+
+  refrescarCasillaFtd();
 }
 
 // Delegación: la lista se repinta entera en cada cambio, así que enganchar los
@@ -666,6 +673,8 @@ function ponerNivel(sel) {
   const lead = sel === "Lead";
   $("rowCreado").classList.toggle("hidden", !lead);
   $("rowComunidad").classList.toggle("hidden", lead);
+  // Un Lead no tiene FTD, así que la casilla de «ya contado» tampoco aplica.
+  refrescarCasillaFtd();
 }
 
 /* ---------- registrar desde un chat reciente ----------
