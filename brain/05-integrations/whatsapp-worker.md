@@ -230,6 +230,58 @@ El brain describe el sistema. El MCP sirve para verificar/operar la infraestruct
 
 `contexto-worker.md` conserva contexto detallado anterior. Debe tratarse como documentación histórica hasta verificar los puntos operativos variables.
 
+## Bridge: `comando` y latido a 60 s (2026-10-02)
+
+El bridge (`vigilarComandos` en `main.go`, **REST puro**, sin driver de Postgres)
+sondeaba `comando` cada **2 s** (~40.000 req/día por bridge) y latía cada 30 s.
+Ese sondeo en vacío era el ~77% del egress y agotó el cupo gratis de Supabase
+(5 GB): la API REST empezó a devolver **402** en todo (bridges, worker, panel).
+El `execute_sql` del MCP seguía entrando por otra vía, por eso la base se
+consultaba pero los bridges no podían leer/escribir.
+
+**Decisión: NO push (LISTEN/NOTIFY), sí subir el sondeo a 60 s.** El bridge es
+REST puro; meterle pgx + conexión permanente + credenciales en ~18 VMs no
+compensa, porque a escala el que domina es el **latido** (que ambos caminos
+mantienen), no el comando. A 50 agentes el push ahorra solo ~1.200 req/día por
+agente y además mete 50 conexiones permanentes (de 200 del pooler). El 2 s→60 s
+se lleva el ~90% del gasto del bucle con una línea.
+
+Cambio (en el bucle de `vigilarComandos`): latido a `ticks%30==0` (60 s) y
+comando con `if ticks%30 != 0 || leerComando()...` (60 s, por corto-circuito de
+`||`). Panel (`canal.js`): `LATIDO_VIVO_SEG` 90→180 y `ESPERA_DESV_SEG` 20→90,
+o el panel mostraría "sin señal" en falso y "Desvincular" roto. Para el agente
+solo cambia que desvincular tarda hasta ~60 s (antes ~2 s).
+
+El trigger `avisar_comando_canal` (NOTIFY en `canal_comando`, migración
+`sql/2026-10-02_26_aviso_comando.sql`) quedó creado y probado pero **DORMIDO**:
+el bridge no escucha. Es base lista por si se retoma el push; inofensivo (solo
+dispara en un cambio real de `comando`) y se puede eliminar sin efecto.
+LISTEN/NOTIFY **sí** funciona por el pooler en modo **Session** (5432), no por
+Transaction (6543). Verificado 2026-10-02.
+
+**Supabase pasó a Pro (2026-10-02)** para destapar el 402 al instante (el ciclo
+gratis no reiniciaba hasta ~el 11). Pro = 250 GB egress (~26× el uso real), así
+que el límite deja de ser preocupación; el arreglo de 60 s es holgura/limpieza.
+
+### Trampas del despliegue (si se repite)
+
+- `create`/`drop trigger` sobre `canales_wa` necesita SHARE ROW EXCLUSIVE, que
+  choca con cada escritura. Con los bridges vivos el DDL se starva y expira;
+  hacerlo con producción detenida o con `lock_timeout` + reintentos.
+- Topología: **VM1** = `ubuntu@141.148.40.31` (`nexus-cloud`), 10 bridges, con
+  Go+gcc. **VM2** = `10.0.0.23` (`nexus-cloud-2`), 8 bridges, **sin** Go/gcc; se
+  alcanza desde VM1 con `~/.ssh/vm2.key`. VM2 recibe el binario por `scp`.
+- En VM2 el dir `/home/ubuntu/whatsapp-mcp/whatsapp-bridge` es de **root** →
+  escribir ahí con `sudo` (`scp` a `/tmp` + `sudo mv`).
+- Binario compartido por todos los bridges de una VM. Se promueve con `mv`
+  atómico (seguro con el binario en uso) y se reinicia cada servicio. Un
+  reinicio **no** borra sesión (vive en el `store/` de cada agente): reconecta
+  sin QR. Los que piden QR ya estaban sin sesión desde antes.
+- Build: `export PATH=$PATH:/usr/local/go/bin; CGO_ENABLED=1 go build -o
+  whatsapp-bridge-mt.new .` (CGO por `go-sqlite3`). Respaldos:
+  `whatsapp-bridge-mt.bak-<fecha>` y `.prev`. Probar siempre en 1 bridge con un
+  override de systemd apuntando al `.new` antes de promover.
+
 ## Relacionado
 
 - [[../03-domain/messaging-rules]]
