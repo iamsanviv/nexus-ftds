@@ -10,14 +10,18 @@ let ultimo = null;    // firma del último estado pintado (evita re-render/flick
 let desvinculando = false;  // esperando que el bridge procese "desvincular"
 let relojDesv = null;       // temporizador del intento de desvincular en curso
 
-/* El bridge reescribe `actualizado` cada ~30 s aunque no pase nada: es su
+/* El bridge reescribe `actualizado` cada ~60 s aunque no pase nada: es su
    latido. Si lleva más que esto sin escribir, está caído, y entonces `estado`
-   es una foto vieja — no la realidad. Con 90 s caben dos latidos perdidos
-   antes de dar a nadie por muerto. */
-const LATIDO_VIVO_SEG = 90;
+   es una foto vieja — no la realidad. Con 180 s caben dos latidos perdidos
+   antes de dar a nadie por muerto.
+   (El latido se espació de 30 s a 60 s para recortar egress a escala de ~50
+   agentes; este umbral subió en consecuencia. Ver brain whatsapp-worker.md.) */
+const LATIDO_VIVO_SEG = 180;
 // Cuánto se le concede al bridge para recoger la orden antes de darla por no
-// atendida. El bridge sondea su columna cada pocos segundos; 20 s es de sobra.
-const ESPERA_DESV_SEG = 20;
+// atendida. El bridge consulta su columna cada ~60 s (antes cada 2 s, se
+// espació por el mismo motivo); 90 s cubre el peor caso de haber recién pasado
+// un ciclo, más el logout y la republicación del estado.
+const ESPERA_DESV_SEG = 90;
 
 const segundosDesde = iso => iso ? (Date.now() - new Date(iso).getTime()) / 1000 : Infinity;
 const bridgeVivo = c => segundosDesde(c?.actualizado) < LATIDO_VIVO_SEG;
