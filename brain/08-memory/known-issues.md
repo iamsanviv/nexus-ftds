@@ -146,3 +146,13 @@ Mientras no las actualicen, la red que los protege es el aviso del diálogo de p
 
 Se cierra cuando las dos plantillas guardadas usen `{dia}`.
 
+
+---
+
+## KI-008 — `bajas.py` no está desplegado en las VMs
+
+Verificado el 2026-10-03: ni VM1 (`141.148.40.31`) ni VM2 (`10.0.0.23`) tienen el ejecutor de bajas (`bajas.py` / timer `nexus-bajas`). La migración `sql/2026-09-15_23_baja_de_canal.sql` y la RPC `dar_de_baja_canal` existen, pero **nadie recoge la baja del lado de la VM**: marcar `baja_en` desde el panel no apaga el bridge ni libera el puerto por sí solo.
+
+Consecuencia: dar de baja un agente es **manual** (apagar/deshabilitar el servicio y archivar su carpeta con punto delante, a mano por SSH). Ver el runbook en `05-integrations/whatsapp-worker.md`.
+
+Se cierra cuando `bajas.py` quede instalado como timer en ambas VMs y una baja de prueba se ejecute sola.
