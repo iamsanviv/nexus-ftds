@@ -1,0 +1,12 @@
+[Unit]
+Description=Nexus — ejecuta las bajas de canal pendientes
+Documentation=https://github.com/iamsanviv/nexus-ftds
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/nexus-bajas
+ExecStart=/usr/bin/python3 /home/ubuntu/nexus-bajas/bajas.py
+TimeoutStartSec=120
