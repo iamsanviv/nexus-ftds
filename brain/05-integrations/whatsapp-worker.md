@@ -316,6 +316,18 @@ cruzado con `canales_wa`/`profiles` por `owner_id`.
   archivar la carpeta, **no** tocar `canales_wa` ni `profiles`. Para reactivar:
   `enable` + `start`, y el agente re-escanea el QR desde el panel.
 
+### Revertir — reactivar a alguien dado de baja
+1. Perfil: `update profiles set aprobado=true, rechazado_en=null where id='<uuid>';`
+2. Canal: `update canales_wa set baja_en=null, baja_por=null, puerto=<n_libre> where owner_id='<uuid>';`
+   (elegir un puerto libre **en la tabla**, el constraint de unicidad es global
+   entre las dos VMs).
+3. Bridge: des-archivar la carpeta (`sudo mv /home/ubuntu/nexus-bridges/.<slug>
+   /home/ubuntu/nexus-bridges/<slug>`), `sudo systemctl enable` + `start`, y el
+   agente re-escanea el QR desde el panel.
+
+Reactivar a un agente del caso B (solo apagado) es aún más simple: `enable` +
+`start` su servicio y re-escanear; no se tocó ni perfil ni canal.
+
 Lo ideal es **instalar `bajas.py`** (timer cada 2 min por VM): automatiza el caso
 A desde el panel vía RPC `dar_de_baja_canal`, sin SSH. Ver
 `sql/2026-09-15_23_baja_de_canal.sql`. Mientras no esté, este runbook es el
