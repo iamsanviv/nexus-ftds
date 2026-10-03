@@ -149,10 +149,8 @@ Se cierra cuando las dos plantillas guardadas usen `{dia}`.
 
 ---
 
-## KI-008 — `bajas.py` no está desplegado en las VMs
+## KI-008 — `bajas.py`: instalado, falta ver una baja real de punta a punta
 
-Verificado el 2026-10-03: ni VM1 (`141.148.40.31`) ni VM2 (`10.0.0.23`) tienen el ejecutor de bajas (`bajas.py` / timer `nexus-bajas`). La migración `sql/2026-09-15_23_baja_de_canal.sql` y la RPC `dar_de_baja_canal` existen, pero **nadie recoge la baja del lado de la VM**: marcar `baja_en` desde el panel no apaga el bridge ni libera el puerto por sí solo.
+Desplegado el 2026-10-03 como timer `nexus-bajas` (cada 2 min) en **ambas VMs** (`vm/bajas/`, `WorkingDirectory=/home/ubuntu/nexus-bajas` con su propio `.env`). Dry-run (`--simulacro`) limpio y las 20 pruebas unitarias en verde en las dos máquinas; credenciales y conexión verificadas.
 
-Consecuencia: dar de baja un agente es **manual** (apagar/deshabilitar el servicio y archivar su carpeta con punto delante, a mano por SSH). Ver el runbook en `05-integrations/whatsapp-worker.md`.
-
-Se cierra cuando `bajas.py` quede instalado como timer en ambas VMs y una baja de prueba se ejecute sola.
+**Lo único sin observar** es una baja real ejecutada por el timer (stop + disable + archivar `.baja-…` + liberar puerto): las 5 bajas del 2026-10-03 se hicieron a mano antes de instalarlo, así que no quedaban pendientes para que las tomara. Se cierra cuando la próxima baja real corra sola y limpia.

@@ -282,34 +282,44 @@ que el límite deja de ser preocupación; el arreglo de 60 s es holgura/limpieza
   `whatsapp-bridge-mt.bak-<fecha>` y `.prev`. Probar siempre en 1 bridge con un
   override de systemd apuntando al `.new` antes de promover.
 
-## Runbook: dar de baja / desactivar un agente (manual, 2026-10-03)
+## Runbook: dar de baja / desactivar un agente
 
-`bajas.py` **no está instalado** en ninguna VM (verificado 2026-10-03), así que
-la baja es **manual**. Hay dos casos muy distintos.
+`bajas.py` está instalado como timer de systemd (cada 2 min) en **ambas VMs**
+desde el 2026-10-03 (código en `vm/bajas/`), así que la **baja de canal es
+automática**: basta marcar `baja_en` y el ejecutor de ESA VM apaga/deshabilita
+el bridge, archiva la carpeta (`.baja-<slug>-<fecha>`, lo único que libera el
+puerto) y pone `puerto=null`, todo en ≤2 min. La desactivación del **perfil**
+sigue siendo un paso aparte en la base.
 
 **Identificar siempre por `owner_id`, NO por el nombre de la carpeta.** Los slugs
 mienten: en VM1 `daniela_duarte` sirve a *Sofía Muñoz*, `tatiana` a *Evelin
 Gomez*, y hay carpetas sobrantes (`juan_narvaez`, `leonardo_angarita`) sin
 servicio. Mapa real:
-`for d in /home/ubuntu/nexus-bridges/*/; do s=$(basename "$d"); grep '^WA_OWNER=' "$d/env"; done`
+`for d in /home/ubuntu/nexus-bridges/*/; do grep '^WA_OWNER=' "$d/env"; done`
 cruzado con `canales_wa`/`profiles` por `owner_id`.
 
 ### A) El agente SE VA — quitar acceso + apagar infraestructura
-1. **(Solo si está vinculado)** desvincular su WhatsApp ANTES de archivar:
-   `update canales_wa set comando='desvincular' where owner_id='<uuid>'`, esperar
-   ~60 s (sondeo nuevo) a que el bridge haga logout. Si se archiva sin esto, el
-   dispositivo queda emparejado-pero-muerto en su teléfono (se quita a mano desde
-   «Dispositivos vinculados»).
-2. En la VM que lo aloja: `sudo systemctl stop nexus-bridge@<slug>` +
-   `disable`, y **archivar la carpeta con punto delante** para liberar el puerto:
-   `sudo mv /home/ubuntu/nexus-bridges/<slug> /home/ubuntu/nexus-bridges/.<slug>`
-   (un `.bak` NO sirve: `provisionar.sh` recorre `*/` e incluiría `algo.bak`).
-3. En la base (service role vía MCP):
-   `update canales_wa set baja_en=now(), baja_por='<admin uuid>', puerto=null where owner_id='<uuid>';`
+1. **(Solo si está vinculado)** desvincular su WhatsApp ANTES de la baja:
+   `update canales_wa set comando='desvincular' where owner_id='<uuid>';`, esperar
+   ~60 s a que el bridge haga logout. Si no, el dispositivo queda
+   emparejado-pero-muerto en su teléfono (se quita a mano desde «Dispositivos
+   vinculados»).
+2. **Baja del canal** — marcar la fila y dejar que el timer la ejecute. **NO
+   pongas `puerto=null` a mano:** el timer necesita ver `puerto` todavía puesto
+   para tomar la baja.
+   `update canales_wa set baja_en=now(), baja_por='<admin uuid>' where owner_id='<uuid>';`
+   En ≤2 min `bajas.py` de esa VM apaga/deshabilita/archiva y libera el puerto.
+3. **Desactivar el perfil:**
    `update profiles set aprobado=false, rechazado_en=now() where id='<uuid>';`
    El trigger `impedir_cambio_de_rol` se salta cuando `auth.uid() is null`
-   (service role), así que el update pasa. **Baja ≠ borrar:** clientes, ventas,
-   seguimientos e historial se conservan.
+   (service role). **Baja ≠ borrar:** clientes, ventas, seguimientos e historial
+   se conservan.
+
+**Fallback (timer caído):** hacer a mano lo que hace el ejecutor —
+`sudo systemctl stop/disable nexus-bridge@<slug>`, `sudo mv
+/home/ubuntu/nexus-bridges/<slug> /home/ubuntu/nexus-bridges/.<slug>`
+(con punto delante; un `.bak` NO libera el puerto), y luego
+`update canales_wa set puerto=null, estado='baja' where owner_id='<uuid>';`.
 
 ### B) El agente SE QUEDA pero no usará WhatsApp por ahora — solo dejar de sondear
 - Únicamente `sudo systemctl stop nexus-bridge@<slug>` + `disable`. **No**
