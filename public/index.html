@@ -588,7 +588,11 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <div class="fblk-t">Nivel</div>
       <div class="nivchips" id="fNiveles"></div>
       <input type="hidden" id="fMem">
-      <div class="frow fdate" id="rowCreado"><label>Registrado el</label><input id="fCreado" type="date" data-ph="Fecha del registro"></div>
+      <!-- «Llegó el», no «Registrado el»: es cuándo entró el lead a la comunidad,
+           y el panel «Hoy» lo usa para «Llegaron hoy/ayer». «Registro» quedó
+           reservado para «abrió cuenta en el broker» (Seguimiento), para no
+           confundir las dos fechas. -->
+      <div class="frow fdate" id="rowCreado"><label>Llegó el</label><input id="fCreado" type="date" data-ph="Fecha en que llegó"></div>
       <!-- El FTD no es una fecha sino una lista: una persona puede depositar en
            más de un broker y cada fecha cuenta en su propio mes. -->
       <div class="frow ftdrow" id="rowComunidad">

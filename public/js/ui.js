@@ -742,9 +742,9 @@ function ponerNivel(sel) {
   $("fNiveles").innerHTML = NIVELES.map(m =>
     `<button type="button" class="nivchip ${CLASE_NIVEL[m]}${m === sel ? " on" : ""}" data-niv="${m}">${m}</button>`
   ).join("");
-  // Un lead se REGISTRA; de Beca en adelante, INGRESA A LA COMUNIDAD. Son dos
-  // fechas distintas y nunca coexisten: pedir las dos hacía que se llenara la
-  // que no tocaba.
+  // Un lead LLEGA; de Beca en adelante, INGRESA A LA COMUNIDAD. Son dos fechas
+  // distintas y nunca coexisten: pedir las dos hacía que se llenara la que no
+  // tocaba. (La misma columna `creado` guarda las dos; solo cambia la etiqueta.)
   const lead = sel === "Lead";
   $("rowCreado").classList.toggle("hidden", !lead);
   $("rowComunidad").classList.toggle("hidden", lead);
