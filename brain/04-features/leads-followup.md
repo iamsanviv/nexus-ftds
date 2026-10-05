@@ -46,6 +46,15 @@ pend (promesa) > reg (registro) > hoy (llegó hoy) > bajo (respondió hoy; F4 lo
 - Categoría `bajo` = escribió hoy (entrante de hoy, o «Me respondió» de hoy).
 - Un mensaje entrante mueve la temperatura igual que una respuesta: «te escribió hoy» → caliente.
 
+## La vista de Leads no muestra invitaciones (05/10/2026)
+A diferencia de Comunidad, las tarjetas de lead NO renderizan la grilla de actividades
+(`grupos`), ni el conteo «✦ N invitaciones», ni los contadores/filtros «Con/Sin actividad»,
+ni el orden «Más comprometidos». Las invitaciones siguen disponibles en Seguimiento masivo y
+por actividad; solo salieron de la vista de Leads. En su lugar: tarjetas de conteo por
+temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`), y el orden
+«cerca» de leads ordena por temperatura (`TEMP_ORD`). `cardHTML` omite `grupos` y la línea
+`.pct` cuando es lead.
+
 ## Autorización
 Solo el dueño (`owner_id === me`) ve acciones; la base lo sostiene: el trigger fija el dueño del
 contacto y la política exige `owner_id = auth.uid()`. El director ve, no registra.

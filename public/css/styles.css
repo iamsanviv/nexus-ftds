@@ -611,6 +611,9 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 .stat.filtrable.vip{color:var(--vip)}
 .stat.filtrable.plat{color:var(--plat)}
 .stat.filtrable.oro{color:var(--oro)}
+.stat.filtrable.caliente{color:#F07A3E}
+.stat.filtrable.tibio{color:var(--gold)}
+.stat.filtrable.frio{color:#5B9BD5}
 .stat.filtrable.on{background:var(--surface2);border-color:currentColor;
   box-shadow:inset 0 0 0 1px currentColor}
 
@@ -833,6 +836,7 @@ body.segwide .tabinner{max-width:1180px}
   .stat.filtrable.vip{color:var(--vip)}
   .stat.filtrable.plat{color:var(--plat)}
   .stat.filtrable.oro{color:var(--oro)}
+  .stat.filtrable.caliente{color:#F07A3E} .stat.filtrable.tibio{color:var(--gold)} .stat.filtrable.frio{color:#5B9BD5}
   .stat.filtrable:hover{background:var(--surface2)}
   .stat.filtrable.on{background:var(--surface2);border-color:currentColor;
     box-shadow:inset 0 0 0 1px currentColor}

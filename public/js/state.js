@@ -43,6 +43,7 @@ export const state = {
   // anteriores: se combina con ellos en vez de reemplazarlos. null = sin filtro.
   filtroBrk: null,
   filtroDep: null,   // { modo, desde, hasta } — rango de fecha de depósito
+  filtroTemp: null,  // caliente | tibio | frio — filtro de la lista «Todos los leads»
   filtroDefDesk: false,  // ¿ya se aplicó el defecto "En progreso"?
   orden: "cerca",
   vista: "cliente",      // "cliente" | "servicio"

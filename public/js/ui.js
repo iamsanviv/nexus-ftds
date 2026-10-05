@@ -13,10 +13,12 @@ import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenSe
 // contador (función pura sobre `state`) y el modo manual se carga a demanda.
 import { repasoPendientes } from "./repaso.js";
 import { refrescarCanal } from "./canal.js";
-import { chipTemp, razon, seguimientoHTML, wireSeguimiento } from "./leads.js";
+import { chipTemp, razon, seguimientoHTML, wireSeguimiento, temperatura } from "./leads.js";
 import { renderHoy } from "./hoy.js";
 
 const NIVELES = ["Lead", "Beca", "VIP", "Platino", "Oro"];
+// Orden de urgencia de la temperatura para ordenar la lista de leads.
+const TEMP_ORD = { caliente: 0, tibio: 1, frio: 2 };
 
 /* El logo de WhatsApp va como SVG en línea, no como <img>: no hay build ni CDN
    propio, y una imagen externa serían 200+ peticiones (una por tarjeta) además
@@ -172,8 +174,17 @@ export function render() {
 
   /* ----- stats ----- */
   if (isLead) {
-    const con = activas.filter(c => pr(c).extra > 0).length;
-    $("stats").innerHTML = stat("lead", activas.length, "Leads") + stat("ok", con, "Con actividad") + stat("mut", activas.length - con, "Sin actividad");
+    // Resumen por temperatura (reemplaza «con/sin actividad»): cada tarjeta es
+    // un filtro, igual que la membresía en Comunidad.
+    const T = [["caliente", "Calientes"], ["tibio", "Tibios"], ["frio", "Fríos"]];
+    $("stats").innerHTML = T.map(([k, l]) => {
+      const n = activas.filter(c => temperatura(c) === k).length;
+      return `<button class="stat filtrable ${k} ${state.filtroTemp === k ? 'on' : ''}" data-temp="${k}"><b>${n}</b><span>${l}</span></button>`;
+    }).join("");
+    $("stats").querySelectorAll("[data-temp]").forEach(b => b.onclick = () => {
+      state.filtroTemp = state.filtroTemp === b.dataset.temp ? null : b.dataset.temp;
+      render();
+    });
   } else {
     // Cada tarjeta es un botón de filtro; la activa se marca con un filo de su
     // propio color.
@@ -197,7 +208,7 @@ export function render() {
   // esas personas ya no salen en ningún otro filtro.
   const pillInact = ["inactivas", `😴 Inactivas · ${inactivas.length}`];
   const defs = isLead
-    ? [["todos", "Todos"], ["activos", "🔥 Con actividad"], ["inactivos", "Sin actividad"], pillInact]
+    ? [["todos", "Todos"], pillInact]
     : [["incompletos", "⏳ En progreso"], ["completos", "✓ Completos"], ["todos", "Todos"], pillInact];
   $("filtros").innerHTML = defs.map(([v, l]) => `<button class="pill ${state.filtro === v ? 'on' : ''}" data-f="${v}">${l}</button>`).join("");
   $("filtros").querySelectorAll(".pill").forEach(b => b.onclick = () => { state.filtro = b.dataset.f; render(); });
@@ -281,7 +292,7 @@ export function render() {
 
   /* ----- orden ----- */
   const ords = isLead
-    ? [["cerca", "🔥 Más comprometidos"], ["recientes", "Recientes"], ["az", "A–Z"]]
+    ? [["cerca", "🔥 Por temperatura"], ["recientes", "Recientes"], ["az", "A–Z"]]
     : [["cerca", "🏁 Cerca de completar"], ["membresia", "Membresía"], ["recientes", "Recientes"], ["az", "A–Z"]];
   $("orden").innerHTML = ords.map(([v, l]) => `<button class="oseg ${state.orden === v ? 'on' : ''}" data-o="${v}">${l}</button>`).join("");
   $("orden").querySelectorAll(".oseg").forEach(b => b.onclick = () => { state.orden = b.dataset.o; render(); });
@@ -304,6 +315,7 @@ export function render() {
     if (state.filtroMem && c.mem !== state.filtroMem) return false;
     if (state.filtroBrk && !c.ftds?.[state.filtroBrk]) return false;
     if (state.filtroDep && !enRango(c)) return false;
+    if (isLead && state.filtroTemp && temperatura(c) !== state.filtroTemp) return false;
     if (state.filtro === "todos" || state.filtro === "inactivas") return true;
     if (state.filtro === "activos") return pr(c).extra > 0;
     if (state.filtro === "inactivos") return pr(c).extra === 0;
@@ -316,7 +328,7 @@ export function render() {
   if (state.orden === "membresia") vis.sort((a, b) => NIVEL[b.mem] - NIVEL[a.mem] || pr(b).pct - pr(a).pct || a.nombre.localeCompare(b.nombre));
   else if (state.orden === "recientes") vis.sort((a, b) => (b.creado || "").localeCompare(a.creado || "") || a.nombre.localeCompare(b.nombre));
   else if (state.orden === "az") vis.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  else if (isLead) vis.sort((a, b) => pr(b).extra - pr(a).extra || a.nombre.localeCompare(b.nombre));
+  else if (isLead) vis.sort((a, b) => TEMP_ORD[temperatura(a)] - TEMP_ORD[temperatura(b)] || a.nombre.localeCompare(b.nombre, "es"));
   else vis.sort((a, b) => {
     const pa = pr(a), pb = pr(b), da = pa.pct === 100, db = pb.pct === 100;
     if (da !== db) return da ? 1 : -1;
@@ -325,7 +337,7 @@ export function render() {
   });
 
   const rankMap = {};
-  if (state.orden === "cerca") { let n = 0; vis.forEach(c => { if (isLead ? pr(c).extra > 0 : pr(c).pct < 100) rankMap[c.id] = ++n; }); }
+  if (state.orden === "cerca") { let n = 0; vis.forEach(c => { if (isLead || pr(c).pct < 100) rankMap[c.id] = ++n; }); }
 
   // Tira de estado (solo escritorio): resume qué se está viendo y ofrece
   // «Quitar filtros» cuando hay alguno activo (membresía, progreso o búsqueda).
@@ -399,10 +411,11 @@ function cardHTML(c, p, rank, isLead, dir) {
   const brkTags = insigniasBroker(c);
   const extraTag = p.extra ? ` · <span class="extra">+${p.extra} ✦</span>` : "";
 
+  // En Leads la línea de estado es la temperatura (va en `.lhead`); el conteo de
+  // invitaciones salió de la vista de leads a petición del usuario. Las
+  // invitaciones siguen en Seguimiento masivo y por actividad.
   const metric = isLead
-    ? `<span class="extra">✦ <b>${p.extra}</b> invitación${p.extra === 1 ? '' : 'es'}</span>`
-    // Sin el porcentaje: la barra de al lado ya lo dice y «1/3» es el mismo dato
-    // por tercera vez. Queda lo exacto y lo accionable.
+    ? ""
     : `<b>${p.done}/${p.total}</b> · ${p.pct === 100 ? '<span class="falta cero">✓ Completó todo</span>' : `Le falta${falta === 1 ? '' : 'n'} <span class="falta">${falta}</span>`}${extraTag}`;
 
   const grupos = state.catalogo.map(g => {
@@ -429,12 +442,13 @@ function cardHTML(c, p, rank, isLead, dir) {
           <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span>${brkTags}${paisTag}${inactTag} ${ownerBadge}</div>
           ${isLead || !c.tel ? '' : `<span class="cheadtel" title="${esc(c.tel)}">${esc(c.tel)}</span>`}
           ${isLead ? `<div class="lhead">${chipTemp(c)}<span class="lwhy">${razon(c)}</span></div>` : `<div class="barra"><i style="width:${p.pct}%"></i></div>`}
-          <div class="pct">${metric}</div>
+          ${metric ? `<div class="pct">${metric}</div>` : ""}
         </div>
         <div class="chev">▸</div>
       </div>
       <div class="cbody">
-        ${isLead && open ? seguimientoHTML(c) : ""}${nota}${grupos}
+        ${isLead ? (open ? seguimientoHTML(c) : "") + nota
+                 : nota + grupos}
         <div class="cfoot">
           ${contacto(c)}
           <button data-acc="perfil">Perfil</button>
@@ -494,7 +508,7 @@ function renderModuleSwitch() {
   $("modSwitch").innerHTML = ms.map(([v, l]) => `<button class="mbtn ${v} ${state.modulo === v ? 'on' : ''}" data-m="${v}">${l}</button>`).join("");
   $("modSwitch").querySelectorAll(".mbtn").forEach(b => b.onclick = () => {
     if (state.modulo === b.dataset.m && state.vista !== "seguimiento") return;
-    state.modulo = b.dataset.m; state.filtro = "todos";
+    state.modulo = b.dataset.m; state.filtro = "todos"; state.filtroTemp = null;
     if (b.dataset.m === "leads") state.leadsVista = "hoy";
     if (state.vista === "seguimiento") state.vista = "cliente";
     render();
