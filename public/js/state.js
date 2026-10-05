@@ -685,7 +685,7 @@ export function progresoMeta(periodo, ownerId) {
 
 // Ritmo de la meta: cuánto toca HOY y cómo va el corte semanal.
 //
-// Cortes fijos de 7 días desde el 1 (1–7, 8–14, 15–21, 22–28, 29–fin). Cada
+// Cortes de 7 días desde el 1 (1–7, 8–14, 15–21) y el último 22–fin. Cada
 // corte pide el ACUMULADO proporcional del mes hasta su último día, así que lo
 // que falte en una semana pasa solo a la siguiente sin guardar nada.
 //
@@ -707,8 +707,10 @@ export function ritmoMeta(periodo, ownerId, pendHoy = 0) {
 
   const [y, m, d] = hoy.split("-").map(Number);
   const D = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const ini = Math.floor((d - 1) / 7) * 7 + 1;
-  const fin = Math.min(ini + 6, D);   // el último bloque queda corto (29–31)
+  // Cuatro cortes: 1–7, 8–14, 15–21 y 22–fin. Los días sueltos del final (29,
+  // 30, 31) se suman a la cuarta semana: un corte de 3 días no es un cierre.
+  const ini = Math.min(Math.floor((d - 1) / 7), 3) * 7 + 1;
+  const fin = ini === 22 ? D : ini + 6;
   const corteMeta = fin === D ? meta : Math.ceil(meta * fin / D);
 
   let hastaAyer = 0, hoyHechos = 0;
