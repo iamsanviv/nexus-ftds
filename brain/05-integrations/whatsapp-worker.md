@@ -174,6 +174,19 @@ Decisiones que conviene no deshacer:
 
 `WA_OWNER` del archivo `env` de cada bridge es lo que mapea directorio → agente.
 
+### `entrante_en`: último mensaje entrante (Leads F4, 2026-10-05)
+
+`chats_recientes.entrante_en` guarda el último mensaje que la persona NOS escribió
+(`is_from_me=0`), para «bajaron hoy a tu WhatsApp» y la temperatura en Leads. `ultimo_en`
+(= `chats.last_message_time`) no sirve para eso: es el último mensaje del chat en cualquier
+dirección, así que se mueve también cuando el agente escribe.
+
+Se calcula en la MISMA consulta de `_chats_de` con una subconsulta
+`(SELECT MAX(m2.timestamp) FROM messages m2 WHERE m2.chat_jid=c.jid AND m2.is_from_me=0)`.
+Como el `EXISTS (is_from_me=0)` ya exige al menos un entrante, nunca sale NULL. **No agrega
+ninguna petición**: es una columna más en el upsert que ya se hacía, a la misma cadencia.
+Parche idempotente y copia de referencia en `vm/chats-sync/` del repo.
+
 ## `comando`: la orden de desvincular se queda encolada
 
 `canales_wa.comando` es cómo el panel le habla al bridge («desvincular»). El bridge la consume y la borra.

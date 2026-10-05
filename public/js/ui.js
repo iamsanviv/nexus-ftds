@@ -8,7 +8,7 @@ import {
   MOTIVOS_INACTIVO, esInactivo, nombreMotivo, motivoCorto, BROKERS, nombreBroker,
   insigniasBroker,
 } from "./state.js";
-import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio, cargarChatsRecientes } from "./data.js";
+import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio, cargarChatsRecientes, cargarEntrantes } from "./data.js";
 // repaso.js importa a ui.js: para no crear un ciclo, aquí solo se usa el
 // contador (función pura sobre `state`) y el modo manual se carga a demanda.
 import { repasoPendientes } from "./repaso.js";
@@ -120,6 +120,15 @@ export function render() {
   $("vistaServicio").classList.add("hidden");
   $("abrirModal").classList.remove("hidden");
   $("buscar").placeholder = isLead ? "Buscar lead…" : "Buscar por nombre o teléfono…";
+
+  // «Bajaron hoy» y la temperatura necesitan saber quién te escribió. Se pide
+  // UNA vez al entrar a Leads (no en bucle, no en cada render): el guard deja de
+  // ser null tras la primera carga. Una sesión que solo mira Comunidad nunca lo
+  // pide. Al llegar, re-render para que la categoría y la temperatura ya cuenten.
+  if (isLead && state.entrantes === null) {
+    state.entrantes = {};
+    cargarEntrantes().then(m => { state.entrantes = m; render(); });
+  }
 
   // Leads abre en «Hoy». La lista sigue a un toque en el mismo selector.
   const enHoy = isLead && state.leadsVista === "hoy";

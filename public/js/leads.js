@@ -36,20 +36,40 @@ const llegada = c => c.creado || (c.createdAt ? fechaCO(new Date(c.createdAt)) :
 export const contactosDe = c => state.contactos?.[c.id] || [];   // más reciente primero
 const ultimoSi = c => contactosDe(c).find(x => x.respuesta === "si");
 
+// Último mensaje que el lead te ESCRIBIÓ, desde `chats_recientes.entrante_en`
+// (lo publica el worker, cruzado por teléfono). Es la señal automática de «bajó
+// hoy»: no depende de que marques «Me respondió» a mano. null si no hay chat o
+// si el lead no tiene teléfono para cruzar.
+const digitos = t => (t || "").replace(/\D/g, "");
+export const entranteDe = c => { const k = digitos(c.tel); return (k && state.entrantes?.[k]) || null; };
+
 /* ----------------------------------------------------------- temperatura */
 // Reglas acordadas con el usuario (05/10/2026):
 //  · pendiente con fecha de hoy o futura: caliente; vencido 1–2 días: tibio; 3+: frío
-//  · te respondió hoy: caliente; hace 1–2 días: tibio; 3+: frío
+//  · te escribió / respondió hoy: caliente; hace 1–2 días: tibio; 3+: frío
 //  · sin contactar: según cuándo llegó (hoy caliente, 1–2 tibio, 3+ frío)
 //  · contactado y sin respuesta: tibio (aunque haya llegado hoy); 3+ días: frío
-//  · abrir cuenta cuenta como una respuesta: un registrado de ayer no es «frío»
+//  · abrir cuenta cuenta como una señal: un registrado de ayer no es «frío»
 //    solo porque llegó hace una semana.
 const porDias = (d, hoyEs = "caliente") => d <= 0 ? hoyEs : d <= 2 ? "tibio" : "frio";
+
+// La señal más reciente que marca la temperatura, aparte de la promesa: lo que
+// te escribió (automático), lo que registró en el broker, o el «Me respondió»
+// a mano. Gana la más nueva. La usan tempAuto y razon para no contradecirse.
+function senalReciente(c) {
+  const cand = [];
+  const si = ultimoSi(c);
+  if (si) cand.push({ tipo: "resp", en: si.respuesta_en });
+  if (c.registroEn) cand.push({ tipo: "reg", en: c.registroEn });
+  const ent = entranteDe(c);
+  if (ent) cand.push({ tipo: "escribio", en: ent });
+  return cand.length ? cand.reduce((a, b) => new Date(b.en) > new Date(a.en) ? b : a) : null;
+}
+
 export function tempAuto(c) {
   if (c.promesaEn) return porDias(dias(c.promesaEn));
-  const si = ultimoSi(c);
-  const senal = [si && dias(si.respuesta_en), c.registroEn && dias(c.registroEn)].filter(d => d != null);
-  if (senal.length) return porDias(Math.min(...senal));
+  const s = senalReciente(c);
+  if (s) return porDias(dias(s.en));
   const cs = contactosDe(c);
   if (!cs.length) return porDias(dias(llegada(c)) ?? 99);
   return porDias(dias(cs[cs.length - 1].en), "tibio");
@@ -73,8 +93,11 @@ export function categoria(c) {
   if (c.registroEn) return "reg";
   const dl = dias(llegada(c));
   if (dl === 0) return "hoy";
-  const si = ultimoSi(c);
-  if (si && dias(si.respuesta_en) === 0) return "bajo";   // hasta F4: «te respondió hoy»
+  // «Bajó hoy» = el lead te escribió hoy. La señal real es el mensaje entrante
+  // (automático); el «Me respondió» a mano cuenta igual porque también dice que
+  // escribió hoy.
+  const ent = entranteDe(c), si = ultimoSi(c);
+  if ((ent && dias(ent) === 0) || (si && dias(si.respuesta_en) === 0)) return "bajo";
   if (dl === 1) return "ayer";
   return "resto";
 }
@@ -85,9 +108,12 @@ export function razon(c) {
     const d = dias(c.promesaEn);
     return `Prometió <b>${cuandoTxt(c.promesaEn)} ${horaTxt(c.promesaEn)}</b>${d > 0 ? " y no depositó" : ""}`;
   }
-  if (c.registroEn) return `Abrió cuenta en ${esc(nombreBroker(c.registroBroker))} <b>${cuandoTxt(c.registroEn)}</b>`;
-  const si = ultimoSi(c);
-  if (si) return `Te respondió <b>${cuandoTxt(si.respuesta_en)}</b>`;
+  const s = senalReciente(c);
+  if (s) {
+    if (s.tipo === "reg") return `Abrió cuenta en ${esc(nombreBroker(c.registroBroker))} <b>${cuandoTxt(c.registroEn)}</b>`;
+    if (s.tipo === "escribio") return `Te escribió <b>${cuandoTxt(s.en)}</b>`;
+    return `Te respondió <b>${cuandoTxt(s.en)}</b>`;
+  }
   const cs = contactosDe(c);
   if (cs.length) return `Sin respuesta desde <b>${cuandoTxt(cs[cs.length - 1].en)}</b>`;
   const l = llegada(c);

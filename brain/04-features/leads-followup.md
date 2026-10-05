@@ -4,7 +4,7 @@ Código: `public/js/leads.js` (reglas + sección «Seguimiento» de la tarjeta),
 integrado en `ui.js` (`cardHTML`/`wireCards`). Datos: `sql/2026-10-05_27_leads_seguimiento.sql`.
 
 ## Fases
-- F1 (DB) aplicada · F2 (tarjeta del lead) · F3 panel «Hoy» (en rama, sin main) · F4 «bajaron hoy» real desde chats_sync.
+- F1 (DB) aplicada · F2 (tarjeta del lead) · F3 panel «Hoy» · F4 «bajaron hoy» desde chats_sync (en rama, sin main).
 
 ## Embudo
 `registro_broker + registro_en` (abrió cuenta) → `promesa_en` (prometió depositar: fecha y hora,
@@ -31,6 +31,17 @@ pend (promesa) > reg (registro) > hoy (llegó hoy) > bajo (respondió hoy; F4 lo
 - Meta de hoy arriba (`ftd.renderRitmoEn`). `ritmoMeta` cuenta solo las promesas de hoy:
   `metaHoy = max(reparto, min(pendHoy + hechosHoy, falta))`. Se suman los hechos de hoy
   porque un pendiente que deposita deja de ser lead y la meta no debe bajar al cumplirse.
+
+## «Bajaron hoy» y temperatura automática (F4)
+- `chats_recientes.entrante_en` = último mensaje ENTRANTE (is_from_me=0), que publica
+  `chats_sync.py` en la misma lectura que ya hace (no agrega sondeos). `ultimo_en` NO
+  sirve: es el último mensaje en cualquier dirección y se mueve cuando el agente escribe.
+- El panel lo cruza por teléfono (`state.entrantes`, dígitos→fecha). Se pide UNA vez al
+  entrar a Leads (`ui.js`, guard `state.entrantes===null`), filtrado a los últimos días.
+- `senalReciente(c)` elige la señal más nueva entre: te escribió (entrante), registro en
+  el broker y «Me respondió» a mano. La usan `tempAuto` y `razon` para no contradecirse.
+- Categoría `bajo` = escribió hoy (entrante de hoy, o «Me respondió» de hoy).
+- Un mensaje entrante mueve la temperatura igual que una respuesta: «te escribió hoy» → caliente.
 
 ## Autorización
 Solo el dueño (`owner_id === me`) ve acciones; la base lo sostiene: el trigger fija el dueño del

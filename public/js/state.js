@@ -62,6 +62,9 @@ export const state = {
   metasAgente: {},       // { "<owner>|<YYYY-MM>": { meta_ftd, meta_ventas } }
   notas: {},             // { <cliente_id>: [nota, …] } más recientes primero
   contactos: {},         // { <cliente_id>: [contacto, …] } de leads, más recientes primero
+  // Teléfono (solo dígitos) → fecha del último mensaje ENTRANTE, para «bajaron
+  // hoy» en Leads. null = aún no se pidió (se carga al entrar a Leads, una vez).
+  entrantes: null,
   // false mientras la migración de ventas no esté aplicada; la vista lo avisa
   // en vez de dejar la pantalla en blanco.
   ventasOk: false,

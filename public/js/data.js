@@ -1,7 +1,7 @@
 // Capa de datos: todas las consultas y escrituras a Supabase.
 // No renderiza; quien llama se encarga de refrescar la vista.
 import { SB } from "./supabase.js";
-import { state, toast } from "./state.js";
+import { state, toast, fechaCO } from "./state.js";
 
 export const mapDesdeDB = r => ({
   id: r.id, owner_id: r.owner_id, nombre: r.nombre, tel: r.telefono || "",
@@ -369,4 +369,26 @@ export async function borrarContacto(id) {
   const { error } = await SB.from("lead_contactos").delete().eq("id", id);
   if (error) { toast("⚠ " + error.message); return false; }
   return true;
+}
+
+// Teléfonos que te ESCRIBIERON en los últimos días, con la fecha de su último
+// mensaje entrante (`chats_recientes.entrante_en`, que publica el worker). Se
+// pide SOLO al entrar a Leads, no en cada carga, y se filtra a los últimos días
+// porque más atrás ya es «frío» y no cambia nada: así la consulta es mínima y
+// no hay sondeo. El RLS de la tabla es `owner_id = auth.uid()`, así que solo
+// trae tus propios chats (un director no ve la agenda de su equipo).
+export async function cargarEntrantes() {
+  const desde = fechaCO(new Date(Date.now() - 3 * 864e5));   // superconjunto de hoy/ayer/anteayer
+  const mapa = {};
+  const { data, error } = await SB
+    .from("chats_recientes")
+    .select("telefono,entrante_en")
+    .not("entrante_en", "is", null)
+    .gte("entrante_en", desde);
+  if (error) { console.warn("entrantes:", error.message); return mapa; }
+  for (const r of (data || [])) {
+    const k = (r.telefono || "").replace(/\D/g, "");
+    if (k && (!mapa[k] || r.entrante_en > mapa[k])) mapa[k] = r.entrante_en;
+  }
+  return mapa;
 }
