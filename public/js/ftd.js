@@ -138,12 +138,40 @@ export function renderBloqueFtd() {
 }
 
 
-// La misma meta de hoy arriba del panel «Hoy» de Leads. Pinta en `cont` y
-// pide los datos de ventas si todavía no están (sin ellos no hay meta).
-export function renderRitmoEn(cont, alCargar) {
+// Meta de hoy del panel «Hoy» de Leads: la misma tarjeta translúcida dorada del
+// FTD en Personas (`.metacard`), con un anillo para el día y el corte de la
+// semana como barra abajo. Mismos números que `ritmoHtml`: solo cambia la forma.
+// `prometieron` = promesas de depósito para hoy, el dato que conecta la meta con
+// los leads de abajo.
+export function renderMetaHoy(cont, alCargar, prometieron = 0) {
   if (!cont) return;
   if (!state.ventasOk) { cont.innerHTML = ""; asegurarDatos(alCargar); return; }
-  cont.innerHTML = ritmoHtml(ritmoMeta(mesActual(), yo()));
+  const r = ritmoMeta(mesActual(), yo());
+  if (!r) { cont.innerHTML = ""; return; }
+  const { hechos, meta } = r.hoy;
+  const pct = meta ? Math.min(100, Math.round(hechos / meta * 100)) : 100;
+  const falta = Math.max(0, meta - hechos);
+  const linea = falta
+    ? `Te faltan <b>${falta}</b>${prometieron ? ` · ${prometieron} prometi${prometieron === 1 ? "ó" : "eron"} hoy` : ""}`
+    : `<b>Meta de hoy cumplida</b> ✓`;
+  const pc = r.corte.meta ? Math.min(100, Math.round(r.corte.llevas / r.corte.meta * 100)) : 100;
+  cont.innerHTML = `
+    <div class="metacard hmeta">
+      <div class="hmeta-top">
+        <div class="hanillo" style="--p:${pct}%"><div><b>${hechos}</b><span>de ${meta}</span></div></div>
+        <div class="hmeta-txt">
+          <div class="hmeta-lbl">Meta de hoy<button type="button" class="infoi" aria-label="Cómo se calcula la meta de hoy"
+            data-info="Lo que te falta para el corte, repartido en los días que quedan. El fin de semana pide menos. Si te prometieron depositar hoy, cuenta esas promesas."></button></div>
+          <div class="hmeta-num"><b>${meta}</b> FTD</div>
+          <div class="hmeta-sub">${linea}</div>
+        </div>
+      </div>
+      <div class="hmeta-corte">
+        <span>Corte día ${r.corte.dia}</span>
+        <div class="hbarra"><i style="width:${pc}%"></i></div>
+        <b>${r.corte.llevas} <em>/</em> <u>${r.corte.meta}</u></b>
+      </div>
+    </div>`;
 }
 
 // Meta de hoy y corte semanal: solo cifras; la explicación vive en la ⓘ para

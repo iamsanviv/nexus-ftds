@@ -5,15 +5,35 @@
 // Muestra SOLO los leads propios: es una lista de trabajo, y las acciones
 // (registrar contacto, depositó…) son del dueño. Un director supervisa a su
 // equipo desde «Todos los leads».
+//
+// Diseño (validado en mockup, opción D): meta del día arriba, un riel con las
+// seis etapas en orden de prioridad y, debajo, los leads de la etapa elegida.
 import { state, esc, esLead, esInactivo } from "./state.js";
 import {
   TEMP, CATEGORIAS, categoria, temperatura, razon, manualVigente, contactosDe,
   form, abiertoAqui, esMio, manejarLead, cuandoTxt, nombreTipo, dias,
 } from "./leads.js";
-import { renderRitmoEn } from "./ftd.js";
+import { renderMetaHoy } from "./ftd.js";
 
-let filtroT = "todos", restoAbierto = false;
 const ORDEN_T = { caliente: 0, tibio: 1, frio: 2 };
+
+// Etiqueta corta, color e icono de cada etapa en el riel. El orden y las claves
+// son los de CATEGORIAS; aquí solo vive lo visual.
+const ETAPA = {
+  pend:  { n: "Pendientes",     d: "Prometieron depositar",       c: "#E8B84B", ico: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 1.8"/>' },
+  reg:   { n: "Registrados",    d: "Abrieron cuenta, sin promesa", c: "#B07CE8", ico: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="12" r="2.5"/><path d="M14 10h4M14 14h3"/>' },
+  hoy:   { n: "Llegaron hoy",   d: "Entraron hoy",                 c: "#4ECB8D", ico: '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/>' },
+  bajo:  { n: "Te escribieron", d: "Te escribieron hoy",           c: "#5B9BD5", ico: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>' },
+  ayer:  { n: "Llegaron ayer",  d: "Entraron ayer",                c: "#8E9AA8", ico: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>' },
+  resto: { n: "El resto",       d: "En espera",                    c: "#8E9AA8", ico: '<path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/>' },
+};
+const svg = (ico, color, s = 20) =>
+  `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ico}</svg>`;
+
+// Etapa elegida en el riel. null = ninguna elegida a mano: se muestra la
+// primera con leads, para que el panel abra donde hay trabajo.
+let etapaSel = null;
+let rielScroll = 0;
 
 // Pendientes: primero los de hoy y los próximos (el más cercano arriba), después
 // los vencidos (el más reciente arriba: todavía se puede rescatar). Una promesa
@@ -26,20 +46,36 @@ function ordenPend(a, b) {
 }
 const ordenResto = (a, b) => ORDEN_T[temperatura(a)] - ORDEN_T[temperatura(b)] || a.nombre.localeCompare(b.nombre, "es");
 
-const chip = (c, mio) => {
+// Dato corto bajo el número de cada etapa: lo que pide atención dentro de ella.
+function subEtapa(k, ls) {
+  if (!ls.length) return "nadie";
+  if (k === "pend") {
+    const hoy = ls.filter(c => dias(c.promesaEn) === 0).length;
+    const venc = ls.filter(c => dias(c.promesaEn) > 0).length;
+    return hoy ? `${hoy} para hoy` : venc ? `${venc} vencida${venc === 1 ? "" : "s"}` : "próximas";
+  }
+  const sin = ls.filter(c => !contactosDe(c).length).length;
+  if (k === "reg") return "sin promesa";
+  if (k === "bajo") return "responde hoy";
+  if (k === "resto") return "en espera";
+  return sin ? `${sin} sin contactar` : "contactados";
+}
+
+const iniciales = n => n.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join("").toUpperCase();
+
+const chip = c => {
   const t = temperatura(c);
-  const txt = `<i></i>${TEMP[t]}${manualVigente(c) ? " · a mano" : ""}`;
-  return mio ? `<button class="ltemp ${t}" data-l="temp" aria-label="Corregir temperatura">${txt}</button>`
-             : `<span class="ltemp ${t}">${txt}</span>`;
+  return `<button class="ltemp ${t}" data-l="temp" aria-label="Corregir temperatura"><i></i>${TEMP[t]}${manualVigente(c) ? " · a mano" : ""}</button>`;
 };
 
+const MAS = '<path d="M12 5v14M5 12h14"/>';
 function acciones(c) {
   for (const m of ["registro", "promesa", "deposito", "contacto"]) if (abiertoAqui(c, m)) return form(c);
   const cat = categoria(c);
-  const con = `<button class="lbtn" data-l="contacto">Registrar contacto</button>`;
-  if (cat === "pend") return `<div class="lacc"><button class="btn-ok" data-l="deposito">Depositó</button><button class="lbtn" data-l="promesa">Reagendar</button>${con}</div>`;
-  if (cat === "reg") return `<div class="lacc"><button class="btn-oro" data-l="promesa">Prometió depositar</button>${con}</div>`;
-  return `<div class="lacc">${con}<button class="lbtn" data-l="registro">Abrió cuenta</button></div>`;
+  const mas = `<button class="lbtn hico" data-l="contacto" aria-label="Registrar contacto">${svg(MAS, "currentColor", 18)}</button>`;
+  if (cat === "pend") return `<div class="hacc"><button class="btn-ok hmain" data-l="deposito">Depositó</button><button class="lbtn" data-l="promesa">Reagendar</button>${mas}</div>`;
+  if (cat === "reg") return `<div class="hacc"><button class="btn-oro hmain" data-l="promesa">Prometió depositar</button>${mas}</div>`;
+  return `<div class="hacc"><button class="btn-oro hmain" data-l="contacto">Registrar contacto</button><button class="lbtn" data-l="registro">Abrió cuenta</button></div>`;
 }
 
 // Si el último contacto no tiene respuesta, se pregunta aquí mismo: es lo que
@@ -51,49 +87,79 @@ function esperando(c) {
     <span class="lacc"><button class="lbtn mini" data-l="resp" data-v="${x.id}" data-r="si">Respondió</button><button class="lbtn mini" data-l="resp" data-v="${x.id}" data-r="no">No</button></span></div>`;
 }
 
-const fila = c => `<div class="hfila" data-id="${c.id}">
-    <div class="hl1"><button class="hnm" data-ver="${c.id}">${esc(c.nombre)}</button>${chip(c, true)}</div>
+const fila = c => {
+  const t = temperatura(c);
+  return `<div class="hfila" data-id="${c.id}">
+    <div class="hl1">
+      <span class="hav ${t}" aria-hidden="true">${esc(iniciales(c.nombre))}</span>
+      <div class="hl1t"><button class="hnm" data-ver="${c.id}">${esc(c.nombre)}</button><div class="lwhy">${razon(c)}</div></div>
+      ${chip(c)}
+    </div>
     ${abiertoAqui(c, "temp") ? form(c) : ""}
-    <div class="lwhy">${razon(c)}</div>
     ${esperando(c)}${acciones(c)}
   </div>`;
+};
 
 export function renderHoy(cont, render) {
   const mios = state.clientes.filter(c => esLead(c) && !esInactivo(c) && esMio(c));
-  const n = t => mios.filter(c => temperatura(c) === t).length;
-  const vis = filtroT === "todos" ? mios : mios.filter(c => temperatura(c) === filtroT);
+  const por = Object.fromEntries(CATEGORIAS.map(([k]) => [k, []]));
+  mios.forEach(c => por[categoria(c)].push(c));
+  por.pend.sort(ordenPend);
+  CATEGORIAS.forEach(([k]) => { if (k !== "pend") por[k].sort(ordenResto); });
 
-  const filtros = [["todos", "Todos"], ["caliente", "Calientes"], ["tibio", "Tibios"], ["frio", "Fríos"]]
-    .map(([k, l]) => `<button class="hf ${k} ${filtroT === k ? "on" : ""}" data-t="${k}">${k === "todos" ? "" : "<i></i>"}${l}${k === "todos" ? "" : ` <b>${n(k)}</b>`}</button>`).join("");
+  const sel = etapaSel || (CATEGORIAS.find(([k]) => por[k].length) || ["pend"])[0];
+  const prometieronHoy = por.pend.filter(c => dias(c.promesaEn) === 0).length;
 
-  const secs = CATEGORIAS.map(([k, t], i) => {
-    const ls = vis.filter(c => categoria(c) === k).sort(k === "pend" ? ordenPend : ordenResto);
-    const cab = `<span class="prio">${i + 1}</span><span class="hsect">${t}</span><span class="lcnt">${ls.length}</span>`;
-    if (!ls.length) return `<div class="hsec vacia"><div class="hsech">${cab}</div></div>`;
-    // «El resto» va plegado, salvo que se esté filtrando: un filtro que no
-    // muestra a quien coincide parece roto.
-    if (k === "resto" && !restoAbierto && filtroT === "todos")
-      return `<div class="hsec"><button class="hplegado" data-resto>${cab}<span class="hver">Ver</span></button></div>`;
-    return `<div class="hsec ${k}"><div class="hsech">${cab}</div>${ls.map(fila).join("")}</div>`;
+  const riel = CATEGORIAS.map(([k]) => {
+    const e = ETAPA[k], ls = por[k];
+    return `<button type="button" class="hetapa ${k === sel ? "on" : ""} ${ls.length ? "" : "vacia"}" data-etapa="${k}" style="--c:${e.c}" aria-pressed="${k === sel}">
+      ${svg(e.ico, e.c)}
+      <b>${ls.length}</b>
+      <span class="hetn">${e.n}</span>
+      <span class="hets">${subEtapa(k, ls)}</span>
+    </button>`;
   }).join("");
 
-  // La explicación larga vive tras la ⓘ (globo al pasar el puntero o al tocar),
-  // como el resto de la app: la lista de trabajo tiene que leerse limpia.
-  const leyenda = "Mide qué tan a tiempo vas con cada lead. Caliente: promesa para hoy o después, o te respondió / abrió cuenta hoy. Tibio: promesa vencida 1 o 2 días, respuesta hace 1 o 2 días, o lo contactaste y aún no responde. Frío: 3 o más días. Corregirla a mano vale hasta el próximo contacto.";
+  const i = CATEGORIAS.findIndex(([k]) => k === sel);
+  const sig = CATEGORIAS.slice(i + 1).find(([k]) => por[k].length);
+  const ls = por[sel];
+
   cont.innerHTML = `
     <div id="hoyMeta"></div>
-    <div class="hfiltros">${filtros}<button type="button" class="infoi" aria-label="Cómo se calcula la temperatura" data-info="${leyenda}"></button></div>
-    ${mios.length ? secs : `<div class="vacio"><b>No tienes leads activos</b>Cuando agregues uno, aquí verás qué hacer con él cada día.</div>`}`;
+    ${mios.length ? `
+    <div class="hrielh"><span>Etapas de hoy</span><span>en orden de prioridad</span></div>
+    <div class="hriel" id="hRiel">${riel}</div>
+    <div class="hseltit"><h2>${ETAPA[sel].n}</h2><span>${ETAPA[sel].d}</span></div>
+    ${ls.length ? `<div class="hlista">${ls.map(fila).join("")}</div>`
+      : `<div class="hvacia">Nadie en esta etapa por ahora.</div>`}
+    ${sig ? `<button type="button" class="hsig" data-etapa="${sig[0]}">Siguiente etapa: ${ETAPA[sig[0]].n} (${por[sig[0]].length})
+      ${svg('<path d="M9 6l6 6-6 6"/>', "currentColor", 16)}</button>` : ""}`
+    : `<div class="vacio"><b>No tienes leads activos</b>Cuando agregues uno, aquí verás qué hacer con él cada día.</div>`}`;
 
-  renderRitmoEn(cont.querySelector("#hoyMeta"), render);
+  renderMetaHoy(cont.querySelector("#hoyMeta"), render, prometieronHoy);
 
-  cont.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { filtroT = b.dataset.t; render(); });
-  const pl = cont.querySelector("[data-resto]"); if (pl) pl.onclick = () => { restoAbierto = true; render(); };
-  const mantener = id => {
-    const sel = `.hfila[data-id="${id}"]`;
-    const antes = document.querySelector(sel)?.getBoundingClientRect().top;
+  // El riel se redibuja en cada render: se conserva el desplazamiento horizontal
+  // para que elegir una etapa no lo devuelva al principio.
+  const rielEl = cont.querySelector("#hRiel");
+  if (rielEl) {
+    rielEl.scrollLeft = rielScroll;
+    rielEl.onscroll = () => { rielScroll = rielEl.scrollLeft; };
+  }
+  cont.querySelectorAll("[data-etapa]").forEach(b => b.onclick = () => {
+    etapaSel = b.dataset.etapa;
     render();
-    const el = document.querySelector(sel);
+    if (b.classList.contains("hsig")) {
+      const t = document.querySelector(`.hetapa[data-etapa="${etapaSel}"]`);
+      t?.scrollIntoView({ block: "nearest", inline: "center" });
+      document.querySelector(".hseltit")?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+  });
+
+  const mantener = id => {
+    const s = `.hfila[data-id="${id}"]`;
+    const antes = document.querySelector(s)?.getBoundingClientRect().top;
+    render();
+    const el = document.querySelector(s);
     if (antes != null && el) window.scrollBy(0, el.getBoundingClientRect().top - antes);
   };
   cont.querySelectorAll(".hfila").forEach(el => {

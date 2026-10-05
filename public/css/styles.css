@@ -1813,35 +1813,82 @@ body:has(.overlay.open){overflow:hidden}
 .modohoy .cliresumen,.modohoy .filtroscol,.modohoy .ordwrap,.modohoy .buscarfila,
 .modohoy #cliEstado,.modohoy #lista{display:none}
 .modohoy .clifiltros{justify-content:flex-end;min-height:0}
-#hoyMeta .ftdritmo{margin:0 0 12px}
-.hfiltros{position:relative;display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:14px}
-.hfiltros .infoi{position:static;margin-left:2px}
-.hfiltros .infoi::after{left:0;right:0;transform:none;width:auto;max-width:none}
-.hf{--t:var(--muted);display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface);
-  color:var(--muted);border-radius:999px;padding:6px 10px;font-size:.76rem;font-weight:600;white-space:nowrap}
-.hf i{width:7px;height:7px;border-radius:50%;background:var(--t)}
-.hf b{color:var(--text);font-variant-numeric:tabular-nums}
-.hf.caliente{--t:#F07A3E} .hf.tibio{--t:var(--gold)} .hf.frio{--t:#5B9BD5}
-.hf.on{border-color:var(--gold);color:var(--text);background:color-mix(in srgb,var(--gold) 12%,transparent)}
-.hsec{margin-bottom:16px}
-.hsec.vacia{margin-bottom:8px;opacity:.55}
-.hsech{display:flex;align-items:center;gap:8px;margin:0 2px 8px}
-.hsec.vacia .hsech{margin-bottom:0}
-.prio{font-size:.68rem;font-weight:800;color:var(--on-gold);background:var(--muted);border-radius:6px;padding:1px 6px;font-variant-numeric:tabular-nums}
-.hsec.pend .prio{background:var(--gold-fill)}
-.hsect{font-size:.78rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
-.hfila{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:12px 13px;margin-bottom:8px;
-  display:flex;flex-direction:column;gap:7px}
-.hl1{display:flex;align-items:center;gap:8px;min-width:0}
-.hnm{flex:1;min-width:0;text-align:left;font-weight:700;font-size:.92rem;overflow-wrap:anywhere;color:var(--text)}
+/* Meta de hoy: la misma tarjeta translúcida dorada del FTD en Personas. Sin
+   `overflow:hidden` (recortaría el globo de la ⓘ): el brillo se dibuja DENTRO de
+   la esquina en vez de sobresalir y quedar recortado. */
+.metacard.hmeta{overflow:visible;margin:0 0 18px;padding:16px;border-radius:18px}
+.metacard.hmeta::after{top:0;right:0;width:160px;height:150px;border-radius:0 18px 0 0;
+  background:radial-gradient(circle at 100% 0,color-mix(in srgb,var(--gold) 20%,transparent),transparent 70%)}
+.hmeta-top{position:relative;z-index:1;display:flex;align-items:center;gap:15px}
+.hanillo{width:76px;height:76px;flex:0 0 76px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:conic-gradient(var(--gold-fill) 0 var(--p),var(--surface2) var(--p) 100%)}
+.hanillo>div{width:62px;height:62px;border-radius:50%;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.hanillo b{font-family:'Archivo';font-weight:800;font-size:22px;color:var(--text);font-variant-numeric:tabular-nums}
+.hanillo span{margin-top:3px;font-size:10px;font-weight:600;color:var(--muted)}
+.hmeta-txt{flex:1;min-width:0}
+.hmeta-lbl{display:flex;align-items:center;gap:6px;color:var(--gold);font-family:'Archivo';font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.hmeta-lbl .infoi{margin-left:0;position:static}
+/* El globo se ancla a toda la fila (no al icono): centrado en la «i» se salía de
+   la pantalla a 320 px, y oculto igual cuenta para el ancho de la página. */
+.hmeta-lbl .infoi::after{left:0;right:0;top:calc(100% + 8px);transform:none;width:auto;max-width:none}
+.hmeta-num{margin-top:5px;font-family:'Archivo';font-weight:800;font-size:16px;color:var(--text);line-height:1}
+.hmeta-num b{font-size:30px;color:var(--gold);font-variant-numeric:tabular-nums}
+.hmeta-sub{margin-top:6px;font-size:12.5px;color:var(--muted)}
+.hmeta-sub b{color:var(--text)}
+.hmeta-corte{position:relative;z-index:1;margin-top:14px;padding-top:12px;display:flex;align-items:center;gap:10px;
+  border-top:1px solid color-mix(in srgb,var(--gold) 16%,transparent)}
+.hmeta-corte span{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.hbarra{flex:1;height:6px;border-radius:99px;background:var(--surface2);overflow:hidden}
+.hbarra i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--gold-dim),var(--gold-fill))}
+.hmeta-corte b{font-family:'Archivo';font-weight:800;font-size:14px;white-space:nowrap;color:var(--text);font-variant-numeric:tabular-nums}
+.hmeta-corte em{font-style:normal;font-weight:600;color:var(--muted)}
+.hmeta-corte u{text-decoration:none;color:var(--gold)}
+
+/* Riel de etapas: las seis en orden de prioridad, se desliza de lado. */
+.hrielh{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 10px;font-size:12px;color:var(--muted)}
+.hrielh span:first-child{font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.hriel{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;scroll-padding-inline:12px;margin:0 -12px 18px;padding:2px 12px 6px;scrollbar-width:none}
+.hriel::-webkit-scrollbar{display:none}
+.hetapa{--c:var(--muted);flex:0 0 108px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:flex-start;text-align:left;
+  border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:12px;color:var(--text);transition:border-color .15s,opacity .15s}
+.hetapa b{margin-top:10px;font-family:'Archivo';font-size:28px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.hetn{margin-top:6px;font-size:12px;font-weight:700}
+.hets{margin-top:2px;font-size:11px;color:var(--muted)}
+.hetapa.on{border:1.5px solid var(--c);padding:11.5px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--c) 17%,transparent),color-mix(in srgb,var(--c) 4%,transparent)),var(--surface)}
+.hetapa.on .hets{color:var(--c)}
+.hetapa.vacia:not(.on){opacity:.5}
+.hseltit{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 0 10px;scroll-margin-top:12px}
+.hseltit h2{margin:0;font-family:'Archivo';font-size:19px;font-weight:800}
+.hseltit span{font-size:12px;color:var(--muted);text-align:right}
+.hlista{display:flex;flex-direction:column;gap:10px}
+.hvacia{padding:22px 14px;text-align:center;color:var(--muted);font-size:.85rem;border:1px dashed var(--border);border-radius:16px}
+.hsig{margin-top:12px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;
+  border:1px dashed var(--border);border-radius:14px;background:none;color:var(--muted);font-size:13px;font-weight:600}
+
+/* Tarjeta de lead del panel. */
+.hfila{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:11px}
+.hl1{display:flex;align-items:center;gap:11px;min-width:0}
+.hav{--t:var(--muted);width:42px;height:42px;flex:0 0 42px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+  font-family:'Archivo';font-weight:800;font-size:15px;color:var(--t);background:color-mix(in srgb,var(--t) 16%,transparent)}
+.hav.caliente{--t:#F07A3E} .hav.tibio{--t:var(--gold)} .hav.frio{--t:#5B9BD5}
+.hl1t{flex:1;min-width:0}
+.hnm{display:block;padding:0;text-align:left;font-family:'Archivo';font-weight:700;font-size:16px;color:var(--text);overflow-wrap:anywhere}
+.hl1t .lwhy{margin-top:3px;font-size:12.5px;color:var(--muted)}
 button.ltemp{cursor:pointer;border:0;font-family:inherit}
-.hfila>.lwhy{font-size:.8rem;color:var(--muted)}
 .hesp{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.76rem;color:var(--muted);
-  border-top:1px dashed var(--border);padding-top:7px}
+  border-top:1px dashed var(--border);padding-top:9px}
 .lbtn.mini{padding:5px 10px;font-size:.74rem}
 .btn-ok{background:var(--ok);color:var(--on-ok);font-family:'Archivo';font-weight:800;font-size:.85rem;border-radius:10px;padding:10px 14px}
-.hplegado{width:100%;display:flex;align-items:center;gap:8px;background:none;border:1px dashed var(--border);border-radius:12px;padding:11px 13px;color:var(--muted)}
-.hver{margin-left:auto;font-size:.76rem;text-decoration:underline}
+.hacc{display:flex;gap:8px}
+.hacc>button{min-height:44px;border-radius:12px;align-self:stretch}
+.hacc .hmain{flex:1.4 1 0;padding:0 12px}
+.hacc .lbtn{flex:1 1 0}
+.hacc .hico{flex:0 0 44px;padding:0;display:flex;align-items:center;justify-content:center}
 @media (min-width:1040px){
   #vistaHoy{max-width:640px}
+  /* En escritorio caben las seis: fila fija, sin desplazamiento. */
+  .hriel{display:grid;grid-template-columns:repeat(6, minmax(0, 1fr));overflow:visible;margin:0 0 18px;padding:0}
+  .hetapa{min-width:0;padding:11px}
+  .hetapa.on{padding:10.5px}
 }

@@ -25,15 +25,22 @@ Los campos del embudo no viajan en `mapAEditar`: guardar la ficha no debe pisarl
 ## Categoría (una sola, la más alta)
 pend (promesa) > reg (registro) > hoy (llegó hoy) > bajo (respondió hoy; F4 lo cambia a «escribió hoy») > ayer > resto.
 
-## Panel «Hoy» (F3, `public/js/hoy.js`)
+## Panel «Hoy» (`public/js/hoy.js`, rediseño «riel» 05/10/2026)
 - Leads abre en «Hoy» (`state.leadsVista`); «Todos los leads» es la lista de siempre.
 - Solo leads PROPIOS y activos: es una lista de trabajo y las acciones son del dueño.
 - Mismo manejador que la tarjeta (`leads.manejarLead`): las dos vistas no pueden divergir.
+- Arriba, la meta del día (`ftd.renderMetaHoy`): tarjeta `.metacard` translúcida dorada (la
+  del FTD en Personas), anillo con hechos/meta, «N prometieron hoy» y el corte como barra.
+  Sin `overflow:hidden` para no recortar el globo de la ⓘ (el brillo se dibuja dentro).
+- Debajo, un RIEL con las 6 etapas en orden de prioridad (icono y color propios, conteo y un
+  dato corto). Se elige una y se listan sus leads; abre en la primera con leads. En escritorio
+  el riel es una fila fija de 6. «Siguiente etapa» salta a la próxima con leads.
+- Ya NO hay filtro por temperatura en «Hoy»: el diseño aprobado lo quitó; la temperatura se
+  ve en cada lead y se filtra en «Todos los leads».
 - Pendientes: hoy y próximos por hora ascendente, luego vencidos (más reciente arriba).
-- «El resto» plegado, salvo con filtro de temperatura activo.
-- Meta de hoy arriba (`ftd.renderRitmoEn`). `ritmoMeta` cuenta solo las promesas de hoy:
-  `metaHoy = max(reparto, min(pendHoy + hechosHoy, falta))`. Se suman los hechos de hoy
-  porque un pendiente que deposita deja de ser lead y la meta no debe bajar al cumplirse.
+- `ritmoMeta` cuenta solo las promesas de hoy: `metaHoy = max(reparto, min(pendHoy + hechosHoy,
+  falta))`. Se suman los hechos de hoy porque un pendiente que deposita deja de ser lead y la
+  meta no debe bajar al cumplirse.
 
 ## «Bajaron hoy» y temperatura automática (F4)
 - `chats_recientes.entrante_en` = último mensaje ENTRANTE (is_from_me=0), que publica
