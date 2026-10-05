@@ -77,14 +77,13 @@ export function renderHoy(cont, render) {
     return `<div class="hsec ${k}"><div class="hsech">${cab}</div>${ls.map(fila).join("")}</div>`;
   }).join("");
 
+  // La explicación larga vive tras la ⓘ (globo al pasar el puntero o al tocar),
+  // como el resto de la app: la lista de trabajo tiene que leerse limpia.
+  const leyenda = "Mide qué tan a tiempo vas con cada lead. Caliente: promesa para hoy o después, o te respondió / abrió cuenta hoy. Tibio: promesa vencida 1 o 2 días, respuesta hace 1 o 2 días, o lo contactaste y aún no responde. Frío: 3 o más días. Corregirla a mano vale hasta el próximo contacto.";
   cont.innerHTML = `
     <div id="hoyMeta"></div>
-    <div class="hfiltros">${filtros}</div>
-    ${mios.length ? secs : `<div class="vacio"><b>No tienes leads activos</b>Cuando agregues uno, aquí verás qué hacer con él cada día.</div>`}
-    <div class="hleyenda"><b>Cómo se calcula la temperatura</b><br>
-      Promesa de hoy o futura: caliente · vencida 1–2 días: tibio · 3 o más: frío.<br>
-      Te respondió o abrió cuenta hoy: caliente · hace 1–2 días: tibio · 3 o más: frío.<br>
-      Sin respuesta: tibio, y frío a los 3 días. Corregirla a mano vale hasta el próximo contacto.</div>`;
+    <div class="hfiltros">${filtros}<button type="button" class="infoi" aria-label="Cómo se calcula la temperatura" data-info="${leyenda}"></button></div>
+    ${mios.length ? secs : `<div class="vacio"><b>No tienes leads activos</b>Cuando agregues uno, aquí verás qué hacer con él cada día.</div>`}`;
 
   renderRitmoEn(cont.querySelector("#hoyMeta"), render);
 

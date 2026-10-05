@@ -1809,7 +1809,9 @@ body:has(.overlay.open){overflow:hidden}
 .modohoy #cliEstado,.modohoy #lista{display:none}
 .modohoy .clifiltros{justify-content:flex-end;min-height:0}
 #hoyMeta .ftdritmo{margin:0 0 12px}
-.hfiltros{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
+.hfiltros{position:relative;display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:14px}
+.hfiltros .infoi{position:static;margin-left:2px}
+.hfiltros .infoi::after{left:0;right:0;transform:none;width:auto;max-width:none}
 .hf{--t:var(--muted);display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface);
   color:var(--muted);border-radius:999px;padding:6px 10px;font-size:.76rem;font-weight:600;white-space:nowrap}
 .hf i{width:7px;height:7px;border-radius:50%;background:var(--t)}
@@ -1835,8 +1837,6 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .btn-ok{background:var(--ok);color:var(--on-ok);font-family:'Archivo';font-weight:800;font-size:.85rem;border-radius:10px;padding:10px 14px}
 .hplegado{width:100%;display:flex;align-items:center;gap:8px;background:none;border:1px dashed var(--border);border-radius:12px;padding:11px 13px;color:var(--muted)}
 .hver{margin-left:auto;font-size:.76rem;text-decoration:underline}
-.hleyenda{font-size:.72rem;color:var(--muted);line-height:1.6;border-top:1px solid var(--border);padding-top:12px;margin-top:6px}
-.hleyenda b{color:var(--text)}
 @media (min-width:1040px){
   #vistaHoy{max-width:640px}
 }
