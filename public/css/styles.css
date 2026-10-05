@@ -1744,3 +1744,7 @@ body:has(.overlay.open){overflow:hidden}
 .ritmocaja.dorado .ritmonum b.m,.ritmocaja.dorado .ritmoinfo{color:var(--on-gold);border-color:var(--on-gold)}
 .ritmocaja.dorado .barra{background:color-mix(in srgb,var(--on-gold) 18%,transparent)}
 .ritmocaja.dorado .barra i{background:var(--on-gold)}
+
+/* Campos del rango de fecha de depósito: compactos, como el desplegable. */
+.depfecha{width:auto;flex:0 1 auto;min-width:0;font-size:.78rem;padding:6px 9px;border-radius:999px}
+#filtrosDep{flex-wrap:wrap;row-gap:7px}

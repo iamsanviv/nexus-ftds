@@ -41,7 +41,7 @@ export const state = {
   // Filtro por broker del FTD. Es un TERCER eje, independiente de los dos
   // anteriores: se combina con ellos en vez de reemplazarlos. null = sin filtro.
   filtroBrk: null,
-  filtroDep: null,   // 'mes' | 'antes' — por fecha de depósito
+  filtroDep: null,   // { modo, desde, hasta } — rango de fecha de depósito
   filtroDefDesk: false,  // ¿ya se aplicó el defecto "En progreso"?
   orden: "cerca",
   vista: "cliente",      // "cliente" | "servicio"

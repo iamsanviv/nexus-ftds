@@ -200,25 +200,54 @@ export function render() {
     }
   }
 
-  // Fecha de depósito: «Este mes» = depositó este mes (en el broker elegido, si
-  // hay uno); «Antes» = todos sus depósitos son de meses anteriores. Son
-  // excluyentes a propósito: alguien que volvió a depositar este mes cuenta como
-  // de este mes, que es la pregunta que se hace al mirar la lista.
-  const mesDep = hoyISO().slice(0, 7);
+  // Fecha de depósito: un rango [desde, hasta]. Alguien entra si TIENE un
+  // depósito dentro del rango (en el broker elegido, si hay uno). El
+  // desplegable trae atajos; «Entre fechas…» abre los dos campos.
   const fechasDep = c => state.filtroBrk ? [c.ftds?.[state.filtroBrk]].filter(Boolean) : Object.values(c.ftds || {});
-  const deEsteMes = c => fechasDep(c).some(f => f.startsWith(mesDep));
+  const enRango = c => { const r = state.filtroDep;
+    return fechasDep(c).some(f => (!r.desde || f >= r.desde) && (!r.hasta || f <= r.hasta)); };
   const depFila = $("filtrosDep");
   if (depFila) {
-    const fechas = fechasDep;
-    const conDep = activas.filter(c => fechas(c).length);
-    const nMes = conDep.filter(deEsteMes).length, nAntes = conDep.length - nMes;
-    const mostrar = !isLead && conDep.length > 0;
+    const mostrar = !isLead && activas.some(c => fechasDep(c).length);
     depFila.classList.toggle("hidden", !mostrar);
     if (!mostrar) { state.filtroDep = null; depFila.innerHTML = ""; }
     else {
-      const pil = (v, t, n) => `<button class="pill ${state.filtroDep === v ? "on" : ""}" data-dep="${v || ""}">${t}${n != null ? ` (${n})` : ""}</button>`;
-      depFila.innerHTML = `<span class="ejelbl">Depósito</span>` + pil(null, "Todos") + pil("mes", "Este mes", nMes) + pil("antes", "Antes", nAntes);
-      depFila.querySelectorAll("[data-dep]").forEach(b => b.onclick = () => { state.filtroDep = b.dataset.dep || null; render(); });
+      const hoy = hoyISO(), mes = hoy.slice(0, 7);
+      const [y, m] = mes.split("-").map(Number);
+      const finMes = (yy, mm) => `${yy}-${String(mm).padStart(2, "0")}-${String(new Date(Date.UTC(yy, mm, 0)).getUTCDate()).padStart(2, "0")}`;
+      const pa = m === 1 ? [y - 1, 12] : [y, m - 1];
+      const ATAJOS = {
+        mes:   { desde: mes + "-01", hasta: hoy },
+        ant:   { desde: `${pa[0]}-${String(pa[1]).padStart(2, "0")}-01`, hasta: finMes(...pa) },
+        antes: { desde: null, hasta: finMes(...pa) },
+      };
+      const r = state.filtroDep, modo = r?.modo || "";
+      depFila.innerHTML = `<span class="ejelbl">Depósito</span>
+        <select class="brksel" id="depSel" aria-label="Filtrar por fecha de depósito">
+          <option value="">Cualquier fecha</option>
+          <option value="mes" ${modo === "mes" ? "selected" : ""}>Este mes</option>
+          <option value="ant" ${modo === "ant" ? "selected" : ""}>Mes anterior</option>
+          <option value="antes" ${modo === "antes" ? "selected" : ""}>Antes de este mes</option>
+          <option value="rango" ${modo === "rango" ? "selected" : ""}>Entre fechas…</option>
+        </select>
+        ${modo === "rango" ? `<input type="date" class="depfecha" id="depDesde" value="${r.desde || ""}" aria-label="Desde">
+          <span class="ejelbl">a</span>
+          <input type="date" class="depfecha" id="depHasta" value="${r.hasta || ""}" aria-label="Hasta">` : ""}`;
+      $("depSel").onchange = e => {
+        const v = e.target.value;
+        state.filtroDep = !v ? null : v === "rango"
+          // Abre en el mes en curso; no hereda el rango de un atajo (p. ej. «hasta
+          // el 30» de «Antes») porque quedaría vacío.
+          ? { modo: "rango", desde: mes + "-01", hasta: hoy }
+          : { modo: v, ...ATAJOS[v] };
+        render();
+      };
+      const cambio = () => {
+        let d = $("depDesde").value || null, h = $("depHasta").value || null;
+        if (d && h && d > h) [d, h] = [h, d];   // al revés no filtra nada: se voltea
+        state.filtroDep = { modo: "rango", desde: d, hasta: h }; render();
+      };
+      if ($("depDesde")) { $("depDesde").onchange = cambio; $("depHasta").onchange = cambio; }
     }
   }
 
@@ -246,10 +275,7 @@ export function render() {
     // Filtro por membresía (escritorio): se combina con el de progreso de abajo.
     if (state.filtroMem && c.mem !== state.filtroMem) return false;
     if (state.filtroBrk && !c.ftds?.[state.filtroBrk]) return false;
-    if (state.filtroDep) {
-      if (!fechasDep(c).length) return false;
-      if ((state.filtroDep === "mes") !== deEsteMes(c)) return false;
-    }
+    if (state.filtroDep && !enRango(c)) return false;
     if (state.filtro === "todos" || state.filtro === "inactivas") return true;
     if (state.filtro === "activos") return pr(c).extra > 0;
     if (state.filtro === "inactivos") return pr(c).extra === 0;
@@ -281,7 +307,8 @@ export function render() {
       const partes = [`${vis.length} persona${vis.length === 1 ? "" : "s"}`];
       if (state.filtroMem) partes.push(`nivel ${state.filtroMem}`);
       if (state.filtroBrk) partes.push(nombreBroker(state.filtroBrk));
-      if (state.filtroDep) partes.push(state.filtroDep === "mes" ? "depositaron este mes" : "depositaron antes");
+      if (state.filtroDep) { const r = state.filtroDep;
+        partes.push(r.desde && r.hasta ? `depósito ${fmtF(r.desde)}–${fmtF(r.hasta)}` : r.hasta ? `depósito hasta ${fmtF(r.hasta)}` : `depósito desde ${fmtF(r.desde)}`); }
       if (state.filtro === "incompletos") partes.push("en progreso");
       else if (state.filtro === "completos") partes.push("completos");
       else if (state.filtro === "inactivas") partes.push("inactivas · no reciben mensajes");
