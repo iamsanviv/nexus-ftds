@@ -132,9 +132,10 @@ export function renderBloqueFtd() {
   // "Ajustar" solo abre los números del mes.
   if ($("ftdMeta")) $("ftdMeta").onclick = () => abrirAsistente("metas");
   if ($("ftdMeses")) $("ftdMeses").onclick = () => abrirResumen();
-  if ($("ftdRitmoInfo")) $("ftdRitmoInfo").onclick = () => toast(
-    "Hoy: lo que falta para el corte, repartido en los días que quedan (el fin de semana pide menos). " +
-    "Corte: lo que deberías llevar al cerrar la semana.");
+  if ($("ftdInfoHoy")) $("ftdInfoHoy").onclick = () =>
+    toast("Lo que te falta para el corte, repartido en los días que quedan. El fin de semana pide menos.");
+  if ($("ftdInfoCorte")) $("ftdInfoCorte").onclick = () =>
+    toast("Lo que deberías llevar al cerrar esta semana. Lo que falte pasa a la siguiente.");
 
   // Momento natural para el ritual: el agente acaba de llegar a Personas.
   revisarRituales();
@@ -144,6 +145,7 @@ export function renderBloqueFtd() {
 // no cargar la tarjeta de texto.
 function ritmoHtml(r) {
   if (!r) return "";
+  const info = (id, lbl) => `<button class="ritmoinfo" id="${id}" aria-label="${lbl}">i</button>`;
   const pct = (a, b) => b ? Math.min(100, Math.round(a / b * 100)) : 100;
   const caja = (lbl, a, b, extra = "") => `
     <div class="ritmocaja ${a >= b ? "ok" : ""}">
@@ -153,9 +155,8 @@ function ritmoHtml(r) {
     </div>`;
   return `
     <div class="ftdritmo">
-      ${caja("Hoy", r.hoy.hechos, r.hoy.meta,
-        `<button class="ritmoinfo" id="ftdRitmoInfo" aria-label="Cómo se calcula">i</button>`)}
-      ${caja(`Corte día ${r.corte.dia}`, r.corte.llevas, r.corte.meta)}
+      ${caja("Hoy", r.hoy.hechos, r.hoy.meta, info("ftdInfoHoy", "Cómo se calcula la meta de hoy"))}
+      ${caja(`Corte día ${r.corte.dia}`, r.corte.llevas, r.corte.meta, info("ftdInfoCorte", "Qué es el corte"))}
     </div>`;
 }
 
