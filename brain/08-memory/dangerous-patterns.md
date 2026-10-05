@@ -376,3 +376,14 @@ invisible que sigue vivo.
 
 Y al ocultar un bloque, dejarlo VACÍO en el DOM cuando no aplica: un input
 escondido pero vivo lo sigue leyendo quien lo consulte por id.
+
+## El MCP de Supabase se cuelga con cualquier `DROP` (05/10/2026)
+
+`execute_sql` (y `apply_migration`) **expira a los 60 s sin hacer nada** si la consulta contiene un `DROP` —`drop trigger if exists`, `drop policy if exists`, `drop constraint if exists`—, aunque el objeto no exista y aunque no haya ningún bloqueo en la base. Todo se deshace (la llamada es una sola transacción). Verificado bisecando: el mismo bloque sin los `DROP` aplica en segundos; un `drop trigger if exists` solo, con avisos silenciados y `lock_timeout`, se cuelga igual. Probablemente el MCP trata el `DROP` como destructivo y espera una confirmación que nunca llega.
+
+Esto explica también el «cuelgue» del trigger de `canales_wa` del 02/10, que se atribuyó a contención de bloqueos: aquella consulta llevaba `drop trigger if exists`, y la que entró fue un `create trigger` sin `drop`.
+
+Cómo trabajar:
+- Para objetos NUEVOS, aplicar solo `create …` (sin el `drop … if exists` de idempotencia). El archivo en `sql/` puede conservar los `drop` para quien lo reaplique por otra vía.
+- Si de verdad hay que borrar algo, hacerlo por el editor SQL del panel de Supabase, no por el MCP.
+- Antes de aplicar en producción, probar en `begin; … ; do $$ begin raise exception '…'; end $$;`: el error final deshace todo y devuelve los resultados en el mensaje.

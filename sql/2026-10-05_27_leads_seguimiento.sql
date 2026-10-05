@@ -1,6 +1,7 @@
 -- =====================================================================
 --  Leads · seguimiento (F1): contactos, embudo y temperatura manual
---  PENDIENTE DE APLICAR (probado en transacción con rollback el 2026-10-05: 15 casos de RLS y constraints OK).
+--  Aplicado el 2026-10-05 con el MCP de Supabase (probado antes en transacción
+--  con rollback: 15 casos de RLS y constraints OK, y re-probado en producción).
 -- =====================================================================
 --
 --  QUÉ GUARDA
@@ -52,7 +53,7 @@ create index if not exists lead_contactos_cliente_en on public.lead_contactos (c
 create index if not exists lead_contactos_owner_en   on public.lead_contactos (owner_id, en desc);
 
 comment on table public.lead_contactos is
-  'Contactos del agente con sus leads (para qué, nota, si respondió). Solo el dueño del lead los crea; owner_id lo fija un trigger.';
+  'Contactos del agente con sus leads (para qué, nota, si respondió). Solo el dueño del lead los crea, owner_id lo fija un trigger.';
 
 -- El dueño del contacto ES el dueño del lead, y no se puede mover de lead ni de
 -- dueño después. Lo fija el servidor: el cliente no decide a nombre de quién.
