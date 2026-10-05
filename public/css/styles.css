@@ -1729,3 +1729,14 @@ body.segwide .tabinner{max-width:1180px}
 .ritmoinfo{width:16px;height:16px;flex-shrink:0;letter-spacing:0;border-radius:50%;
   border:1px solid var(--muted);background:none;color:var(--muted);font:700 11px/1 'Inter',sans-serif;
   font-style:italic;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
+/* Meta del mes al mismo tamaño que los FTD del mes. */
+.ftdmeta b.metabig{font-family:'Archivo';font-weight:800;font-size:30px;line-height:1;color:var(--gold)}
+.ftddesk .ftdmeta b.metabig{font-size:34px}
+/* Hoy en dorado sólido (lo primero que se ve); el corte, con borde dorado. */
+.ritmonum b.m{font-size:30px;color:var(--gold)}
+.ritmocaja.borde{border:1px solid color-mix(in srgb,var(--gold) 50%,transparent)}
+.ritmocaja.dorado{background:linear-gradient(135deg,#f2cd78,var(--gold-fill) 55%,var(--gold-dim));color:var(--on-gold)}
+.ritmocaja.dorado .ftdlbl,.ritmocaja.dorado .ritmonum,.ritmocaja.dorado .ritmonum b,
+.ritmocaja.dorado .ritmonum b.m,.ritmocaja.dorado .ritmoinfo{color:var(--on-gold);border-color:var(--on-gold)}
+.ritmocaja.dorado .barra{background:color-mix(in srgb,var(--on-gold) 18%,transparent)}
+.ritmocaja.dorado .barra i{background:var(--on-gold)}

@@ -62,8 +62,8 @@ export function renderBloqueFtd() {
   // número solo, con la meta en un renglón aparte, desbalanceaba la columna.
   const metaTxt = g.meta
     ? (g.cumplida
-        ? `de <b>${g.meta}</b> · cumplida ✓`
-        : `de <b>${g.meta}</b> · te faltan <b class="fuerte">${g.faltan}</b>`)
+        ? `de <b class="metabig">${g.meta}</b> · cumplida ✓`
+        : `de <b class="metabig">${g.meta}</b> · te faltan <b class="fuerte">${g.faltan}</b>`)
     : "sin meta puesta";
   const enlaces = `
     <div class="ftdlinks">
@@ -147,16 +147,16 @@ function ritmoHtml(r) {
   if (!r) return "";
   const info = (id, lbl) => `<button class="ritmoinfo" id="${id}" aria-label="${lbl}">i</button>`;
   const pct = (a, b) => b ? Math.min(100, Math.round(a / b * 100)) : 100;
-  const caja = (lbl, a, b, extra = "") => `
-    <div class="ritmocaja ${a >= b ? "ok" : ""}">
+  const caja = (lbl, a, b, extra = "", estilo = "") => `
+    <div class="ritmocaja ${estilo} ${a >= b ? "ok" : ""}">
       <span class="ftdlbl oro">${lbl}${extra}</span>
-      <div class="ritmonum"><b>${a}</b> / ${b}${a >= b ? " ✓" : ""}</div>
+      <div class="ritmonum"><b>${a}</b> / <b class="m">${b}</b>${a >= b ? " ✓" : ""}</div>
       <div class="barra"><i style="width:${pct(a, b)}%"></i></div>
     </div>`;
   return `
     <div class="ftdritmo">
-      ${caja("Hoy", r.hoy.hechos, r.hoy.meta, info("ftdInfoHoy", "Cómo se calcula la meta de hoy"))}
-      ${caja(`Corte día ${r.corte.dia}`, r.corte.llevas, r.corte.meta, info("ftdInfoCorte", "Qué es el corte"))}
+      ${caja("Hoy", r.hoy.hechos, r.hoy.meta, info("ftdInfoHoy", "Cómo se calcula la meta de hoy"), "dorado")}
+      ${caja(`Corte día ${r.corte.dia}`, r.corte.llevas, r.corte.meta, info("ftdInfoCorte", "Qué es el corte"), "borde")}
     </div>`;
 }
 
