@@ -11,21 +11,21 @@ export const TIPOS = [
   ["valor", "Agregar valor"], ["fidelizacion", "Fidelización"],
   ["novedad", "Por novedad"], ["otro", "Saludar / otro"],
 ];
-const nombreTipo = t => (TIPOS.find(x => x[0] === t) || [, t])[1];
+export const nombreTipo = t => (TIPOS.find(x => x[0] === t) || [, t])[1];
 export const TEMP = { caliente: "Caliente", tibio: "Tibio", frio: "Frío" };
 
 /* ---------------------------------------------------------------- fechas */
 // Días de calendario (Colombia) entre una fecha y hoy: 0 = hoy, 1 = ayer.
 const diaDe = v => !v ? null : (v.length === 10 ? v : fechaCO(new Date(v)));
-const dias = v => {
+export const dias = v => {
   const d = diaDe(v); if (!d) return null;
   const a = Date.UTC(...d.split("-").map((n, i) => i === 1 ? n - 1 : +n));
   const h = Date.UTC(...hoyISO().split("-").map((n, i) => i === 1 ? n - 1 : +n));
   return Math.round((h - a) / 864e5);
 };
 const HORA_CO = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", hour: "numeric", minute: "2-digit", hour12: true });
-const horaTxt = ts => HORA_CO.format(new Date(ts)).replace(/\s/g, " ").replace("a. m.", "am").replace("p. m.", "pm");
-const cuandoTxt = v => {
+export const horaTxt = ts => HORA_CO.format(new Date(ts)).replace(/\s/g, " ").replace("a. m.", "am").replace("p. m.", "pm");
+export const cuandoTxt = v => {
   const d = dias(v);
   return d === 0 ? "hoy" : d === 1 ? "ayer" : d === -1 ? "mañana" : d > 1 ? `hace ${d} días` : `el ${fmtF(diaDe(v))}`;
 };
@@ -102,9 +102,9 @@ export const chipTemp = c => {
 
 // Formulario abierto, uno a la vez: { id, modo }.
 let abierto = null;
-const esMio = c => c.owner_id === state.me?.id;
+export const esMio = c => c.owner_id === state.me?.id;
 
-function form(c) {
+export function form(c) {
   const hoy = hoyISO();
   if (abierto.modo === "registro") {
     const sel = abierto.brk || BROKERS[0].id;
@@ -138,7 +138,7 @@ function form(c) {
   }
   return "";
 }
-const abiertoAqui = (c, modo) => abierto && abierto.id === c.id && abierto.modo === modo;
+export const abiertoAqui = (c, modo) => abierto && abierto.id === c.id && abierto.modo === modo;
 
 // Sección «Seguimiento» dentro de la tarjeta abierta del lead.
 export function seguimientoHTML(c) {
@@ -185,7 +185,12 @@ const primer = c => c.nombre.split(" ")[0];
 
 export function wireSeguimiento(card, c, rerender) {
   const raiz = card.querySelector(".lseg");
-  if (!raiz) return;
+  if (raiz) manejarLead(raiz, c, rerender);
+}
+
+// Las acciones son las mismas en la tarjeta y en el panel «Hoy»: un solo
+// manejador para que las dos vistas no puedan comportarse distinto.
+export function manejarLead(raiz, c, rerender) {
   raiz.onclick = async e => {
     const b = e.target.closest("[data-l]"); if (!b) return;
     e.stopPropagation();

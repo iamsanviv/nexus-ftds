@@ -1793,3 +1793,43 @@ body:has(.overlay.open){overflow:hidden}
 .lresp{font-size:.74rem;color:var(--muted);display:flex;align-items:baseline;gap:6px}
 .lresp.si{color:var(--ok)}
 .lvacio{font-size:.78rem;color:var(--muted)}
+
+/* ---------------- Leads · panel «Hoy» ---------------- */
+.hoyseg{display:flex;gap:6px;margin-bottom:12px;max-width:420px}
+.hoyseg .vbtn{border-radius:999px;padding:9px}
+/* En «Hoy» la lista, sus cifras y sus filtros se apartan; «+ Lead» se queda. */
+.modohoy .cliresumen,.modohoy .filtroscol,.modohoy .ordwrap,.modohoy .buscarfila,
+.modohoy #cliEstado,.modohoy #lista{display:none}
+.modohoy .clifiltros{justify-content:flex-end;min-height:0}
+#hoyMeta .ftdritmo{margin:0 0 12px}
+.hfiltros{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
+.hf{--t:var(--muted);display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface);
+  color:var(--muted);border-radius:999px;padding:6px 10px;font-size:.76rem;font-weight:600;white-space:nowrap}
+.hf i{width:7px;height:7px;border-radius:50%;background:var(--t)}
+.hf b{color:var(--text);font-variant-numeric:tabular-nums}
+.hf.caliente{--t:#F07A3E} .hf.tibio{--t:var(--gold)} .hf.frio{--t:#5B9BD5}
+.hf.on{border-color:var(--gold);color:var(--text);background:color-mix(in srgb,var(--gold) 12%,transparent)}
+.hsec{margin-bottom:16px}
+.hsec.vacia{margin-bottom:8px;opacity:.55}
+.hsech{display:flex;align-items:center;gap:8px;margin:0 2px 8px}
+.hsec.vacia .hsech{margin-bottom:0}
+.prio{font-size:.68rem;font-weight:800;color:var(--on-gold);background:var(--muted);border-radius:6px;padding:1px 6px;font-variant-numeric:tabular-nums}
+.hsec.pend .prio{background:var(--gold-fill)}
+.hsect{font-size:.78rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.hfila{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:12px 13px;margin-bottom:8px;
+  display:flex;flex-direction:column;gap:7px}
+.hl1{display:flex;align-items:center;gap:8px;min-width:0}
+.hnm{flex:1;min-width:0;text-align:left;font-weight:700;font-size:.92rem;overflow-wrap:anywhere;color:var(--text)}
+button.ltemp{cursor:pointer;border:0;font-family:inherit}
+.hfila>.lwhy{font-size:.8rem;color:var(--muted)}
+.hesp{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.76rem;color:var(--muted);
+  border-top:1px dashed var(--border);padding-top:7px}
+.lbtn.mini{padding:5px 10px;font-size:.74rem}
+.btn-ok{background:var(--ok);color:var(--on-ok);font-family:'Archivo';font-weight:800;font-size:.85rem;border-radius:10px;padding:10px 14px}
+.hplegado{width:100%;display:flex;align-items:center;gap:8px;background:none;border:1px dashed var(--border);border-radius:12px;padding:11px 13px;color:var(--muted)}
+.hver{margin-left:auto;font-size:.76rem;text-decoration:underline}
+.hleyenda{font-size:.72rem;color:var(--muted);line-height:1.6;border-top:1px solid var(--border);padding-top:12px;margin-top:6px}
+.hleyenda b{color:var(--text)}
+@media (min-width:1040px){
+  #vistaHoy{max-width:640px}
+}

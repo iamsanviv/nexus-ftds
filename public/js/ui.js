@@ -14,6 +14,7 @@ import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenSe
 import { repasoPendientes } from "./repaso.js";
 import { refrescarCanal } from "./canal.js";
 import { chipTemp, razon, seguimientoHTML, wireSeguimiento } from "./leads.js";
+import { renderHoy } from "./hoy.js";
 
 const NIVELES = ["Lead", "Beca", "VIP", "Platino", "Oro"];
 
@@ -119,6 +120,23 @@ export function render() {
   $("vistaServicio").classList.add("hidden");
   $("abrirModal").classList.remove("hidden");
   $("buscar").placeholder = isLead ? "Buscar lead…" : "Buscar por nombre o teléfono…";
+
+  // Leads abre en «Hoy». La lista sigue a un toque en el mismo selector.
+  const enHoy = isLead && state.leadsVista === "hoy";
+  $("hoySeg").classList.toggle("hidden", !isLead);
+  if (isLead) {
+    $("hoySeg").innerHTML = [["hoy", "Hoy"], ["lista", "Todos los leads"]].map(([v, l]) =>
+      `<button class="vbtn ${state.leadsVista === v ? "on" : ""}" data-lv="${v}">${l}</button>`).join("");
+    $("hoySeg").querySelectorAll("[data-lv]").forEach(b => b.onclick = () => { state.leadsVista = b.dataset.lv; render(); });
+  }
+  $("vistaCliente").classList.toggle("modohoy", enHoy);
+  $("vistaHoy").classList.toggle("hidden", !enHoy);
+  if (enHoy) {
+    $("buscar").classList.add("hidden");
+    $("ftdPanel").innerHTML = "";
+    renderHoy($("vistaHoy"), render);
+    return;
+  }
 
   // Bloque de FTD del mes. Import dinámico por lo mismo que ventas.js y
   // repaso.js: ftd.js necesita render() de aquí y no puede haber ciclo.
@@ -468,6 +486,7 @@ function renderModuleSwitch() {
   $("modSwitch").querySelectorAll(".mbtn").forEach(b => b.onclick = () => {
     if (state.modulo === b.dataset.m && state.vista !== "seguimiento") return;
     state.modulo = b.dataset.m; state.filtro = "todos";
+    if (b.dataset.m === "leads") state.leadsVista = "hoy";
     if (state.vista === "seguimiento") state.vista = "cliente";
     render();
   });

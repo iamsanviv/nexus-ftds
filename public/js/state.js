@@ -33,6 +33,7 @@ export const state = {
   equipo: [],
   me: null,
   modulo: "comunidad",   // "comunidad" | "leads"
+  leadsVista: "hoy",     // "hoy" | "lista" — Leads abre en el panel «Hoy»
   filtro: "todos",
   // Filtro por membresía (Beca/VIP/Platino/Oro) que se COMBINA con `filtro`
   // (todos/incompletos/completos). Lo ponen las tarjetas de conteo, que son
@@ -695,13 +696,15 @@ export function progresoMeta(periodo, ownerId) {
 // quedan al bloque, en enteros y con peso por día (entre semana 1, sábado 0,6,
 // domingo 0,4): un fin de semana rinde menos y pedirle lo mismo mentiría. Se
 // mide con lo que había HASTA AYER para que no baje mientras se trabaja hoy.
-// `pendHoy` (depósitos prometidos para hoy) sube la meta de hoy si es mayor:
-// son los FTD más probables del día.
+// Los depósitos prometidos para hoy (leads pendientes) suben la meta de hoy si
+// son más: son los FTD más probables del día. Se suman los FTD ya hechos hoy
+// porque un pendiente que deposita deja de ser lead, y sin eso la meta bajaría
+// justo al cumplirse una promesa.
 //
 // Solo cuentan los FTD CARGADOS con fecha: un número declarado sin fechas no
 // dice en qué día pasó.
 const PESO_DIA = [0.4, 1, 1, 1, 1, 1, 0.6];   // domingo … sábado
-export function ritmoMeta(periodo, ownerId, pendHoy = 0) {
+export function ritmoMeta(periodo, ownerId) {
   const hoy = hoyISO();
   if (periodo !== hoy.slice(0, 7)) return null;
   const { meta } = progresoMeta(periodo, ownerId);
@@ -715,9 +718,10 @@ export function ritmoMeta(periodo, ownerId, pendHoy = 0) {
   const fin = ini === 22 ? D : ini + 6;
   const corteMeta = fin === D ? meta : Math.ceil(meta * fin / D);
 
-  let hastaAyer = 0, hoyHechos = 0;
+  let hastaAyer = 0, hoyHechos = 0, pendHoy = 0;
   for (const c of state.clientes) {
     if (c.owner_id !== ownerId) continue;
+    if (c.promesaEn && c.mem === "Lead" && fechaCO(new Date(c.promesaEn)) === hoy) pendHoy++;
     for (const f of Object.values(c.ftds || {})) {
       if (periodoDe(f) !== periodo) continue;
       const dia = Number(f.slice(8, 10));
@@ -735,7 +739,7 @@ export function ritmoMeta(periodo, ownerId, pendHoy = 0) {
   let sobra = falta - reparto.reduce((a, b) => a + b, 0);
   exactos.map((x, i) => [x - reparto[i], i]).sort((a, b) => b[0] - a[0])
     .forEach(([, i]) => { if (sobra > 0) { reparto[i]++; sobra--; } });
-  const metaHoy = Math.max(reparto[0] || 0, Math.min(pendHoy, falta));
+  const metaHoy = Math.max(reparto[0] || 0, Math.min(pendHoy + hoyHechos, falta));
 
   const llevas = hastaAyer + hoyHechos;
   return {

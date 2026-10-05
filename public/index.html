@@ -139,6 +139,10 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
   </div>
 
   <div id="vistaCliente">
+    <!-- Leads tiene dos caras: «Hoy» (qué hacer, te recibe al entrar) y la
+         lista completa. Lo pinta ui.js solo en Leads. -->
+    <div class="hoyseg hidden" id="hoySeg"></div>
+    <div id="vistaHoy" class="hidden"></div>
     <!-- Bloque de FTD del mes. Vive aquí, no en Ventas, porque es donde el
          agente pasa el día. Lo pinta ftd.js. -->
     <!-- Mismo caso: en escritorio la tarjeta de FTD y las cifras van lado a

@@ -16,6 +16,7 @@
 
 /* --- tokens que faltaban en styles.css (valores del modo oscuro) --- */
 :root{
+  --on-ok:#0E1116;          /* texto sobre fondo verde (ok) */
   --bg-side:#0b0e12;        /* barra lateral / cabecera */
   --border-side:#1c232d;
   --hover:#1a212a;          /* fila u opción bajo el cursor */
@@ -41,6 +42,7 @@ html[data-tema="claro"]{
   --gold:#8A620E;
   --gold-dim:#B98A22;
   --ok:#2F7F57;
+  --on-ok:#FFFFFF;
   --bad:#B23B3F;
 
   --beca:#2C628F;
