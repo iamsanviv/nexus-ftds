@@ -4,7 +4,10 @@ Código: `public/js/leads.js` (reglas + sección «Seguimiento» de la tarjeta),
 integrado en `ui.js` (`cardHTML`/`wireCards`). Datos: `sql/2026-10-05_27_leads_seguimiento.sql`.
 
 ## Fases
-- F1 (DB) aplicada · F2 (tarjeta del lead) · F3 panel «Hoy» · F4 «bajaron hoy» desde chats_sync (en rama, sin main).
+- F1 (DB) aplicada · F2 (tarjeta) · F3 panel «Hoy» · F4 «bajaron hoy».
+- Estado: toda la lógica vive en la rama `main-jvpvtk` (vista previa), aún NO en `main`.
+  La columna `entrante_en` y el parche de `chats_sync` en VM1 YA están en producción
+  (inofensivos para `main` actual, que no lee la columna). VM2 aún sin `chats_recientes`.
 
 ## Embudo
 `registro_broker + registro_en` (abrió cuenta) → `promesa_en` (prometió depositar: fecha y hora,
