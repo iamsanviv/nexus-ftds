@@ -29,6 +29,11 @@ export const cuandoTxt = v => {
   const d = dias(v);
   return d === 0 ? "hoy" : d === 1 ? "ayer" : d === -1 ? "mañana" : d > 1 ? `hace ${d} días` : `el ${fmtF(diaDe(v))}`;
 };
+// La hora de la promesa es OPCIONAL. Sin hora se guarda con segundos `:01` como
+// marca: un <input type=time> solo produce `:00`, así que la marca no choca con
+// ninguna hora elegible y evita una columna aparte para «sin hora».
+export const sinHora = ts => { const d = new Date(ts); return !isNaN(d) && d.getUTCSeconds() === 1; };
+const cuandoHora = ts => sinHora(ts) ? cuandoTxt(ts) : `${cuandoTxt(ts)} ${horaTxt(ts)}`;
 // Fecha de llegada: la que puso el agente o, si no la puso, cuándo se creó.
 const llegada = c => c.creado || (c.createdAt ? fechaCO(new Date(c.createdAt)) : null);
 
@@ -106,7 +111,7 @@ export function categoria(c) {
 export function razon(c) {
   if (c.promesaEn) {
     const d = dias(c.promesaEn);
-    return `Prometió <b>${cuandoTxt(c.promesaEn)} ${horaTxt(c.promesaEn)}</b>${d > 0 ? " y no depositó" : ""}`;
+    return `Prometió <b>${cuandoHora(c.promesaEn)}</b>${d > 0 ? " y no depositó" : ""}`;
   }
   const s = senalReciente(c);
   if (s) {
@@ -141,7 +146,8 @@ export function form(c) {
   }
   if (abierto.modo === "promesa") {
     return `<div class="lform"><div class="lft">¿Cuándo dijo que deposita?</div>
-      <div class="lfila"><input type="date" id="lFecha" value="${hoy}" min="${hoy}"><input type="time" id="lHora" value="18:00"></div>
+      <div class="lfila"><input type="date" id="lFecha" value="${hoy}" min="${hoy}"><input type="time" id="lHora" value=""></div>
+      <div class="lfl2">La hora es opcional</div>
       <div class="lacc"><button class="btn-oro" data-l="okPromesa">Confirmar</button><button class="lbtn" data-l="cancel">Cancelar</button></div></div>`;
   }
   if (abierto.modo === "deposito") {
@@ -172,7 +178,7 @@ export function seguimientoHTML(c) {
   const pasos = [];
   if (c.registroEn) pasos.push(`<div class="lpaso ok">✓ Abrió cuenta en <b>${esc(nombreBroker(c.registroBroker))}</b> · ${cuandoTxt(c.registroEn)}
     ${mio && !c.promesaEn ? `<button class="llink" data-l="undoRegistro">Deshacer</button>` : ""}</div>`);
-  if (c.promesaEn) pasos.push(`<div class="lpaso ok">✓ Prometió depositar <b>${cuandoTxt(c.promesaEn)} ${horaTxt(c.promesaEn)}</b>
+  if (c.promesaEn) pasos.push(`<div class="lpaso ok">✓ Prometió depositar <b>${cuandoHora(c.promesaEn)}</b>
     ${mio ? `<button class="llink" data-l="undoPromesa">Deshacer</button>` : ""}</div>`);
 
   let accion = "";
@@ -206,7 +212,7 @@ export function seguimientoHTML(c) {
 }
 
 // Promesa en hora Colombia (UTC-5 fijo, sin horario de verano, igual que hoyISO).
-const promesaISO = (f, h) => `${f}T${h}:00-05:00`;
+const promesaISO = (f, h) => h ? `${f}T${h}:00-05:00` : `${f}T00:00:01-05:00`;
 const primer = c => c.nombre.split(" ")[0];
 
 export function wireSeguimiento(card, c, rerender) {
@@ -241,7 +247,7 @@ export function manejarLead(raiz, c, rerender) {
     }
     if (a === "okPromesa") {
       const f = raiz.querySelector("#lFecha").value, h = raiz.querySelector("#lHora").value;
-      if (!f || !h) return toast("Falta la fecha o la hora");
+      if (!f) return toast("Falta la fecha");
       const ts = promesaISO(f, h);
       if (await dbPatch(c, { promesa_en: ts })) {
         c.promesaEn = ts; abierto = null; toast(`✓ ${primer(c)} pasó a Pendientes`);

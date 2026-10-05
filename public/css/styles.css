@@ -1793,6 +1793,7 @@ body:has(.overlay.open){overflow:hidden}
 .lchip{border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.78rem;border-radius:999px;padding:6px 11px}
 .lchip.on{background:var(--gold-fill);color:var(--on-gold);border-color:var(--gold)}
 .lfl{display:flex;flex-direction:column;gap:4px;font-size:.74rem;color:var(--muted)}
+.lform .lfl2{font-size:.72rem;color:var(--muted);margin-top:-4px}
 .lfila{display:flex;gap:8px}
 .lfila input{flex:1 1 0;min-width:0}
 .lform textarea{resize:vertical;font-size:.85rem}

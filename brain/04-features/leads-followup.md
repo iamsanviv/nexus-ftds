@@ -46,6 +46,14 @@ pend (promesa) > reg (registro) > hoy (llegó hoy) > bajo (respondió hoy; F4 lo
 - Categoría `bajo` = escribió hoy (entrante de hoy, o «Me respondió» de hoy).
 - Un mensaje entrante mueve la temperatura igual que una respuesta: «te escribió hoy» → caliente.
 
+## Hora de la promesa: opcional (05/10/2026)
+`promesa_en` sigue siendo `timestamptz`. La hora es OPCIONAL en el formulario; cuando no la
+dan, se guarda con segundos `:01` (`${f}T00:00:01-05:00`) como marca de «sin hora»: un
+`<input type=time>` solo produce `:00`, así que la marca no colisiona con ninguna hora real
+y no hace falta una columna aparte. `leads.sinHora(ts)` lo detecta (`getUTCSeconds()===1`) y
+`cuandoHora(ts)` muestra la fecha con o sin hora según eso. No afecta temperatura ni categoría
+(son por día). El orden de pendientes usa el instante guardado (una promesa sin hora cae a ~medianoche).
+
 ## La vista de Leads no muestra invitaciones (05/10/2026)
 A diferencia de Comunidad, las tarjetas de lead NO renderizan la grilla de actividades
 (`grupos`), ni el conteo «✦ N invitaciones», ni los contadores/filtros «Con/Sin actividad»,
