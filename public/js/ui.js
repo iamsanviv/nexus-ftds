@@ -200,6 +200,28 @@ export function render() {
     }
   }
 
+  // Fecha de depósito: «Este mes» = depositó este mes (en el broker elegido, si
+  // hay uno); «Antes» = todos sus depósitos son de meses anteriores. Son
+  // excluyentes a propósito: alguien que volvió a depositar este mes cuenta como
+  // de este mes, que es la pregunta que se hace al mirar la lista.
+  const mesDep = hoyISO().slice(0, 7);
+  const fechasDep = c => state.filtroBrk ? [c.ftds?.[state.filtroBrk]].filter(Boolean) : Object.values(c.ftds || {});
+  const deEsteMes = c => fechasDep(c).some(f => f.startsWith(mesDep));
+  const depFila = $("filtrosDep");
+  if (depFila) {
+    const fechas = fechasDep;
+    const conDep = activas.filter(c => fechas(c).length);
+    const nMes = conDep.filter(deEsteMes).length, nAntes = conDep.length - nMes;
+    const mostrar = !isLead && conDep.length > 0;
+    depFila.classList.toggle("hidden", !mostrar);
+    if (!mostrar) { state.filtroDep = null; depFila.innerHTML = ""; }
+    else {
+      const pil = (v, t, n) => `<button class="pill ${state.filtroDep === v ? "on" : ""}" data-dep="${v || ""}">${t}${n != null ? ` (${n})` : ""}</button>`;
+      depFila.innerHTML = `<span class="ejelbl">Depósito</span>` + pil(null, "Todos") + pil("mes", "Este mes", nMes) + pil("antes", "Antes", nAntes);
+      depFila.querySelectorAll("[data-dep]").forEach(b => b.onclick = () => { state.filtroDep = b.dataset.dep || null; render(); });
+    }
+  }
+
   /* ----- orden ----- */
   const ords = isLead
     ? [["cerca", "🔥 Más comprometidos"], ["recientes", "Recientes"], ["az", "A–Z"]]
@@ -224,6 +246,10 @@ export function render() {
     // Filtro por membresía (escritorio): se combina con el de progreso de abajo.
     if (state.filtroMem && c.mem !== state.filtroMem) return false;
     if (state.filtroBrk && !c.ftds?.[state.filtroBrk]) return false;
+    if (state.filtroDep) {
+      if (!fechasDep(c).length) return false;
+      if ((state.filtroDep === "mes") !== deEsteMes(c)) return false;
+    }
     if (state.filtro === "todos" || state.filtro === "inactivas") return true;
     if (state.filtro === "activos") return pr(c).extra > 0;
     if (state.filtro === "inactivos") return pr(c).extra === 0;
@@ -255,6 +281,7 @@ export function render() {
       const partes = [`${vis.length} persona${vis.length === 1 ? "" : "s"}`];
       if (state.filtroMem) partes.push(`nivel ${state.filtroMem}`);
       if (state.filtroBrk) partes.push(nombreBroker(state.filtroBrk));
+      if (state.filtroDep) partes.push(state.filtroDep === "mes" ? "depositaron este mes" : "depositaron antes");
       if (state.filtro === "incompletos") partes.push("en progreso");
       else if (state.filtro === "completos") partes.push("completos");
       else if (state.filtro === "inactivas") partes.push("inactivas · no reciben mensajes");
@@ -263,13 +290,13 @@ export function render() {
       // fuera evita que alguien las dé por perdidas o las vuelva a agregar.
       if (state.filtro !== "inactivas" && inactivas.length)
         partes.push(`${inactivas.length} inactiva${inactivas.length === 1 ? "" : "s"} sin mostrar`);
-      const hayFiltro = !!state.filtroMem || !!state.filtroBrk || !!crudo
+      const hayFiltro = !!state.filtroMem || !!state.filtroBrk || !!state.filtroDep || !!crudo
         || state.filtro === "completos" || state.filtro === "inactivas";
       estadoEl.innerHTML = `<span>${partes.join(" · ")}</span>`
         + (hayFiltro ? ` <button class="quitarf" id="quitarFiltros">Quitar filtros</button>` : "");
       const qf = $("quitarFiltros");
       if (qf) qf.onclick = () => {
-        state.filtroMem = null; state.filtroBrk = null; state.filtro = "todos";
+        state.filtroMem = null; state.filtroBrk = null; state.filtroDep = null; state.filtro = "todos";
         $("buscar").value = ""; render();
       };
     } else estadoEl.innerHTML = "";

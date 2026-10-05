@@ -1402,7 +1402,11 @@ body.segwide .tabinner{max-width:1180px}
 .barra.dos i{position:relative}
 
 /* --- asistente de FTD --- */
-.asismodal{padding:0;overflow:hidden}
+.asismodal{padding:0;overflow-y:auto}
+/* El scroll no se escapa a la página de atrás: ni encadenado desde el modal
+   ni con la página moviéndose debajo mientras hay un overlay abierto. */
+.modal{overscroll-behavior:contain}
+body:has(.overlay.open){overflow:hidden}
 .asis .ahead{padding:20px 18px 0}
 .asis .apaso{font-size:.58rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:7px}
 .asis .ahead h4{font-family:'Archivo';font-size:1.15rem;font-weight:800;margin-bottom:4px;text-wrap:balance}
