@@ -223,6 +223,27 @@ Cuando alguien deja la empresa hay que apagar su bridge y devolver su puerto al 
 
 **Seguridad del `sudo`.** `ubuntu` tiene `NOPASSWD: ALL`, así que el ejecutor puede hacer cualquier cosa. Lo que lo contiene: de la base solo se acepta un UUID (validado por regex, usado únicamente como texto a comparar); lo que llega a la línea de comandos es un nombre de directorio de este disco, validado contra `^[a-z0-9][a-z0-9_-]{0,31}$`, con `subprocess.run([...], shell=False)`. Un directorio con nombre raro se salta **antes** de reclamar la fila, para no dejarla en `bajando` sin salida.
 
+### La baja NO quita el dispositivo del teléfono (hecho 05/10/2026)
+
+Apagar y archivar el bridge deja la sesión **viva en el WhatsApp personal del ex-agente**: sigue
+como «dispositivo vinculado» hasta que WhatsApp lo caduca solo (~14 días sin conexión). `canales_wa.estado`
+queda congelado en `vinculado`, pero es un valor viejo, no una verdad viva (mirar `actualizado`/`ultimo_visto`).
+
+Para cerrarlo del lado del servidor sin depender del ex-agente, se **revive el bridge archivado un momento**
+(tiene la sesión en `store/`, reconecta sin QR) y se le manda `desvincular`; whatsmeow hace `Logout()` y el
+dispositivo desaparece de su teléfono. Procedimiento, con el directorio archivado `.`<slug> y su puerto (libre):
+
+1. `mv .<slug> <slug>` y `systemctl start nexus-bridge@<slug>`; esperar a que reconecte (en el log entran mensajes).
+2. `update canales_wa set comando='desvincular' where owner_id=<uuid>` — DESPUÉS de que reconecte, para que
+   el bridge lo consuma antes de que el worker lo caduque (`COMANDO_TTL` 180 s; el bridge sondea cada 60 s).
+3. Confirmar: en la base `comando` vuelve a `null` (lo consumió) y `actualizado` se congela (cerró y enmudeció).
+4. `systemctl disable --now nexus-bridge@<slug>` y `mv <slug> .<slug>` para restaurar la baja. El puerto sigue libre.
+
+Verificar antes de revivir que no haya `mensajes_programados` en `pendiente` para ese `owner_id`: al reconectar,
+el worker podría enviar a su nombre. El único testigo real de que el dispositivo ya no está es la lista de
+dispositivos de su teléfono; el log/`Logout()` es la prueba del lado del servidor. Si hubo un bridge duplicado
+(`.dup-*`), su sesión suele estar muerta, pero puede quedar como otro dispositivo: cerrarlo igual si aparece.
+
 ## Tope diario y zona horaria
 
 Existe antecedente de un defecto donde el tope diario se calculaba con el día UTC. En Colombia la medianoche UTC ocurre a las 19:00, por lo que consumos nocturnos podían contarse contra el día siguiente y bloquear invitaciones legítimas.
