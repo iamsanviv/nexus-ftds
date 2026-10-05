@@ -26,6 +26,11 @@ export const mapDesdeDB = r => ({
   pun: r.puntuales || {},
   // Embudo de venta de la persona: { pres|uno|cierre: { f, e } }.
   zooms: r.zooms || {},
+  // Embudo del lead hacia la beca. No van en `mapAEditar`: se escriben solo
+  // desde «Seguimiento», campo por campo, y guardar la ficha no debe pisarlos.
+  createdAt: r.created_at, registroBroker: r.registro_broker || null,
+  registroEn: r.registro_en || null, promesaEn: r.promesa_en || null,
+  tempManual: r.temp_manual || null, tempManualEn: r.temp_manual_en || null,
 });
 export const mapAEditar = c => ({
   nombre: c.nombre, telefono: c.tel || null, pais: c.pais || null,
@@ -71,6 +76,13 @@ export async function cargarTodo() {
   const { data: cl, error } = await SB.from("clientes").select("*").order("created_at", { ascending: true });
   if (error) throw error;
   state.clientes = (cl || []).map(mapDesdeDB);
+
+  // Contactos con leads. Un fallo aquí no debe tumbar el panel: sin ellos la
+  // temperatura cae a «según cuándo llegó», que sigue siendo útil.
+  const { data: lc, error: e2 } = await SB.from("lead_contactos").select("*").order("en", { ascending: false });
+  state.contactos = {};
+  if (e2) console.warn("lead_contactos:", e2.message);
+  (lc || []).forEach(x => (state.contactos[x.cliente_id] ||= []).push(x));
 }
 
 export async function dbInsert(c) {
@@ -336,4 +348,25 @@ export async function subirAudioMensaje(blob, ext) {
   const { error } = await SB.storage.from("mensajes").upload(path, blob, { contentType: blob.type || "audio/webm" });
   if (error) throw error;
   return SB.storage.from("mensajes").getPublicUrl(path).data.publicUrl;
+}
+
+// Contactos con leads. `owner_id` lo fija la base (dueño del lead) y el RLS
+// solo deja insertar si ese dueño es quien escribe.
+export async function crearContacto(cliente_id, tipo, nota) {
+  const { data, error } = await SB.from("lead_contactos")
+    .insert({ cliente_id, tipo, nota: nota || null }).select().single();
+  if (error) { toast("⚠ " + error.message); return null; }
+  return data;
+}
+
+export async function actualizarContacto(id, campos) {
+  const { error } = await SB.from("lead_contactos").update(campos).eq("id", id);
+  if (error) { toast("⚠ " + error.message); return false; }
+  return true;
+}
+
+export async function borrarContacto(id) {
+  const { error } = await SB.from("lead_contactos").delete().eq("id", id);
+  if (error) { toast("⚠ " + error.message); return false; }
+  return true;
 }

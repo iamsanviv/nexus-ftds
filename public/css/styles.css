@@ -1748,3 +1748,48 @@ body:has(.overlay.open){overflow:hidden}
 /* Campos del rango de fecha de depósito: compactos, como el desplegable. */
 .depfecha{width:auto;flex:0 1 auto;min-width:0;font-size:.78rem;padding:6px 9px;border-radius:999px}
 #filtrosDep{flex-wrap:wrap;row-gap:7px}
+
+/* ---------------- Leads · seguimiento ---------------- */
+.lhead{display:flex;align-items:center;gap:7px;min-width:0;margin-top:5px;font-size:.74rem;color:var(--muted)}
+.lhead .lwhy{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .lhead{flex:1 1 200px;margin-top:0}
+.lwhy b{color:var(--text);font-weight:600}
+.ltemp{--t:var(--muted);flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+  font-size:.7rem;font-weight:700;color:var(--t);border-radius:999px;padding:2px 8px;
+  background:color-mix(in srgb,var(--t) 14%,transparent)}
+.ltemp i{width:6px;height:6px;border-radius:50%;background:var(--t)}
+.ltemp.caliente{--t:#F07A3E} .ltemp.tibio{--t:var(--gold)} .ltemp.frio{--t:#5B9BD5}
+
+.lseg{background:var(--surface2);border-radius:12px;padding:11px 12px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
+.lsech{display:flex;align-items:center;gap:8px}
+.lsech.sub{margin-top:4px;padding-top:9px;border-top:1px solid var(--border)}
+.lsect{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700}
+.lsech .llink{margin-left:auto}
+.lcnt{font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.lseg>.lwhy{font-size:.8rem;color:var(--muted)}
+.lpaso{font-size:.8rem;color:var(--ok);display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.lpaso b{color:var(--text)}
+.llink{color:var(--muted);text-decoration:underline;font-size:.72rem;padding:2px}
+.lacc{display:flex;gap:8px;flex-wrap:wrap}
+.btn-oro{background:var(--gold-fill);color:var(--on-gold);font-family:'Archivo';font-weight:800;font-size:.85rem;
+  border-radius:10px;padding:10px 14px;align-self:flex-start}
+.btn-oro:disabled{opacity:.45;cursor:default}
+.lbtn{border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.8rem;border-radius:10px;padding:8px 12px}
+.lbtn.ancho{align-self:flex-start}
+.lform{display:flex;flex-direction:column;gap:9px;padding:10px;border:1px solid color-mix(in srgb,var(--gold) 40%,transparent);border-radius:10px}
+.lft{font-size:.8rem;font-weight:600}
+.lchips{display:flex;gap:6px;flex-wrap:wrap}
+.lchip{border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.78rem;border-radius:999px;padding:6px 11px}
+.lchip.on{background:var(--gold-fill);color:var(--on-gold);border-color:var(--gold)}
+.lfl{display:flex;flex-direction:column;gap:4px;font-size:.74rem;color:var(--muted)}
+.lfila{display:flex;gap:8px}
+.lfila input{flex:1 1 0;min-width:0}
+.lform textarea{resize:vertical;font-size:.85rem}
+.lcon{display:flex;flex-direction:column;gap:5px;padding:8px 0;border-top:1px dashed var(--border)}
+.lcon:first-of-type{border-top:0}
+.lcon1{font-size:.8rem;color:var(--muted);display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.lcon1 b{color:var(--text)}
+.lnota{font-size:.8rem;white-space:pre-wrap;overflow-wrap:anywhere}
+.lresp{font-size:.74rem;color:var(--muted);display:flex;align-items:baseline;gap:6px}
+.lresp.si{color:var(--ok)}
+.lvacio{font-size:.78rem;color:var(--muted)}

@@ -676,3 +676,19 @@ export async function trasBorrarCliente(borrado) {
   if (nuevo === fila.declarado) return;
   await guardarFtd(yo(), p, { base: fila.base || 0, declarado: nuevo });
 }
+
+// Un lead que deposita desde «Seguimiento» es un FTD NUEVO: se registra el día
+// que pasa, así que no estaba en lo declarado. Si el agente declaró sus números
+// del mes, el declarado sube (y `signo = -1` lo deshace). Sin declaración no hay
+// nada que mover: `reales = cargados` y ese ya subió solo.
+export async function ajustarDeclarado(c, signo) {
+  if (!state.ventasOk || c.owner_id !== state.me?.id) return;
+  const p = mesActual();
+  const n = ftdsEnMes(c, p);
+  if (!n) return;
+  const fila = state.ftdBase[`${yo()}|${p}`];
+  if (!fila || fila.declarado == null || fila.cerrado) return;
+  const nuevo = Math.max(0, fila.declarado + signo * n);
+  if (nuevo === fila.declarado) return;
+  await guardarFtd(yo(), p, { base: fila.base || 0, declarado: nuevo });
+}

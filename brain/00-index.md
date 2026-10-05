@@ -34,6 +34,7 @@ Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir 
 
 - `04-features/authentication-approval.md` — registro, aprobación, roles y recuperación de contraseña.
 - `04-features/people-followup.md` — Personas, clientes, filtros y seguimiento.
+- `04-features/leads-followup.md` — leads: embudo hacia la beca, contactos, temperatura y prioridad.
 - `04-features/invitations-attendance.md` — precedencia de invitaciones, asistencia y zooms.
 - `04-features/segments-history.md` — historial reutilizable de invitados entre Seguimiento y Masivo.
 - `04-features/mass-messaging.md` — campañas masivas y sus protecciones.

@@ -18,7 +18,7 @@ const FECHA_CO = new Intl.DateTimeFormat("en-CA", {
 });
 // formatToParts y no format(): así el resultado no depende de con qué
 // separador ni en qué orden decida escribir la fecha la configuración regional.
-function fechaCO(d = new Date()) {
+export function fechaCO(d = new Date()) {
   const p = {};
   for (const { type, value } of FECHA_CO.formatToParts(d)) p[type] = value;
   return `${p.year}-${p.month}-${p.day}`;
@@ -60,6 +60,7 @@ export const state = {
   ftdBase: {},           // { "<owner>|<YYYY-MM>": { base, declarado, cerrado } }
   metasAgente: {},       // { "<owner>|<YYYY-MM>": { meta_ftd, meta_ventas } }
   notas: {},             // { <cliente_id>: [nota, …] } más recientes primero
+  contactos: {},         // { <cliente_id>: [contacto, …] } de leads, más recientes primero
   // false mientras la migración de ventas no esté aplicada; la vista lo avisa
   // en vez de dejar la pantalla en blanco.
   ventasOk: false,

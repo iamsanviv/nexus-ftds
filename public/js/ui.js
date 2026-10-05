@@ -13,6 +13,7 @@ import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenSe
 // contador (función pura sobre `state`) y el modo manual se carga a demanda.
 import { repasoPendientes } from "./repaso.js";
 import { refrescarCanal } from "./canal.js";
+import { chipTemp, razon, seguimientoHTML, wireSeguimiento } from "./leads.js";
 
 const NIVELES = ["Lead", "Beca", "VIP", "Platino", "Oro"];
 
@@ -400,13 +401,13 @@ function cardHTML(c, p, rank, isLead, dir) {
         <div class="cinfo">
           <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span>${brkTags}${paisTag}${inactTag} ${ownerBadge}</div>
           ${isLead || !c.tel ? '' : `<span class="cheadtel" title="${esc(c.tel)}">${esc(c.tel)}</span>`}
-          ${isLead ? '' : `<div class="barra"><i style="width:${p.pct}%"></i></div>`}
+          ${isLead ? `<div class="lhead">${chipTemp(c)}<span class="lwhy">${razon(c)}</span></div>` : `<div class="barra"><i style="width:${p.pct}%"></i></div>`}
           <div class="pct">${metric}</div>
         </div>
         <div class="chev">▸</div>
       </div>
       <div class="cbody">
-        ${nota}${grupos}
+        ${isLead && open ? seguimientoHTML(c) : ""}${nota}${grupos}
         <div class="cfoot">
           ${contacto(c)}
           <button data-acc="perfil">Perfil</button>
@@ -432,6 +433,7 @@ function wireCards() {
     const c = state.clientes.find(x => x.id === card.dataset.id);
     card.querySelector(".chead").onclick = () => { state.abiertos.has(c.id) ? state.abiertos.delete(c.id) : state.abiertos.add(c.id); renderKeepingCard(c.id); };
     const nml = card.querySelector(".nmlink"); if (nml) nml.onclick = e => { e.stopPropagation(); abrirPerfil(c); };
+    wireSeguimiento(card, c, renderKeepingCard);
     card.querySelectorAll(".srv").forEach(row => {
       row.onclick = async () => {
         const s = todos().find(x => x.id === row.dataset.srv);
