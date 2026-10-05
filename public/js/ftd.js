@@ -10,7 +10,7 @@
 //   sin subir → su tarea pendiente
 import {
   state, $, esc, hoyISO, toast, usd, mesLegible, periodoAntes, periodoDe, estaSaldada,
-  comisionFtd, metasDe, progresoMeta, periodoSinCerrar, ftdDelMes, resumenVentas,
+  comisionFtd, metasDe, progresoMeta, ritmoMeta, periodoSinCerrar, ftdDelMes, resumenVentas,
   BROKERS, ftdMixDelMes,
 } from "./state.js";
 import { cargarVentas, guardarFtd, guardarMeta } from "./data.js";
@@ -89,7 +89,7 @@ export function renderBloqueFtd() {
     </div>
     <div class="barra dos ${g.cumplida ? "full" : ""}">
       <u style="width:${g.pctCargados}%"></u><i style="width:${g.pct}%"></i>
-    </div>${desglose}`;
+    </div>${desglose}${ritmoHtml(ritmoMeta(p, yo()))}`;
   const comision = `
     <span class="ftdlbl">Comisión FTD</span>
     <div class="ftdbig md ${f.pago ? "" : "mut"}">${usd(f.pago)}</div>
@@ -132,9 +132,31 @@ export function renderBloqueFtd() {
   // "Ajustar" solo abre los números del mes.
   if ($("ftdMeta")) $("ftdMeta").onclick = () => abrirAsistente("metas");
   if ($("ftdMeses")) $("ftdMeses").onclick = () => abrirResumen();
+  if ($("ftdRitmoInfo")) $("ftdRitmoInfo").onclick = () => toast(
+    "Hoy: lo que falta para el corte, repartido en los días que quedan (el fin de semana pide menos). " +
+    "Corte: lo que deberías llevar al cerrar la semana.");
 
   // Momento natural para el ritual: el agente acaba de llegar a Personas.
   revisarRituales();
+}
+
+// Meta de hoy y corte semanal: solo cifras; la explicación vive en la ⓘ para
+// no cargar la tarjeta de texto.
+function ritmoHtml(r) {
+  if (!r) return "";
+  const pct = (a, b) => b ? Math.min(100, Math.round(a / b * 100)) : 100;
+  const caja = (lbl, a, b, extra = "") => `
+    <div class="ritmocaja ${a >= b ? "ok" : ""}">
+      <span class="ftdlbl oro">${lbl}${extra}</span>
+      <div class="ritmonum"><b>${a}</b> / ${b}${a >= b ? " ✓" : ""}</div>
+      <div class="barra"><i style="width:${pct(a, b)}%"></i></div>
+    </div>`;
+  return `
+    <div class="ftdritmo">
+      ${caja("Hoy", r.hoy.hechos, r.hoy.meta,
+        `<button class="ritmoinfo" id="ftdRitmoInfo" aria-label="Cómo se calcula">i</button>`)}
+      ${caja(`Corte día ${r.corte.dia}`, r.corte.llevas, r.corte.meta)}
+    </div>`;
 }
 
 // Lo que paga una meta cualquiera: la mayor meta REAL que ese número alcanza.

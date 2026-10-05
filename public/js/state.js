@@ -683,6 +683,64 @@ export function progresoMeta(periodo, ownerId) {
   };
 }
 
+// Ritmo de la meta: cuánto toca HOY y cómo va el corte semanal.
+//
+// Cortes fijos de 7 días desde el 1 (1–7, 8–14, 15–21, 22–28, 29–fin). Cada
+// corte pide el ACUMULADO proporcional del mes hasta su último día, así que lo
+// que falte en una semana pasa solo a la siguiente sin guardar nada.
+//
+// La meta de hoy reparte lo que falta para el corte entre los días que le
+// quedan al bloque, en enteros y con peso por día (entre semana 1, sábado 0,6,
+// domingo 0,4): un fin de semana rinde menos y pedirle lo mismo mentiría. Se
+// mide con lo que había HASTA AYER para que no baje mientras se trabaja hoy.
+// `pendHoy` (depósitos prometidos para hoy) sube la meta de hoy si es mayor:
+// son los FTD más probables del día.
+//
+// Solo cuentan los FTD CARGADOS con fecha: un número declarado sin fechas no
+// dice en qué día pasó.
+const PESO_DIA = [0.4, 1, 1, 1, 1, 1, 0.6];   // domingo … sábado
+export function ritmoMeta(periodo, ownerId, pendHoy = 0) {
+  const hoy = hoyISO();
+  if (periodo !== hoy.slice(0, 7)) return null;
+  const { meta } = progresoMeta(periodo, ownerId);
+  if (!meta) return null;
+
+  const [y, m, d] = hoy.split("-").map(Number);
+  const D = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const ini = Math.floor((d - 1) / 7) * 7 + 1;
+  const fin = Math.min(ini + 6, D);   // el último bloque queda corto (29–31)
+  const corteMeta = fin === D ? meta : Math.ceil(meta * fin / D);
+
+  let hastaAyer = 0, hoyHechos = 0;
+  for (const c of state.clientes) {
+    if (c.owner_id !== ownerId) continue;
+    for (const f of Object.values(c.ftds || {})) {
+      if (periodoDe(f) !== periodo) continue;
+      const dia = Number(f.slice(8, 10));
+      if (dia < d) hastaAyer++; else if (dia === d) hoyHechos++;
+    }
+  }
+
+  // Reparto entero por mayor resto: la suma da exacto lo que falta.
+  const falta = Math.max(0, corteMeta - hastaAyer);
+  const pesos = [];
+  for (let k = d; k <= fin; k++) pesos.push(PESO_DIA[new Date(Date.UTC(y, m - 1, k)).getUTCDay()]);
+  const tot = pesos.reduce((a, b) => a + b, 0);
+  const exactos = pesos.map(p => falta * p / tot);
+  const reparto = exactos.map(Math.floor);
+  let sobra = falta - reparto.reduce((a, b) => a + b, 0);
+  exactos.map((x, i) => [x - reparto[i], i]).sort((a, b) => b[0] - a[0])
+    .forEach(([, i]) => { if (sobra > 0) { reparto[i]++; sobra--; } });
+  const metaHoy = Math.max(reparto[0] || 0, Math.min(pendHoy, falta));
+
+  const llevas = hastaAyer + hoyHechos;
+  return {
+    fija: meta / D,
+    hoy: { hechos: hoyHechos, meta: metaHoy },
+    corte: { dia: fin, meta: corteMeta, llevas, faltan: Math.max(0, corteMeta - llevas), dias: fin - d + 1 },
+  };
+}
+
 // Metas que el agente se puso para el mes. El total NO se guarda: es el pago de
 // la meta de FTD más la meta de comisión por ventas, y derivarlo evita que las
 // tres cifras se contradigan.

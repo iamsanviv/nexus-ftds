@@ -54,3 +54,13 @@ No reimplementar el cálculo desde cero sin revisar las funciones vigentes y las
 
 - [[../01-product/current-state]]
 - [[../08-memory/dangerous-patterns]]
+## Meta de hoy y corte semanal (2026-10-05)
+
+`ritmoMeta()` en `state.js`; se pinta en la tarjeta de FTD (`ftd.js`, `ritmoHtml`).
+
+- **Cortes fijos de 7 días desde el 1** (1–7, 8–14, 15–21, 22–28, 29–fin; el último queda corto). Cada corte pide el **acumulado** proporcional: `ceil(meta × díaFinBloque ÷ díasDelMes)`, y el último pide la meta entera. Lo que falte en una semana pasa solo al siguiente corte.
+- **Meta de hoy** = lo que falta para el corte, medido con lo hecho **hasta ayer** (para que no baje mientras se trabaja hoy), repartido en enteros (mayor resto) entre los días que le quedan al bloque con **peso por día**: entre semana 1, sábado 0,6, domingo 0,4.
+- **Pendientes de hoy** (`pendHoy`, depósitos prometidos para hoy) suben la meta de hoy si son más, sin pasar de lo que falta. Hoy se llama con 0: los pendientes llegan con el módulo de Leads.
+- Solo cuentan los FTD **cargados con fecha** (`clientes.ftds`). Un número declarado sin fechas no dice en qué día pasó.
+- La meta base es la de `progresoMeta` (la propia del agente o, si no tiene, la siguiente de comisión).
+- La explicación vive detrás de la ⓘ: el usuario pidió la tarjeta limpia, sin texto.
