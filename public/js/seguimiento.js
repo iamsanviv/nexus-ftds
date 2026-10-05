@@ -144,6 +144,44 @@ function plantillas(nombre, actividad, inicioISO, enlace, yaInvitado, msgInv, tz
   return out;
 }
 
+/* ---------- invitación en serie (mensajes 2..4) ---------- */
+// Texto de una parte de la serie: las mismas etiquetas que la invitación, con
+// `{dia}` medido contra cuándo sale ESA parte (en modo «por mensaje» con
+// minutos de espera puede salir bastante después que la primera).
+function textoParte(tpl, nombre, actividad, inicioISO, enlace, tzOff, saleISO) {
+  return aplicar(tpl || "", {
+    nombre: nombre.trim().split(/\s+/)[0], actividad, enlace: enlace || "",
+    hora: horaDeCliente(inicioISO, tzOff), zona: etiquetaZona(tzOff),
+    dia: etiquetaDia(inicioISO, saleISO, tzOff),
+  });
+}
+
+// Cuánto tarda el worker, en promedio, en mandar un mensaje de un agente: la
+// pausa al azar de 4–8 s más el envío. Solo sirve para ESTIMAR cuándo termina
+// una ola; el orden real lo da `enviar_en`, que el worker respeta.
+const PASO_ENVIO = 7000;
+
+// Cuándo sale la parte k (0 = la invitación) de la persona i de una tanda de n.
+// El worker envía cada agente en orden de `enviar_en`, así que el orden de la
+// serie se decide aquí:
+//   · por usuario, pausa natural: A1 A2 A3 B1 B2 B3… (milisegundos de
+//     diferencia solo para fijar el orden; el ritmo lo pone el worker);
+//   · por mensaje, pausa natural: A1 B1 C1… A2 B2 C2…;
+//   · por usuario con N minutos: cada persona recibe la parte siguiente N
+//     minutos después de SU parte anterior (las personas arrancan escalonadas
+//     al ritmo del worker);
+//   · por mensaje con N minutos: la ola k arranca N minutos después de que se
+//     estima que terminó la ola k-1 entera.
+function cuandoParte(serie, base, i, k, n) {
+  if (!serie) return base;
+  const espera = (serie.espera_min || 0) * 60000;
+  const P = 1 + serie.partes.length;
+  if (serie.modo === "mensaje") return espera ? base + k * (n * PASO_ENVIO + espera) + i : base + k * n + i;
+  return espera ? base + i * PASO_ENVIO + k * espera + k : base + i * P + k;
+}
+const resumenSerie = sr => `${1 + sr.partes.length} mensajes, ${sr.modo === "mensaje" ? "por mensaje" : "por usuario"}, `
+  + (sr.espera_min ? `${sr.espera_min} min entre cada uno` : "con pausa natural");
+
 /* ---------- estado local de la vista ---------- */
 let actividades = [];         // actividades activas cargadas
 let actSel = null;            // actividad elegida para programar
@@ -290,7 +328,10 @@ const pad = n => String(n).padStart(2, "0");
 const esLibre = a => !a || !a.servicio_id;
 
 let segTipoAct = "cat";   // "cat" (del catálogo) | "libre" (puntual)
-let segImg = null;        // URL del adjunto subido para esta actividad (imagen o video)
+let segImg = null;
+// Mensajes 2..4 de la invitación de la actividad en el formulario. `partes` vacío
+// = invitación de un solo mensaje, como siempre.
+let segSerie = { modo: "usuario", espera_min: 0, partes: [] };        // URL del adjunto subido para esta actividad (imagen o video)
 let segImgTipo = null;    // "imagen" | "video" — solo decide qué previsualización se ve
 
 /* ---------- enlace rastreado ("trigger link") ---------- */
@@ -357,6 +398,7 @@ function renderForm() {
   $("segLibre").value = "";
   setImgActividad(null);
   setMsgInvitacion(null);
+  setSerie(null);
   $("segImgEstado").textContent = "";
   // Compartir solo aplica si hay a quién: es cosa de directores.
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
@@ -449,6 +491,98 @@ function setImgActividad(url, tipo) {
   else { del.classList.add("hidden"); }
 }
 
+// --- invitación en serie: editor del formulario ---
+const MAX_PARTES = 3;   // + la invitación = 4 mensajes
+const esVideoUrl = u => /\.(mp4|mov)(\?|$)/i.test(u || "");
+
+function setSerie(sr) {
+  segSerie = sr && Array.isArray(sr.partes)
+    ? { modo: sr.modo === "mensaje" ? "mensaje" : "usuario", espera_min: sr.espera_min || 0,
+        partes: sr.partes.map(x => ({ texto: x.texto || "", media: x.media || null })) }
+    : { modo: "usuario", espera_min: 0, partes: [] };
+  renderSerie();
+}
+
+// Lo que se guarda. null = sin serie. false = hay algo incompleto (ya se avisó).
+// Una parte del todo vacía (ni texto ni adjunto) se descarta en silencio: es la
+// que se agregó y no se llenó, no un mensaje en blanco que enviar.
+function leerSerie() {
+  const partes = segSerie.partes
+    .map(x => ({ texto: (x.texto || "").trim(), media: x.media || null }))
+    .filter(x => x.texto || x.media);
+  if (!partes.length) return null;
+  if (partes.some(x => x.texto.length > 4000)) { toast("Un mensaje de la invitación es demasiado largo"); return false; }
+  const espera = segSerie.espera_min || 0;
+  if (espera && (espera < 1 || espera > 120)) { toast("La espera entre mensajes va de 1 a 120 minutos"); return false; }
+  return { modo: segSerie.modo, espera_min: espera, partes };
+}
+
+function renderSerie() {
+  const cont = $("segSerieLista");
+  if (!cont) return;
+  cont.innerHTML = segSerie.partes.map((x, i) => {
+    const vid = esVideoUrl(x.media);
+    return `<div class="seriep" data-i="${i}">
+      <div class="seriehd"><b>Mensaje ${i + 2}</b>
+        <button type="button" class="tbtn" data-quitar style="color:var(--bad)">Quitar</button></div>
+      <textarea rows="3" data-txt maxlength="4000" placeholder="Texto del mensaje ${i + 2}…">${esc(x.texto)}</textarea>
+      <div class="imgfield">
+        ${x.media ? (vid ? `<video class="imgprev" src="${esc(x.media)}" muted controls></video>`
+                         : `<img class="imgprev" src="${esc(x.media)}" alt="">`) : ""}
+        <div class="imgbtns">
+          <input type="file" data-file accept="${ACCEPT_ADJUNTO}" class="hidden">
+          <button type="button" class="tbtn" data-pick>${x.media ? "Cambiar adjunto" : "Adjuntar imagen o video"}</button>
+          ${x.media ? `<button type="button" class="tbtn" data-delmedia style="color:var(--bad)">Quitar adjunto</button>` : ""}
+          <span class="imgestado" data-est></span>
+        </div>
+      </div>
+      <div class="prevmsg" data-prev></div>
+    </div>`;
+  }).join("");
+
+  const hay = segSerie.partes.length > 0;
+  $("segSerieAdd").classList.toggle("hidden", segSerie.partes.length >= MAX_PARTES);
+  $("segSerieAdd").textContent = hay ? "＋ Agregar otro mensaje" : "＋ Agregar mensajes a la invitación";
+  $("segSerieOpts").classList.toggle("hidden", !hay);
+  $("segSerieModo").querySelectorAll("[data-modo]").forEach(b => b.classList.toggle("on", b.dataset.modo === segSerie.modo));
+  const conMin = (segSerie.espera_min || 0) > 0;
+  $("segSerieEsp").querySelectorAll("[data-esp]").forEach(b => b.classList.toggle("on", (b.dataset.esp === "min") === conMin));
+  $("segSerieMinWrap").classList.toggle("hidden", !conMin);
+  if (conMin) $("segSerieMin").value = segSerie.espera_min;
+
+  cont.querySelectorAll(".seriep").forEach(el => {
+    const i = +el.dataset.i, x = segSerie.partes[i];
+    const txt = el.querySelector("[data-txt]"), prev = el.querySelector("[data-prev]");
+    const pintarPrev = () => { prev.textContent = x.texto.trim() ? previewTexto(x.texto) : ""; };
+    pintarPrev();
+    // Escribir no re-pinta la lista: perdería el foco y el cursor.
+    txt.oninput = () => { x.texto = txt.value; pintarPrev(); };
+    el.querySelector("[data-quitar]").onclick = () => { segSerie.partes.splice(i, 1); renderSerie(); };
+    const file = el.querySelector("[data-file]"), est = el.querySelector("[data-est]");
+    el.querySelector("[data-pick]").onclick = () => file.click();
+    const del = el.querySelector("[data-delmedia]");
+    if (del) del.onclick = () => { x.media = null; renderSerie(); };
+    file.onchange = async () => {
+      const f = file.files[0]; if (!f) return;
+      const v = validarAdjunto(f);
+      if (!v.ok) { est.textContent = "⚠ " + v.error; file.value = ""; return; }
+      est.textContent = v.esVideo ? "Subiendo video…" : "Subiendo…";
+      try { x.media = await subirImagenMensaje(f); renderSerie(); }
+      catch (err) { est.textContent = "⚠ " + mensajeErrorAdjunto(err); file.value = ""; }
+    };
+  });
+}
+
+// Vista previa con datos de ejemplo, igual que la de la invitación.
+function previewTexto(txt) {
+  const nombreAct = (segTipoAct === "libre" ? $("segLibre").value.trim()
+    : (todos().find(x => x.id === $("segSrv").value) || {}).n) || "la actividad";
+  const hora = $("segHora").value
+    ? horaCO(new Date(`2026-01-01T${$("segHora").value}:00`).toISOString()) : "7:00 p. m.";
+  return aplicar(txt, { nombre: "Ana", actividad: nombreAct, hora, dia: diaDelForm(),
+    zona: etiquetaZona(null), enlace: $("segLink").value.trim() });
+}
+
 // El formulario vive plegado: crear una actividad se hace 1–2 veces al día,
 // mientras que la lista y el registro se consultan todo el tiempo.
 const abrirForm = () => $("segFormPanel").classList.remove("hidden");
@@ -468,6 +602,7 @@ function entrarEdicion(a) {
   }
   setImgActividad(a.imagen);
   setMsgInvitacion(a.msg_invitacion);
+  setSerie(a.serie_invitacion);
   $("segImgEstado").textContent = "";
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
   $("segCompartir").checked = !!a.compartida;
@@ -511,6 +646,8 @@ async function guardarActividad() {
   if (libre && !nombreLibre) { toast("Escribe el nombre de la actividad"); return; }
   if (!libre && !srv) { toast("Elige una actividad"); return; }
   if (!fecha || !hora) { toast("Falta la fecha o la hora"); return; }
+  const serie = leerSerie();
+  if (serie === false) return;   // leerSerie ya dijo qué falta
   // El enlace es OPCIONAL: se puede agregar/editar después, antes de que salga
   // el mensaje del enlace.
 
@@ -530,6 +667,9 @@ async function guardarActividad() {
       // Solo las puntuales llevan invitación propia; si se cambia de tipo, se
       // limpia en vez de arrastrar un texto que ya no se ve en pantalla.
       msg_invitacion: libre ? (($("segMsgInv").value || "").trim() || null) : null,
+      // La serie sí vale en las dos: es «qué más se le manda», no un texto que
+      // reemplace la plantilla del agente.
+      serie_invitacion: serie,
       // Igual que la invitación propia: solo en las puntuales, y se limpia al
       // cambiar de tipo para no dejar una del catálogo marcada como zoom.
       zoom_tipo: libre ? ($("segZoom").value || null) : null,
@@ -541,7 +681,7 @@ async function guardarActividad() {
       if (error) throw error;
       let reprog = null;
       if (cambioHora) {
-        reprog = await reprogramarPorHora(actEdit.id, inicio.toISOString(), nombreAct, enlace, datos.msg_invitacion);
+        reprog = await reprogramarPorHora(actEdit.id, inicio.toISOString(), nombreAct, enlace, datos.msg_invitacion, datos.serie_invitacion);
       }
       // Propaga el enlace nuevo a los mensajes de "enlace" aún pendientes de los
       // seguimientos activos de esta actividad (por eso el link no se congela).
@@ -693,7 +833,7 @@ async function renderPasadas() {
 
 async function cargarActividades() {
   const { data, error } = await SB.from("actividades")
-    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen, compartida, msg_invitacion, zoom_tipo, owner_id")
+    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen, compartida, msg_invitacion, serie_invitacion, zoom_tipo, owner_id")
     .eq("estado", "activa")
     .order("inicio", { ascending: true });
   if (error) {
@@ -1163,7 +1303,8 @@ function renderHitos() {
       ${segSinInvitacion
         ? `<div class="hitonota">No se programa: das por hecho que ya los invitaste
              por llamada o por otro mensaje.</div>`
-        : ""}`;
+        : (actSel.serie_invitacion?.partes?.length
+          ? `<div class="hitonota serie">Invitación en serie: ${esc(resumenSerie(actSel.serie_invitacion))}.</div>` : "")}`;
 
   cont.innerHTML = filaInv + HITOS(inicio).map(([tipo, cuando]) => {
     // La regla manda sobre la preferencia: lo que saldría antes que la
@@ -1278,6 +1419,16 @@ async function programar() {
   const cuandoInv = (segInvitarTarde && segInvitarTarde > ahora) ? segInvitarTarde : ahora;
   const primerContacto = segSinInvitacion ? ahora : cuandoInv;
 
+  // Invitación en serie: sin invitación no hay serie que mandar.
+  const serie = (!segSinInvitacion && actSel.serie_invitacion?.partes?.length) ? actSel.serie_invitacion : null;
+  const nPartes = 1 + (serie ? serie.partes.length : 0);
+  const idx = new Map(seleccion.map((c, i) => [c.id, i]));
+  const tParte = (i, k) => cuandoParte(serie, cuandoInv.getTime(), i, k, seleccion.length);
+  // El «nada antes que la invitación» se extiende a la serie entera: el
+  // recordatorio de una persona no puede caer entre sus mensajes 2 y 3. El piso
+  // es por PERSONA, porque en una ola cada una termina a una hora distinta.
+  const pisoDe = i => segSinInvitacion ? ahora.getTime() : tParte(i, nPartes - 1);
+
   // Lo que se omite se DICE. Saltarse un recordatorio en silencio es tan malo
   // como mandarlo fuera de orden, solo que se descubre más tarde.
   // Dos motivos distintos para que algo no salga, y no se pueden mezclar: uno
@@ -1346,10 +1497,29 @@ async function programar() {
     return;
   }
 
+  // Con una serie larga (muchas personas, por mensaje y con minutos) el último
+  // mensaje puede caer después de que empiece la actividad. Lo que quede por
+  // debajo del piso no sale, y si eso es el ENLACE alguien se queda sin poder
+  // entrar: eso no se programa.
+  let avisoSerie = "";
+  if (serie) {
+    const afectados = HITOS(inicio)
+      .filter(([tipo, cuando]) => segHitos[tipo] && cuando > primerContacto)
+      .map(([tipo, cuando]) => [tipo, seleccion.filter((c, i) => pisoDe(i) >= cuando.getTime()).length])
+      .filter(([, k]) => k);
+    const sinEnlace = afectados.find(([tipo]) => tipo === "enlace");
+    if (sinEnlace) {
+      toast(`Con esa serie, ${sinEnlace[1]} persona${sinEnlace[1] === 1 ? "" : "s"} terminaría${sinEnlace[1] === 1 ? "" : "n"} de recibir la invitación después de que empiece la actividad y se quedaría${sinEnlace[1] === 1 ? "" : "n"} sin el enlace. Usa pausa natural, menos minutos o invita más temprano.`);
+      return;
+    }
+    avisoSerie = `\n\nLa invitación son ${resumenSerie(serie)}.`
+      + afectados.map(([tipo, k]) => `\nA ${k} persona${k === 1 ? "" : "s"} no le${k === 1 ? "" : "s"} llega ${NOMBRE_HITO[tipo]}: saldría antes que el último mensaje de su invitación.`).join("");
+  }
+
   const n = seleccion.length;
   const primeros = seleccion.slice(0, 8).map(c => c.nombre.split(" ")[0]).join(", ");
   const mas = n > 8 ? ` y ${n - 8} más` : "";
-  const aviso = `Vas a programar los mensajes de «${actSel.nombre}» para ${n} persona${n === 1 ? "" : "s"}:\n${primeros}${mas}.${omitidos}${avisoInact}${avisoOmitidos}${avisoDia}`;
+  const aviso = `Vas a programar los mensajes de «${actSel.nombre}» para ${n} persona${n === 1 ? "" : "s"}:\n${primeros}${mas}.${omitidos}${avisoInact}${avisoOmitidos}${avisoSerie}${avisoDia}`;
   if (!confirm(aviso + `\n\n¿Programar?`)) return;
 
   const btn = $("segProgramar");
@@ -1407,10 +1577,16 @@ async function programar() {
 
     for (const seg of segs) {
       const c = seleccion.find(x => x.id === seg.cliente_id);
+      const i = idx.get(c.id);
+      const tInv = new Date(tParte(i, 0));
       const tpl = plantillas(c.nombre, actSel.nombre, actSel.inicio, actSel.enlace,
-        yaInvitados.has(c.tel), invEfectiva, c.tzOff, cuandoInv.toISOString());
-      for (const [tipo, cuando] of tiempos()) {
-        if (tipo !== "invitacion" && cuando <= primerContacto) continue;
+        yaInvitados.has(c.tel), invEfectiva, c.tzOff, tInv.toISOString());
+      const piso = pisoDe(i);
+      for (const [tipo, cuandoBase] of tiempos()) {
+        // La invitación de cada persona sale en SU turno de la serie (con una
+        // sola parte, es exactamente `cuandoInv`, como siempre).
+        const cuando = tipo === "invitacion" ? tInv : cuandoBase;
+        if (tipo !== "invitacion" && cuando.getTime() <= piso) continue;
         const fila = {
           seguimiento_id: seg.id, tipo, enviar_en: cuando.toISOString(),
           telefono: c.tel, texto: tpl[tipo],
@@ -1436,6 +1612,21 @@ async function programar() {
             : (actSel.enlace || null);
         }
         msgs.push(fila);
+        // Las partes 2..4 van justo detrás de la invitación. Tipo propio
+        // (`invitacion_parte`): el tope diario decide en el mensaje 1 y, si ese
+        // salió, la serie llega entera; si no sale, la base cancela las demás.
+        if (tipo === "invitacion" && serie) {
+          serie.partes.forEach((pt, j) => {
+            const t = new Date(tParte(i, j + 1));
+            const parte = {
+              seguimiento_id: seg.id, tipo: "invitacion_parte", parte: j + 2,
+              enviar_en: t.toISOString(), telefono: c.tel,
+              texto: textoParte(pt.texto, c.nombre, actSel.nombre, actSel.inicio, actSel.enlace, c.tzOff, t.toISOString()),
+            };
+            if (pt.media) parte.media_url = pt.media;
+            msgs.push(parte);
+          });
+        }
       }
     }
     const { error: e2 } = await SB.from("mensajes_programados").insert(msgs);
@@ -1660,7 +1851,7 @@ async function contarSeguimientosDe(actividadId) {
 // El texto solo se regenera en los seguimientos PROPIOS: los de un agente se
 // escribieron con SUS plantillas, y sobreescribirlos con las del director le
 // cambiaría la redacción a alguien más. A esos solo se les corrige la hora.
-async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace, msgInv) {
+async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace, msgInv, serie) {
   const { data: segs } = await SB.from("seguimientos")
     .select("id, owner_id, clientes(nombre, tz_offset_min)")
     .eq("actividad_id", actividadId).eq("estado", "activo");
@@ -1671,7 +1862,7 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
              tzOff: s.clientes?.tz_offset_min ?? null }]));
 
   const { data: msgs } = await SB.from("mensajes_programados")
-    .select("id, tipo, seguimiento_id, enviar_en")
+    .select("id, tipo, parte, seguimiento_id, enviar_en")
     .in("seguimiento_id", [...info.keys()]).eq("estado", "pendiente");
   if (!msgs || !msgs.length) return { movidos: 0, cancelados: 0 };
 
@@ -1684,8 +1875,14 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
   // —diferida y sin salir— y la hora nueva mete un recordatorio antes, ese
   // recordatorio se cancela en vez de adelantarse a la invitación.
   const invPendiente = new Map();
+  // Con una invitación en serie, el piso es su ÚLTIMA parte pendiente: un
+  // recordatorio tampoco puede caer entre el mensaje 2 y el 3.
+  const invInicio = new Map();
   for (const m of msgs) {
-    if (m.tipo === "invitacion") invPendiente.set(m.seguimiento_id, new Date(m.enviar_en).getTime());
+    if (m.tipo !== "invitacion" && m.tipo !== "invitacion_parte") continue;
+    const t = new Date(m.enviar_en).getTime();
+    invPendiente.set(m.seguimiento_id, Math.max(invPendiente.get(m.seguimiento_id) ?? 0, t));
+    if (m.tipo === "invitacion") invInicio.set(m.seguimiento_id, t);
   }
 
   // Un texto por seguimiento (no por mensaje): así el sorteo de snippets sale
@@ -1696,7 +1893,7 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
     // se usa su `enviar_en` real para que `{dia}` no diga «hoy» de más.
     if (d.mio && d.nombre) textos.set(id, plantillas(d.nombre, nombreAct, nuevoInicioISO,
       enlace, false, msgInv, d.tzOff,
-      invPendiente.has(id) ? new Date(invPendiente.get(id)).toISOString() : nuevoInicioISO));
+      invInicio.has(id) ? new Date(invInicio.get(id)).toISOString() : nuevoInicioISO));
   }
 
   const aCancelar = [];
@@ -1706,6 +1903,11 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
     const cuando = nuevaHora[m.tipo];
     const campos = {};
     if (tpl && tpl[m.tipo]) campos.texto = tpl[m.tipo];
+    // Las partes de la serie no se mueven (cuelgan de la invitación, no del
+    // inicio), pero su `{hora}` sí cambió: se regenera cada una con su texto.
+    const pt = m.tipo === "invitacion_parte" && serie?.partes?.[m.parte - 2];
+    const d = info.get(m.seguimiento_id);
+    if (pt && d?.mio && d.nombre) campos.texto = textoParte(pt.texto, d.nombre, nombreAct, nuevoInicioISO, enlace, d.tzOff, m.enviar_en);
     if (cuando) {
       // Si con la hora nueva ese recordatorio quedó en el pasado —o antes de una
       // invitación que todavía no ha salido— no se programa hacia atrás: se
@@ -2299,7 +2501,7 @@ async function abrirCancelar(s) {
 const LOG_TIPO = {
   // Las etiquetas deben coincidir con los tiempos reales de `tiempos()`:
   // rec_15 sale 15 min ANTES; confirmacion, 10 min DESPUÉS del inicio.
-  invitacion: "Invitación", rec_60: "Recordatorio 1 h", rec_15: "Recordatorio 15 min",
+  invitacion: "Invitación", invitacion_parte: "Invitación (cont.)", rec_60: "Recordatorio 1 h", rec_15: "Recordatorio 15 min",
   enlace: "Enlace", confirmacion: "Confirmación",
 };
 const LOG_BADGE = {
@@ -2525,6 +2727,22 @@ $("segMiInvQuitar").onclick = () => {
 $("segHora").addEventListener("change", renderPrevInvitacion);
 $("segLibre").addEventListener("input", renderPrevInvitacion);
 $("segMsgInvQuitar").onclick = () => setMsgInvitacion(null);
+$("segSerieAdd").onclick = () => {
+  if (segSerie.partes.length >= MAX_PARTES) return;
+  segSerie.partes.push({ texto: "", media: null });
+  renderSerie();
+  $("segSerieLista").querySelector(".seriep:last-child [data-txt]")?.focus();
+};
+$("segSerieModo").querySelectorAll("[data-modo]").forEach(b => b.onclick = () => { segSerie.modo = b.dataset.modo; renderSerie(); });
+$("segSerieEsp").querySelectorAll("[data-esp]").forEach(b => b.onclick = () => {
+  segSerie.espera_min = b.dataset.esp === "min" ? (segSerie.espera_min || 5) : 0;
+  renderSerie();
+});
+$("segSerieMin").onchange = renderSerie;
+$("segSerieMin").oninput = () => {
+  const v = parseInt($("segSerieMin").value, 10);
+  if (v >= 1 && v <= 120) segSerie.espera_min = v;
+};
 // ＋ Nueva actividad: abre el formulario plegado (o lo cierra si ya estaba).
 $("segNuevaAct").onclick = () => {
   if (!$("segFormPanel").classList.contains("hidden")) { salirEdicion(); return; }

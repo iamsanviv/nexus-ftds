@@ -244,6 +244,14 @@ el worker podría enviar a su nombre. El único testigo real de que el dispositi
 dispositivos de su teléfono; el log/`Logout()` es la prueba del lado del servidor. Si hubo un bridge duplicado
 (`.dup-*`), su sesión suele estar muerta, pero puede quedar como otro dispositivo: cerrarlo igual si aparece.
 
+## Tipo `invitacion_parte` (invitación en serie)
+
+Partes 2..4 de una invitación. El worker no tiene rama propia para este tipo: lo envía como texto con
+`media_url` opcional. NO está en `NUEVOS`, así que el tope diario no lo corta (cuenta para el conteo
+del día porque `enviados_hoy` cuenta todo lo enviado). La atomicidad de la serie la sostiene el trigger
+`mensajes_cancela_partes` en la base, apoyado en el `sigue_pendiente()` que el worker hace antes de
+cada envío. Ver `04-features/invitations-attendance.md`.
+
 ## Tope diario y zona horaria
 
 Existe antecedente de un defecto donde el tope diario se calculaba con el día UTC. En Colombia la medianoche UTC ocurre a las 19:00, por lo que consumos nocturnos podían contarse contra el día siguiente y bloquear invitaciones legítimas.

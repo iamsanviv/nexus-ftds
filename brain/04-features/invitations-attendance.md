@@ -39,6 +39,28 @@ No cambiar este orden sin una decisión explícita.
 - Se guarda al programar, porque el valor persistido debe representar el texto con el que realmente salió esa tanda.
 - Vaciar el texto elimina la personalización del agente y vuelve a la capa siguiente de precedencia.
 
+## Invitación en serie (hasta 4 mensajes) — rama `invitacion-serie`, 06/10/2026
+
+`actividades.serie_invitacion` (jsonb, `null` = un solo mensaje) guarda los mensajes 2..4:
+`{modo: "usuario"|"mensaje", espera_min: 0..120, partes: [{texto, media}]}` (1..3 partes; la base
+valida la forma con `serie_invitacion_ok`). Vale en catálogo y en puntual: no reemplaza la plantilla
+ni `msg_invitacion`, la continúa. El mensaje 1 sigue la precedencia de siempre (incluida
+`invitaciones_agente`); las partes son siempre las de la actividad.
+
+- Cada parte se programa como `tipo = 'invitacion_parte'` con `parte` 2..4. Tipo propio porque el
+  tope diario del worker solo frena `invitacion`/`masivo`: el tope decide en el mensaje 1 y, si salió,
+  la serie llega entera. Y porque el cambio de hora regenera textos por tipo.
+- Trigger `mensajes_cancela_partes`: si una parte pasa de `pendiente` a `cancelado`/`error`, se
+  cancelan las siguientes de ese seguimiento. Basta sin tocar el worker porque éste re-verifica
+  `sigue_pendiente()` antes de cada envío.
+- El orden lo fija `enviar_en` (el worker envía cada agente en ese orden): `cuandoParte()` en
+  `seguimiento.js`. Por usuario = A1 A2 A3 B1…; por mensaje = olas. Con minutos, por usuario mide la
+  espera desde el mensaje anterior de ESA persona; por mensaje, desde el final estimado de la ola
+  (`PASO_ENVIO` 7 s por mensaje).
+- «Nada antes que la invitación» se extiende a la serie: el piso de los recordatorios es el ÚLTIMO
+  mensaje de cada persona (al programar y al cambiar la hora). Si la serie terminaría después del
+  inicio y alguien se quedaría sin el enlace, no se programa.
+
 ## La asistencia no retrocede
 
 `acc[servicio]` y `puntuales[actividad].acc` representan un hecho histórico: la persona asistió.

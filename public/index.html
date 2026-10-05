@@ -293,6 +293,33 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
           <!-- Estado inicial: seguimiento.js lo reescribe según el tipo de actividad. -->
           <div class="msgshelp" id="segImgAyuda">Si no subes nada, se usa la imagen del servicio del catálogo. Video en MP4 o MOV, hasta 16 MB.</div>
         </div>
+        <!-- Invitación en serie: hasta 3 mensajes más después de la invitación,
+             cada uno con su texto y su adjunto. Vale en catálogo y en puntual:
+             no reemplaza la plantilla, la continúa. -->
+        <div class="frow wide" id="segSerieRow">
+          <label>Más mensajes de la invitación <span class="opt">(opcional, hasta 3)</span></label>
+          <div id="segSerieLista" class="serielista"></div>
+          <button type="button" class="tbtn" id="segSerieAdd">＋ Agregar mensajes a la invitación</button>
+          <div id="segSerieOpts" class="serieopts hidden">
+            <div class="serieopt">
+              <span class="serielbl">Enviar</span>
+              <div class="tipoact" id="segSerieModo" role="group" aria-label="Orden de envío">
+                <button type="button" class="on" data-modo="usuario">Por usuario</button>
+                <button type="button" data-modo="mensaje">Por mensaje</button>
+              </div>
+              <button type="button" class="infoi" aria-label="Qué significa cada orden"
+                data-info="Por usuario: cada persona recibe todos sus mensajes y luego sigue la siguiente. Por mensaje: primero sale el mensaje 1 a todos, después el 2 a todos, y así."></button>
+            </div>
+            <div class="serieopt">
+              <span class="serielbl">Entre mensajes</span>
+              <div class="tipoact" id="segSerieEsp" role="group" aria-label="Espera entre mensajes">
+                <button type="button" class="on" data-esp="0">Pausa natural</button>
+                <button type="button" data-esp="min">Minutos</button>
+              </div>
+              <label class="seriemin hidden" id="segSerieMinWrap"><input type="number" id="segSerieMin" min="1" max="120" step="1" value="5" inputmode="numeric"> min</label>
+            </div>
+          </div>
+        </div>
         <!-- solo para directores: la actividad aparece también a sus agentes -->
         <div class="frow wide hidden" id="segCompartirRow">
           <label class="segtoggle"><input type="checkbox" id="segCompartir" checked> Compartir con mi equipo</label>

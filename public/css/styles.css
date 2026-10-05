@@ -1892,3 +1892,26 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
   .hetapa{min-width:0;padding:11px}
   .hetapa.on{padding:10.5px}
 }
+
+/* ---------------- Invitación en serie (formulario de actividad) ---------------- */
+.serielista{display:flex;flex-direction:column;gap:10px}
+.serielista:not(:empty){margin-bottom:10px}
+.seriep{border:1px solid var(--border);background:var(--surface2);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.seriehd{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.seriehd b{font-family:'Archivo';font-size:.85rem}
+.seriep textarea{resize:vertical;font-size:.88rem}
+.seriep .imgfield{margin:0}
+.seriep .prevmsg:empty{display:none}
+.serieopts{margin-top:10px;display:flex;flex-direction:column;gap:10px;padding:10px 12px;border:1px dashed var(--border);border-radius:12px}
+.serieopt{position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.serielbl{flex:0 0 112px;font-size:.78rem;font-weight:700;color:var(--muted)}
+.serieopt .tipoact{flex:0 1 auto}
+/* El globo de la ⓘ se ancla a toda la fila: pegado al icono se salía a 320 px. */
+.serieopt .infoi{position:static}
+.serieopt .infoi::after{left:0;right:0;transform:none;width:auto;max-width:none}
+.seriemin{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;color:var(--muted)}
+.seriemin input{width:72px;padding:7px 9px}
+.hitonota.serie{color:var(--gold)}
+@media (max-width:420px){ .serielbl{flex-basis:100%} }
+.seriehd .tbtn{flex:0 0 auto;width:auto;margin:0}
+.serieopt .tipoact button{white-space:nowrap;padding:9px 12px}
