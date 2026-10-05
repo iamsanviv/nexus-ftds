@@ -132,18 +132,11 @@ export function renderBloqueFtd() {
   // "Ajustar" solo abre los números del mes.
   if ($("ftdMeta")) $("ftdMeta").onclick = () => abrirAsistente("metas");
   if ($("ftdMeses")) $("ftdMeses").onclick = () => abrirResumen();
-  wireRitmo();
 
   // Momento natural para el ritual: el agente acaba de llegar a Personas.
   revisarRituales();
 }
 
-function wireRitmo() {
-  if ($("ftdInfoHoy")) $("ftdInfoHoy").onclick = () =>
-    toast("Lo que te falta para el corte, repartido en los días que quedan. El fin de semana pide menos. Si te prometieron depositar hoy, cuenta esas promesas.");
-  if ($("ftdInfoCorte")) $("ftdInfoCorte").onclick = () =>
-    toast("Lo que deberías llevar al cerrar esta semana. Lo que falte pasa a la siguiente.");
-}
 
 // La misma meta de hoy arriba del panel «Hoy» de Leads. Pinta en `cont` y
 // pide los datos de ventas si todavía no están (sin ellos no hay meta).
@@ -151,14 +144,15 @@ export function renderRitmoEn(cont, alCargar) {
   if (!cont) return;
   if (!state.ventasOk) { cont.innerHTML = ""; asegurarDatos(alCargar); return; }
   cont.innerHTML = ritmoHtml(ritmoMeta(mesActual(), yo()));
-  wireRitmo();
 }
 
 // Meta de hoy y corte semanal: solo cifras; la explicación vive en la ⓘ para
 // no cargar la tarjeta de texto.
 function ritmoHtml(r) {
   if (!r) return "";
-  const info = (id, lbl) => `<button class="ritmoinfo" id="${id}" aria-label="${lbl}">i</button>`;
+  // Mismo icono que el resto de la app (`.infoi`): el globo se abre al pasar el
+  // puntero, o con un toque en el teléfono (lo maneja ui.js, delegado).
+  const info = (lbl, txt) => `<button type="button" class="infoi" aria-label="${lbl}" data-info="${txt}"></button>`;
   const pct = (a, b) => b ? Math.min(100, Math.round(a / b * 100)) : 100;
   const caja = (lbl, a, b, extra = "", estilo = "") => `
     <div class="ritmocaja ${estilo} ${a >= b ? "ok" : ""}">
@@ -168,8 +162,8 @@ function ritmoHtml(r) {
     </div>`;
   return `
     <div class="ftdritmo">
-      ${caja("Hoy", r.hoy.hechos, r.hoy.meta, info("ftdInfoHoy", "Cómo se calcula la meta de hoy"), "dorado")}
-      ${caja(`Corte día ${r.corte.dia}`, r.corte.llevas, r.corte.meta, info("ftdInfoCorte", "Qué es el corte"), "borde")}
+      ${caja("Hoy", r.hoy.hechos, r.hoy.meta, info("Cómo se calcula la meta de hoy", "Lo que te falta para el corte, repartido en los días que quedan. El fin de semana pide menos. Si te prometieron depositar hoy, cuenta esas promesas."), "dorado")}
+      ${caja(`Corte día ${r.corte.dia}`, r.corte.llevas, r.corte.meta, info("Qué es el corte", "Lo que deberías llevar al cerrar esta semana. Lo que falte pasa a la siguiente."), "borde")}
     </div>`;
 }
 

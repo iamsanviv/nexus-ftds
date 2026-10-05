@@ -1730,9 +1730,14 @@ body:has(.overlay.open){overflow:hidden}
 .ritmocaja .barra{height:4px;margin-top:6px}
 .ritmocaja.ok .ritmonum{color:var(--gold)}
 .ritmocaja .ftdlbl{display:flex;align-items:center;gap:6px}
-.ritmoinfo{width:16px;height:16px;flex-shrink:0;letter-spacing:0;border-radius:50%;
-  border:1px solid var(--muted);background:none;color:var(--muted);font:700 11px/1 'Inter',sans-serif;
-  font-style:italic;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
+/* La «i» de cada caja abre su globo a lo ancho de LAS DOS cajas: anclado al
+   icono, el de «Corte» se salía por la derecha a 320 px. */
+.ftdritmo .infoi{position:static;margin-left:0}
+.ftdritmo .infoi::after{left:0;right:0;top:calc(100% + 7px);transform:none;width:auto;max-width:none}
+/* Dentro de la tarjeta de FTD se abre HACIA ARRIBA: la tarjeta recorta lo que
+   sobresale (`overflow:hidden`, por su brillo de fondo) y las cajas están al
+   fondo de la columna; arriba queda la cifra del mes, que sí tiene espacio. */
+.metacard .ftdritmo .infoi::after{top:auto;bottom:calc(100% + 7px)}
 /* Meta del mes al mismo tamaño que los FTD del mes. */
 .ftdmeta b.metabig{font-family:'Archivo';font-weight:800;font-size:30px;line-height:1;color:var(--gold)}
 .ftddesk .ftdmeta b.metabig{font-size:34px}
@@ -1741,7 +1746,9 @@ body:has(.overlay.open){overflow:hidden}
 .ritmocaja.borde{border:1px solid color-mix(in srgb,var(--gold) 50%,transparent)}
 .ritmocaja.dorado{background:linear-gradient(135deg,#f2cd78,var(--gold-fill) 55%,var(--gold-dim));color:var(--on-gold)}
 .ritmocaja.dorado .ftdlbl,.ritmocaja.dorado .ritmonum,.ritmocaja.dorado .ritmonum b,
-.ritmocaja.dorado .ritmonum b.m,.ritmocaja.dorado .ritmoinfo{color:var(--on-gold);border-color:var(--on-gold)}
+.ritmocaja.dorado .ritmonum b.m{color:var(--on-gold)}
+.ritmocaja.dorado .infoi,.ritmocaja.dorado .infoi:hover,.ritmocaja.dorado .infoi.abierto{color:var(--on-gold);opacity:.8}
+.ritmocaja.dorado .infoi:hover,.ritmocaja.dorado .infoi.abierto{opacity:1}
 .ritmocaja.dorado .barra{background:color-mix(in srgb,var(--on-gold) 18%,transparent)}
 .ritmocaja.dorado .barra i{background:var(--on-gold)}
 
