@@ -790,6 +790,95 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
 </div>
 
 <!-- modal compositor de mensaje masivo -->
+<!-- Seguimiento de leads: un masivo a leads, en serie (hasta 4 mensajes), con
+     tipo de seguimiento y plantillas reutilizables. Sale por el mismo cuello
+     que el masivo (`destinatariosMasivo`), no por una vía nueva. Lo maneja
+     envioleads.js. -->
+<div class="overlay" id="ldOverlay">
+  <div class="modal masmodal">
+    <div class="mhead">
+      <h2>Seguimiento a leads</h2>
+      <button class="mx" id="ldCerrar" title="Cerrar" aria-label="Cerrar">✕</button>
+    </div>
+
+    <div class="mbody">
+    <div class="pane">
+    <h3 class="paneh">Mensajes<span class="rule"></span></h3>
+
+    <div class="frow">
+      <label for="ldPlant">Plantilla</label>
+      <div class="ldplantrow">
+        <select id="ldPlant" aria-label="Plantilla de seguimiento"></select>
+        <button type="button" class="tbtn" id="ldPlantBorrar" style="color:var(--bad)">Borrar</button>
+      </div>
+    </div>
+    <div class="frow">
+      <label for="ldNombre">Nombre del seguimiento</label>
+      <input id="ldNombre" maxlength="80" placeholder="Ej: Video de testimonios" autocomplete="off">
+    </div>
+    <div class="frow">
+      <label>Tipo de seguimiento</label>
+      <div class="lchips" id="ldTipos"></div>
+    </div>
+
+    <div class="frow">
+      <div id="ldMsgs" class="serielista"></div>
+      <button type="button" class="tbtn" id="ldMsgAdd">＋ Agregar mensaje</button>
+      <div class="msgshelp">Etiquetas: <code>{nombre}</code>. Variantes al azar: <code>{Hola|Buenas|Qué tal}</code>. Cada mensaje puede llevar su imagen o video (MP4 o MOV, hasta 16 MB).</div>
+    </div>
+
+    <div id="ldOpts" class="serieopts hidden">
+      <div class="serieopt">
+        <span class="serielbl">Enviar</span>
+        <div class="tipoact" id="ldModo" role="group" aria-label="Orden de envío">
+          <button type="button" class="on" data-modo="usuario">Por usuario</button>
+          <button type="button" data-modo="mensaje">Por mensaje</button>
+        </div>
+        <button type="button" class="infoi" aria-label="Qué significa cada orden"
+          data-info="Por usuario: cada lead recibe todos sus mensajes y luego sigue el siguiente. Por mensaje: primero sale el mensaje 1 a todos, después el 2 a todos, y así."></button>
+      </div>
+      <div class="serieopt">
+        <span class="serielbl">Entre mensajes</span>
+        <div class="tipoact" id="ldEsp" role="group" aria-label="Espera entre mensajes">
+          <button type="button" class="on" data-esp="0">Pausa natural</button>
+          <button type="button" data-esp="min">Minutos</button>
+        </div>
+        <label class="seriemin hidden" id="ldMinWrap"><input type="number" id="ldMin" min="1" max="120" step="1" value="5" inputmode="numeric"> min</label>
+      </div>
+    </div>
+    <div class="frow"><button type="button" class="tbtn" id="ldPlantGuardar">Guardar como plantilla</button></div>
+    </div><!-- /pane mensajes -->
+
+    <div class="pane aud">
+    <h3 class="paneh">Leads<span class="cnt" id="ldCount"></span><span class="rule"></span></h3>
+    <div id="ldEtapas" class="chips"></div>
+    <div id="ldTemps" class="chips"></div>
+    <div class="masbuscarwrap"><input id="ldBuscar" placeholder="Buscar lead…" autocomplete="off"></div>
+    <div class="segselbar">
+      <button class="pill" id="ldMarcar">✓ Marcar visibles</button>
+      <button class="pill" id="ldDesmarcar">✗ Desmarcar</button>
+    </div>
+    <div id="ldLista" class="maslista"></div>
+    </div><!-- /pane leads -->
+    </div><!-- /mbody -->
+
+    <div class="mfoot">
+      <div class="progrow hidden" id="ldProgRow">
+        <div class="pf"><label for="ldFecha">Fecha</label><input type="date" id="ldFecha"></div>
+        <div class="pf"><label for="ldHora">Hora (Colombia)</label><input type="time" id="ldHora"></div>
+      </div>
+      <div class="mfootmain">
+        <div class="fsum"><b id="ldFootN">0</b> leads<span class="fs2" id="ldFootCuando">Se envía ahora mismo</span></div>
+        <div class="cuando" id="ldCuando" role="group" aria-label="Cuándo enviar">
+          <button class="on" data-cuando="ahora">Ahora</button>
+          <button data-cuando="prog">Programar</button>
+        </div>
+        <button class="masenviar" id="ldEnviar" disabled>Enviar seguimiento</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="masOverlay">
   <div class="modal masmodal">
     <div class="mhead">

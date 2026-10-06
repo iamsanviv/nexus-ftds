@@ -8,7 +8,7 @@ import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
   horaDeCliente, etiquetaZona, etiquetaDia, componerMensaje,
   esInactivo, nombreMotivo, motivoCorto,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas,
-  normBusqueda, BROKERS, insigniasBroker, mesCorto } from "./state.js";
+  normBusqueda, BROKERS, insigniasBroker, mesCorto, cuandoParte } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { avisarSiCanalCaido } from "./salud.js";
@@ -156,29 +156,6 @@ function textoParte(tpl, nombre, actividad, inicioISO, enlace, tzOff, saleISO) {
   });
 }
 
-// Cuánto tarda el worker, en promedio, en mandar un mensaje de un agente: la
-// pausa al azar de 4–8 s más el envío. Solo sirve para ESTIMAR cuándo termina
-// una ola; el orden real lo da `enviar_en`, que el worker respeta.
-const PASO_ENVIO = 7000;
-
-// Cuándo sale la parte k (0 = la invitación) de la persona i de una tanda de n.
-// El worker envía cada agente en orden de `enviar_en`, así que el orden de la
-// serie se decide aquí:
-//   · por usuario, pausa natural: A1 A2 A3 B1 B2 B3… (milisegundos de
-//     diferencia solo para fijar el orden; el ritmo lo pone el worker);
-//   · por mensaje, pausa natural: A1 B1 C1… A2 B2 C2…;
-//   · por usuario con N minutos: cada persona recibe la parte siguiente N
-//     minutos después de SU parte anterior (las personas arrancan escalonadas
-//     al ritmo del worker);
-//   · por mensaje con N minutos: la ola k arranca N minutos después de que se
-//     estima que terminó la ola k-1 entera.
-function cuandoParte(serie, base, i, k, n) {
-  if (!serie) return base;
-  const espera = (serie.espera_min || 0) * 60000;
-  const P = 1 + serie.partes.length;
-  if (serie.modo === "mensaje") return espera ? base + k * (n * PASO_ENVIO + espera) + i : base + k * n + i;
-  return espera ? base + i * PASO_ENVIO + k * espera + k : base + i * P + k;
-}
 const resumenSerie = sr => `${1 + sr.partes.length} mensajes, ${sr.modo === "mensaje" ? "por mensaje" : "por usuario"}, `
   + (sr.espera_min ? `${sr.espera_min} min entre cada uno` : "con pausa natural");
 
@@ -2501,7 +2478,7 @@ async function abrirCancelar(s) {
 const LOG_TIPO = {
   // Las etiquetas deben coincidir con los tiempos reales de `tiempos()`:
   // rec_15 sale 15 min ANTES; confirmacion, 10 min DESPUÉS del inicio.
-  invitacion: "Invitación", invitacion_parte: "Invitación (cont.)", rec_60: "Recordatorio 1 h", rec_15: "Recordatorio 15 min",
+  invitacion: "Invitación", invitacion_parte: "Invitación (cont.)", masivo: "Masivo", masivo_parte: "Seguimiento (cont.)", rec_60: "Recordatorio 1 h", rec_15: "Recordatorio 15 min",
   enlace: "Enlace", confirmacion: "Confirmación",
 };
 const LOG_BADGE = {

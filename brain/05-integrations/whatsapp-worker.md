@@ -252,6 +252,12 @@ del día porque `enviados_hoy` cuenta todo lo enviado). La atomicidad de la seri
 `mensajes_cancela_partes` en la base, apoyado en el `sigue_pendiente()` que el worker hace antes de
 cada envío. Ver `04-features/invitations-attendance.md`.
 
+## Tipo `masivo_parte` (seguimiento de leads en serie)
+
+Mensajes 2..4 de un seguimiento a leads. Igual que `invitacion_parte`: el worker lo envía como texto
+con `media_url` opcional y el tope no lo corta (no está en `NUEVOS`). La atomicidad por lead la
+sostiene el trigger `mensajes_cancela_serie_lead` (por `campana_id` + `cliente_id` + `enviar_en`).
+
 ## Tope diario y zona horaria
 
 Existe antecedente de un defecto donde el tope diario se calculaba con el día UTC. En Colombia la medianoche UTC ocurre a las 19:00, por lo que consumos nocturnos podían contarse contra el día siguiente y bloquear invitaciones legítimas.

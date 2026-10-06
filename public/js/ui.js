@@ -136,9 +136,14 @@ export function render() {
   const enHoy = isLead && state.leadsVista === "hoy";
   $("hoySeg").classList.toggle("hidden", !isLead);
   if (isLead) {
-    $("hoySeg").innerHTML = [["hoy", "Hoy"], ["lista", "Todos los leads"]].map(([v, l]) =>
-      `<button class="vbtn ${state.leadsVista === v ? "on" : ""}" data-lv="${v}">${l}</button>`).join("");
+    $("hoySeg").innerHTML = `<div class="hoysegsel">${[["hoy", "Hoy"], ["lista", "Todos los leads"]].map(([v, l]) =>
+      `<button class="vbtn ${state.leadsVista === v ? "on" : ""}" data-lv="${v}">${l}</button>`).join("")}</div>
+      <button type="button" class="hsegenv" id="btnLeadSeg" aria-label="Enviar seguimiento a leads">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        <span>Enviar</span><span class="lg">seguimiento</span></button>`;
     $("hoySeg").querySelectorAll("[data-lv]").forEach(b => b.onclick = () => { state.leadsVista = b.dataset.lv; render(); });
+    // Import a demanda: el compositor solo se carga si alguien lo abre.
+    $("btnLeadSeg").onclick = () => import("./envioleads.js").then(m => m.abrirEnvioLeads(render));
   }
   $("vistaCliente").classList.toggle("modohoy", enHoy);
   $("vistaHoy").classList.toggle("hidden", !enHoy);

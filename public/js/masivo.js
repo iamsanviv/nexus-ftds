@@ -68,8 +68,11 @@ const resolverMensaje = (tpl, nombre, iso, tzOff, crudo = false) =>
 // Acá, y a diferencia de las actividades, las inactivas SE PUEDEN incluir a
 // propósito: un masivo de reactivación es justo el mensaje que tiene sentido
 // mandarle a quien se enfrió. Pero solo si se pide en esta tanda.
-const pool = () => state.clientes.filter(c =>
-  c.tel && c.owner_id === state.me.id && (masIncInact || !esInactivo(c)));
+export const destinatariosMasivo = (incInact = false) => state.clientes.filter(c =>
+  c.tel && c.owner_id === state.me.id && (incInact || !esInactivo(c)));
+// El seguimiento de leads (envioleads.js) usa este MISMO filtro: es un masivo a
+// leads, no una tercera vía de envío.
+const pool = () => destinatariosMasivo(masIncInact);
 
 /* ---------- render ---------- */
 // Vista previa del mensaje ya resuelto: con etiquetas y variantes {a|b|c}, lo

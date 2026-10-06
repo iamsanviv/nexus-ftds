@@ -773,3 +773,30 @@ export function periodoSinCerrar(ownerId) {
   const hubo = ftdDelMes(ant, ownerId) > 0 || (fila && fila.declarado != null);
   return hubo && !(fila && fila.cerrado) ? ant : null;
 }
+
+/* ---------- series de mensajes (invitación en serie y seguimiento de leads) ---------- */
+// Cuánto tarda el worker, en promedio, en mandar un mensaje de un agente: la
+// pausa al azar de 4–8 s más el envío. Solo sirve para ESTIMAR cuándo termina
+// una ola; el orden real lo da `enviar_en`, que el worker respeta.
+export const PASO_ENVIO = 7000;
+
+// Cuándo sale la parte k (0 = el primer mensaje) de la persona i de una tanda
+// de n. La usan la invitación en serie (seguimiento.js) y el seguimiento de
+// leads (envioleads.js): `serie` = { modo, espera_min, partes: [...] }.
+// El worker envía cada agente en orden de `enviar_en`, así que el orden de la
+// serie se decide aquí:
+//   · por usuario, pausa natural: A1 A2 A3 B1 B2 B3… (milisegundos de
+//     diferencia solo para fijar el orden; el ritmo lo pone el worker);
+//   · por mensaje, pausa natural: A1 B1 C1… A2 B2 C2…;
+//   · por usuario con N minutos: cada persona recibe la parte siguiente N
+//     minutos después de SU parte anterior (las personas arrancan escalonadas
+//     al ritmo del worker);
+//   · por mensaje con N minutos: la ola k arranca N minutos después de que se
+//     estima que terminó la ola k-1 entera.
+export function cuandoParte(serie, base, i, k, n) {
+  if (!serie) return base;
+  const espera = (serie.espera_min || 0) * 60000;
+  const P = 1 + serie.partes.length;
+  if (serie.modo === "mensaje") return espera ? base + k * (n * PASO_ENVIO + espera) + i : base + k * n + i;
+  return espera ? base + i * PASO_ENVIO + k * espera + k : base + i * P + k;
+}

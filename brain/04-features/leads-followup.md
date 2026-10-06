@@ -72,6 +72,21 @@ temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`),
 «cerca» de leads ordena por temperatura (`TEMP_ORD`). `cardHTML` omite `grupos` y la línea
 `.pct` cuando es lead.
 
+## Envío de seguimiento a leads (`public/js/envioleads.js`, 06/10/2026)
+- Botón «Enviar seguimiento» en Leads (Hoy y Todos los leads). Es un MASIVO a leads: los
+  destinatarios salen de `destinatariosMasivo()` (el cuello del masivo, exportado de masivo.js)
+  filtrado a `esLead`. No es una tercera vía de envío.
+- Serie de 1 a 4 mensajes (texto y/o adjunto), por usuario / por mensaje, pausa natural / minutos:
+  mismo `cuandoParte()` (state.js) que la invitación en serie. Sin `{hora}/{zona}/{dia}`: no hay evento.
+- `plantillas_lead` guarda flujos reutilizables (nombre, tipo, mensajes, modo, espera), privadas.
+- Campaña con `campanas.lead_tipo` (los 6 tipos de `lead_contactos`); cada fila con `cliente_id`.
+  Mensaje 1 = `masivo` (lo frena el tope), 2..4 = `masivo_parte` (no). Orden por `enviar_en`, sin
+  `parte` (un seguimiento no se re-genera por cambio de hora).
+- Triggers: `mensajes_cancela_serie_lead` cancela lo que sigue de ese lead si uno no sale;
+  `mensajes_registra_contacto_lead` anota el contacto (tipo = lead_tipo, nota = nombre de la campaña,
+  `en` = hora real de envío) cuando el mensaje 1 pasa a `enviado`. Al programar no se anota nada.
+- La selección arranca vacía; «Marcar visibles» solo toca lo filtrado; se confirma con nombres.
+
 ## Autorización
 Solo el dueño (`owner_id === me`) ve acciones; la base lo sostiene: el trigger fija el dueño del
 contacto y la política exige `owner_id = auth.uid()`. El director ve, no registra.
