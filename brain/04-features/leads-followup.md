@@ -35,6 +35,8 @@ pend (promesa) > reg (registro) > hoy (llegó hoy) > bajo (respondió hoy; F4 lo
 - Debajo, un RIEL con las 6 etapas en orden de prioridad (icono y color propios, conteo y un
   dato corto). Se elige una y se listan sus leads; abre en la primera con leads. En escritorio
   el riel es una fila fija de 6. «Siguiente etapa» salta a la próxima con leads.
+- Escritorio (≥1040 px): el panel llega a 1120 px; la meta va en una fila (día | corte, con
+  «faltan N en D días» solo aquí) y los leads de la etapa en columnas de ≥380 px.
 - Ya NO hay filtro por temperatura en «Hoy»: el diseño aprobado lo quitó; la temperatura se
   ve en cada lead y se filtra en «Todos los leads».
 - Pendientes: hoy y próximos por hora ascendente, luego vencidos (más reciente arriba).

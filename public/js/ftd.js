@@ -170,6 +170,7 @@ export function renderMetaHoy(cont, alCargar, prometieron = 0) {
         <span>Corte día ${r.corte.dia}</span>
         <div class="hbarra"><i style="width:${pc}%"></i></div>
         <b>${r.corte.llevas} <em>/</em> <u>${r.corte.meta}</u></b>
+        <small>${r.corte.faltan ? `Faltan ${r.corte.faltan} en ${r.corte.dias} día${r.corte.dias === 1 ? "" : "s"}` : "Corte cumplido ✓"}</small>
       </div>
     </div>`;
 }

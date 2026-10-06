@@ -39,7 +39,7 @@ No cambiar este orden sin una decisión explícita.
 - Se guarda al programar, porque el valor persistido debe representar el texto con el que realmente salió esa tanda.
 - Vaciar el texto elimina la personalización del agente y vuelve a la capa siguiente de precedencia.
 
-## Invitación en serie (hasta 4 mensajes) — rama `invitacion-serie`, 06/10/2026
+## Invitación en serie (hasta 4 mensajes) — en producción desde 06/10/2026
 
 `actividades.serie_invitacion` (jsonb, `null` = un solo mensaje) guarda los mensajes 2..4:
 `{modo: "usuario"|"mensaje", espera_min: 0..120, partes: [{texto, media}]}` (1..3 partes; la base
