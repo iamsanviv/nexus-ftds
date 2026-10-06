@@ -125,6 +125,30 @@ Tratar cualquier cambio que aumente volumen, simultaneidad o destinatarios desco
 
 ---
 
+## KI-013 — Video `.mov` no llega aunque el worker diga «enviado» (06/10/2026)
+
+Un video subido como `.mov` (contenedor QuickTime, aunque adentro sea H.264/AAC) se sube al CDN de
+WhatsApp y el bridge reporta `Media uploaded OK` + `Message sent true`, pero **el destinatario no
+recibe nada** — ni un recuadro de error. El cliente de WhatsApp descarta en silencio el video que no
+viene en contenedor MP4 válido. La fila queda `enviado`: no es un bug de estado. Los mensajes de
+texto del mismo flujo (serie de seguimiento) sí llegan, por eso se nota como «el mensaje del video
+desapareció».
+
+Apareció con el módulo de seguimiento a leads, pero NO es del módulo: el adjunto viaja idéntico al
+masivo (misma `subirImagenMensaje`, misma URL `.mov`, mismo `media_url`). Fue la primera vez que se
+mandó un `.mov` real a un teléfono y se verificó la recepción. La nota «solo MP4 y MOV» de
+`media-attachments.md` solo decía que el filtro los admite, no que ambos lleguen.
+
+**Workaround vigente (confirmado por el usuario):** subir el video como `.mp4`; así llega.
+
+**Arreglo pendiente (no aplicado):** `worker.py` debería remuxear todo video a MP4 limpio antes de
+entregarlo al bridge — `ffmpeg -c copy -movflags +faststart` cuando ya es H.264/AAC (sin recomprimir,
+instantáneo), con reencode como respaldo. Opcional: fijar `Width/Height/Seconds` y miniatura en el
+`VideoMessage` para la vista previa. Se cierra cuando el `.mov` llegue de punta a punta sin convertir
+a mano.
+
+---
+
 ## Cómo cerrar un issue
 
 Cuando se confirme que un asunto fue corregido:

@@ -78,7 +78,14 @@ temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`),
   filtrado a `esLead`. No es una tercera vía de envío.
 - Serie de 1 a 4 mensajes (texto y/o adjunto), por usuario / por mensaje, pausa natural / minutos:
   mismo `cuandoParte()` (state.js) que la invitación en serie. Sin `{hora}/{zona}/{dia}`: no hay evento.
-- `plantillas_lead` guarda flujos reutilizables (nombre, tipo, mensajes, modo, espera), privadas.
+- Escalonar entre leads (`plantillas_lead.escalona`, 06/10/2026): «por usuario + minutos» separa por
+  N min los mensajes DENTRO de la serie de cada lead, pero entre leads el arranque va al ritmo del
+  worker (~7 s), así que los saludos salen casi juntos en la vista de salida del agente. Con
+  `escalona=true`, cada lead ARRANCA N min después del anterior (saludos a 0, N, 2N…), a costa de que
+  la tanda entera tarde más. Solo aplica en por usuario con minutos; se ignora en el resto. En
+  `cuandoParte`: `base + (i+k)*espera + i` (el `+i` solo desempata el instante). Cada lead sigue
+  recibiendo SU serie separada por N min; el amontonamiento que el agente veía era solo en su salida.
+- `plantillas_lead` guarda flujos reutilizables (nombre, tipo, mensajes, modo, espera, escalona), privadas.
 - Campaña con `campanas.lead_tipo` (los 6 tipos de `lead_contactos`); cada fila con `cliente_id`.
   Mensaje 1 = `masivo` (lo frena el tope), 2..4 = `masivo_parte` (no). Orden por `enviar_en`, sin
   `parte` (un seguimiento no se re-genera por cambio de hora).
