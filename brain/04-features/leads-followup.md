@@ -5,9 +5,10 @@ integrado en `ui.js` (`cardHTML`/`wireCards`). Datos: `sql/2026-10-05_27_leads_s
 
 ## Fases
 - F1 (DB) aplicada · F2 (tarjeta) · F3 panel «Hoy» · F4 «bajaron hoy».
-- Estado: toda la lógica vive en la rama `main-jvpvtk` (vista previa), aún NO en `main`.
-  La columna `entrante_en` y el parche de `chats_sync` en VM1 YA están en producción
-  (inofensivos para `main` actual, que no lee la columna). VM2 aún sin `chats_recientes`.
+- Estado: EN PRODUCCIÓN (`main`) desde 06/10/2026, incluido el envío de seguimiento en serie
+  y la opción «escalonar entre leads». La columna `entrante_en` y el parche de `chats_sync`
+  están en VM1; VM2 aún sin publicar `chats_recientes` (los leads que escriben por un canal de
+  VM2 no mueven temperatura hasta que se instale allí).
 
 ## Embudo
 `registro_broker + registro_en` (abrió cuenta) → `promesa_en` (prometió depositar: fecha y hora,
