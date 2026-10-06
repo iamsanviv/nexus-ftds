@@ -6,7 +6,7 @@ import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
   esInactivo, nombreMotivo, motivoCorto, BROKERS, insigniasBroker, mesCorto,
   MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto,
   componerMensaje, horaDeCliente, etiquetaZona } from "./state.js";
-import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento } from "./data.js";
+import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento, cuotaDiaria } from "./data.js";
 import { canalVinculado } from "./canal.js";
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
@@ -22,6 +22,7 @@ let masCuando = "ahora";    // ahora | prog
 // que se queda pegada de la vez pasada.
 let masIncInact = false;
 let segmentos = [];         // segmentos guardados
+let masCuota = null;        // { enviados, tope, restan } del día
 
 const primerNombre = n => (n || "").trim().split(/\s+/)[0];
 // resolverSnippets vive en state.js (lo comparten masivo y las actividades).
@@ -233,6 +234,16 @@ function renderCount() {
     av.classList.toggle("hidden", !inact);
   }
   $("masEnviar").disabled = masSel.size === 0;
+  const cu = $("masFootCuota");
+  if (cu) {
+    const n = masSel.size, falta = masCuota && n > masCuota.restan ? n - masCuota.restan : 0;
+    cu.textContent = !masCuota ? "" : masCuota.restan === 0
+      ? `límite diario alcanzado (${masCuota.enviados}/${masCuota.tope})`
+      : falta ? `hoy te quedan ${masCuota.restan} de ${masCuota.tope} · ${falta} no saldrían`
+      : `hoy llevas ${masCuota.enviados} de ${masCuota.tope}`;
+    cu.classList.toggle("alerta", !!masCuota && (masCuota.restan === 0 || falta > 0));
+    cu.classList.toggle("hidden", !masCuota);
+  }
 }
 
 // Resumen de "cuándo" en la barra de acción, para no tener que subir a mirar.
@@ -346,8 +357,10 @@ async function abrir() {
   limpiarAudio(); $("masAudEstado").textContent = "";
   $("masProgRow").classList.add("hidden");
   $("masCuandoSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.cuando === "ahora"));
+  masCuota = null;
   pintarIncInact(); renderFiltros(); renderLista(); renderCuando();
   $("masOverlay").classList.add("open");
+  cuotaDiaria().then(c => { masCuota = c; renderCount(); }).catch(() => {});
   await cargarSegs();
 }
 
@@ -372,6 +385,21 @@ async function enviar() {
   if (masImg && masAudio) { toast("Adjunto y nota de voz a la vez no: quita uno de los dos"); return; }
   const sel = pool().filter(c => masSel.has(c.id));
   if (!sel.length) { toast("No hay destinatarios seleccionados"); return; }
+
+  // El masivo no pide confirmación de rutina, pero el tope diario sí la merece:
+  // sin aviso, los que no caben se cancelan en silencio (lo que pasó con el
+  // seguimiento de leads). Solo al enviar AHORA: programado, el día puede ser otro.
+  if (masCuando === "ahora" && masCuota && sel.length > masCuota.restan) {
+    const falta = sel.length - masCuota.restan;
+    const msg = masCuota.restan === 0
+      ? `Ya alcanzaste el límite diario de envíos (${masCuota.enviados}/${masCuota.tope}). Si envías ahora, estos ${sel.length} se cancelarán. El límite se reinicia a medianoche.
+
+¿Enviar de todos modos?`
+      : `Hoy te quedan ${masCuota.restan} envíos de ${masCuota.tope}. De estos ${sel.length}, ${falta} se cancelarán por el límite diario.
+
+¿Enviar de todos modos?`;
+    if (!confirm(msg)) return;
+  }
 
   // Si el texto menciona la hora, tiene que haber una hora. Sin esto el mensaje
   // saldría con un hueco donde debía ir, y a nadie se le ocurriría revisarlo.

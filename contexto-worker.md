@@ -86,9 +86,9 @@ Efecto secundario feo: los recordatorios **sí** salen (están exentos a
 propósito), así que la gente recibe «en 1 hora empieza X» de una actividad a la
 que nunca la invitaron.
 
-Arreglo: contar el día en hora de Colombia (`America/Bogota`) en vez de UTC. Es
-una línea en `worker.py`, que **no vive en este repo**. Mientras tanto, la cuota
-de un agente se le libera a las 19:00 de Bogotá, no a medianoche.
+**ARREGLADO (06-10-2026).** `enviados_hoy()` cuenta el día desde la medianoche de
+Colombia (UTC-5 fijo), no de UTC. Parche idempotente y copia en `vm/worker/tope_colombia.py`
+del repo; aplicado y worker reiniciado. La cuota ahora se libera a medianoche de Bogotá.
 
 `ARRANQUE_MAX` es la prueba de que el propio worker ya trata **la IP**, no la
 memoria, como el recurso escaso de la VM.

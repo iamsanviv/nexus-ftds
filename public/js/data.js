@@ -377,6 +377,21 @@ export async function borrarContacto(id) {
 // porque más atrás ya es «frío» y no cambia nada: así la consulta es mínima y
 // no hay sondeo. El RLS de la tabla es `owner_id = auth.uid()`, así que solo
 // trae tus propios chats (un director no ve la agenda de su equipo).
+// Cuota diaria de envíos del agente. El worker frena los envíos NUEVOS cuando
+// un agente pasa de TOPE por día (contado en hora de Colombia). Se cuentan
+// TODOS los enviados del día: los recordatorios y enlaces también gastan cuota
+// aunque el tope no los corte. 220 refleja `TOPE_DIARIO` del worker; si allá
+// cambia, acá también.
+export const TOPE_DIARIO = 220;
+export async function cuotaDiaria() {
+  const desde = `${fechaCO()}T00:00:00-05:00`;   // medianoche de hoy en Colombia
+  const { count, error } = await SB.from("mensajes_programados")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", state.me.id).eq("estado", "enviado").gte("enviado_en", desde);
+  const enviados = error ? 0 : (count || 0);
+  return { enviados, tope: TOPE_DIARIO, restan: Math.max(0, TOPE_DIARIO - enviados) };
+}
+
 export async function cargarEntrantes() {
   const desde = fechaCO(new Date(Date.now() - 3 * 864e5));   // superconjunto de hoy/ayer/anteayer
   const mapa = {};

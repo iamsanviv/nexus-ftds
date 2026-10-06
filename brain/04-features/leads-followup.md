@@ -86,6 +86,9 @@ temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`),
   `mensajes_registra_contacto_lead` anota el contacto (tipo = lead_tipo, nota = nombre de la campaña,
   `en` = hora real de envío) cuando el mensaje 1 pasa a `enviado`. Al programar no se anota nada.
 - La selección arranca vacía; «Marcar visibles» solo toca lo filtrado; se confirma con nombres.
+- Aviso de cuota diaria (`data.cuotaDiaria`, TOPE_DIARIO=220 que refleja el worker): el footer
+  muestra lo que llevas hoy y, si la tanda no cabe, cuántos leads no saldrán; el confirm lo repite.
+  Mismo aviso en el masivo. El registro de envíos ya muestra el motivo también de los CANCELADOS.
 
 ## Autorización
 Solo el dueño (`owner_id === me`) ve acciones; la base lo sostiene: el trigger fija el dueño del

@@ -2507,6 +2507,7 @@ async function renderLogs() {
     ["enviado", `✓ ${n("enviado")}`],
     ["error", `⚠ ${n("error")}`],
     ["pendiente", `⏳ ${n("pendiente")}`],
+    ["cancelado", `✕ ${n("cancelado")}`],
   ];
   $("segLogsFiltros").innerHTML = chips.map(([v, l]) =>
     `<button class="pill ${logFiltro === v ? "on" : ""}" data-flog="${v}">${l}</button>`).join("");
@@ -2526,8 +2527,11 @@ async function renderLogs() {
     const nombre = m.seguimientos?.clientes?.nombre || porTel.get(m.telefono) || m.telefono;
     const cuando = m.enviado_en || m.enviar_en;
     const [cls, txt] = LOG_BADGE[m.estado] || ["pend", m.estado];
-    const err = (m.estado === "error" && m.error)
-      ? `<div class="logerr" title="${esc(m.error)}">${esc(m.error.slice(0, 90))}</div>` : "";
+    // El motivo se muestra también para los CANCELADOS: el tope diario deja los
+    // mensajes en «cancelado», no en «error», y sin el motivo el agente no sabía
+    // por qué no salieron.
+    const err = ((m.estado === "error" || m.estado === "cancelado") && m.error)
+      ? `<div class="logerr" title="${esc(m.error)}">${esc(m.error.slice(0, 110))}</div>` : "";
     return `<div class="logrow">
       <div class="logtop">
         <span class="logbadge ${cls}">${txt}</span>

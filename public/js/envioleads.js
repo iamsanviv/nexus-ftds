@@ -13,7 +13,7 @@
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, normBusqueda, esLead, componerMensaje,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, cuandoParte } from "./state.js";
-import { subirImagenMensaje, guardarHistorialSegmento } from "./data.js";
+import { subirImagenMensaje, guardarHistorialSegmento, cuotaDiaria } from "./data.js";
 import { canalVinculado } from "./canal.js";
 import { destinatariosMasivo } from "./masivo.js";
 import { TIPOS, TEMP, CATEGORIAS, categoria, temperatura } from "./leads.js";
@@ -28,6 +28,7 @@ let sel = new Set();            // leads elegidos: SIEMPRE arranca vacía
 let fEtapa = "todas", fTemp = "todas";
 let cuando = "ahora";
 let alTerminar = null;
+let cuota = null;   // { enviados, tope, restan } del día; null mientras carga
 
 const primerNombre = n => (n || "").trim().split(/\s+/)[0];
 const esVideo = u => /\.(mp4|mov)(\?|$)/i.test(u || "");
@@ -201,6 +202,24 @@ function pintarConteo() {
   $("ldCount").textContent = n ? `${n} de ${universo().length}` : "";
   $("ldFootN").textContent = n;
   $("ldEnviar").disabled = n === 0;
+  pintarCuota(n);
+}
+
+// Aviso de cuota diaria: cuántos envíos te quedan hoy y, si esta tanda no cabe,
+// cuántos leads se quedarían sin el seguimiento. Solo el mensaje 1 de cada lead
+// gasta cuota (las partes 2..4 no las frena el tope), así que se compara contra
+// el número de leads.
+function pintarCuota(n) {
+  const el = $("ldFootCuota"); if (!el) return;
+  if (!cuota) { el.classList.add("hidden"); return; }
+  const falta = n > cuota.restan ? n - cuota.restan : 0;
+  el.textContent = cuota.restan === 0
+    ? `límite diario alcanzado (${cuota.enviados}/${cuota.tope}) · se reinicia a medianoche`
+    : falta
+      ? `hoy te quedan ${cuota.restan} de ${cuota.tope} · ${falta} no saldrían`
+      : `hoy llevas ${cuota.enviados} de ${cuota.tope}`;
+  el.classList.toggle("alerta", cuota.restan === 0 || falta > 0);
+  el.classList.remove("hidden");
 }
 function pintarCuando() {
   $("ldProgRow").classList.toggle("hidden", cuando !== "prog");
@@ -233,7 +252,16 @@ async function enviar() {
   const como = d.mensajes.length > 1
     ? `\n${d.mensajes.length} mensajes por lead, ${d.modo === "mensaje" ? "por mensaje" : "por usuario"}, ${d.espera_min ? `${d.espera_min} min entre cada uno` : "con pausa natural"}.`
     : "";
-  if (!confirm(`Vas a ${cuando === "prog" ? "programar" : "enviar"} «${d.nombre || nombreTipo(d.tipo)}» (${nombreTipo(d.tipo)}) a ${n} lead${n === 1 ? "" : "s"}:\n${nombres}.${como}\n\nCuando salga el primer mensaje se anota el contacto en la ficha de cada lead.\n\n¿Continuar?`)) return;
+  // Aviso del tope diario: si esta tanda no cabe en lo que queda del día, hay
+  // leads que no recibirán nada (el tope cancela el mensaje 1 y con él la serie).
+  let avisoCuota = "";
+  if (cuando !== "prog" && cuota) {
+    if (cuota.restan === 0)
+      avisoCuota = `\n\n⚠ Ya alcanzaste el límite diario de envíos (${cuota.enviados}/${cuota.tope}). Si envías ahora, estos se cancelarán. El límite se reinicia a medianoche.`;
+    else if (n > cuota.restan)
+      avisoCuota = `\n\n⚠ Hoy te quedan ${cuota.restan} envíos de ${cuota.tope}. De estos ${n} leads, ${n - cuota.restan} se cancelarán por el límite diario.`;
+  }
+  if (!confirm(`Vas a ${cuando === "prog" ? "programar" : "enviar"} «${d.nombre || nombreTipo(d.tipo)}» (${nombreTipo(d.tipo)}) a ${n} lead${n === 1 ? "" : "s"}:\n${nombres}.${como}${avisoCuota}\n\nCuando salga el primer mensaje se anota el contacto en la ficha de cada lead.\n\n¿Continuar?`)) return;
 
   const btn = $("ldEnviar");
   btn.disabled = true; btn.textContent = "Enviando…";
@@ -279,6 +307,8 @@ export async function abrirEnvioLeads(render) {
   $("ldFecha").value = ""; $("ldHora").value = "";
   pintarTipos(); pintarMsgs(); pintarFiltros(); pintarLista(); pintarCuando(); pintarPlantillas();
   $("ldOverlay").classList.add("open");
+  cuota = null;
+  cuotaDiaria().then(c => { cuota = c; pintarConteo(); }).catch(() => {});
   await cargarPlantillas();
 }
 
