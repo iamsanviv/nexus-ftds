@@ -790,7 +790,10 @@ export const PASO_ENVIO = 7000;
 //   · por mensaje, pausa natural: A1 B1 C1… A2 B2 C2…;
 //   · por usuario con N minutos: cada persona recibe la parte siguiente N
 //     minutos después de SU parte anterior (las personas arrancan escalonadas
-//     al ritmo del worker);
+//     al ritmo del worker, ~7 s);
+//   · por usuario con N minutos y `escalona`: además cada persona ARRANCA N
+//     minutos después de la anterior, así ni los saludos se juntan (el costo
+//     es que la tanda entera tarda más);
 //   · por mensaje con N minutos: la ola k arranca N minutos después de que se
 //     estima que terminó la ola k-1 entera.
 export function cuandoParte(serie, base, i, k, n) {
@@ -798,5 +801,10 @@ export function cuandoParte(serie, base, i, k, n) {
   const espera = (serie.espera_min || 0) * 60000;
   const P = 1 + serie.partes.length;
   if (serie.modo === "mensaje") return espera ? base + k * (n * PASO_ENVIO + espera) + i : base + k * n + i;
+  // Escalonar entre leads: el arranque de cada lead avanza `espera` igual que
+  // sus partes. El `+ i` solo desempata el instante (lead i parte k y lead i+1
+  // parte k-1 caen en el mismo minuto); el worker los manda igual con segundos
+  // de diferencia, y la serie de cada lead sigue separada por `espera`.
+  if (espera && serie.escalona) return base + (i + k) * espera + i;
   return espera ? base + i * PASO_ENVIO + k * espera + k : base + i * P + k;
 }

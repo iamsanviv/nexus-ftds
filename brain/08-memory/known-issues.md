@@ -2,13 +2,17 @@
 
 Este archivo separa defectos abiertos o históricamente abiertos de invariantes ya resueltas. **Verificar estado real antes de afirmar que siguen abiertos.**
 
-## KI-001 — Tope diario del worker y zona horaria
+## KI-001 — Tope diario del worker y zona horaria · CERRADO 06/10/2026
 
-Históricamente el worker contó el día en UTC. En Colombia eso cambia de fecha a las 19:00 y podía consumir la cuota del día siguiente con tráfico de la noche anterior.
+El worker contaba el día en UTC. En Colombia eso cambia de fecha a las 19:00, así que lo enviado de 7pm a medianoche se cobraba al día siguiente y bloqueaba a quien trabaja de noche (fue justo lo que cortó un seguimiento de leads: 232 mensajes de la noche anterior «contaban» contra el día).
 
-### Antes de intervenir
+**Arreglo aplicado en producción (VM, worker reiniciado):** el arranque del día en `enviados_hoy` usa UTC-5 fijo. Parche idempotente y copia de referencia en `vm/worker/tope_colombia.py` (reemplaza `datetime.now(timezone.utc).replace(hour=0…)` por `datetime.now(timezone(timedelta(hours=-5))).replace(hour=0…)`). Se verificó que el cupo volvió a 220/220. UTC-5 fijo a propósito: Colombia no tiene horario de verano.
 
-Comprobar el `worker.py` actual en Oracle. Si ya usa `America/Bogota`, cerrar este asunto y conservar solo la lección pertinente.
+**Aviso en la plataforma (`main`):** `data.cuotaDiaria()` (TOPE_DIARIO=220) muestra en el footer del masivo y del seguimiento lo que llevas hoy y, si la tanda no cabe, cuántos no saldrán; el confirm lo repite. Es solo aviso: el enforcement real es del worker.
+
+### La lección, que sobrevive al defecto
+
+El «día» de cualquier tope/corte es el de Colombia, no UTC. Cualquier cálculo de ventana diaria en el worker (que corre en UTC) debe fijar la zona a UTC-5 explícitamente, no asumir la del servidor.
 
 ---
 
@@ -122,6 +126,30 @@ Para convertirlo en producto por uso faltaría, como mínimo, una fuente de plan
 El sistema envía desde números reales de los agentes. La variación de texto y el goteo reducen patrones, pero no eliminan riesgo de restricciones de WhatsApp.
 
 Tratar cualquier cambio que aumente volumen, simultaneidad o destinatarios desconocidos como cambio de riesgo, no solo de UX.
+
+---
+
+## KI-013 — Video `.mov` no llega aunque el worker diga «enviado» (06/10/2026)
+
+Un video subido como `.mov` (contenedor QuickTime, aunque adentro sea H.264/AAC) se sube al CDN de
+WhatsApp y el bridge reporta `Media uploaded OK` + `Message sent true`, pero **el destinatario no
+recibe nada** — ni un recuadro de error. El cliente de WhatsApp descarta en silencio el video que no
+viene en contenedor MP4 válido. La fila queda `enviado`: no es un bug de estado. Los mensajes de
+texto del mismo flujo (serie de seguimiento) sí llegan, por eso se nota como «el mensaje del video
+desapareció».
+
+Apareció con el módulo de seguimiento a leads, pero NO es del módulo: el adjunto viaja idéntico al
+masivo (misma `subirImagenMensaje`, misma URL `.mov`, mismo `media_url`). Fue la primera vez que se
+mandó un `.mov` real a un teléfono y se verificó la recepción. La nota «solo MP4 y MOV» de
+`media-attachments.md` solo decía que el filtro los admite, no que ambos lleguen.
+
+**Workaround vigente (confirmado por el usuario):** subir el video como `.mp4`; así llega.
+
+**Arreglo pendiente (no aplicado):** `worker.py` debería remuxear todo video a MP4 limpio antes de
+entregarlo al bridge — `ffmpeg -c copy -movflags +faststart` cuando ya es H.264/AAC (sin recomprimir,
+instantáneo), con reencode como respaldo. Opcional: fijar `Width/Height/Seconds` y miniatura en el
+`VideoMessage` para la vista previa. Se cierra cuando el `.mov` llegue de punta a punta sin convertir
+a mano.
 
 ---
 

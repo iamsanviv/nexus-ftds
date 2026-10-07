@@ -62,7 +62,19 @@ De ahí las dos exclusiones deliberadas de la UI:
 
 **El texto viaja como pie del adjunto**, en el mismo mensaje. La única excepción es la nota de voz, que no admite pie y manda el texto aparte.
 
-El `VideoMessage` no manda `Seconds`, `Width/Height` ni miniatura. Son opcionales: el video se reproduce, pero la vista previa en el chat puede salir sosa.
+El `VideoMessage` no manda `Seconds`, `Width/Height` ni miniatura. Faltando eso la vista previa sale sosa, pero el video SÍ se reproduce si el contenedor es MP4 válido.
+
+**`.mov` NO llega aunque el worker diga «enviado» (06/10/2026).** Un `.mov` (contenedor QuickTime,
+aunque adentro sea H.264/AAC) se sube al CDN de WhatsApp y el bridge reporta `Media uploaded OK` +
+`Message sent true`, pero el cliente del destinatario lo **descarta en silencio**: no muestra nada,
+ni un recuadro de error. El mensaje de texto del mismo flujo sí llega, así que se nota cuando un
+mensaje con video «desaparece». La fila queda `enviado` en la base: no es un bug de estado, es que
+WhatsApp acepta pero no entrega el `.mov`. La mención de «solo MP4 y MOV» más arriba solo quiere
+decir que el filtro los ADMITE, no que ambos lleguen; el end-to-end con `.mov` nunca se había
+probado a un teléfono real. **Workaround vigente:** subir el video como `.mp4` (confirmado que
+llega). **Arreglo pendiente (no aplicado):** que `worker.py` remuxee todo video a MP4 limpio
+(`ffmpeg -c copy -movflags +faststart`, sin recomprimir cuando ya es H.264/AAC) antes de
+entregarlo al bridge. Ver `08-memory/known-issues.md`.
 
 ## Regla operativa
 

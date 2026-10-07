@@ -5,9 +5,10 @@ integrado en `ui.js` (`cardHTML`/`wireCards`). Datos: `sql/2026-10-05_27_leads_s
 
 ## Fases
 - F1 (DB) aplicada · F2 (tarjeta) · F3 panel «Hoy» · F4 «bajaron hoy».
-- Estado: toda la lógica vive en la rama `main-jvpvtk` (vista previa), aún NO en `main`.
-  La columna `entrante_en` y el parche de `chats_sync` en VM1 YA están en producción
-  (inofensivos para `main` actual, que no lee la columna). VM2 aún sin `chats_recientes`.
+- Estado: EN PRODUCCIÓN (`main`) desde 06/10/2026, incluido el envío de seguimiento en serie
+  y la opción «escalonar entre leads». La columna `entrante_en` y el parche de `chats_sync`
+  están en VM1; VM2 aún sin publicar `chats_recientes` (los leads que escriben por un canal de
+  VM2 no mueven temperatura hasta que se instale allí).
 
 ## Embudo
 `registro_broker + registro_en` (abrió cuenta) → `promesa_en` (prometió depositar: fecha y hora,
@@ -78,7 +79,14 @@ temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`),
   filtrado a `esLead`. No es una tercera vía de envío.
 - Serie de 1 a 4 mensajes (texto y/o adjunto), por usuario / por mensaje, pausa natural / minutos:
   mismo `cuandoParte()` (state.js) que la invitación en serie. Sin `{hora}/{zona}/{dia}`: no hay evento.
-- `plantillas_lead` guarda flujos reutilizables (nombre, tipo, mensajes, modo, espera), privadas.
+- Escalonar entre leads (`plantillas_lead.escalona`, 06/10/2026): «por usuario + minutos» separa por
+  N min los mensajes DENTRO de la serie de cada lead, pero entre leads el arranque va al ritmo del
+  worker (~7 s), así que los saludos salen casi juntos en la vista de salida del agente. Con
+  `escalona=true`, cada lead ARRANCA N min después del anterior (saludos a 0, N, 2N…), a costa de que
+  la tanda entera tarde más. Solo aplica en por usuario con minutos; se ignora en el resto. En
+  `cuandoParte`: `base + (i+k)*espera + i` (el `+i` solo desempata el instante). Cada lead sigue
+  recibiendo SU serie separada por N min; el amontonamiento que el agente veía era solo en su salida.
+- `plantillas_lead` guarda flujos reutilizables (nombre, tipo, mensajes, modo, espera, escalona), privadas.
 - Campaña con `campanas.lead_tipo` (los 6 tipos de `lead_contactos`); cada fila con `cliente_id`.
   Mensaje 1 = `masivo` (lo frena el tope), 2..4 = `masivo_parte` (no). Orden por `enviar_en`, sin
   `parte` (un seguimiento no se re-genera por cambio de hora).

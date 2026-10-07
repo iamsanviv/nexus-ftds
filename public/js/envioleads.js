@@ -20,7 +20,7 @@ import { TIPOS, TEMP, CATEGORIAS, categoria, temperatura } from "./leads.js";
 
 const MAX_MSGS = 4;
 const nuevoBorrador = () => ({ id: null, nombre: "", tipo: null, modo: "usuario", espera_min: 0,
-  mensajes: [{ texto: "", media: null }] });
+  escalona: false, mensajes: [{ texto: "", media: null }] });
 
 let plantillas = [];
 let bor = nuevoBorrador();      // lo que se está editando
@@ -50,7 +50,7 @@ const visibles = () => {
 /* ---------- plantillas ---------- */
 async function cargarPlantillas() {
   const { data, error } = await SB.from("plantillas_lead")
-    .select("id, nombre, tipo, mensajes, modo, espera_min").order("actualizado_en", { ascending: false });
+    .select("id, nombre, tipo, mensajes, modo, espera_min, escalona").order("actualizado_en", { ascending: false });
   plantillas = error ? [] : (data || []);
   pintarPlantillas();
 }
@@ -63,6 +63,7 @@ function pintarPlantillas() {
 function usarPlantilla(id) {
   const p = plantillas.find(x => x.id === id);
   bor = p ? { id: p.id, nombre: p.nombre, tipo: p.tipo, modo: p.modo, espera_min: p.espera_min || 0,
+              escalona: !!p.escalona,
               mensajes: p.mensajes.map(m => ({ texto: m.texto || "", media: m.media || null })) }
           : nuevoBorrador();
   $("ldNombre").value = bor.nombre;
@@ -81,7 +82,8 @@ function leerBorrador({ paraEnviar } = {}) {
     // Un seguimiento no cuelga de ningún evento: no hay hora que anunciar.
     toast("Un seguimiento no tiene hora de evento: quita {hora}, {zona} o {dia}"); return null;
   }
-  return { nombre: bor.nombre, tipo: bor.tipo, modo: bor.modo, espera_min: bor.espera_min || 0, mensajes };
+  return { nombre: bor.nombre, tipo: bor.tipo, modo: bor.modo, espera_min: bor.espera_min || 0,
+    escalona: !!bor.escalona, mensajes };
 }
 
 async function guardarPlantilla() {
@@ -140,6 +142,10 @@ function pintarMsgs() {
   $("ldEsp").querySelectorAll("[data-esp]").forEach(b => b.classList.toggle("on", (b.dataset.esp === "min") === conMin));
   $("ldMinWrap").classList.toggle("hidden", !conMin);
   if (conMin) $("ldMin").value = bor.espera_min;
+  // Escalonar entre leads solo tiene sentido en «por usuario» con minutos.
+  const escVisible = bor.modo === "usuario" && conMin;
+  $("ldEscWrap").classList.toggle("hidden", !escVisible);
+  $("ldEsc").querySelectorAll("[data-esc]").forEach(b => b.classList.toggle("on", (b.dataset.esc === "1") === !!bor.escalona));
 
   cont.querySelectorAll(".seriep").forEach(el => {
     const i = +el.dataset.i, m = bor.mensajes[i];
@@ -246,11 +252,12 @@ async function enviar() {
     if (isNaN(base) || base <= new Date()) { toast("Programa una fecha futura"); return; }
   }
 
-  const serie = { modo: d.modo, espera_min: d.espera_min, partes: d.mensajes.slice(1) };
+  const serie = { modo: d.modo, espera_min: d.espera_min, escalona: d.escalona, partes: d.mensajes.slice(1) };
   const n = lista.length;
   const nombres = lista.slice(0, 8).map(c => primerNombre(c.nombre)).join(", ") + (n > 8 ? ` y ${n - 8} más` : "");
+  const escalonado = d.modo === "usuario" && d.espera_min && d.escalona;
   const como = d.mensajes.length > 1
-    ? `\n${d.mensajes.length} mensajes por lead, ${d.modo === "mensaje" ? "por mensaje" : "por usuario"}, ${d.espera_min ? `${d.espera_min} min entre cada uno` : "con pausa natural"}.`
+    ? `\n${d.mensajes.length} mensajes por lead, ${d.modo === "mensaje" ? "por mensaje" : "por usuario"}, ${d.espera_min ? `${d.espera_min} min entre cada uno` : "con pausa natural"}${escalonado ? `, escalonados ${d.espera_min} min entre leads` : ""}.`
     : "";
   // Aviso del tope diario: si esta tanda no cabe en lo que queda del día, hay
   // leads que no recibirán nada (el tope cancela el mensaje 1 y con él la serie).
@@ -326,6 +333,7 @@ $("ldModo").querySelectorAll("[data-modo]").forEach(b => b.onclick = () => { bor
 $("ldEsp").querySelectorAll("[data-esp]").forEach(b => b.onclick = () => {
   bor.espera_min = b.dataset.esp === "min" ? (bor.espera_min || 5) : 0; pintarMsgs();
 });
+$("ldEsc").querySelectorAll("[data-esc]").forEach(b => b.onclick = () => { bor.escalona = b.dataset.esc === "1"; pintarMsgs(); });
 $("ldMin").oninput = () => { const v = parseInt($("ldMin").value, 10); if (v >= 1 && v <= 120) bor.espera_min = v; };
 $("ldMin").onchange = pintarMsgs;
 $("ldBuscar").oninput = pintarLista;

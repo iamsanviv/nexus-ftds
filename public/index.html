@@ -845,6 +845,15 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         </div>
         <label class="seriemin hidden" id="ldMinWrap"><input type="number" id="ldMin" min="1" max="120" step="1" value="5" inputmode="numeric"> min</label>
       </div>
+      <div class="serieopt hidden" id="ldEscWrap">
+        <span class="serielbl">Entre leads</span>
+        <div class="tipoact" id="ldEsc" role="group" aria-label="Separación entre leads">
+          <button type="button" class="on" data-esc="0">Seguidas</button>
+          <button type="button" data-esc="1">Escalonadas</button>
+        </div>
+        <button type="button" class="infoi" aria-label="Qué significa escalonar entre leads"
+          data-info="Seguidas: los leads arrancan casi a la vez (al ritmo del worker) y cada uno recibe su serie separada por los minutos elegidos. Escalonadas: cada lead arranca esos mismos minutos después del anterior, así ni los saludos se juntan. Con muchos leads la tanda tarda más."></button>
+      </div>
     </div>
     <div class="frow"><button type="button" class="tbtn" id="ldPlantGuardar">Guardar como plantilla</button></div>
     </div><!-- /pane mensajes -->
