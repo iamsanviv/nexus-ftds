@@ -143,13 +143,17 @@ masivo (misma `subirImagenMensaje`, misma URL `.mov`, mismo `media_url`). Fue la
 mandó un `.mov` real a un teléfono y se verificó la recepción. La nota «solo MP4 y MOV» de
 `media-attachments.md` solo decía que el filtro los admite, no que ambos lleguen.
 
-**Workaround vigente (confirmado por el usuario):** subir el video como `.mp4`; así llega.
+**Mitigado en la subida (08/10/2026):** ya no se puede subir un video que no sea MP4. Tres capas,
+todas en producción: `TIPOS_ADJUNTO` (state.js) sin `video/quicktime`; `validarAdjunto` exige además
+extensión `.mp4` para video (por si el navegador reporta un `.mov` como `video/mp4`); y el bucket
+`mensajes` solo acepta `video/mp4` (se le quitaron `video/quicktime` y `video/webm`). El agente que
+intente subir un `.mov` ve «El video debe ser .mp4 — conviértelo a MP4» en vez de un envío fantasma.
 
-**Arreglo pendiente (no aplicado):** `worker.py` debería remuxear todo video a MP4 limpio antes de
-entregarlo al bridge — `ffmpeg -c copy -movflags +faststart` cuando ya es H.264/AAC (sin recomprimir,
-instantáneo), con reencode como respaldo. Opcional: fijar `Width/Height/Seconds` y miniatura en el
-`VideoMessage` para la vista previa. Se cierra cuando el `.mov` llegue de punta a punta sin convertir
-a mano.
+**Arreglo de fondo, opcional (no aplicado):** que `worker.py` remuxee a MP4 limpio
+(`ffmpeg -c copy -movflags +faststart`) para poder volver a aceptar `.mov` sin que el agente convierta
+a mano, y fijar `Width/Height/Seconds` + miniatura en el `VideoMessage` para la vista previa. Ya no es
+urgente: con el bloqueo de subida el defecto no puede llegar a un destinatario. Se deja como mejora de
+UX, no como defecto abierto.
 
 ---
 

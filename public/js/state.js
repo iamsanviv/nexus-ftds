@@ -282,16 +282,20 @@ export function rellenarEtiquetas(txt, valores) {
 
    La lista no puede decir más de lo que el bridge sabe entregar. El bridge
    decide por EXTENSIÓN:
-     mp4 · mov · avi → video      ogg → nota de voz
+     mp4 → video      ogg → nota de voz
      jpg · png · gif · webp → imagen        cualquier otra → archivo adjunto
 
    `webm` queda fuera a propósito: el bucket lo acepta pero el bridge no tiene
    esa rama, así que llegaría como archivo adjunto en vez de video.
-   `avi` también: el bridge lo mapea, pero el bucket no acepta ese MIME. */
+   `avi` también: el bridge lo mapea, pero el bucket no acepta ese MIME.
+   `mov` queda fuera DESDE 08/10/2026: el bridge lo mapea a video, pero WhatsApp
+   NO lo entrega aunque el worker diga «enviado» — un contenedor QuickTime (aun
+   con H.264/AAC adentro) se descarta en silencio en el teléfono del destinatario.
+   Solo MP4. Ver KI-013 y `04-features/media-attachments.md`. */
 export const MAX_ADJUNTO_MB = 16;   // = file_size_limit del bucket `mensajes`
 export const TIPOS_ADJUNTO = [
   "image/jpeg", "image/png", "image/webp", "image/gif",
-  "video/mp4", "video/quicktime",
+  "video/mp4",
 ];
 // El mismo texto que va en los dos `accept` del HTML.
 export const ACCEPT_ADJUNTO = TIPOS_ADJUNTO.join(",");
@@ -306,6 +310,15 @@ export function validarAdjunto(file) {
     return { ok: false, esVideo, error: esVideo
       ? `Ese formato de video no se puede enviar (${file.type || "desconocido"}) — conviértelo a MP4`
       : `Ese tipo de archivo no se puede enviar (${file.type || "desconocido"})` };
+  }
+  // El bridge decide el tipo por la EXTENSIÓN y WhatsApp solo entrega video en
+  // contenedor MP4. Un .mov (aunque el navegador lo reporte como video/mp4) se
+  // marca «enviado» pero no llega, así que exigimos la extensión .mp4, no solo
+  // el MIME. Ver KI-013.
+  if (esVideo) {
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (ext !== "mp4") return { ok: false, esVideo,
+      error: `El video debe ser .mp4 (este es .${ext || "desconocido"}) — conviértelo a MP4` };
   }
   if (file.size > MAX_ADJUNTO_MB * 1024 * 1024) {
     return { ok: false, esVideo, error:

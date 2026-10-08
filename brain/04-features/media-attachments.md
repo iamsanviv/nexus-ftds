@@ -40,7 +40,7 @@ No reactivar audio por presencia de código. Hace falta prueba real de extremo a
 
 ## Video
 
-Habilitado en Masivo desde el 20/08/2026, **solo MP4 y MOV**.
+Habilitado en Masivo desde el 20/08/2026. Desde el **08/10/2026: SOLO MP4** (antes también MOV).
 
 El bridge decide el tipo de mensaje por la **extensión del archivo**, no por el MIME que declara el navegador ni por el que guarda el Storage:
 
@@ -51,9 +51,10 @@ El bridge decide el tipo de mensaje por la **extensión del archivo**, no por el
 | `jpg`, `png`, `gif`, `webp` | ImageMessage |
 | **cualquier otra** | DocumentMessage |
 
-De ahí las dos exclusiones deliberadas de la UI:
+De ahí las exclusiones deliberadas de la UI:
 
-- **`webm` fuera**: el bucket lo acepta pero el bridge no tiene esa rama, así que llegaría como archivo adjunto. Es el mismo agujero que hoy afecta a la nota de voz — ver [[../08-memory/known-issues]] KI-002;
+- **`mov` fuera (08/10/2026)**: el bridge SÍ lo mapea a video, pero WhatsApp no lo entrega aunque el worker diga «enviado» (contenedor QuickTime descartado en silencio) — ver [[../08-memory/known-issues]] KI-013. Se bloquea en tres capas: `TIPOS_ADJUNTO` ya no incluye `video/quicktime`, `validarAdjunto` exige además extensión `.mp4` para video (por si el navegador reporta un `.mov` como `video/mp4`), y el bucket `mensajes` ya no acepta `video/quicktime` ni `video/webm` (solo `video/mp4`);
+- **`webm` fuera**: el bridge no tiene esa rama, así que llegaría como archivo adjunto. Es el mismo agujero que afecta a la nota de voz — ver [[../08-memory/known-issues]] KI-002;
 - **`avi` fuera**: el bridge sí lo mapea, pero el bucket no acepta ese MIME.
 
 **Ojo: el bridge no es el único que decide.** El `worker.py` clasifica el archivo ANTES; si lo cree audio lo convierte a ogg con `-vn` —que le quita la imagen— antes de que el bridge lo vea. Ahí estuvo el defecto que se cerró el 20/08: ver [[../08-memory/known-issues]] KI-003.
