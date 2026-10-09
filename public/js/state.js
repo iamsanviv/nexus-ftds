@@ -738,7 +738,10 @@ export function ritmoMeta(periodo, ownerId) {
   let hastaAyer = 0, hoyHechos = 0, pendHoy = 0;
   for (const c of state.clientes) {
     if (c.owner_id !== ownerId) continue;
-    if (c.promesaEn && c.mem === "Lead" && fechaCO(new Date(c.promesaEn)) === hoy) pendHoy++;
+    // Cuenta las promesas de HOY: la de un lead (1er depósito) y la de un becado
+    // pendiente de un 2º depósito en otro broker (promesa_broker). Ambas son un
+    // FTD esperado hoy, así que las dos alimentan el ritmo de la meta.
+    if (c.promesaEn && (c.mem === "Lead" || c.promesaBroker) && fechaCO(new Date(c.promesaEn)) === hoy) pendHoy++;
     for (const f of Object.values(c.ftds || {})) {
       if (periodoDe(f) !== periodo) continue;
       const dia = Number(f.slice(8, 10));

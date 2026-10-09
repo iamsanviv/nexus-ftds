@@ -8,7 +8,7 @@
 //
 // Diseño (validado en mockup, opción D): meta del día arriba, un riel con las
 // seis etapas en orden de prioridad y, debajo, los leads de la etapa elegida.
-import { state, esc, esLead, esInactivo } from "./state.js";
+import { state, esc, esLead, esInactivo, nombreBroker } from "./state.js";
 import {
   TEMP, CATEGORIAS, categoria, temperatura, razon, manualVigente, contactosDe,
   form, abiertoAqui, esMio, manejarLead, cuandoTxt, nombreTipo, dias,
@@ -89,10 +89,14 @@ function esperando(c) {
 
 const fila = c => {
   const t = temperatura(c);
+  // Quien ya es Beca y está pendiente de otro depósito: se marca como 2º depósito
+  // para no confundirlo con un lead en su primer FTD.
+  const dep2 = !esLead(c) && c.promesaBroker
+    ? `<span class="h2dep">2º depósito · ${esc(nombreBroker(c.promesaBroker))}</span>` : "";
   return `<div class="hfila" data-id="${c.id}">
     <div class="hl1">
       <span class="hav ${t}" aria-hidden="true">${esc(iniciales(c.nombre))}</span>
-      <div class="hl1t"><button class="hnm" data-ver="${c.id}">${esc(c.nombre)}</button><div class="lwhy">${razon(c)}</div></div>
+      <div class="hl1t"><button class="hnm" data-ver="${c.id}">${esc(c.nombre)}</button>${dep2}<div class="lwhy">${razon(c)}</div></div>
       ${chip(c)}
     </div>
     ${abiertoAqui(c, "temp") ? form(c) : ""}
@@ -101,7 +105,11 @@ const fila = c => {
 };
 
 export function renderHoy(cont, render) {
-  const mios = state.clientes.filter(c => esLead(c) && !esInactivo(c) && esMio(c));
+  // Leads propios activos y, además, becados propios pendientes de un 2º depósito
+  // (promesa con broker): esos también son trabajo de hoy. Un becado sin promesa
+  // no aparece; la categoría los deja en «Pendientes» (categoria() mira promesaEn).
+  const mios = state.clientes.filter(c => !esInactivo(c) && esMio(c)
+    && (esLead(c) || (c.promesaEn && c.promesaBroker)));
   const por = Object.fromEntries(CATEGORIAS.map(([k]) => [k, []]));
   mios.forEach(c => por[categoria(c)].push(c));
   por.pend.sort(ordenPend);
@@ -126,6 +134,7 @@ export function renderHoy(cont, render) {
 
   cont.innerHTML = `
     <div id="hoyMeta"></div>
+    <div class="hoyadd"><button type="button" id="hoyAddPend" class="tbtn">+ Pendiente de depósito</button></div>
     ${mios.length ? `
     <div class="hrielh"><span>Etapas de hoy</span><span>en orden de prioridad</span></div>
     <div class="hriel" id="hRiel">${riel}</div>
@@ -137,6 +146,12 @@ export function renderHoy(cont, render) {
     : `<div class="vacio"><b>No tienes leads activos</b>Cuando agregues uno, aquí verás qué hacer con él cada día.</div>`}`;
 
   renderMetaHoy(cont.querySelector("#hoyMeta"), render, prometieronHoy);
+
+  // «+ Pendiente de depósito»: elige a cualquiera (lead o becado) y déjalo
+  // pendiente de un depósito en un broker. Carga a demanda para no engordar hoy.js.
+  cont.querySelector("#hoyAddPend")?.addEventListener("click", () => {
+    import("./pendep.js").then(m => m.abrirPendienteDep(render)).catch(() => {});
+  });
 
   // El riel se redibuja en cada render: se conserva el desplazamiento horizontal
   // para que elegir una etapa no lo devuelva al principio.

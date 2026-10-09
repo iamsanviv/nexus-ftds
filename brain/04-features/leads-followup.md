@@ -78,7 +78,12 @@ temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`),
   destinatarios salen de `destinatariosMasivo()` (el cuello del masivo, exportado de masivo.js)
   filtrado a `esLead`. No es una tercera vía de envío.
 - Serie de 1 a 4 mensajes (texto y/o adjunto), por usuario / por mensaje, pausa natural / minutos:
-  mismo `cuandoParte()` (state.js) que la invitación en serie. Sin `{hora}/{zona}/{dia}`: no hay evento.
+  mismo `cuandoParte()` (state.js) que la invitación en serie.
+- `{hora}` y `{zona}` SÍ funcionan (09/10/2026), igual que en el masivo: el agente elige UNA hora de
+  referencia (`ldHoraRef`, visible solo si algún mensaje la menciona) y a cada persona le llega
+  convertida a su huso (`resolverLead` → `horaDeCliente`/`etiquetaZona` con `c.tzOff`). `{dia}` sigue
+  bloqueado: un seguimiento no cuelga de una actividad, así que no hay día de evento. La hora de
+  referencia es una sola para toda la tanda (lo que cambia por persona es el huso, no la hora anunciada).
 - Escalonar entre leads (`plantillas_lead.escalona`, 06/10/2026): «por usuario + minutos» separa por
   N min los mensajes DENTRO de la serie de cada lead, pero entre leads el arranque va al ritmo del
   worker (~7 s), así que los saludos salen casi juntos en la vista de salida del agente. Con
@@ -97,6 +102,33 @@ temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`),
 - Aviso de cuota diaria (`data.cuotaDiaria`, TOPE_DIARIO=220 que refleja el worker): el footer
   muestra lo que llevas hoy y, si la tanda no cabe, cuántos leads no saldrán; el confirm lo repite.
   Mismo aviso en el masivo. El registro de envíos ya muestra el motivo también de los CANCELADOS.
+
+## Pendiente de depósito por bróker — 2º depósito de un becado (`promesa_broker`, 09/10/2026)
+Alguien que ya es Beca (depositó en un bróker) puede quedar pendiente de depositar en OTRO. Antes
+imposible: la promesa (`promesa_en`) era un solo dato sin bróker y Pendientes exigía `mem = 'Lead'`.
+
+- `clientes.promesa_broker` (SQL `2026-10-09_32`): null = promesa sin bróker (lead en su 1er depósito,
+  histórico); con valor = pendiente de depósito en ese bróker. NO va en `mapAEditar` (como
+  registroBroker/promesaEn): guardar la ficha no pisa el embudo. Mapeado como `promesaBroker` (data.js).
+- Selector «+ Pendiente de depósito» en el panel «Hoy» (`public/js/pendep.js`, modal `pdOverlay`):
+  elige a CUALQUIER persona propia activa con algún bróker libre (leads y becados), bróker a depositar
+  (solo los que no tiene), fecha y hora opcional. Es la opción B del mockup aprobado; escribe
+  `promesa_en + promesa_broker` directo, no abre vía nueva. El botón se ve aunque no haya leads.
+- «Hoy» (`hoy.js`): `mios` incluye ahora los becados propios con `promesaEn && promesaBroker`; caen en
+  «Pendientes» (categoria() mira promesaEn). Fila con badge «2º depósito · <bróker>» cuando no es lead.
+- Registrar el depósito (`leads.okDeposito`): el FTD se SUMA a `ftds` (`{...c.ftds,[brk]:f}`, NO
+  reemplaza) y la promesa se limpia (`promesa_en` + `promesa_broker`). Un lead además pasa a Beca; un
+  becado conserva su `mem`. `comunidad_desde` lo recalcula el trigger (FTD más antiguo): en un 2º
+  depósito no cambia. `ajustarDeclarado(+1)` corre igual (es un FTD nuevo del mes).
+- Meta (`state.js ritmoMeta`): `pendHoy` cuenta la promesa de hoy de un lead Y la de un becado con
+  `promesa_broker` (ambas son un FTD esperado hoy).
+
+## Cancelar un envío masivo persona por persona (09/10/2026)
+En el detalle de «Envíos masivos» (`seguimiento.abrirCampana`, modal `repOverlay`), cada persona EN
+COLA tiene un botón `✕` que cancela SOLO su mensaje (`estado='cancelado'` por id). Si es parte de una
+serie de leads, la base cancela el resto de SU secuencia (trigger `mensajes_cancela_serie_lead`), por
+eso el detalle se RECARGA de la base tras cancelar (no voltea la fila a mano). Sigue estando el botón
+de cancelar la campaña entera; esto es el grano fino que faltaba.
 
 ## Autorización
 Solo el dueño (`owner_id === me`) ve acciones; la base lo sostiene: el trigger fija el dueño del

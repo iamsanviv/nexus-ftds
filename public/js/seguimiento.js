@@ -2192,6 +2192,8 @@ async function abrirCampana(c) {
           <span class="sfecha">${esc(fechaHoraCO(cuando))}</span></div>
         ${m.estado === "error" && m.error
           ? `<div class="logerr" title="${esc(m.error)}">${esc(m.error.slice(0, 90))}</div>` : ""}
+        ${m.estado === "pendiente"
+          ? `<button class="pmark off mini" data-cancelmsg="${m.id}" title="Cancelar solo a esta persona">✕</button>` : ""}
       </div>`;
     };
     const cuerpo = grupos.map(([e, titulo]) => {
@@ -2225,7 +2227,33 @@ async function abrirCampana(c) {
       pintar(filas.map(m => m.estado === "pendiente" ? { ...m, estado: "cancelado" } : m));
       renderCampanas(); renderLogs();
     };
+
+    // Cancelar a UNA sola persona, sin tocar al resto de la campaña. Si su
+    // mensaje es parte de una serie (seguimiento de leads), la base cancela
+    // también el resto de SU secuencia (trigger), por eso se recarga de la base
+    // en vez de voltear la fila a mano: así se ven esas otras cancelaciones.
+    $("repBody").querySelectorAll("[data-cancelmsg]").forEach(b => b.onclick = async () => {
+      const m0 = filas.find(x => x.id === b.dataset.cancelmsg);
+      const quien = m0 ? (porTel.get(m0.telefono) || m0.telefono) : "esta persona";
+      if (!confirm(`¿Cancelar el envío a ${quien}?\n\n`
+                 + `Si forma parte de una serie, se cancela también el resto de su secuencia. `
+                 + `Lo que ya se envió no se puede recoger.`)) return;
+      b.disabled = true;
+      const { error: e3 } = await SB.from("mensajes_programados")
+        .update({ estado: "cancelado" }).eq("id", b.dataset.cancelmsg).eq("estado", "pendiente");
+      if (e3) { toast("⚠ " + e3.message); b.disabled = false; return; }
+      toast(`Envío a ${quien} cancelado`);
+      await recargar();
+      renderCampanas(); renderLogs();
+    });
   };
+
+  async function recargar() {
+    const { data: m2 } = await SB.from("mensajes_programados")
+      .select("id, telefono, estado, texto, error, enviado_en, enviar_en")
+      .eq("campana_id", c.id).order("estado");
+    pintar(m2 || []);
+  }
 
   pintar(msgs || []);
 }

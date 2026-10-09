@@ -824,7 +824,13 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <div class="frow">
       <div id="ldMsgs" class="serielista"></div>
       <button type="button" class="tbtn" id="ldMsgAdd">＋ Agregar mensaje</button>
-      <div class="msgshelp">Etiquetas: <code>{nombre}</code>. Variantes al azar: <code>{Hola|Buenas|Qué tal}</code>. Cada mensaje puede llevar su imagen o video (MP4 o MOV, hasta 16 MB).</div>
+      <div class="msgshelp">Etiquetas: <code>{nombre}</code> <code>{hora}</code> <code>{zona}</code>. Variantes al azar: <code>{Hola|Buenas|Qué tal}</code>. Cada mensaje puede llevar su imagen o video (MP4, hasta 16 MB).</div>
+      <!-- La hora de referencia solo aparece si algún mensaje menciona {hora}. -->
+      <div class="frow hidden" id="ldHoraRow">
+        <label for="ldHoraRef">¿A qué hora? <span class="opt">(hora Colombia)</span></label>
+        <input type="time" id="ldHoraRef">
+        <div class="msgshelp">Escribiste <code>{hora}</code>: elige a qué hora te refieres (p. ej. una sesión en vivo). A quien tenga diferencia horaria en su perfil le llega convertida, y <code>{zona}</code> lo aclara.</div>
+      </div>
     </div>
 
     <div id="ldOpts" class="serieopts hidden">
@@ -885,6 +891,35 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         <button class="masenviar" id="ldEnviar" disabled>Enviar seguimiento</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- «+ Pendiente de depósito»: deja a cualquiera (lead o becado) pendiente de
+     un depósito en un broker. Pensado para el 2º depósito de un becado. pendep.js -->
+<div class="overlay" id="pdOverlay">
+  <div class="modal">
+    <div class="mhead">
+      <h2>Pendiente de depósito</h2>
+      <button class="mx" id="pdCerrar" title="Cerrar" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="mbody">
+      <p class="sub">Déjala pendiente de un depósito. Sirve para leads y para quien ya tiene beca y puede depositar en otro broker.</p>
+      <input id="pdBuscar" placeholder="Buscar persona…" autocomplete="off">
+      <div id="pdLista" class="pdlista"></div>
+      <div id="pdDetalle" class="pddet hidden">
+        <div class="pdsel" id="pdSel"></div>
+        <div class="frow">
+          <label>Broker a depositar</label>
+          <div class="lchips" id="pdBrokers"></div>
+        </div>
+        <div class="frow">
+          <label>¿Cuándo dijo que deposita?</label>
+          <div class="lfila"><input type="date" id="pdFecha"><input type="time" id="pdHora" value=""></div>
+          <div class="lfl2">La hora es opcional</div>
+        </div>
+      </div>
+    </div>
+    <div class="mfoot"><button class="masenviar" id="pdOk" disabled>Dejar pendiente</button></div>
   </div>
 </div>
 

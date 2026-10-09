@@ -111,7 +111,8 @@ export function categoria(c) {
 export function razon(c) {
   if (c.promesaEn) {
     const d = dias(c.promesaEn);
-    return `Prometió <b>${cuandoHora(c.promesaEn)}</b>${d > 0 ? " y no depositó" : ""}`;
+    const br = c.promesaBroker ? ` en <b>${esc(nombreBroker(c.promesaBroker))}</b>` : "";
+    return `Prometió depositar${br} <b>${cuandoHora(c.promesaEn)}</b>${d > 0 ? " y no depositó" : ""}`;
   }
   const s = senalReciente(c);
   if (s) {
@@ -151,11 +152,13 @@ export function form(c) {
       <div class="lacc"><button class="btn-oro" data-l="okPromesa">Confirmar</button><button class="lbtn" data-l="cancel">Cancelar</button></div></div>`;
   }
   if (abierto.modo === "deposito") {
-    const sel = abierto.brk || c.registroBroker || BROKERS[0].id;
-    return `<div class="lform"><div class="lft">Registrar el FTD — pasa a Beca</div>
+    // Para un 2º depósito (ya es Beca) el broker objetivo es el de la promesa.
+    const sel = abierto.brk || c.promesaBroker || c.registroBroker || BROKERS[0].id;
+    const nuevo = c.mem === "Lead";
+    return `<div class="lform"><div class="lft">${nuevo ? "Registrar el FTD — pasa a Beca" : "Registrar 2º FTD"}</div>
       <div class="lchips">${BROKERS.map(b => `<button class="lchip ${sel === b.id ? "on" : ""}" data-l="brk" data-v="${b.id}">${esc(b.n)}</button>`).join("")}</div>
       <label class="lfl">Fecha del depósito <input type="date" id="lFecha" value="${hoy}" max="${hoy}"></label>
-      <div class="lacc"><button class="btn-oro" data-l="okDeposito">Confirmar depósito</button><button class="lbtn" data-l="cancel">Cancelar</button></div></div>`;
+      <div class="lacc"><button class="btn-oro" data-l="okDeposito">${nuevo ? "Confirmar depósito" : "Confirmar 2º depósito"}</button><button class="lbtn" data-l="cancel">Cancelar</button></div></div>`;
   }
   if (abierto.modo === "contacto") {
     return `<div class="lform"><div class="lft">¿Para qué le escribiste?</div>
@@ -256,13 +259,25 @@ export function manejarLead(raiz, c, rerender) {
     }
     if (a === "okDeposito") {
       const f = raiz.querySelector("#lFecha").value; if (!f) return toast("Falta la fecha");
-      const brk = abierto.brk || c.registroBroker || BROKERS[0].id;
-      const ftds = { [brk]: f };
-      if (await dbPatch(c, { membresia: "Beca", ftds })) {
-        Object.assign(c, { mem: "Beca", ftds, comunidadDesde: f }); abierto = null;
-        // El FTD es nuevo: si el agente declaró sus números del mes, se suman.
+      const brk = abierto.brk || c.promesaBroker || c.registroBroker || BROKERS[0].id;
+      const nuevo = c.mem === "Lead";
+      // El FTD se SUMA al mapa (no se reemplaza): quien ya es Beca puede depositar
+      // en un 2º broker sin perder el primero. Y la promesa se limpia (con su
+      // broker) para que salga de Pendientes. Un lead, además, pasa a Beca.
+      const ftds = { ...c.ftds, [brk]: f };
+      const campos = { ftds, promesa_en: null, promesa_broker: null };
+      if (nuevo) campos.membresia = "Beca";
+      if (await dbPatch(c, campos)) {
+        // comunidad_desde lo recalcula el trigger (FTD más antiguo): en un 2º
+        // depósito no cambia; en el 1º es la fecha nueva. Se replica local.
+        const comunidadDesde = Object.values(ftds).filter(Boolean).sort()[0] || f;
+        Object.assign(c, { mem: nuevo ? "Beca" : c.mem, ftds, comunidadDesde,
+          promesaEn: null, promesaBroker: null });
+        abierto = null;
+        // FTD nuevo: si el agente declaró sus números del mes, se suma (sea 1º o 2º).
         await (await import("./ftd.js")).ajustarDeclarado(c, +1);
-        toast(`✓ ${primer(c)}: FTD registrado, pasó a Beca`);
+        toast(nuevo ? `✓ ${primer(c)}: FTD registrado, pasó a Beca`
+                    : `✓ ${primer(c)}: 2º FTD en ${nombreBroker(brk)} registrado`);
       }
       return listo();
     }
@@ -273,7 +288,8 @@ export function manejarLead(raiz, c, rerender) {
     }
     if (a === "undoPromesa") {
       if (!confirm(`¿Deshacer la promesa de depósito de ${c.nombre}?`)) return;
-      if (await dbPatch(c, { promesa_en: null })) c.promesaEn = null;
+      if (await dbPatch(c, { promesa_en: null, promesa_broker: null }))
+        Object.assign(c, { promesaEn: null, promesaBroker: null });
       return listo();
     }
     if (a === "setTemp") {

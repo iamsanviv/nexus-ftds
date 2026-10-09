@@ -30,6 +30,9 @@ export const mapDesdeDB = r => ({
   // desde «Seguimiento», campo por campo, y guardar la ficha no debe pisarlos.
   createdAt: r.created_at, registroBroker: r.registro_broker || null,
   registroEn: r.registro_en || null, promesaEn: r.promesa_en || null,
+  // Broker objetivo de la promesa: con valor es un pendiente de 2º depósito de
+  // alguien que ya es Beca. Como registroBroker/promesaEn, NO va en mapAEditar.
+  promesaBroker: r.promesa_broker || null,
   tempManual: r.temp_manual || null, tempManualEn: r.temp_manual_en || null,
 });
 export const mapAEditar = c => ({

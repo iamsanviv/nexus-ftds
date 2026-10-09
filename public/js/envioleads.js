@@ -12,7 +12,8 @@
 //     los siguientes de ese lead: o llega la serie entera o nada.
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, normBusqueda, esLead, componerMensaje,
-  ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, cuandoParte } from "./state.js";
+  ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, cuandoParte,
+  horaDeCliente, etiquetaZona } from "./state.js";
 import { subirImagenMensaje, guardarHistorialSegmento, cuotaDiaria } from "./data.js";
 import { canalVinculado } from "./canal.js";
 import { destinatariosMasivo } from "./masivo.js";
@@ -78,9 +79,10 @@ function leerBorrador({ paraEnviar } = {}) {
   if (!mensajes.length) { toast("Escribe al menos un mensaje o adjunta un video"); return null; }
   if (!bor.tipo) { toast("Elige el tipo de seguimiento"); return null; }
   if (!paraEnviar && !bor.nombre) { toast("Ponle un nombre a la plantilla"); $("ldNombre").focus(); return null; }
-  if (mensajes.some(m => /\{hora\}|\{zona\}|\{dia\}/.test(m.texto))) {
-    // Un seguimiento no cuelga de ningún evento: no hay hora que anunciar.
-    toast("Un seguimiento no tiene hora de evento: quita {hora}, {zona} o {dia}"); return null;
+  if (mensajes.some(m => /\{dia\}/.test(m.texto))) {
+    // {hora}/{zona} SÍ funcionan (con una hora de referencia); {dia} no: un
+    // seguimiento no cuelga de una actividad, así que no hay día de evento.
+    toast("Un seguimiento no tiene día de evento: quita {dia}. Para la hora usa {hora}."); return null;
   }
   return { nombre: bor.nombre, tipo: bor.tipo, modo: bor.modo, espera_min: bor.espera_min || 0,
     escalona: !!bor.escalona, mensajes };
@@ -112,7 +114,30 @@ function pintarTipos() {
   $("ldTipos").querySelectorAll("[data-tipo]").forEach(b => b.onclick = () => { bor.tipo = b.dataset.tipo; pintarTipos(); });
 }
 
-const prev = t => componerMensaje(t, { nombre: "Ana" });
+// {hora}/{zona} funcionan igual que en el masivo: el agente elige UNA hora de
+// referencia (p. ej. una sesión en vivo) y a cada persona le llega convertida a
+// su huso. No hay {dia} porque un seguimiento no cuelga de una actividad.
+const usaHora = t => /\{hora\}|\{zona\}/.test(t || "");
+const serieUsaHora = () => bor.mensajes.some(m => usaHora(m.texto));
+function instanteReferencia() {
+  const hhmm = $("ldHoraRef").value;
+  if (!hhmm) return null;
+  // La fecha es la del envío (hoy, o la programada): «a las 7» de qué día, solo
+  // importa para convertir husos; del instante solo se imprime la hora.
+  const fecha = (cuando === "prog" && $("ldFecha").value)
+    ? $("ldFecha").value
+    : new Date().toISOString().slice(0, 10);
+  const d = new Date(`${fecha}T${hhmm}:00`);   // hora local = Colombia
+  return isNaN(d) ? null : d.toISOString();
+}
+// `crudo` deja los tokens a la vista en la previa mientras no haya hora elegida.
+const resolverLead = (tpl, nombre, iso, tzOff, crudo = false) =>
+  componerMensaje(tpl, {
+    nombre: primerNombre(nombre),
+    hora: iso ? horaDeCliente(iso, tzOff) : (crudo ? "{hora}" : ""),
+    zona: iso ? etiquetaZona(tzOff) : (crudo ? "{zona}" : ""),
+  });
+const prev = t => resolverLead(t, "Ana", instanteReferencia(), null, true);
 
 function pintarMsgs() {
   const cont = $("ldMsgs");
@@ -146,13 +171,15 @@ function pintarMsgs() {
   const escVisible = bor.modo === "usuario" && conMin;
   $("ldEscWrap").classList.toggle("hidden", !escVisible);
   $("ldEsc").querySelectorAll("[data-esc]").forEach(b => b.classList.toggle("on", (b.dataset.esc === "1") === !!bor.escalona));
+  // La hora de referencia solo se pide si algún mensaje menciona {hora}/{zona}.
+  $("ldHoraRow").classList.toggle("hidden", !serieUsaHora());
 
   cont.querySelectorAll(".seriep").forEach(el => {
     const i = +el.dataset.i, m = bor.mensajes[i];
     const txt = el.querySelector("[data-txt]"), pv = el.querySelector("[data-prev]");
     const pintarPrev = () => { pv.textContent = m.texto.trim() ? prev(m.texto) : ""; };
     pintarPrev();
-    txt.oninput = () => { m.texto = txt.value; pintarPrev(); };
+    txt.oninput = () => { m.texto = txt.value; pintarPrev(); $("ldHoraRow").classList.toggle("hidden", !serieUsaHora()); };
     const q = el.querySelector("[data-quitar]");
     if (q) q.onclick = () => { bor.mensajes.splice(i, 1); pintarMsgs(); };
     const file = el.querySelector("[data-file]"), est = el.querySelector("[data-est]");
@@ -244,6 +271,12 @@ async function enviar() {
   const lista = elegidos();
   if (!lista.length) { toast("No hay leads seleccionados"); return; }
 
+  // Si algún mensaje menciona {hora}, tiene que haber una hora de referencia.
+  if (d.mensajes.some(m => usaHora(m.texto)) && !$("ldHoraRef").value) {
+    toast("Escribiste {hora} en un mensaje: elige a qué hora te refieres");
+    $("ldHoraRef").focus(); return;
+  }
+
   let base = new Date();
   if (cuando === "prog") {
     const f = $("ldFecha").value, h = $("ldHora").value;
@@ -280,14 +313,18 @@ async function enviar() {
     }).select("id").single();
     if (e1) throw e1;
 
+    // Un solo instante de referencia para toda la tanda: lo que cambia por
+    // persona es su huso, no la hora que se anuncia.
+    const isoRef = instanteReferencia();
     const rows = [];
     lista.forEach((c, i) => d.mensajes.forEach((m, k) => {
       rows.push({
         campana_id: camp.id, cliente_id: c.id, telefono: c.tel,
         tipo: k === 0 ? "masivo" : "masivo_parte",
         enviar_en: new Date(cuandoParte(serie, base.getTime(), i, k, n)).toISOString(),
-        // Cada lead recibe su propia redacción: las variantes se sortean por persona.
-        texto: m.texto ? componerMensaje(m.texto, { nombre: primerNombre(c.nombre) }) : null,
+        // Cada lead recibe su propia redacción: {nombre}, {hora}/{zona} en su
+        // huso y las variantes {a|b} sorteadas por persona.
+        texto: m.texto ? resolverLead(m.texto, c.nombre, isoRef, c.tzOff) : null,
         media_url: m.media,
       });
     }));
@@ -311,7 +348,7 @@ export async function abrirEnvioLeads(render) {
   sel = new Set(); fEtapa = "todas"; fTemp = "todas"; cuando = "ahora";
   bor = nuevoBorrador();
   $("ldNombre").value = ""; $("ldBuscar").value = "";
-  $("ldFecha").value = ""; $("ldHora").value = "";
+  $("ldFecha").value = ""; $("ldHora").value = ""; $("ldHoraRef").value = "";
   pintarTipos(); pintarMsgs(); pintarFiltros(); pintarLista(); pintarCuando(); pintarPlantillas();
   $("ldOverlay").classList.add("open");
   cuota = null;
@@ -334,6 +371,7 @@ $("ldEsp").querySelectorAll("[data-esp]").forEach(b => b.onclick = () => {
   bor.espera_min = b.dataset.esp === "min" ? (bor.espera_min || 5) : 0; pintarMsgs();
 });
 $("ldEsc").querySelectorAll("[data-esc]").forEach(b => b.onclick = () => { bor.escalona = b.dataset.esc === "1"; pintarMsgs(); });
+$("ldHoraRef").oninput = pintarMsgs;   // la previa depende de la hora de referencia
 $("ldMin").oninput = () => { const v = parseInt($("ldMin").value, 10); if (v >= 1 && v <= 120) bor.espera_min = v; };
 $("ldMin").onchange = pintarMsgs;
 $("ldBuscar").oninput = pintarLista;
