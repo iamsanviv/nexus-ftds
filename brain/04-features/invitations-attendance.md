@@ -2,13 +2,18 @@
 
 ## Invitación específica de una actividad
 
-`actividades.msg_invitacion` permite que una actividad puntual tenga su propio texto de invitación.
+`actividades.msg_invitacion` permite que una actividad (de catálogo O puntual) tenga su propio texto de invitación.
 
 Reglas:
 
 - `null` significa usar la plantilla normal del agente.
 - Solo aplica a la invitación; recordatorios, enlace y confirmación mantienen sus plantillas normales.
-- Solo tiene sentido en actividades puntuales. Una actividad de catálogo es recurrente y debe usar la plantilla general.
+- Editable en los DOS tipos desde el formulario de la actividad (`segMsgInvRow`, visible siempre desde
+  13/10/2026). Antes se ocultaba en catálogo por asumir que una recurrente debe usar la plantilla
+  general; en la práctica una fecha concreta puede necesitar otra invitación y no había dónde editarla
+  (el editor del panel de programación es solo para actividades AJENAS). `guardarActividad` persiste
+  `msg_invitacion` en ambos tipos; vacío = plantilla del agente. La previa usa el nombre del servicio
+  en catálogo y el nombre libre en puntual.
 - El editor se mantiene plegado para no convertir el formulario en una pared de texto.
 - Si se abre vacío, se puede sembrar con la plantilla del agente para editar desde una base existente.
 - Esta invitación específica tiene prioridad sobre `invitacion_extra` genérica cuando el usuario decidió escribir el texto para ese caso concreto.

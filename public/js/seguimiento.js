@@ -401,9 +401,9 @@ function setTipoActividad(tipo) {
     b.classList.toggle("on", b.dataset.tipo === tipo));
   $("segSrvRow").classList.toggle("hidden", tipo !== "cat");
   $("segLibreRow").classList.toggle("hidden", tipo !== "libre");
-  // Solo en las puntuales: una del catálogo es recurrente y su invitación es
-  // justo la que el agente ya dejó escrita en sus plantillas.
-  $("segMsgInvRow").classList.toggle("hidden", tipo !== "libre");
+  // #segMsgInvRow no se oculta en ningún tipo (el HTML ya no lo trae oculto):
+  // una actividad del catálogo es recurrente y usa tu plantilla por defecto,
+  // pero una fecha concreta puede necesitar otra invitación. Vacío = plantilla.
   // El embudo de venta le pasa a la persona una sola vez; una actividad del
   // catálogo es recurrente, así que marcarla como zoom no tendría sentido.
   $("segZoomRow").classList.toggle("hidden", tipo !== "libre");
@@ -433,7 +433,10 @@ function renderPrevInvitacion() {
   const prev = $("segMsgInvPrev");
   if (!prev) return;
   const txt = ($("segMsgInv").value || "").trim();
-  const nombreAct = $("segLibre").value.trim() || "la actividad";
+  // En catálogo el nombre viene del servicio elegido; en puntual, del campo libre.
+  const nombreAct = (segTipoAct === "libre"
+    ? $("segLibre").value.trim()
+    : (todos().find(x => x.id === $("segSrv").value) || {}).n) || "la actividad";
   const hora = $("segHora").value
     ? horaCO(new Date(`2026-01-01T${$("segHora").value}:00`).toISOString())
     : "7:00 p. m.";
@@ -641,9 +644,10 @@ async function guardarActividad() {
       nombre: nombreAct,
       inicio: inicio.toISOString(), enlace,
       imagen: segImg,
-      // Solo las puntuales llevan invitación propia; si se cambia de tipo, se
-      // limpia en vez de arrastrar un texto que ya no se ve en pantalla.
-      msg_invitacion: libre ? (($("segMsgInv").value || "").trim() || null) : null,
+      // Invitación propia de ESTA actividad (catálogo o puntual). Vacío = usar
+      // la plantilla del agente. El editor está siempre visible, así que el
+      // texto en pantalla es la fuente en los dos tipos.
+      msg_invitacion: ($("segMsgInv").value || "").trim() || null,
       // La serie sí vale en las dos: es «qué más se le manda», no un texto que
       // reemplace la plantilla del agente.
       serie_invitacion: serie,
@@ -2735,6 +2739,7 @@ $("segMiInvQuitar").onclick = () => {
 };
 $("segHora").addEventListener("change", renderPrevInvitacion);
 $("segLibre").addEventListener("input", renderPrevInvitacion);
+$("segSrv").addEventListener("change", renderPrevInvitacion);
 $("segMsgInvQuitar").onclick = () => setMsgInvitacion(null);
 $("segSerieAdd").onclick = () => {
   if (segSerie.partes.length >= MAX_PARTES) return;
