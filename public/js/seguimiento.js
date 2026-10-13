@@ -401,9 +401,9 @@ function setTipoActividad(tipo) {
     b.classList.toggle("on", b.dataset.tipo === tipo));
   $("segSrvRow").classList.toggle("hidden", tipo !== "cat");
   $("segLibreRow").classList.toggle("hidden", tipo !== "libre");
-  // Solo en las puntuales: una del catálogo es recurrente y su invitación es
-  // justo la que el agente ya dejó escrita en sus plantillas.
-  $("segMsgInvRow").classList.toggle("hidden", tipo !== "libre");
+  // #segMsgInvRow no se oculta en ningún tipo: una actividad del catálogo es
+  // recurrente, pero eso no obliga a que la plantilla de siempre sirva para
+  // esta edición concreta.
   // El embudo de venta le pasa a la persona una sola vez; una actividad del
   // catálogo es recurrente, así que marcarla como zoom no tendría sentido.
   $("segZoomRow").classList.toggle("hidden", tipo !== "libre");
@@ -433,14 +433,10 @@ function renderPrevInvitacion() {
   const prev = $("segMsgInvPrev");
   if (!prev) return;
   const txt = ($("segMsgInv").value || "").trim();
-  const nombreAct = $("segLibre").value.trim() || "la actividad";
-  const hora = $("segHora").value
-    ? horaCO(new Date(`2026-01-01T${$("segHora").value}:00`).toISOString())
-    : "7:00 p. m.";
-  prev.textContent = txt
-    ? aplicar(txt, { nombre: "Ana", actividad: nombreAct, hora, dia: diaDelForm(),
-        zona: etiquetaZona(null), enlace: "" })
-    : "";
+  // Delega en previewTexto, que resuelve el nombre de la actividad en los dos
+  // tipos. Antes leía solo #segLibre, que en una del catálogo está vacío: la
+  // vista previa habría dicho siempre «la actividad».
+  prev.textContent = txt ? previewTexto(txt) : "";
 }
 
 // Un solo adjunto por actividad: viaja en el mismo `media_url`, así que mostrar
@@ -641,14 +637,16 @@ async function guardarActividad() {
       nombre: nombreAct,
       inicio: inicio.toISOString(), enlace,
       imagen: segImg,
-      // Solo las puntuales llevan invitación propia; si se cambia de tipo, se
-      // limpia en vez de arrastrar un texto que ya no se ve en pantalla.
-      msg_invitacion: libre ? (($("segMsgInv").value || "").trim() || null) : null,
+      // Vale en los dos tipos. Ya no se limpia al cambiar de tipo: el editor
+      // ahora está visible en ambos, así que el texto nunca queda guardado
+      // sin que se vea en pantalla. Vacío = usar la plantilla del agente.
+      msg_invitacion: ($("segMsgInv").value || "").trim() || null,
       // La serie sí vale en las dos: es «qué más se le manda», no un texto que
       // reemplace la plantilla del agente.
       serie_invitacion: serie,
-      // Igual que la invitación propia: solo en las puntuales, y se limpia al
-      // cambiar de tipo para no dejar una del catálogo marcada como zoom.
+      // El zoom sí sigue siendo solo de las puntuales (su editor se oculta en
+      // catálogo), y se limpia al cambiar de tipo para no dejar una del
+      // catálogo marcada como zoom.
       zoom_tipo: libre ? ($("segZoom").value || null) : null,
       compartida: state.me.role === "director" && $("segCompartir").checked,
     };
