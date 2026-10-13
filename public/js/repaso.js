@@ -170,6 +170,7 @@ function abrir(items, marcarHecho) {
     });
   };
 
+  $("repTit").textContent = "☀ Repaso del día";
   $("repCerrar").onclick = cerrar;
   $("repOverlay").onclick = e => { if (e.target.id === "repOverlay") cerrar(); };
   paso();

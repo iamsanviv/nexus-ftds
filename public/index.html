@@ -772,10 +772,12 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
   </div>
 </div>
 
-<!-- modal repaso diario de asistencias -->
+<!-- Modal compartido (repaso diario, quiénes entraron, envío masivo, cancelar y
+     editar mensajes). El título lo fija cada ventana en #repTit: antes era fijo
+     «Repaso del día» y aparecía en todas. -->
 <div class="overlay" id="repOverlay">
   <div class="modal">
-    <h2>☀ Repaso del día</h2>
+    <h2 id="repTit">☀ Repaso del día</h2>
     <div class="authsub" id="repSub"></div>
     <div id="repBody"></div>
     <div class="mfoot"><button class="tbtn" id="repCerrar">Cerrar</button></div>

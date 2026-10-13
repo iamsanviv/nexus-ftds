@@ -1928,6 +1928,7 @@ const asistioA = (c, actividadId, servicioId) => !c ? false
 // `acc[servicio]` las del catálogo, en `puntuales[actividad].acc` las puntuales.
 async function abrirEntradas(a) {
   const sid = a.servicio_id;
+  $("repTit").textContent = "Quiénes entraron";
   $("repSub").textContent = "Cargando…";
   $("repBody").innerHTML = `<div class="naplica">Un momento…</div>`;
   $("repOverlay").classList.add("open");
@@ -2156,6 +2157,7 @@ export async function renderCampanas(abrir) {
 // quedó. Sin esto, «19 de 23 enviados» no dice a QUIÉN le llegó ni por qué
 // fallaron los otros cuatro — que es lo único accionable de un envío fallido.
 async function abrirCampana(c) {
+  $("repTit").textContent = "Envío masivo";
   $("repSub").textContent = "Cargando…";
   $("repBody").innerHTML = `<div class="naplica">Un momento…</div>`;
   $("repOverlay").classList.add("open");
@@ -2396,7 +2398,8 @@ const LBL_HITO = { invitacion: "Invitación", ...HITO_CORTO };
 const ORDEN_HITO = ["invitacion", "rec_60", "rec_15", "enlace", "confirmacion"];
 async function abrirEditarMensajes(s) {
   const nombre = s.clientes?.nombre || "esta persona";
-  $("repSub").textContent = "Mensajes del seguimiento";
+  $("repTit").textContent = "Mensajes del seguimiento";
+  $("repSub").textContent = "";
   $("repBody").innerHTML = `<div class="naplica">Cargando…</div>`;
   $("repOverlay").classList.add("open");
   const cerrar = () => $("repOverlay").classList.remove("open");
@@ -2476,7 +2479,8 @@ async function abrirCancelar(s) {
   const sinServicio = !!act && esLibre(act);
   const yaAsistio = asistioA(c, s.actividad_id, sid);
 
-  $("repSub").textContent = "Cancelar seguimiento";
+  $("repTit").textContent = "Cancelar seguimiento";
+  $("repSub").textContent = "";
   $("repBody").innerHTML = `
     <div class="prow" style="flex-direction:column;align-items:stretch;gap:12px">
       <div style="font-size:.95rem">Vas a cancelar el seguimiento de <b>${esc(nombre)}</b>
