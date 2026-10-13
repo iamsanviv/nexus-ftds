@@ -2,19 +2,13 @@
 
 ## Invitación específica de una actividad
 
-`actividades.msg_invitacion` permite que una actividad tenga su propio texto de invitación.
+`actividades.msg_invitacion` permite que una actividad puntual tenga su propio texto de invitación.
 
 Reglas:
 
 - `null` significa usar la plantilla normal del agente.
 - Solo aplica a la invitación; recordatorios, enlace y confirmación mantienen sus plantillas normales.
-- Vale en los dos tipos de actividad, catálogo y puntual — cambiado el 13/10/2026 a
-  petición del dueño del producto. Antes el editor solo se mostraba en las puntuales,
-  con el argumento de que una del catálogo es recurrente y debía usar la plantilla
-  general; en la práctica dejaba el primer mensaje de una actividad del catálogo sin
-  forma de editarlo ni quitarlo. Ser recurrente no implica que el texto de siempre
-  sirva para esa edición concreta. La base y el envío nunca distinguieron por tipo: el
-  bloqueo era solo de interfaz (`#segMsgInvRow` y el guardado en `seguimiento.js`).
+- Solo tiene sentido en actividades puntuales. Una actividad de catálogo es recurrente y debe usar la plantilla general.
 - El editor se mantiene plegado para no convertir el formulario en una pared de texto.
 - Si se abre vacío, se puede sembrar con la plantilla del agente para editar desde una base existente.
 - Esta invitación específica tiene prioridad sobre `invitacion_extra` genérica cuando el usuario decidió escribir el texto para ese caso concreto.

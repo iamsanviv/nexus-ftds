@@ -266,10 +266,8 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         <!-- Invitación propia de esta actividad. Plegada: la mayoría de las
              veces la plantilla del agente sirve, y desplegar cinco mensajes
              convertiría el formulario en un muro de texto. Solo la invitación:
-             los recordatorios y el enlace son iguales en todas partes.
-             Visible en los dos tipos de actividad: ser recurrente no implica
-             que el texto de siempre sirva para esta edición en concreto. -->
-        <div class="frow wide" id="segMsgInvRow">
+             los recordatorios y el enlace son iguales en todas partes. -->
+        <div class="frow wide hidden" id="segMsgInvRow">
           <button type="button" class="tbtn" id="segMsgInvBtn">✎ Personalizar la invitación</button>
           <div id="segMsgInvBox" class="hidden">
             <textarea id="segMsgInv" rows="4" placeholder="Escribe la invitación de esta actividad…"></textarea>
