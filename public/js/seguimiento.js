@@ -2284,7 +2284,6 @@ function entradaChip(s) {
 // la base en cada letra: con 60 seguimientos en curso eso serían decenas de
 // consultas por búsqueda, y el filtro es puramente local.
 let activosCache = [];
-let confCache = new Map();
 let segActBuscarTxt = "";
 // Por debajo de esto la lista entra de un vistazo y un buscador solo estorba.
 const MIN_PARA_BUSCAR = 5;
@@ -2308,25 +2307,10 @@ async function renderActivos() {
   const activos = (data || []).filter(s => finConf(s) > ahora);
   setTile("segTileActivos", "segTActivos", activos.length, "acc");
 
-  // Estado de la CONFIRMACIÓN de cada uno, para poder silenciarla sin cancelar
-  // el seguimiento entero. Cancelar el seguimiento tambien serviria —a esta
-  // altura la confirmacion suele ser el unico pendiente— pero saca a la persona
-  // del panel de «quiénes entraron», que excluye los cancelados. Aquí solo se
-  // toca ese mensaje.
-  //
-  // No hace falta comprobar si ya pasó: todo lo que se ve en esta lista tiene
-  // `inicio + 10 min` en el futuro, que es justo cuando sale la confirmación.
-  const confPorSeg = new Map();
-  if (activos.length) {
-    const { data: cf } = await SB.from("mensajes_programados")
-      .select("seguimiento_id, estado")
-      .in("seguimiento_id", activos.map(s => s.id))
-      .eq("tipo", "confirmacion")
-      .in("estado", ["pendiente", "cancelado"]);
-    for (const m of cf || []) confPorSeg.set(m.seguimiento_id, m.estado);
-  }
+  // Los mensajes de cada seguimiento (para silenciar/reactivar hitos puntuales)
+  // se cargan a demanda al abrir «✎ Mensajes», no aquí: así la lista no arrastra
+  // una consulta por cada tanda en curso.
   activosCache = activos;
-  confCache = confPorSeg;
   if (!activos.length) {
     $("segActBuscarWrap").classList.add("hidden");
     $("segActConteo").classList.add("hidden");
@@ -2345,7 +2329,6 @@ async function renderActivos() {
 // más falta hace —la del número que acabas de recibir— nunca encontraría nada.
 function pintarActivos() {
   const activos = activosCache;
-  const confPorSeg = confCache;
   const hayBuscador = activos.length >= MIN_PARA_BUSCAR;
   $("segActBuscarWrap").classList.toggle("hidden", !hayBuscador);
   if (!hayBuscador && segActBuscarTxt) {     // la lista encogió: no dejar un filtro invisible puesto
@@ -2385,7 +2368,7 @@ function pintarActivos() {
         </div>
       </div>
       <div class="ab">
-        ${confBoton(confPorSeg.get(s.id), s.id)}
+        <button class="pmark off" data-msgs="${s.id}">✎ Mensajes</button>
         <button class="pmark off" data-cancel="${s.id}">✕ Cancelar</button>
       </div>
     </article>`).join("");
@@ -2395,34 +2378,73 @@ function pintarActivos() {
     if (s) abrirCancelar(s);
   });
 
-  // Silenciar / volver a activar la confirmación. Es un interruptor y no una
-  // acción de una sola dirección: un clic de más no puede costar un mensaje que
-  // sí se quería mandar.
-  $("segActivos").querySelectorAll("[data-conf]").forEach(b => b.onclick = async () => {
-    const [id, accion] = b.dataset.conf.split("|");
-    b.disabled = true;
-    const { error } = await SB.from("mensajes_programados")
-      .update({ estado: accion === "silenciar" ? "cancelado" : "pendiente" })
-      .eq("seguimiento_id", id).eq("tipo", "confirmacion")
-      .eq("estado", accion === "silenciar" ? "pendiente" : "cancelado");
-    if (error) { toast("⚠ " + error.message); b.disabled = false; return; }
-    toast(accion === "silenciar"
-      ? "No se enviará la confirmación · sigue contando en la actividad"
-      : "La confirmación vuelve a salir");
-    renderActivos();
+  // Editar los mensajes YA programados de ese seguimiento: silenciar o volver a
+  // activar cada hito por separado (p. ej. quitar los recordatorios y dejar el
+  // enlace). Carga los mensajes a demanda.
+  $("segActivos").querySelectorAll("[data-msgs]").forEach(b => b.onclick = () => {
+    const s = activosCache.find(x => x.id === b.dataset.msgs);
+    if (s) abrirEditarMensajes(s);
   });
 }
 
-// El botón solo existe si hay confirmación que tocar: si esa tanda se programó
-// sin ella —porque su hora ya había pasado— no se ofrece un control muerto.
-function confBoton(estado, segId) {
-  if (estado === "pendiente")
-    return `<button class="pmark off" data-conf="${segId}|silenciar"
-      title="No enviarle el mensaje de confirmación. Sigue contando en la asistencia y en las entradas.">🔕 Sin confirmación</button>`;
-  if (estado === "cancelado")
-    return `<button class="pmark" data-conf="${segId}|activar"
-      title="Volver a enviarle la confirmación">🔔 Confirmación silenciada</button>`;
-  return "";
+// Editor de los mensajes de un seguimiento en curso. Generaliza lo que antes
+// era solo «silenciar la confirmación»: cada hito pendiente se puede apagar
+// (estado → cancelado) y cada uno cancelado se puede volver a activar, sin
+// cancelar el seguimiento entero. Lo ya enviado no se puede recoger; un
+// cancelado cuya hora ya pasó no se puede reactivar (el worker no lo mandaría).
+const LBL_HITO = { invitacion: "Invitación", ...HITO_CORTO };
+const ORDEN_HITO = ["invitacion", "rec_60", "rec_15", "enlace", "confirmacion"];
+async function abrirEditarMensajes(s) {
+  const nombre = s.clientes?.nombre || "esta persona";
+  $("repSub").textContent = "Mensajes del seguimiento";
+  $("repBody").innerHTML = `<div class="naplica">Cargando…</div>`;
+  $("repOverlay").classList.add("open");
+  const cerrar = () => $("repOverlay").classList.remove("open");
+  $("repCerrar").onclick = cerrar;
+  $("repOverlay").onclick = e => { if (e.target.id === "repOverlay") cerrar(); };
+
+  const { data: msgs, error } = await SB.from("mensajes_programados")
+    .select("tipo, estado, enviar_en").eq("seguimiento_id", s.id);
+  if (error) { $("repBody").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
+  const porTipo = new Map();
+  for (const m of msgs || []) porTipo.set(m.tipo, m);   // un mensaje por tipo
+
+  const pintar = () => {
+    const ahora = Date.now();
+    const filas = ORDEN_HITO.filter(t => porTipo.has(t)).map(t => {
+      const m = porTipo.get(t);
+      const paso = new Date(m.enviar_en).getTime() <= ahora;
+      let acc;
+      if (m.estado === "enviado")        acc = `<span class="sfecha" style="color:var(--ok)">✓ enviado</span>`;
+      else if (m.estado === "error")     acc = `<span class="sfecha" style="color:var(--bad)">falló</span>`;
+      else if (m.estado === "pendiente") acc = `<button class="pmark off" data-ht="${t}" data-acc="silenciar" title="${esc(CONSECUENCIA_HITO[t] || "")}">🔕 No enviar</button>`;
+      else if (m.estado === "cancelado" && !paso) acc = `<button class="pmark" data-ht="${t}" data-acc="activar">🔔 Volver a enviar</button>`;
+      else /* cancelado y ya pasó */     acc = `<span class="sfecha">silenciado · ya pasó su hora</span>`;
+      return `<div class="prow">
+        <div class="pl"><span class="pn">${esc(LBL_HITO[t] || t)}</span>
+          <span class="sfecha">${esc(fechaHoraCO(m.enviar_en))}${m.estado === "cancelado" ? " · silenciado" : ""}</span></div>
+        ${acc}</div>`;
+    }).join("");
+    $("repBody").innerHTML = `
+      <div style="font-size:.9rem;margin-bottom:10px">Seguimiento de <b>${esc(nombre)}</b> para
+        <b>${esc(s.actividad)}</b>. Apaga los que no quieras que salgan; lo ya enviado no se puede recoger.</div>
+      ${filas || `<div class="naplica">Este seguimiento no tiene mensajes.</div>`}`;
+    $("repBody").querySelectorAll("[data-ht]").forEach(b => b.onclick = async () => {
+      const t = b.dataset.ht, acc = b.dataset.acc;
+      const nuevo = acc === "silenciar" ? "cancelado" : "pendiente";
+      const prev  = acc === "silenciar" ? "pendiente" : "cancelado";
+      b.disabled = true;
+      const { error: e2 } = await SB.from("mensajes_programados")
+        .update({ estado: nuevo }).eq("seguimiento_id", s.id).eq("tipo", t).eq("estado", prev);
+      if (e2) { toast("⚠ " + e2.message); b.disabled = false; return; }
+      porTipo.get(t).estado = nuevo;
+      const nom = t === "invitacion" ? "la invitación" : (NOMBRE_HITO[t] || t);
+      toast(acc === "silenciar" ? `No se enviará ${nom}` : `${nom[0].toUpperCase()}${nom.slice(1)} vuelve a salir`);
+      pintar();
+      renderActivos();
+    });
+  };
+  pintar();
 }
 
 // Diálogo de cancelación: además de cancelar los mensajes pendientes, deja

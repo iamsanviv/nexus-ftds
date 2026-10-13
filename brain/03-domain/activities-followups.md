@@ -139,6 +139,26 @@ El filtrado es **en memoria** (`pintarActivos`), sobre lo que `renderActivos`
 dejó en caché. Volver a consultar por cada tecla serían decenas de consultas por
 búsqueda para un filtro que no necesita la base.
 
+## Editar los mensajes de un seguimiento ya programado (13/10/2026)
+
+Cada tarjeta de «Seguimientos activos» tiene **«✎ Mensajes»** (`abrirEditarMensajes`,
+reusa el modal `repOverlay`). Lista los mensajes de ESA tanda (`invitacion`, `rec_60`,
+`rec_15`, `enlace`, `confirmacion`) con su hora y estado, y permite **silenciar o
+reactivar cada hito por separado** sin cancelar el seguimiento entero: pendiente →
+`cancelado` («No enviar») y cancelado → `pendiente` («Volver a enviar»). Resuelve el
+caso «ya programé pero no quiero que le llegue el recordatorio de 1 h ni el de 15».
+
+Reglas de lo que se puede tocar:
+- `enviado` / `error`: no se tocan (lo enviado no se recoge).
+- `pendiente`: se puede silenciar.
+- `cancelado` cuya hora ya pasó: NO se ofrece reactivar (el worker no lo mandaría);
+  se muestra «silenciado · ya pasó su hora».
+
+Generaliza lo que antes era solo «silenciar la confirmación» (`confBoton`, un botón
+por tarjeta): ese control se retiró y su función vive ahora dentro del editor, para
+no tener dos mecanismos para lo mismo. El update va por `seguimiento_id` + `tipo` +
+`estado` previo, así un doble clic no pisa un estado que ya cambió.
+
 ## Rastreo
 
 Cada seguimiento rastreado tiene su propio `clic_token`. El token identifica a esa persona dentro de esa actividad y debe sobrevivir a reprogramaciones de mensajes.
