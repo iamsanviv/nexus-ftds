@@ -135,6 +135,7 @@ export function render() {
   $("vistaCliente").classList.toggle("modohoy", enHoy);
   $("vistaHoy").classList.toggle("hidden", !enHoy);
   if (enHoy) {
+    $("paginador").classList.add("hidden");
     $("buscar").classList.add("hidden");
     $("ftdPanel").innerHTML = "";
     renderHoy($("vistaHoy"), render);
@@ -407,6 +408,9 @@ export function render() {
     } else estadoEl.innerHTML = "";
   }
 
+  const pagEl = $("paginador");
+  if (pagEl) { pagEl.classList.add("hidden"); pagEl.innerHTML = ""; }
+
   if (!vis.length) {
     const vacioMsg = isLead
       ? (base.length ? "Prueba otro filtro." : "Toca «+ Lead» para registrar a alguien que aún no es de la Comunidad.")
@@ -416,8 +420,45 @@ export function render() {
   }
 
   const dir = state.me.role === "director";
-  $("lista").innerHTML = vis.map(c => cardHTML(c, pr(c), rankMap[c.id], isLead, dir)).join("");
+  $("lista").innerHTML = paginar(vis, isLead).map(c => cardHTML(c, pr(c), rankMap[c.id], isLead, dir)).join("");
   wireCards();
+}
+
+/* ---------- paginación (solo Comunidad) ----------
+   Leads no se pagina: su lista de trabajo es «Hoy» y la completa es corta.
+   El número de rango (`rankMap`) se calcula sobre la lista entera, así que la
+   página 2 sigue en el 21: la posición es la del orden, no la de la página. */
+function paginar(vis, isLead) {
+  const el = $("paginador");
+  if (isLead || !el) return vis;
+  // Cualquier cambio en lo que se mira devuelve a la página 1: quedarse en la 4
+  // de un filtro nuevo que solo tiene 2 mostraría una lista vacía.
+  const firma = JSON.stringify([state.filtro, state.filtroMem, state.filtroBrk, state.filtroDep,
+    state.filtroSrv, state.orden, normBusqueda($("buscar").value)]);
+  if (firma !== state.paginaFirma) { state.paginaFirma = firma; state.pagina = 1; }
+  const tam = state.porPagina, paginas = Math.max(1, Math.ceil(vis.length / tam));
+  state.pagina = Math.min(Math.max(1, state.pagina), paginas);
+  const desde = (state.pagina - 1) * tam, hasta = Math.min(desde + tam, vis.length);
+
+  el.classList.remove("hidden");
+  el.innerHTML = `<span class="pagrango">${desde + 1}–${hasta} de ${vis.length}</span>
+    <div class="pagnav">
+      <button class="pill" id="pagAnt" ${state.pagina === 1 ? "disabled" : ""} aria-label="Página anterior">‹</button>
+      <span class="pagnum">Página ${state.pagina} de ${paginas}</span>
+      <button class="pill" id="pagSig" ${state.pagina === paginas ? "disabled" : ""} aria-label="Página siguiente">›</button>
+    </div>
+    <select class="brksel" id="pagTam" aria-label="Personas por página">
+      ${[20, 50, 100].map(n => `<option value="${n}" ${n === tam ? "selected" : ""}>${n} por página</option>`).join("")}
+    </select>`;
+  const ir = n => { state.pagina = n; render(); $("vistaCliente").scrollIntoView({ block: "start" }); };
+  $("pagAnt").onclick = () => ir(state.pagina - 1);
+  $("pagSig").onclick = () => ir(state.pagina + 1);
+  $("pagTam").onchange = e => {
+    state.porPagina = +e.target.value;
+    try { localStorage.setItem("nx.porPagina", String(state.porPagina)); } catch {}
+    ir(1);
+  };
+  return vis.slice(desde, hasta);
 }
 
 function stat(cls, n, label) {

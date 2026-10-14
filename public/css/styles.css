@@ -1938,3 +1938,13 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 #ldLista .ltemp{margin-left:8px}
 #ldEtapas,#ldTemps{margin-bottom:8px}
 .fs2.alerta{color:var(--gold)}
+
+/* Paginación de Comunidad: rango a la izquierda, navegación al centro y tamaño
+   a la derecha; en celular se envuelve sin desbordar. */
+.paginador{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:10px;margin:12px 0 90px;font-size:.8rem;color:var(--muted)}
+.paginador .pagnav{display:flex;align-items:center;gap:8px}
+.paginador .pagnum{font-variant-numeric:tabular-nums;color:var(--text)}
+.paginador .pill{min-width:36px;justify-content:center}
+.paginador .pill:disabled{opacity:.4;cursor:default}
+.pagrango{font-variant-numeric:tabular-nums}
