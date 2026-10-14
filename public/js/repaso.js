@@ -111,6 +111,14 @@ const MENSAJE_SEGUIMIENTO =
 // envío sino un masivo de una persona, y por eso el destinatario se valida con
 // el mismo cuello (`destinatariosMasivo`). Sin campaña para no llenar «Envíos
 // masivos» de tandas de uno; el worker ya entrega masivos con `campana_id` nulo.
+const textoSeguimiento = c =>
+  componerMensaje(MENSAJE_SEGUIMIENTO, { nombre: (c.nombre || "").trim().split(/\s+/)[0] });
+
+// Sin canal vinculado no hay cola que pueda enviarlo: se abre el chat en el
+// WhatsApp del propio agente con el texto escrito, y él decide si lo envía.
+const enlaceWa = c =>
+  `https://wa.me/${c.tel.replace(/\D/g, "")}?text=${encodeURIComponent(textoSeguimiento(c))}`;
+
 async function escribirle(c, btn) {
   // Inactivas incluidas a propósito: aquí el agente eligió a esta persona, y la
   // confirmación de abajo se lo recuerda.
@@ -118,11 +126,12 @@ async function escribirle(c, btn) {
     toast(c.tel ? "Solo puedes escribirle a tus propios clientes" : "Esta persona no tiene teléfono");
     return;
   }
+  // Se vuelve a comprobar al enviar: el canal pudo caerse con el repaso abierto.
   if (!(await canalVinculado())) {
-    toast("Vincula tu WhatsApp en «Más → Mi WhatsApp» para poder enviar");
+    toast("Tu WhatsApp se desvinculó: vuelve a abrir el repaso para escribirle desde tu teléfono");
     return;
   }
-  const texto = componerMensaje(MENSAJE_SEGUIMIENTO, { nombre: (c.nombre || "").trim().split(/\s+/)[0] });
+  const texto = textoSeguimiento(c);
   const cuota = await cuotaDiaria();
   const avisos = [
     esInactivo(c) ? `😴 Está marcada como inactiva (${motivoCorto(c.inactivoMotivo)}).` : "",
@@ -147,7 +156,9 @@ async function escribirle(c, btn) {
 
 /* ---------- overlay ---------- */
 
-function abrir(items, marcarHecho) {
+// `canal`: si el WhatsApp del agente está vinculado al abrir el repaso. Decide
+// si el botón encola el mensaje o abre wa.me.
+function abrir(items, marcarHecho, canal) {
   const hoy = hoyISO();
   let i = 0;
 
@@ -171,7 +182,9 @@ function abrir(items, marcarHecho) {
         <div style="font-size:.95rem">¿<b>${esc(c.nombre)}</b> <span class="badge b-${c.mem}">${c.mem}</span> asistió a <b>${esc(s.n)}</b>?
           <span class="sfecha">invitado el ${fmtF(f)}</span>
         </div>
-        ${c.tel ? `<div><button class="pmark off mini" data-escribir>💬 Escribirle</button></div>` : ""}
+        ${!c.tel ? "" : canal
+          ? `<div><button class="pmark off mini" data-escribir>💬 Escribirle</button></div>`
+          : `<div><a class="pmark off mini" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="${esc(enlaceWa(c))}" title="Tu WhatsApp no está vinculado: se abre el chat con el mensaje escrito">💬 Escribirle en WhatsApp</a></div>`}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="pmark" data-r="si">✓ Sí asistió</button>
           <button class="pmark off" data-r="no">✗ No asistió</button>
@@ -241,7 +254,7 @@ export async function repasoDiario() {
   if (localStorage.getItem(clave()) === hoy) return;   // ya se hizo hoy
   const items = pendientes();
   if (!items.length) { localStorage.setItem(clave(), hoy); return; }
-  abrir(items, true);
+  abrir(items, true, await canalVinculado());
 }
 
 // A demanda: desde el indicador del header, sin importar el candado del día.
@@ -251,5 +264,5 @@ export async function repasoManual() {
   await cargarHorarios();
   const items = pendientes();
   if (!items.length) { toast("🎉 No hay invitaciones pendientes"); render(); return; }
-  abrir(items, false);             // abrirlo a mano no marca el repaso del día
+  abrir(items, false, await canalVinculado());             // abrirlo a mano no marca el repaso del día
 }

@@ -83,6 +83,8 @@ Antes de agregar una tercera vía de envío, preguntar por qué no puede pasar p
 
 El botón «💬 Escribirle» del Repaso del día (`escribirle()` en `public/js/repaso.js`) no es una tercera vía: es un masivo de una persona. Valida al destinatario con `destinatariosMasivo(true)`, pide confirmación con el texto ya resuelto y encola un `tipo='masivo'` **sin campaña** (`campana_id` nulo, que el worker entrega igual) para no llenar «Envíos masivos» de tandas de uno.
 
+Solo encola si el WhatsApp del agente está vinculado al abrir el repaso (y se vuelve a comprobar al enviar). Sin canal, el botón es un enlace `https://wa.me/<tel>?text=<mensaje>` que abre el chat en el WhatsApp del propio agente con el texto escrito: no pasa por la cola ni por el worker, y enviarlo lo decide el agente.
+
 ## Etiquetas antes que variantes
 
 `aplicar()` sustituye las etiquetas **antes** de sortear los grupos `{a|b|c}`, no al revés. Es lo que permite escribir `{Hoy tenemos|{dia} tenemos}`: para cuando el sorteo mira el texto, la etiqueta ya es una palabra y el grupo no tiene llaves adentro.
