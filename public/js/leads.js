@@ -40,6 +40,28 @@ const llegada = c => c.creado || (c.createdAt ? fechaCO(new Date(c.createdAt)) :
 
 /* ------------------------------------------------------------- contactos */
 export const contactosDe = c => state.contactos?.[c.id] || [];   // más reciente primero
+
+/* ------------------------------------------------- plantillas enviadas */
+// Una entrada por plantilla (la más reciente gana, con cuántas veces se mandó),
+// para saber cuál NO repetir. Se agrupa por `plantillaId`; un envío sin
+// plantilla guardada solo tiene el nombre de la campaña y se agrupa por él.
+export function plantillasDe(c) {
+  const por = new Map();
+  for (const x of state.plantillasEnviadas?.[c.id] || []) {   // más reciente primero
+    const k = x.plantillaId || "n:" + x.nombre;
+    const g = por.get(k);
+    if (g) { g.veces++; if (x.estado === "enviado") g.recibida = true; }
+    else por.set(k, { ...x, veces: 1, recibida: x.estado === "enviado" });
+  }
+  return [...por.values()];
+}
+// Lo que la plantilla `id` ya le hizo a este lead: la recibió o está programada.
+export const plantillaPara = (c, id) => id ? plantillasDe(c).find(x => x.plantillaId === id) : null;
+// Texto corto de la marca. Agrupado, lo último puede estar programado aunque
+// ya la haya recibido antes: se dicen las dos cosas.
+export const marcaPlantilla = x => x.estado === "pendiente"
+  ? (x.recibida ? `ya la recibió · otra programada ${cuandoTxt(x.en)}` : `programada ${cuandoTxt(x.en)} ${horaTxt(x.en)}`)
+  : `recibida ${cuandoTxt(x.en)}`;
 const ultimoSi = c => contactosDe(c).find(x => x.respuesta === "si");
 
 // Lo que el lead te ESCRIBIÓ sale de entrantes.js (automático, ~5 min de
@@ -232,6 +254,7 @@ export function seguimientoHTML(c) {
   }
 
   const cs = contactosDe(c).slice(0, 4);
+  const pls = plantillasDe(c);
   const filas = cs.map((x, i) => `<div class="lcon">
       <div class="lcon1"><b>${nombreTipo(x.tipo)}</b> · ${cuandoTxt(x.en)} ${horaTxt(x.en)}
         ${mio && i === 0 && !x.respuesta ? `<button class="llink" data-l="borrarCon" data-v="${x.id}">Deshacer</button>` : ""}</div>
@@ -248,6 +271,8 @@ export function seguimientoHTML(c) {
       ${abiertoAqui(c, "temp") ? form(c) : ""}
       <div class="lwhy">${razon(c)}</div>
       ${pasos.join("")}${accion}
+      ${pls.length ? `<div class="lsech sub"><span class="lsect">Plantillas enviadas</span><span class="lcnt">${pls.length}</span></div>
+      <div class="lplants">${pls.map(x => `<span class="lplant ${x.recibida ? "" : "prog"}"><span>${x.recibida ? "✓" : "⏱"}</span><span><b>${esc(x.nombre)}</b>${x.veces > 1 ? ` ×${x.veces}` : ""} <i>${marcaPlantilla(x)}</i></span></span>`).join("")}</div>` : ""}
       <div class="lsech sub"><span class="lsect">Contactos</span><span class="lcnt">${contactosDe(c).length}</span></div>
       ${mio ? (abiertoAqui(c, "contacto") ? form(c) : `<button class="lbtn ancho" data-l="contacto">+ Registrar contacto</button>`) : ""}
       ${filas || `<div class="lvacio">Todavía no hay contactos.</div>`}

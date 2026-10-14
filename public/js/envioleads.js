@@ -14,10 +14,10 @@ import { SB } from "./supabase.js";
 import { state, $, esc, toast, normBusqueda, esLead, componerMensaje,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, cuandoParte,
   horaDeCliente, etiquetaZona } from "./state.js";
-import { subirImagenMensaje, guardarHistorialSegmento, cuotaDiaria } from "./data.js";
+import { subirImagenMensaje, guardarHistorialSegmento, cuotaDiaria, cargarPlantillasEnviadas } from "./data.js";
 import { canalVinculado } from "./canal.js";
 import { destinatariosMasivo } from "./masivo.js";
-import { TIPOS, TEMP, CATEGORIAS, categoria, temperatura } from "./leads.js";
+import { TIPOS, TEMP, CATEGORIAS, categoria, temperatura, plantillaPara } from "./leads.js";
 
 const MAX_MSGS = 4;
 const nuevoBorrador = () => ({ id: null, nombre: "", tipo: null, modo: "usuario", espera_min: 0,
@@ -68,7 +68,7 @@ function usarPlantilla(id) {
               mensajes: p.mensajes.map(m => ({ texto: m.texto || "", media: m.media || null })) }
           : nuevoBorrador();
   $("ldNombre").value = bor.nombre;
-  pintarPlantillas(); pintarTipos(); pintarMsgs();
+  pintarPlantillas(); pintarTipos(); pintarMsgs(); pintarLista();
 }
 
 // Lo que se guarda o se envía. null = algo incompleto (ya se avisó).
@@ -212,10 +212,11 @@ function pintarFiltros() {
 function pintarLista() {
   const vis = visibles();
   $("ldLista").innerHTML = vis.length
-    ? vis.map(c => { const t = temperatura(c); return `
-        <label class="seg-row">
+    ? vis.map(c => { const t = temperatura(c), ya = plantillaPara(c, bor.id); return `
+        <label class="seg-row ${ya ? "ldyafila" : ""}">
           <input type="checkbox" data-cid="${c.id}" ${sel.has(c.id) ? "checked" : ""}>
           <span class="nm">${esc(c.nombre)}</span>
+          ${ya ? `<span class="ldya ${ya.recibida ? "" : "prog"}">${ya.recibida ? "Ya la recibió" : "Programada"}</span>` : ""}
           <span class="ldetq">${ETQ[categoria(c)]}</span>
           <span class="ltemp ${t}"><i></i>${TEMP[t]}</span>
         </label>`; }).join("")
@@ -301,7 +302,13 @@ async function enviar() {
     else if (n > cuota.restan)
       avisoCuota = `\n\n⚠ Hoy te quedan ${cuota.restan} envíos de ${cuota.tope}. De estos ${n} leads, ${n - cuota.restan} se cancelarán por el límite diario.`;
   }
-  if (!confirm(`Vas a ${cuando === "prog" ? "programar" : "enviar"} «${d.nombre || nombreTipo(d.tipo)}» (${nombreTipo(d.tipo)}) a ${n} lead${n === 1 ? "" : "s"}:\n${nombres}.${como}${avisoCuota}\n\nCuando salga el primer mensaje se anota el contacto en la ficha de cada lead.\n\n¿Continuar?`)) return;
+  // Plantilla repetida: se avisa con nombres, no se quita sola de la selección
+  // (a veces repetir es a propósito, y la selección es del agente).
+  const repetidos = lista.filter(c => plantillaPara(c, bor.id));
+  const avisoRep = repetidos.length
+    ? `\n\n⚠ ${repetidos.length === 1 ? "1 ya recibió o tiene programada" : `${repetidos.length} ya recibieron o tienen programada`} esta plantilla: ${repetidos.slice(0, 8).map(c => primerNombre(c.nombre)).join(", ")}${repetidos.length > 8 ? ` y ${repetidos.length - 8} más` : ""}.`
+    : "";
+  if (!confirm(`Vas a ${cuando === "prog" ? "programar" : "enviar"} «${d.nombre || nombreTipo(d.tipo)}» (${nombreTipo(d.tipo)}) a ${n} lead${n === 1 ? "" : "s"}:\n${nombres}.${como}${avisoRep}${avisoCuota}\n\nCuando salga el primer mensaje se anota el contacto en la ficha de cada lead.\n\n¿Continuar?`)) return;
 
   const btn = $("ldEnviar");
   btn.disabled = true; btn.textContent = "Enviando…";
@@ -310,6 +317,8 @@ async function enviar() {
     const { data: camp, error: e1 } = await SB.from("campanas").insert({
       nombre: nombreCamp, texto: d.mensajes[0].texto || null, media_url: d.mensajes[0].media,
       enviar_en: base.toISOString(), total: n, lead_tipo: d.tipo,
+      // Vínculo del historial por lead: sobrevive a renombrar la plantilla.
+      plantilla_id: bor.id || null,
     }).select("id").single();
     if (e1) throw e1;
 
@@ -334,6 +343,7 @@ async function enviar() {
     await guardarHistorialSegmento({ clienteIds: lista.map(c => c.id), nombre: `✉ ${nombreCamp}`, clave: `cam:${camp.id}` });
     toast(`✓ Seguimiento ${cuando === "prog" ? "programado" : "en cola"} para ${n} lead${n === 1 ? "" : "s"}`);
     $("ldOverlay").classList.remove("open");
+    await cargarPlantillasEnviadas();
     alTerminar?.();
   } catch (err) {
     toast("⚠ " + err.message);
@@ -357,6 +367,9 @@ export async function abrirEnvioLeads(render, { soloId } = {}) {
   $("ldOverlay").classList.add("open");
   cuota = null;
   cuotaDiaria().then(c => { cuota = c; pintarConteo(); }).catch(() => {});
+  // Lo programado pudo salir desde que se cargó el panel: la marca «Programada»
+  // pasa a «Ya la recibió» sin recargar la página.
+  cargarPlantillasEnviadas().then(pintarLista).catch(() => {});
   await cargarPlantillas();
 }
 
