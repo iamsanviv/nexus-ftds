@@ -34,6 +34,8 @@ const svg = (ico, color, s = 20) =>
 // primera con leads, para que el panel abra donde hay trabajo.
 let etapaSel = null;
 let rielScroll = 0;
+// «Mi día» abre Leads directo en la etapa del lead que te pidió atender.
+export const irAEtapa = k => { etapaSel = k; };
 
 // Pendientes: primero los de hoy y los próximos (el más cercano arriba), después
 // los vencidos (el más reciente arriba: todavía se puede rescatar). Una promesa
