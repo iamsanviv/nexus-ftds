@@ -43,6 +43,7 @@ export const state = {
   // anteriores: se combina con ellos en vez de reemplazarlos. null = sin filtro.
   filtroBrk: null,
   filtroDep: null,   // { modo, desde, hasta } — rango de fecha de depósito
+  filtrosMas: false, // ¿desplegados los filtros secundarios (broker, depósito, servicio)?
   filtroSrv: null,   // { id, modo: "si" | "no" } — asistencia a un servicio del catálogo
   filtroTemp: null,  // caliente | tibio | frio — filtro de la lista «Todos los leads»
   filtroDefDesk: false,  // ¿ya se aplicó el defecto "En progreso"?

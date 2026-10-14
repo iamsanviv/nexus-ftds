@@ -311,6 +311,20 @@ export function render() {
     }
   }
 
+  // «Más filtros»: los ejes secundarios viven plegados. El botón dice cuántos
+  // están activos para que un filtro escondido nunca recorte la lista en
+  // silencio (la tira de estado también lo nombra). Va PRIMERO en la fila: en
+  // celular las píldoras se desplazan de lado y al final quedaría fuera de vista.
+  const nMas = [state.filtroBrk, state.filtroDep, state.filtroSrv].filter(Boolean).length;
+  const hayMas = ["filtrosBrk", "filtrosDep", "filtrosSrv"].some(id => $(id) && !$(id).classList.contains("hidden"));
+  $("filtrosMas").classList.toggle("hidden", !hayMas || !state.filtrosMas);
+  if (hayMas) {
+    $("filtros").insertAdjacentHTML("afterbegin",
+      `<button class="pill masfiltros ${state.filtrosMas ? "abierto" : ""} ${nMas ? "on" : ""}" id="btnFiltrosMas" aria-expanded="${state.filtrosMas}">`
+      + `${state.filtrosMas ? "▴" : "▾"} Más filtros${nMas ? ` · ${nMas}` : ""}</button>`);
+    $("btnFiltrosMas").onclick = () => { state.filtrosMas = !state.filtrosMas; render(); };
+  }
+
   /* ----- orden ----- */
   const ords = isLead
     ? [["cerca", "🔥 Por temperatura"], ["recientes", "Recientes"], ["az", "A–Z"]]
