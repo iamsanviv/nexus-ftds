@@ -5,7 +5,9 @@
 // fase siguiente.
 //
 // No se marca nada a mano: cada paso se da por hecho leyendo datos que ya
-// existen (Repaso, contactos, chats, abonos, seguimientos). Por eso aquí no hay
+// existen (Repaso, contactos, chats, abonos, seguimientos). La excepción es
+// HighLevel: Nexus no ve las llamadas del CRM, así que el agente anota el
+// resultado y «Le escribí» en `crm_leads`. Por eso aquí no hay
 // reglas propias de leads: categoría y razón salen de leads.js, igual que en el
 // panel «Hoy», para que las dos pantallas nunca digan cosas distintas.
 //
@@ -331,7 +333,7 @@ function conexionHTML() {
   return `<div class="mdcon">
     <b>Conectar HighLevel</b>
     <ol>
-      <li>En HighLevel crea un workflow con el disparador <b>Contact Changed</b> filtrado por <b>Assigned User = tú</b> (o «Assigned to me»).</li>
+      <li>En HighLevel crea un workflow que se active cuando un contacto <b>queda asignado a ti</b>.</li>
       <li>Agrega la acción <b>Webhook</b> con método <b>POST</b> y esta URL:</li>
     </ol>
     ${t ? `<div class="mdurl"><code id="mdUrl">${esc(urlWebhook(t))}</code><button class="lbtn mdbtn" data-con="copiar">Copiar</button></div>
