@@ -22,9 +22,9 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
 - Clase de hoy: actividades activas de hoy propias o compartidas. Sin ninguna → «Crea la clase de hoy».
   Hecho con al menos un seguimiento propio no cancelado.
 
-- Tarjeta de un lead de WhatsApp: «Abrir chat», «Hacer seguimiento» (abre el envío de
+- Tarjeta de un lead de WhatsApp: «Abrir chat», «Enviar seguimiento» (abre el envío de
   `envioleads.js` con `soloId`: SOLO esa persona marcada, porque la eligió con el clic; ahí elige
-  una plantilla guardada) y «Registrar en Leads» (lleva al panel «Hoy» en su etapa, donde se
+  una plantilla guardada) y «Ver en Leads» (lleva al panel «Hoy» en su etapa, donde se
   anota el contacto/promesa/depósito). El seguimiento cuenta como «atendido» cuando sale el
   mensaje 1 (el trigger anota el contacto).
 
