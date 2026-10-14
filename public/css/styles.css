@@ -2069,3 +2069,18 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
   border-radius:999px;padding:2px 8px;white-space:nowrap;flex:0 0 auto}
 #ldLista .ldya.prog{color:var(--gold);background:color-mix(in srgb,var(--gold) 14%,transparent)}
 #ldLista .seg-row.ldyafila{opacity:.62}
+
+/* Leads de HighLevel en «Hoy»: grupo propio dentro de la etapa, antes que los de
+   WhatsApp (decisión del usuario, 14/10/2026). Naranja = HighLevel en todo el panel. */
+.hgrupo{display:flex;align-items:baseline;gap:8px;margin:14px 0 8px;font-size:.78rem}
+.hgrupo:first-of-type{margin-top:0}
+.hgrupo b{font-family:'Archivo';font-weight:800;letter-spacing:.02em}
+.hgrupo span{font-weight:800;font-size:.7rem;padding:1px 7px;border-radius:999px;background:var(--surface2,rgba(127,127,127,.12))}
+.hgrupo em{font-style:normal;color:var(--muted);font-size:.74rem}
+.hgrupo.hl b{color:#E8833A}
+.hgrupo.hl span{background:color-mix(in srgb,#E8833A 16%,transparent);color:#E8833A}
+.hfila.hfhl{border-left:3px solid #E8833A}
+.hcrm .mdacts:first-of-type{margin-top:6px}
+.hvino{display:inline-block;font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:7px;margin:3px 0 1px 5px;white-space:nowrap;
+  background:color-mix(in srgb,#E8833A 14%,transparent);color:var(--text);border:1px solid color-mix(in srgb,#E8833A 45%,transparent)}
+.hcrm .mdsubl a{color:var(--gold)}

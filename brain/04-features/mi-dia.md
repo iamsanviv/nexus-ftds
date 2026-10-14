@@ -47,6 +47,24 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
 - Bajó a WhatsApp: manual (crea cliente Lead si no hay uno con ese teléfono) o automático
   cuando hay un entrante propio (`entranteDe`) posterior a `asignado_en`.
 
+## Leads de HighLevel en Leads «Hoy» (14/10/2026, decisiones del usuario)
+- El lead entra como PERSONA de Nexus (lead) al llegar: la Edge Function lo enlaza con quien ya
+  tenga ese número (`claveTel`) o lo crea, y guarda `crm_leads.cliente_id`. Si ya existía, queda
+  `estado='bajo'` (ya era de WhatsApp). Leads anteriores: backfill en `sql/2026-10-14_36`.
+- «Por bajar» NO es columna: `crm.js porBajar(c)` = tiene `crm_leads` con estado ≠ `bajo` y sin
+  entrante posterior a `asignado_en`. `fuera` cuenta como por bajar (nunca llegó a WhatsApp).
+- Por bajar ⇒ SIN envíos automáticos: excluido en `destinatariosMasivo` (masivo y envioleads) y
+  en `seguimiento.js mios()` (invitaciones). Su seguimiento es desde el CRM. `state.crm` se carga
+  con las personas (`data.cargarCrm`) para que esos filtros nunca lo vean vacío por timing.
+- «Hoy»: dentro de cada etapa, grupo «HighLevel · por bajar» primero y luego «WhatsApp»; naranja
+  `#E8833A`. Acciones = las de Mi día (`crm.accionesCrm`, compartidas) + embudo (abrió cuenta,
+  promesa, depósito). Sin «Enviar seguimiento». Al bajar pasa al grupo WhatsApp con «vino de HighLevel».
+- Si no baja: en «Hoy» solo hasta «Llegaron ayer»; después solo el día que vuelve por fecha
+  (`vuelve_en`/`siguiente_en`) o el día que sale (`fuera`). Sigue en «Todos los leads».
+- «Te escribieron» para un lead HL: automático si escribe por WhatsApp (y entonces ya bajó) o
+  manual «Me respondió en el CRM» (`crm_leads.respondio_en`, lo lee `leads.categoria`).
+- En Mi día los por bajar NO salen en el bloque WhatsApp (van en su bloque HighLevel).
+
 ## Pendiente (fase 3, definida con el usuario)
 - Interesados (manual + sugeridos desde 5 clases asistidas) con fecha de próximo seguimiento.
 - Tareas propias con hora (tabla nueva).

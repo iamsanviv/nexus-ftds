@@ -8,6 +8,12 @@
 //
 // Diseño (validado en mockup, opción D): meta del día arriba, un riel con las
 // seis etapas en orden de prioridad y, debajo, los leads de la etapa elegida.
+//
+// Leads de HighLevel (decisiones del usuario, 14/10/2026): dentro de cada etapa
+// van en su propio grupo, antes que los de WhatsApp, mientras no bajen. Su
+// seguimiento es desde el CRM (sin «Enviar seguimiento»). Si no bajan, salen de
+// «Hoy» después de «Llegaron ayer», salvo que vuelvan por una fecha propia.
+// Al bajar pasan al grupo de WhatsApp con la nota «vino de HighLevel».
 import { state, esc, esLead, esInactivo, nombreBroker } from "./state.js";
 import {
   TEMP, CATEGORIAS, categoria, temperatura, razon, tempAMano, contactosDe,
@@ -15,6 +21,7 @@ import {
   respondioAuto, horaTxt, entranteDe,
 } from "./leads.js";
 import { primeroHoy } from "./entrantes.js";
+import { crmDe, porBajarCrm, vinoDeHL, accionesCrm, accionCrm, estadoCrm, esHoy, detectarBajadas } from "./crm.js";
 import { renderMetaHoy } from "./ftd.js";
 
 const ORDEN_T = { caliente: 0, tibio: 1, frio: 2 };
@@ -80,6 +87,14 @@ const MAS = '<path d="M12 5v14M5 12h14"/>';
 function acciones(c) {
   for (const m of ["registro", "promesa", "deposito", "contacto"]) if (abiertoAqui(c, m)) return form(c);
   const cat = categoria(c);
+  const l = crmDe(c);
+  if (porBajarCrm(l)) {
+    // Lo mismo que en «Mi día» más el embudo: puede registrarse antes de bajar.
+    const emb = cat === "pend" ? `<button class="btn-ok mdbtn" data-l="deposito">Depositó</button><button class="lbtn mdbtn" data-l="promesa">Reagendar</button>`
+      : cat === "reg" ? `<button class="lbtn mdbtn" data-l="promesa">Prometió depositar</button>`
+      : `<button class="lbtn mdbtn" data-l="registro">Abrió cuenta</button>`;
+    return `<div class="hcrm">${accionesCrm(l, emb)}</div>`;
+  }
   const mas = `<button class="lbtn hico" data-l="contacto" aria-label="Registrar contacto">${svg(MAS, "currentColor", 18)}</button>`;
   if (cat === "pend") return `<div class="hacc"><button class="btn-ok hmain" data-l="deposito">Depositó</button><button class="lbtn" data-l="promesa">Reagendar</button>${mas}</div>`;
   if (cat === "reg") return `<div class="hacc"><button class="btn-oro hmain" data-l="promesa">Prometió depositar</button>${mas}</div>`;
@@ -109,23 +124,49 @@ const fila = c => {
   const ent = entranteDe(c), p = primeroHoy(c);
   const escr = ent && dias(ent) === 0
     ? `<span class="hescr">💬 ${p ? `Primer mensaje de hoy · ${horaTxt(p)}` : "Te escribió hoy"}</span>` : "";
-  return `<div class="hfila" data-id="${c.id}">
+  const l = crmDe(c), hl = porBajarCrm(l);
+  const est = hl ? estadoCrm(l) : "";
+  const origen = !hl && vinoDeHL(c) ? `<span class="hvino">vino de HighLevel</span>` : "";
+  return `<div class="hfila${hl ? " hfhl" : ""}" data-id="${c.id}">
     <div class="hl1">
       <span class="hav ${t}" aria-hidden="true">${esc(iniciales(c.nombre))}</span>
-      <div class="hl1t"><button class="hnm" data-ver="${c.id}">${esc(c.nombre)}</button>${dep2}${escr}<div class="lwhy">${razon(c)}</div></div>
+      <div class="hl1t"><button class="hnm" data-ver="${c.id}">${esc(c.nombre)}</button>${dep2}${escr}${origen}<div class="lwhy">${razon(c)}${est ? ` · ${est}` : ""}</div></div>
       ${chip(c)}
     </div>
     ${abiertoAqui(c, "temp") ? form(c) : ""}
-    ${esperando(c)}${acciones(c)}
+    ${hl ? "" : esperando(c)}${acciones(c)}
   </div>`;
 };
 
+// Un lead de HighLevel por bajar está en «Hoy» hasta «Llegaron ayer». Después,
+// solo el día que vuelve por su fecha (reintento, «seguir en el CRM», llamada)
+// o el día en que se anotó que sale. Sigue en «Todos los leads».
+function enHoyHL(c) {
+  const l = crmDe(c);
+  if (!porBajarCrm(l)) return true;
+  if (l.estado === "fuera") return esHoy(l.resultado_en);
+  if (categoria(c) !== "resto") return true;
+  return dias(l.siguiente_en) === 0 || dias(l.vuelve_en) === 0 || esHoy(l.resultado_en);
+}
+
+// Lista de la etapa: primero el grupo HighLevel (meta: bajarlos) y después el
+// de WhatsApp. Sin leads de HighLevel no hay títulos de grupo.
+function lista(ls) {
+  const hl = ls.filter(c => porBajarCrm(crmDe(c))), wa = ls.filter(c => !porBajarCrm(crmDe(c)));
+  if (!hl.length) return `<div class="hlista">${wa.map(fila).join("")}</div>`;
+  const tit = (cls, n, t, d) => `<div class="hgrupo ${cls}"><b>${t}</b><span>${n}</span><em>${d}</em></div>`;
+  return tit("hl", hl.length, "HighLevel", "por bajar a WhatsApp")
+    + `<div class="hlista">${hl.map(fila).join("")}</div>`
+    + (wa.length ? tit("wa", wa.length, "WhatsApp", "ya te escriben") + `<div class="hlista">${wa.map(fila).join("")}</div>` : "");
+}
+
 export function renderHoy(cont, render) {
+  detectarBajadas(render);
   // Leads propios activos y, además, becados propios pendientes de un 2º depósito
   // (promesa con broker): esos también son trabajo de hoy. Un becado sin promesa
   // no aparece; la categoría los deja en «Pendientes» (categoria() mira promesaEn).
   const mios = state.clientes.filter(c => !esInactivo(c) && esMio(c)
-    && (esLead(c) || (c.promesaEn && c.promesaBroker)));
+    && (esLead(c) || (c.promesaEn && c.promesaBroker)) && enHoyHL(c));
   const por = Object.fromEntries(CATEGORIAS.map(([k]) => [k, []]));
   mios.forEach(c => por[categoria(c)].push(c));
   por.pend.sort(ordenPend);
@@ -155,7 +196,7 @@ export function renderHoy(cont, render) {
     <div class="hrielh"><span>Etapas de hoy</span><span>en orden de prioridad</span></div>
     <div class="hriel" id="hRiel">${riel}</div>
     <div class="hseltit"><h2>${ETAPA[sel].n}</h2><span>${ETAPA[sel].d}</span></div>
-    ${ls.length ? `<div class="hlista">${ls.map(fila).join("")}</div>`
+    ${ls.length ? lista(ls)
       : `<div class="hvacia">Nadie en esta etapa por ahora.</div>`}
     ${sig ? `<button type="button" class="hsig" data-etapa="${sig[0]}">Siguiente etapa: ${ETAPA[sig[0]].n} (${por[sig[0]].length})
       ${svg('<path d="M9 6l6 6-6 6"/>', "currentColor", 16)}</button>` : ""}`
@@ -196,6 +237,11 @@ export function renderHoy(cont, render) {
   cont.querySelectorAll(".hfila").forEach(el => {
     const c = state.clientes.find(x => x.id === el.dataset.id);
     manejarLead(el, c, mantener);
+    const l = crmDe(c);
+    if (l) el.querySelectorAll("[data-crm]").forEach(b => b.onclick = e => {
+      e.stopPropagation();
+      accionCrm(l, b.dataset.crm, () => mantener(c.id), el);
+    });
     // El nombre lleva a su tarjeta completa (historial de contactos y embudo).
     el.querySelector("[data-ver]").onclick = e => {
       e.stopPropagation();

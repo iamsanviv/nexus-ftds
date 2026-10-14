@@ -16,7 +16,8 @@
 import { state, esc, hoyISO, esLead, esInactivo, usd, saldo, estaSaldada, toast } from "./state.js";
 import { SB } from "./supabase.js";
 import { SUPABASE_URL } from "./config.js";
-import { dbInsert } from "./data.js";
+import { cargarCrm } from "./data.js";
+import { NOMBRE_RES, esHoy, accionCrm, accionesCrm, detectarBajadas, porBajar } from "./crm.js";
 import { asegurarEntrantes, entranteDe, claveTel } from "./entrantes.js";
 import { repasoPendientes } from "./repaso.js";
 import { categoria, razon, contactosDe, esMio, sinHora, horaTxt, dias } from "./leads.js";
@@ -56,8 +57,6 @@ async function cargarExtra(alTerminar) {
     const me = state.me.id;
     const desde = inicioHoy().toISOString();
     const hasta = new Date(inicioHoy().getTime() + 24 * HORA_MS).toISOString();
-    // Leads del CRM: los asignados hace poco y los que vuelven por fecha propia.
-    const hace3 = new Date(inicioHoy().getTime() - 3 * 24 * HORA_MS).toISOString();
     const [acts, chats, msgs, crm, tok, segs] = await Promise.all([
       SB.from("actividades").select("id, nombre, inicio, owner_id, compartida")
         .eq("estado", "activa").gte("inicio", desde).lt("inicio", hasta).order("inicio"),
@@ -65,9 +64,9 @@ async function cargarExtra(alTerminar) {
         .eq("owner_id", me).gte("ultimo_en", desde),
       SB.from("mensajes_programados").select("tipo, telefono, enviado_en")
         .eq("owner_id", me).eq("estado", "enviado").gte("enviado_en", desde),
-      SB.from("crm_leads").select("*").eq("owner_id", me)
-        .or(`asignado_en.gte.${hace3},siguiente_en.lt.${hasta},vuelve_en.lt.${hasta}`)
-        .order("asignado_en"),
+      // Todos los leads de HighLevel propios: los comparte el panel «Hoy» y
+      // deciden quién no recibe envíos automáticos (crm.js).
+      cargarCrm().then(data => ({ data }), error => ({ error })),
       SB.from("crm_tokens").select("token").eq("owner_id", me).maybeSingle(),
       // Seguimientos a leads de hoy (mensaje 1 de la serie): cuentan como
       // «le escribiste» desde que se ponen en cola, sin esperar al worker. Si
@@ -91,11 +90,11 @@ async function cargarExtra(alTerminar) {
     const chatsPor = {};
     (chats.data || []).forEach(c => { const k = claveTel(c.telefono); if (k) chatsPor[k] = c; });
     extra = { clases, invitados, msgs: msgs.data || [], auto, chats: chatsPor,
-      crm: crm.data || [], token: tok.data?.token || null,
+      token: tok.data?.token || null,
       seg: Object.fromEntries((segs.data || []).map(m => [m.cliente_id, m.estado])),
       error: acts.error || chats.error || msgs.error || crm.error };
     extraEn = Date.now();
-  })().catch(e => { console.warn("Mi día:", e); extra = extra || { clases: [], invitados: {}, msgs: [], auto: {}, chats: {}, crm: [], token: null, seg: {}, error: e }; })
+  })().catch(e => { console.warn("Mi día:", e); extra = extra || { clases: [], invitados: {}, msgs: [], auto: {}, chats: {}, token: null, seg: {}, error: e }; })
     .finally(() => { cargando = null; alTerminar(); });
 }
 
@@ -129,7 +128,8 @@ function itemsDelDia() {
   // 1 · Leads de WhatsApp en etapas urgentes.
   const ORD = Object.fromEntries(ETAPAS_WA.map((k, i) => [k, i]));
   state.clientes
-    .filter(c => !esInactivo(c) && esMio(c) && (esLead(c) || (c.promesaEn && c.promesaBroker)))
+    // Los de HighLevel por bajar van en su propio bloque (2), no aquí.
+    .filter(c => !esInactivo(c) && esMio(c) && (esLead(c) || (c.promesaEn && c.promesaBroker)) && !porBajar(c))
     .map(c => ({ c, cat: categoria(c) }))
     .filter(x => ETAPAS_WA.includes(x.cat))
     .sort((a, b) => ORD[a.cat] - ORD[b.cat]
@@ -196,14 +196,10 @@ function itemsDelDia() {
 //  · No contestó / Buzón: reintento 2 h después, otro mañana y luego sale;
 //  · Número equivocado / No le interesa: sale;
 //  · bajó a WhatsApp: solo (su número te escribió) o a mano.
-const NOMBRE_RES = { contesto: "Contestó", no_contesto: "No contestó", buzon: "Buzón",
-  numero_malo: "Número equivocado", no_interesa: "No le interesa" };
-const mananaInicio = () => new Date(inicioHoy().getTime() + 24 * HORA_MS);
-const esHoy = ts => ts && dias(ts) === 0;
 
 function itemsCrm(ahora) {
   const out = [];
-  for (const l of extra.crm) {
+  for (const l of state.crm || []) {
     const visibleHoy = dias(l.asignado_en) <= 1
       || (l.siguiente_en && dias(l.siguiente_en) >= 0 && l.estado === "seguir")
       || (l.vuelve_en && dias(l.vuelve_en) >= 0 && l.estado === "pendiente")
@@ -247,84 +243,6 @@ function itemsCrm(ahora) {
   return out;
 }
 const fechaCorta = ts => new Date(ts).toLocaleDateString("es-CO", { weekday: "short", day: "numeric", timeZone: "America/Bogota" });
-
-// Si el número del lead ya te escribió por WhatsApp después de asignarse, bajó
-// solo: se marca y se crea como lead de Nexus. Se hace una vez por lead.
-const bajandoAuto = new Set();
-function detectarBajadas(render) {
-  if (!extra?.crm?.length || !state.entrantes) return;
-  extra.crm.filter(l => (l.estado === "pendiente" || l.estado === "seguir") && !bajandoAuto.has(l.id)).forEach(l => {
-    const ent = entranteDe({ tel: l.telefono, owner_id: state.me.id });
-    if (ent && new Date(ent) >= new Date(l.asignado_en)) { bajandoAuto.add(l.id); marcarBajo(l, render); }
-  });
-}
-
-// Pasar a lead de WhatsApp = quedar como lead en Nexus. Si ya existe alguien
-// con ese número, se enlaza en vez de duplicarlo.
-async function marcarBajo(l, render) {
-  const k = claveTel(l.telefono);
-  let c = k ? state.clientes.find(x => x.owner_id === state.me.id && claveTel(x.tel) === k) : null;
-  if (!c && (l.nombre || k)) {
-    c = await dbInsert({ nombre: l.nombre || l.telefono, tel: l.telefono || null, mem: "Lead", creado: hoyISO(), acc: {}, conf: {} });
-    if (c) state.clientes.push(c);
-  }
-  await patchCrm(l, { estado: "bajo", resultado_en: new Date().toISOString(), cliente_id: c?.id || null }, render);
-}
-
-async function patchCrm(l, campos, render) {
-  const { error } = await SB.from("crm_leads").update(campos).eq("id", l.id);
-  if (error) { toast("⚠ " + error.message); return; }
-  Object.assign(l, campos);
-  render();
-}
-
-// Formulario abierto dentro de «Ahora» para el lead de HighLevel: null | "sigue".
-let crmAbierto = null;
-
-async function accionCrm(l, a, render, raiz) {
-  const ahora = new Date(), iso = ahora.toISOString();
-  if (a === "escribi") return patchCrm(l, { escribi_en: esHoy(l.escribi_en) ? null : iso }, render);
-  if (a === "bajo") return marcarBajo(l, render);
-  if (a === "contesto") { crmAbierto = l.id; render(); return; }
-  if (a === "no_contesto" || a === "buzon") {
-    const n = (l.intentos || 0) + 1;
-    const campos = { resultado: a, resultado_en: iso, intentos: n };
-    if (n === 1) campos.vuelve_en = new Date(ahora.getTime() + 2 * HORA_MS).toISOString();
-    else if (n === 2) campos.vuelve_en = mananaInicio().toISOString();
-    else { campos.estado = "fuera"; campos.vuelve_en = null; }
-    toast(n === 1 ? "Vuelve a aparecer en 2 horas" : n === 2 ? "Otro intento mañana" : "Sale de la guía: ya tuvo sus intentos");
-    return patchCrm(l, campos, render);
-  }
-  if (a === "numero_malo" || a === "no_interesa") return patchCrm(l, { resultado: a, resultado_en: iso, estado: "fuera", vuelve_en: null }, render);
-  if (a === "bajara") { crmAbierto = null; return patchCrm(l, { resultado: "contesto", resultado_en: iso, siguiente: "bajara", siguiente_en: null, vuelve_en: null, estado: "pendiente" }, render); }
-  if (a === "crm" || a === "llamada") {
-    const v = raiz.querySelector(a === "crm" ? "#mdCrmFecha" : "#mdCrmHora")?.value;
-    if (!v) { toast("Elige la fecha"); return; }
-    const cuando = a === "crm" ? new Date(v + "T08:00:00-05:00") : new Date(v + ":00-05:00");
-    crmAbierto = null;
-    return patchCrm(l, { resultado: "contesto", resultado_en: iso, siguiente: a, siguiente_en: cuando.toISOString(), vuelve_en: null, estado: "seguir" }, render);
-  }
-}
-
-function accionesCrm(l) {
-  if (crmAbierto === l.id) {
-    const manana = new Date(mananaInicio().getTime() + 5 * HORA_MS);
-    return `<div class="mdsubl">¿Qué sigue?</div>
-      <div class="mdacts"><button class="btn-oro mdbtn" data-crm="bajara">Bajará a WhatsApp</button></div>
-      <div class="mdacts mdfila"><input type="date" id="mdCrmFecha" value="${hoyISO()}" min="${hoyISO()}" aria-label="Fecha del próximo seguimiento"><button class="lbtn mdbtn" data-crm="crm">Seguir en el CRM</button></div>
-      <div class="mdacts mdfila"><input type="datetime-local" id="mdCrmHora" value="${fechaCOlocal(manana)}" aria-label="Fecha y hora de la llamada"><button class="lbtn mdbtn" data-crm="llamada">Agendar llamada</button></div>
-      <div class="mdacts"><button class="lbtn mdbtn" data-crm="cancelar">Volver</button></div>`;
-  }
-  const tel = digitos(l.telefono);
-  return `<div class="mdsubl">Resultado de la llamada${tel ? ` · <a href="tel:+${tel}">+${tel}</a>` : ""}</div>
-    <div class="mdacts">${Object.entries(NOMBRE_RES).map(([k, n]) =>
-      `<button class="${k === "contesto" ? "btn-oro" : "lbtn"} mdbtn" data-crm="${k}">${n}</button>`).join("")}</div>
-    <div class="mdacts">
-      <button class="lbtn mdbtn ${esHoy(l.escribi_en) ? "mdon" : ""}" data-crm="escribi">${esHoy(l.escribi_en) ? "✓ Le escribí" : "Le escribí en HighLevel"}</button>
-      <button class="lbtn mdbtn" data-crm="bajo">Bajó a WhatsApp</button></div>`;
-}
-// «YYYY-MM-DDTHH:MM» en hora Colombia, para el valor de un datetime-local.
-const fechaCOlocal = d => new Date(d.getTime() - 5 * HORA_MS).toISOString().slice(0, 16);
 
 /* --------------------------------------------- conectar HighLevel (webhook) */
 let verConexion = false;
@@ -394,7 +312,7 @@ function sistemaHTML() {
     [cuenta(["enlace"]), "enlaces de clase"],
     [cuenta(["masivo"]), "mensajes masivos"],
     [escribieron, `lead${escribieron === 1 ? "" : "s"} te escribi${escribieron === 1 ? "ó" : "eron"} hoy (su temperatura sube un nivel)`],
-    [(extra.crm || []).filter(l => l.estado === "bajo" && esHoy(l.resultado_en)).length, "leads de HighLevel pasaron a WhatsApp"],
+    [(state.crm || []).filter(l => l.estado === "bajo" && esHoy(l.resultado_en)).length, "leads de HighLevel pasaron a WhatsApp"],
   ].filter(([n]) => n > 0);
   return `<div class="mdsis"><b>Lo que Nexus hizo por ti hoy</b>
     ${filas.length ? `<ul>${filas.map(([n, t]) => `<li><span>${n}</span> ${t}</li>`).join("")}</ul>`
@@ -453,7 +371,7 @@ export function renderMiDia(cont, render) {
     if (!ls.length && !(b.k === "cla" && !extra) && b.k !== "hl") return "";
     const ok = ls.filter(x => x.hecho).length;
     const vacioHl = b.k === "hl" && !ls.length
-      ? `<div class="mdcarga">${!extra ? "Cargando…" : extra.crm.length || extra.token ? "Sin leads de HighLevel para hoy." : "Todavía no conectas HighLevel."}</div>` : "";
+      ? `<div class="mdcarga">${!extra ? "Cargando…" : state.crm?.length || extra.token ? "Sin leads de HighLevel para hoy." : "Todavía no conectas HighLevel."}</div>` : "";
     return `<section class="mdblq"><div class="mdblq-h"><span><i>${i}</i>${b.n}</span><em>${b.k === "hl" ? `<button class="mdlink" data-con="abrir">${extra?.token ? "Enlace del webhook" : "Conectar"}</button> · ` : ""}${ok}/${ls.length}</em></div>
       ${b.k === "hl" ? conexionHTML() : ""}${vacioHl}
       ${ls.length ? ls.map(x => {
@@ -476,7 +394,6 @@ export function renderMiDia(cont, render) {
 
   detectarBajadas(render);
   cont.querySelectorAll("[data-crm]").forEach(b => b.onclick = () => {
-    if (b.dataset.crm === "cancelar") { crmAbierto = null; render(); return; }
     accionCrm(foco.l, b.dataset.crm, render, cont);
   });
   cont.querySelectorAll("[data-con]").forEach(b => b.onclick = () => {
