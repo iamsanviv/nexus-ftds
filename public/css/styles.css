@@ -309,10 +309,6 @@
   :root{ --lead:#46C28A; }
   .b-Lead{background:rgba(70,194,138,.16);color:var(--lead);box-shadow:inset 0 0 0 1px rgba(70,194,138,.3)}
   .stat.lead b{color:var(--lead)} .stat.ok b{color:var(--ok)} .stat.mut b{color:var(--muted)}
-  .modswitch{display:flex;gap:7px;margin:0 0 12px}
-  .mbtn{flex:1;font-family:'Archivo';font-weight:800;font-size:.88rem;padding:11px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--muted);text-align:center}
-  .mbtn.on{background:var(--surface2);color:var(--text);border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold-dim)}
-  .mbtn.leads.on{color:var(--lead);border-color:#2e6b50;box-shadow:inset 0 0 0 1px #2e6b50}
   .stag.adic{background:rgba(232,184,75,.12);color:var(--gold)}
   .srv.adic .check{border-style:dashed;border-color:var(--gold-dim)}
   .extra{font-weight:700;color:#9aa0aa}
@@ -511,9 +507,6 @@
 body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 .apphead{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;margin:4px 0 14px}
 .appheadmain{flex:1 1 auto;min-width:0}
-/* En celular el selector Comunidad/Leads se envuelve a su propia fila completa
-   debajo del título, que es donde estaba antes de vivir en el header. */
-.apphead .modswitch{flex:1 0 100%;margin:12px 0 0}
 .apptitle{font-family:'Archivo';font-size:1.7rem;font-weight:800;letter-spacing:-.02em;color:var(--text);line-height:1.1}
 .appsub{font-size:.78rem;color:var(--muted);margin-top:2px}
 
@@ -540,6 +533,7 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
   border:0;color:var(--dim);font:inherit;font-size:.62rem;font-weight:600;letter-spacing:.01em;padding:5px 0;cursor:pointer}
 .tabbar .tab svg{width:23px;height:23px}
 .tabbar .tab.on{color:var(--gold)}
+.tabbar .tab.leads.on{color:var(--lead)}
 .tabbar .tab:active{transform:scale(.96)}
 /* La marca y el pie con perfil solo existen en la barra lateral de escritorio. */
 .sidebrand{display:none}
@@ -623,15 +617,6 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 #lista .card:last-child{border-bottom:0}
 #lista .vacio{border:0;border-radius:0;padding:34px 16px}
 
-/* Comunidad/Leads como un solo segmento con marco, en vez de dos píldoras
-   sueltas: son dos caras de la misma lista, no dos destinos distintos. */
-.modswitch{gap:4px;padding:3px;background:var(--surface);
-  border:1px solid var(--border);border-radius:12px}
-.modswitch .mbtn{background:transparent;border:0;border-radius:9px;padding:9px}
-/* El marco lo pone ahora el segmento, así que el botón activo se marca solo con
-   fondo y color: el aro dorado de antes sería un segundo marco dentro del marco. */
-.modswitch .mbtn.on{background:var(--surface2);color:var(--gold);box-shadow:none}
-.modswitch .mbtn.leads.on{color:var(--lead)}
 
 /* fab por encima de la tab bar */
 .fab{bottom:calc(96px + env(safe-area-inset-bottom))}
@@ -744,18 +729,7 @@ body.segwide .tabinner{max-width:1180px}
     text-transform:uppercase;color:var(--gold)}
   .sidefoot-tema{flex:0 0 auto}
 
-  /* El selector Comunidad/Leads sube a la derecha del título (mockup): un solo
-     segmento con marco propio, no dos píldoras sueltas con borde cada una. */
   .apphead{align-items:center}
-  .apphead .modswitch{flex:0 0 auto;width:auto;margin:0;gap:6px;padding:3px;
-    background:var(--bg-side);border:1px solid var(--border);border-radius:10px}
-  .apphead .modswitch .mbtn{flex:0 0 auto;font-family:inherit;font-size:13px;font-weight:600;
-    padding:7px 14px;border:0;border-radius:7px;background:none;box-shadow:none;color:var(--muted)}
-  .apphead .modswitch .mbtn.on{background:var(--surface2);color:var(--gold);
-    font-weight:700;box-shadow:none}
-  /* Leads conserva su verde: es la señal de que se cambió de módulo, y el
-     segmento del mockup no distingue entre los dos. */
-  .apphead .modswitch .mbtn.leads.on{color:var(--lead)}
   .headctl{display:flex;align-items:flex-start;gap:12px}
 
   /* La tarjeta del mes ocupa TODO el ancho y las cifras van en su propia fila

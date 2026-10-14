@@ -17,7 +17,7 @@ Cambios recientes incluyen:
 - tarjetas de membresía como filtros;
 - buscador integrado con filtros;
 - filas de cliente horizontales dentro de UNA sola tarjeta contenedora (`#lista`), no una pila de tarjetas sueltas;
-- selector Comunidad/Leads reubicado;
+- Comunidad y Leads son dos pestañas propias de la barra (desde 14/10/2026; antes, un selector dentro de «Personas»). Comparten la vista `cliente` y las distingue `state.modulo`;
 - búsqueda por nombre y teléfono.
 
 Gran parte de esta estructura se activa alrededor de `min-width: 1040px` o mediante `matchMedia` según el módulo. Antes de tocar una regla, comprobar dónde está gateada actualmente.
