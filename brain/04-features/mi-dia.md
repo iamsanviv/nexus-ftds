@@ -4,10 +4,10 @@ Código: `public/js/midia.js` (vista `state.vista === "midia"`), cableado en `ui
 (`render`, `renderShell`, pestaña `#tabMiDia`) y `auth.js` (pantalla de inicio).
 Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «Guía del día para agentes»).
 
-## Alcance actual (fase 1)
+## Alcance actual (fases 1 y 2)
 - Solo para los usuarios de `MI_DIA_USUARIOS` (`midia.js`); para ellos es la pantalla de inicio.
 - Una tarjeta «Ahora» y bloques en el orden del usuario: Repaso → leads de WhatsApp →
-  posibles ventas (cobros) → clase de hoy. Bloque fijo «Lo que Nexus hizo por ti hoy».
+  leads de HighLevel → posibles ventas (cobros) → clase de hoy. Bloque fijo «Lo que Nexus hizo por ti hoy».
 - Urgencias: lo que tiene hora (promesa de hoy con hora, clase de hoy sin invitados)
   sube al frente 1 hora antes. Cierre del día a las 21:00.
 
@@ -22,9 +22,22 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
 - Clase de hoy: actividades activas de hoy propias o compartidas. Sin ninguna → «Crea la clase de hoy».
   Hecho con al menos un seguimiento propio no cancelado.
 
-## Pendiente (fases 2 y 3, definidas con el usuario)
-- HighLevel: webhook desde un workflow del agente al quedar asignado; llamar y escribir;
-  resultados Contestó/No contestó/Buzón/Número equivocado/No le interesa; reintento a las 2 h
-  y al día siguiente; solo hoy y ayer; paso a WhatsApp automático por teléfono o manual.
+## HighLevel (fase 2)
+- El agente no tiene token de la API (usuario de subcuenta): los leads llegan **empujados**.
+  Un workflow suyo («contacto asignado a mí» → Webhook POST) llama a la Edge Function
+  `supabase/functions/highlevel-lead` con `?t=TOKEN`. El token es suyo (`crm_tokens`,
+  creado desde «Conectar» en el bloque HighLevel); la función lo resuelve a `owner_id`
+  con service role y es la única que inserta en `crm_leads` (upsert por `owner_id, ghl_id`,
+  sin pisar las anotaciones del agente). SQL: `sql/2026-10-14_35_crm_leads.sql`.
+- RLS estricta `owner_id = auth.uid()` (select/update); sin insert/delete para authenticated.
+- En la guía: asignados hoy o ayer, o con `vuelve_en`/`siguiente_en` hoy. «Hecho» = resultado
+  de llamada de hoy + «Le escribí» (`escribi_en`, manual).
+- No contestó / Buzón: 1.er intento vuelve en 2 h, 2.º mañana, 3.º → `fuera`.
+  Número equivocado / No le interesa → `fuera`. Contestó → el agente elige
+  `bajara` / `crm` (con fecha) / `llamada` (fecha y hora).
+- Bajó a WhatsApp: manual (crea cliente Lead si no hay uno con ese teléfono) o automático
+  cuando hay un entrante propio (`entranteDe`) posterior a `asignado_en`.
+
+## Pendiente (fase 3, definida con el usuario)
 - Interesados (manual + sugeridos desde 5 clases asistidas) con fecha de próximo seguimiento.
 - Tareas propias con hora (tabla nueva).

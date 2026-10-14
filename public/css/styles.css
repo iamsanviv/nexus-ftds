@@ -2037,3 +2037,17 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
   #vistaMiDia{max-width:1000px}
   .mdgrid{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
 }
+/* Mi día · HighLevel (fase 2) */
+.mdpaso.espera{opacity:.6}
+.mdlink{color:var(--gold);font-size:.72rem;font-weight:600;text-decoration:underline;text-underline-offset:2px}
+.mdbtn.mdon{border-color:var(--ok);color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent)}
+.mdfila{flex-wrap:nowrap;align-items:center}
+.mdfila input{flex:1;min-width:0;width:auto;padding:8px 10px;font-size:.84rem}
+.mdfila .mdbtn{flex:0 0 auto}
+.mdahora .mdsubl a{color:var(--gold)}
+.mdcon{background:var(--surface);border:1px solid var(--gold);border-radius:var(--r);padding:12px 14px;margin:6px 0 8px;font-size:.84rem}
+.mdcon b{font-family:'Archivo'}
+.mdcon ol{padding-left:1.2em;margin:6px 0;display:flex;flex-direction:column;gap:4px}
+.mdcon p{color:var(--muted);font-size:.78rem;margin:4px 0}
+.mdurl{display:flex;gap:8px;align-items:center}
+.mdurl code{flex:1;min-width:0;overflow-wrap:anywhere;font-size:.74rem;background:var(--surface2);border-radius:8px;padding:7px 9px}

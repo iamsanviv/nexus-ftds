@@ -1,18 +1,22 @@
 // «Mi día»: la guía personal del agente. Una sola tarjeta «Ahora» con lo que
 // toca, y debajo los bloques del día en el orden que eligió el usuario
-// (entrevista del 14/10/2026): Repaso → leads de WhatsApp → posibles ventas →
-// clase de hoy. Leads de HighLevel, interesados y tareas propias llegan en
-// fases siguientes.
+// (entrevista del 14/10/2026): Repaso → leads de WhatsApp → leads de HighLevel →
+// posibles ventas → clase de hoy. Interesados y tareas propias llegan en la
+// fase siguiente.
 //
 // No se marca nada a mano: cada paso se da por hecho leyendo datos que ya
-// existen (Repaso, contactos, chats, abonos, seguimientos). Por eso aquí no hay
+// existen (Repaso, contactos, chats, abonos, seguimientos). La excepción es
+// HighLevel: Nexus no ve las llamadas del CRM, así que el agente anota el
+// resultado y «Le escribí» en `crm_leads`. Por eso aquí no hay
 // reglas propias de leads: categoría y razón salen de leads.js, igual que en el
 // panel «Hoy», para que las dos pantallas nunca digan cosas distintas.
 //
 // Solo ve lo PROPIO: es una lista de trabajo. Un director no recibe aquí a los
 // leads de sus agentes aunque pueda verlos.
-import { state, esc, hoyISO, esLead, esInactivo, usd, saldo, estaSaldada } from "./state.js";
+import { state, esc, hoyISO, esLead, esInactivo, usd, saldo, estaSaldada, toast } from "./state.js";
 import { SB } from "./supabase.js";
+import { SUPABASE_URL } from "./config.js";
+import { dbInsert } from "./data.js";
 import { asegurarEntrantes, entranteDe, claveTel } from "./entrantes.js";
 import { repasoPendientes } from "./repaso.js";
 import { categoria, razon, contactosDe, esMio, sinHora, horaTxt, dias } from "./leads.js";
@@ -29,6 +33,7 @@ const VIGENCIA_MS = 2 * 60 * 1000;
 const BLOQUES = [
   { k: "rep", n: "Repaso" },
   { k: "wa", n: "Leads de WhatsApp" },
+  { k: "hl", n: "Leads de HighLevel" },
   { k: "ven", n: "Posibles ventas" },
   { k: "cla", n: "Clase de hoy" },
 ];
@@ -51,13 +56,19 @@ async function cargarExtra(alTerminar) {
     const me = state.me.id;
     const desde = inicioHoy().toISOString();
     const hasta = new Date(inicioHoy().getTime() + 24 * HORA_MS).toISOString();
-    const [acts, chats, msgs] = await Promise.all([
+    // Leads del CRM: los asignados hace poco y los que vuelven por fecha propia.
+    const hace3 = new Date(inicioHoy().getTime() - 3 * 24 * HORA_MS).toISOString();
+    const [acts, chats, msgs, crm, tok] = await Promise.all([
       SB.from("actividades").select("id, nombre, inicio, owner_id, compartida")
         .eq("estado", "activa").gte("inicio", desde).lt("inicio", hasta).order("inicio"),
       SB.from("chats_recientes").select("telefono, ultimo_en, entrante_en")
         .eq("owner_id", me).gte("ultimo_en", desde),
       SB.from("mensajes_programados").select("tipo, telefono, enviado_en")
         .eq("owner_id", me).eq("estado", "enviado").gte("enviado_en", desde),
+      SB.from("crm_leads").select("*").eq("owner_id", me)
+        .or(`asignado_en.gte.${hace3},siguiente_en.lt.${hasta},vuelve_en.lt.${hasta}`)
+        .order("asignado_en"),
+      SB.from("crm_tokens").select("token").eq("owner_id", me).maybeSingle(),
     ]);
     // Clases de hoy que el agente puede usar: las suyas y las compartidas por
     // su director. Las de los agentes de un director son supervisión, no suyas.
@@ -72,9 +83,11 @@ async function cargarExtra(alTerminar) {
     (msgs.data || []).forEach(m => { const k = claveTel(m.telefono); if (k) (auto[k] ||= []).push(new Date(m.enviado_en).getTime()); });
     const chatsPor = {};
     (chats.data || []).forEach(c => { const k = claveTel(c.telefono); if (k) chatsPor[k] = c; });
-    extra = { clases, invitados, msgs: msgs.data || [], auto, chats: chatsPor, error: acts.error || chats.error || msgs.error };
+    extra = { clases, invitados, msgs: msgs.data || [], auto, chats: chatsPor,
+      crm: crm.data || [], token: tok.data?.token || null,
+      error: acts.error || chats.error || msgs.error || crm.error };
     extraEn = Date.now();
-  })().catch(e => { console.warn("Mi día:", e); extra = extra || { clases: [], invitados: {}, msgs: [], auto: {}, chats: {}, error: e }; })
+  })().catch(e => { console.warn("Mi día:", e); extra = extra || { clases: [], invitados: {}, msgs: [], auto: {}, chats: {}, crm: [], token: null, error: e }; })
     .finally(() => { cargando = null; alTerminar(); });
 }
 
@@ -125,6 +138,9 @@ function itemsDelDia() {
                hoy: "Llegó hoy y espera tu primer contacto." }[cat] });
     });
 
+  // 2 · Leads de HighLevel.
+  if (extra) itemsCrm(ahora).forEach(it => items.push(it));
+
   // 3 · Posibles ventas: por ahora, los cobros. Aparece el día de su fecha de
   // pago (o si ya venció) y queda hecho al registrar un abono hoy o al mover la
   // fecha. Sin hora: no sube al frente, respeta el orden del bloque.
@@ -162,12 +178,178 @@ function itemsDelDia() {
   return items;
 }
 
+
+/* ------------------------------------------------------- HighLevel (fase 2) */
+// Reglas acordadas con el usuario (14/10/2026):
+//  · aparece si se asignó hoy o ayer; «seguir» y «llamada» vuelven en su fecha;
+//  · atendido = resultado de la llamada de hoy + «Le escribí»;
+//  · No contestó / Buzón: reintento 2 h después, otro mañana y luego sale;
+//  · Número equivocado / No le interesa: sale;
+//  · bajó a WhatsApp: solo (su número te escribió) o a mano.
+const NOMBRE_RES = { contesto: "Contestó", no_contesto: "No contestó", buzon: "Buzón",
+  numero_malo: "Número equivocado", no_interesa: "No le interesa" };
+const mananaInicio = () => new Date(inicioHoy().getTime() + 24 * HORA_MS);
+const esHoy = ts => ts && dias(ts) === 0;
+
+function itemsCrm(ahora) {
+  const out = [];
+  for (const l of extra.crm) {
+    const visibleHoy = dias(l.asignado_en) <= 1
+      || (l.siguiente_en && dias(l.siguiente_en) >= 0 && l.estado === "seguir")
+      || (l.vuelve_en && dias(l.vuelve_en) >= 0 && l.estado === "pendiente")
+      || esHoy(l.resultado_en);
+    if (!visibleHoy) continue;
+    const t = l.nombre || l.telefono || "Lead sin nombre";
+    const base = { b: "hl", id: "hl" + l.id, l, t, acc: "crm",
+      why: "Pediste llamar a los de ayer y a los de hoy. Queda listo con el resultado de la llamada y «Le escribí»." };
+    if (l.estado === "bajo") { if (esHoy(l.resultado_en) || dias(l.asignado_en) <= 1) out.push({ ...base, hecho: true, ok: "Bajó a WhatsApp" }); continue; }
+    if (l.estado === "fuera") { if (esHoy(l.resultado_en)) out.push({ ...base, hecho: true, ok: `${NOMBRE_RES[l.resultado] || "Fuera"} · sale de la guía` }); continue; }
+    // Reintento pendiente: hoy más tarde → en espera; mañana → por hoy ya está.
+    if (l.vuelve_en && new Date(l.vuelve_en).getTime() > ahora) {
+      const hoyMismo = esHoy(l.vuelve_en);
+      out.push({ ...base, hecho: !hoyMismo, espera: hoyMismo,
+        ok: `${NOMBRE_RES[l.resultado]} · otro intento mañana`, s: `${NOMBRE_RES[l.resultado]} · vuelve a las ${horaTxt(l.vuelve_en)}` });
+      continue;
+    }
+    // Con «seguir en el CRM» o llamada agendada para otro día: hecho por hoy.
+    if (l.estado === "seguir" && l.siguiente_en && dias(l.siguiente_en) < 0) {
+      out.push({ ...base, hecho: true, ok: l.siguiente === "llamada" ? `Llamada agendada ${fechaCorta(l.siguiente_en)} ${horaTxt(l.siguiente_en)}` : `Sigue en el CRM · vuelve ${fechaCorta(l.siguiente_en)}` });
+      continue;
+    }
+    const llamadaHoy = l.siguiente === "llamada" && esHoy(l.siguiente_en);
+    const tLlamada = llamadaHoy ? new Date(l.siguiente_en).getTime() : null;
+    // La llamada agendada para hoy cuenta aparte del «Contestó» que la agendó.
+    const contestoHoy = esHoy(l.resultado_en) && l.resultado === "contesto"
+      && !(llamadaHoy && new Date(l.resultado_en).getTime() < tLlamada);
+    if (llamadaHoy && !contestoHoy && ahora < tLlamada - URGENTE_ANTES_MS) {
+      out.push({ ...base, hecho: false, espera: true, s: `Llamada agendada a las ${horaTxt(l.siguiente_en)}` });
+      continue;
+    }
+    const listo = contestoHoy && esHoy(l.escribi_en);
+    const sub = [
+      dias(l.asignado_en) === 0 ? `Asignado hoy ${horaTxt(l.asignado_en)}` : dias(l.asignado_en) === 1 ? "Asignado ayer" : (l.siguiente === "crm" ? "Seguimiento en el CRM para hoy" : "Vuelve hoy"),
+      l.intentos ? `${l.intentos}.º intento hecho` : "",
+      contestoHoy && !esHoy(l.escribi_en) ? "Contestó · falta «Le escribí»" : "",
+    ].filter(Boolean).join(" · ");
+    out.push({ ...base, s: sub, hecho: listo, ok: `Contestó${l.siguiente === "bajara" ? " · bajará a WhatsApp" : ""} · le escribiste`,
+      at: llamadaHoy && !contestoHoy ? tLlamada : null });
+  }
+  return out;
+}
+const fechaCorta = ts => new Date(ts).toLocaleDateString("es-CO", { weekday: "short", day: "numeric", timeZone: "America/Bogota" });
+
+// Si el número del lead ya te escribió por WhatsApp después de asignarse, bajó
+// solo: se marca y se crea como lead de Nexus. Se hace una vez por lead.
+const bajandoAuto = new Set();
+function detectarBajadas(render) {
+  if (!extra?.crm?.length || !state.entrantes) return;
+  extra.crm.filter(l => (l.estado === "pendiente" || l.estado === "seguir") && !bajandoAuto.has(l.id)).forEach(l => {
+    const ent = entranteDe({ tel: l.telefono, owner_id: state.me.id });
+    if (ent && new Date(ent) >= new Date(l.asignado_en)) { bajandoAuto.add(l.id); marcarBajo(l, render); }
+  });
+}
+
+// Pasar a lead de WhatsApp = quedar como lead en Nexus. Si ya existe alguien
+// con ese número, se enlaza en vez de duplicarlo.
+async function marcarBajo(l, render) {
+  const k = claveTel(l.telefono);
+  let c = k ? state.clientes.find(x => x.owner_id === state.me.id && claveTel(x.tel) === k) : null;
+  if (!c && (l.nombre || k)) {
+    c = await dbInsert({ nombre: l.nombre || l.telefono, tel: l.telefono || null, mem: "Lead", creado: hoyISO(), acc: {}, conf: {} });
+    if (c) state.clientes.push(c);
+  }
+  await patchCrm(l, { estado: "bajo", resultado_en: new Date().toISOString(), cliente_id: c?.id || null }, render);
+}
+
+async function patchCrm(l, campos, render) {
+  const { error } = await SB.from("crm_leads").update(campos).eq("id", l.id);
+  if (error) { toast("⚠ " + error.message); return; }
+  Object.assign(l, campos);
+  render();
+}
+
+// Formulario abierto dentro de «Ahora» para el lead de HighLevel: null | "sigue".
+let crmAbierto = null;
+
+async function accionCrm(l, a, render, raiz) {
+  const ahora = new Date(), iso = ahora.toISOString();
+  if (a === "escribi") return patchCrm(l, { escribi_en: esHoy(l.escribi_en) ? null : iso }, render);
+  if (a === "bajo") return marcarBajo(l, render);
+  if (a === "contesto") { crmAbierto = l.id; render(); return; }
+  if (a === "no_contesto" || a === "buzon") {
+    const n = (l.intentos || 0) + 1;
+    const campos = { resultado: a, resultado_en: iso, intentos: n };
+    if (n === 1) campos.vuelve_en = new Date(ahora.getTime() + 2 * HORA_MS).toISOString();
+    else if (n === 2) campos.vuelve_en = mananaInicio().toISOString();
+    else { campos.estado = "fuera"; campos.vuelve_en = null; }
+    toast(n === 1 ? "Vuelve a aparecer en 2 horas" : n === 2 ? "Otro intento mañana" : "Sale de la guía: ya tuvo sus intentos");
+    return patchCrm(l, campos, render);
+  }
+  if (a === "numero_malo" || a === "no_interesa") return patchCrm(l, { resultado: a, resultado_en: iso, estado: "fuera", vuelve_en: null }, render);
+  if (a === "bajara") { crmAbierto = null; return patchCrm(l, { resultado: "contesto", resultado_en: iso, siguiente: "bajara", siguiente_en: null, vuelve_en: null, estado: "pendiente" }, render); }
+  if (a === "crm" || a === "llamada") {
+    const v = raiz.querySelector(a === "crm" ? "#mdCrmFecha" : "#mdCrmHora")?.value;
+    if (!v) { toast("Elige la fecha"); return; }
+    const cuando = a === "crm" ? new Date(v + "T08:00:00-05:00") : new Date(v + ":00-05:00");
+    crmAbierto = null;
+    return patchCrm(l, { resultado: "contesto", resultado_en: iso, siguiente: a, siguiente_en: cuando.toISOString(), vuelve_en: null, estado: "seguir" }, render);
+  }
+}
+
+function accionesCrm(l) {
+  if (crmAbierto === l.id) {
+    const manana = new Date(mananaInicio().getTime() + 5 * HORA_MS);
+    return `<div class="mdsubl">¿Qué sigue?</div>
+      <div class="mdacts"><button class="btn-oro mdbtn" data-crm="bajara">Bajará a WhatsApp</button></div>
+      <div class="mdacts mdfila"><input type="date" id="mdCrmFecha" value="${hoyISO()}" min="${hoyISO()}" aria-label="Fecha del próximo seguimiento"><button class="lbtn mdbtn" data-crm="crm">Seguir en el CRM</button></div>
+      <div class="mdacts mdfila"><input type="datetime-local" id="mdCrmHora" value="${fechaCOlocal(manana)}" aria-label="Fecha y hora de la llamada"><button class="lbtn mdbtn" data-crm="llamada">Agendar llamada</button></div>
+      <div class="mdacts"><button class="lbtn mdbtn" data-crm="cancelar">Volver</button></div>`;
+  }
+  const tel = digitos(l.telefono);
+  return `<div class="mdsubl">Resultado de la llamada${tel ? ` · <a href="tel:+${tel}">+${tel}</a>` : ""}</div>
+    <div class="mdacts">${Object.entries(NOMBRE_RES).map(([k, n]) =>
+      `<button class="${k === "contesto" ? "btn-oro" : "lbtn"} mdbtn" data-crm="${k}">${n}</button>`).join("")}</div>
+    <div class="mdacts">
+      <button class="lbtn mdbtn ${esHoy(l.escribi_en) ? "mdon" : ""}" data-crm="escribi">${esHoy(l.escribi_en) ? "✓ Le escribí" : "Le escribí en HighLevel"}</button>
+      <button class="lbtn mdbtn" data-crm="bajo">Bajó a WhatsApp</button></div>`;
+}
+// «YYYY-MM-DDTHH:MM» en hora Colombia, para el valor de un datetime-local.
+const fechaCOlocal = d => new Date(d.getTime() - 5 * HORA_MS).toISOString().slice(0, 16);
+
+/* --------------------------------------------- conectar HighLevel (webhook) */
+let verConexion = false;
+const urlWebhook = t => `${SUPABASE_URL}/functions/v1/highlevel-lead?t=${t}`;
+
+async function asegurarToken(render) {
+  if (extra?.token) return;
+  const { data, error } = await SB.from("crm_tokens").insert({}).select("token").single();
+  if (error) { toast("⚠ " + error.message); return; }
+  extra.token = data.token; render();
+}
+
+function conexionHTML() {
+  if (!verConexion) return "";
+  const t = extra?.token;
+  return `<div class="mdcon">
+    <b>Conectar HighLevel</b>
+    <ol>
+      <li>En HighLevel crea un workflow que se active cuando un contacto <b>queda asignado a ti</b>.</li>
+      <li>Agrega la acción <b>Webhook</b> con método <b>POST</b> y esta URL:</li>
+    </ol>
+    ${t ? `<div class="mdurl"><code id="mdUrl">${esc(urlWebhook(t))}</code><button class="lbtn mdbtn" data-con="copiar">Copiar</button></div>
+      <p>Es tu enlace privado: quien lo tenga puede cargarte leads. No lo compartas.</p>`
+      : `<p>Preparando tu enlace…</p>`}
+    <ol start="3"><li>Guarda y publica el workflow. Cuando te asignen un contacto, aparecerá aquí.</li></ol>
+    <div class="mdacts"><button class="lbtn mdbtn" data-con="cerrar">Cerrar</button></div>
+  </div>`;
+}
+
 const urgente = (it, ahora) => !it.hecho && it.at != null && ahora >= it.at - URGENTE_ANTES_MS;
 const idxBloque = it => BLOQUES.findIndex(b => b.k === it.b);
 
 // Orden: lo urgente primero (por hora), después el orden fijo del usuario.
 function cola(items, ahora) {
-  const pend = items.filter(i => !i.hecho);
+  const pend = items.filter(i => !i.hecho && !i.espera);
   const u = pend.filter(i => urgente(i, ahora)).sort((a, b) => a.at - b.at);
   const r = pend.filter(i => !urgente(i, ahora)).sort((a, b) => idxBloque(a) - idxBloque(b) || items.indexOf(a) - items.indexOf(b));
   return [...u, ...r];
@@ -177,6 +359,7 @@ function cola(items, ahora) {
 const ICO_WA = '<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .3-3.4-.7-2.9-1.2-4.7-4.1-4.9-4.3-.1-.2-1.2-1.6-1.2-3s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .6l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.3.1.2.1.7-.1 1.2z"/></svg>';
 
 function accionesHTML(it) {
+  if (it.acc === "crm") return accionesCrm(it.l);
   if (it.acc === "lead") {
     const tel = digitos(it.c.tel);
     return `<div class="mdacts">
@@ -198,6 +381,7 @@ function sistemaHTML() {
     [cuenta(["enlace"]), "enlaces de clase"],
     [cuenta(["masivo"]), "mensajes masivos"],
     [escribieron, `lead${escribieron === 1 ? "" : "s"} te escribi${escribieron === 1 ? "ó" : "eron"} hoy (su temperatura sube un nivel)`],
+    [(extra.crm || []).filter(l => l.estado === "bajo" && esHoy(l.resultado_en)).length, "leads de HighLevel pasaron a WhatsApp"],
   ].filter(([n]) => n > 0);
   return `<div class="mdsis"><b>Lo que Nexus hizo por ti hoy</b>
     ${filas.length ? `<ul>${filas.map(([n, t]) => `<li><span>${n}</span> ${t}</li>`).join("")}</ul>`
@@ -253,15 +437,18 @@ export function renderMiDia(cont, render) {
 
   const bloques = BLOQUES.map((b, i) => {
     const ls = items.filter(x => x.b === b.k);
-    if (!ls.length && !(b.k === "cla" && !extra)) return "";
+    if (!ls.length && !(b.k === "cla" && !extra) && b.k !== "hl") return "";
     const ok = ls.filter(x => x.hecho).length;
-    return `<section class="mdblq"><div class="mdblq-h"><span><i>${i}</i>${b.n}</span><em>${ok}/${ls.length}</em></div>
+    const vacioHl = b.k === "hl" && !ls.length
+      ? `<div class="mdcarga">${!extra ? "Cargando…" : extra.crm.length || extra.token ? "Sin leads de HighLevel para hoy." : "Todavía no conectas HighLevel."}</div>` : "";
+    return `<section class="mdblq"><div class="mdblq-h"><span><i>${i}</i>${b.n}</span><em>${b.k === "hl" ? `<button class="mdlink" data-con="abrir">${extra?.token ? "Enlace del webhook" : "Conectar"}</button> · ` : ""}${ok}/${ls.length}</em></div>
+      ${b.k === "hl" ? conexionHTML() : ""}${vacioHl}
       ${ls.length ? ls.map(x => {
-        const cls = [x.hecho ? "hecho" : "", x === foco ? "foco" : "", urgente(x, ahora) ? "urg" : ""].join(" ");
+        const cls = [x.hecho ? "hecho" : "", x === foco ? "foco" : "", urgente(x, ahora) ? "urg" : "", x.espera ? "espera" : ""].join(" ");
         return `<div class="mdpaso ${cls}" data-paso="${x.id}"><span class="mddot"></span>
           <div class="mdpaso-t"><b>${esc(x.t)}</b><small>${x.hecho ? x.ok : x.s}</small></div>
           ${x.at != null && !x.hecho ? `<span class="mdhora">${horaTxt(x.at)}</span>` : ""}</div>`;
-      }).join("") : `<div class="mdcarga">Cargando…</div>`}</section>`;
+      }).join("") : b.k === "hl" ? "" : `<div class="mdcarga">Cargando…</div>`}</section>`;
   }).join("");
 
   cont.innerHTML = `
@@ -274,6 +461,20 @@ export function renderMiDia(cont, render) {
 
   renderMetaHoy(cont.querySelector("#mdMeta"), render, 0);
 
+  detectarBajadas(render);
+  cont.querySelectorAll("[data-crm]").forEach(b => b.onclick = () => {
+    if (b.dataset.crm === "cancelar") { crmAbierto = null; render(); return; }
+    accionCrm(foco.l, b.dataset.crm, render, cont);
+  });
+  cont.querySelectorAll("[data-con]").forEach(b => b.onclick = () => {
+    const a = b.dataset.con;
+    if (a === "abrir") { verConexion = true; render(); asegurarToken(render); return; }
+    if (a === "cerrar") { verConexion = false; render(); return; }
+    if (a === "copiar") {
+      const txt = urlWebhook(extra.token);
+      navigator.clipboard?.writeText(txt).then(() => toast("Enlace copiado"), () => toast("Copia el enlace a mano"));
+    }
+  });
   cont.querySelectorAll("[data-md]").forEach(b => b.onclick = async () => {
     const a = b.dataset.md;
     if (a === "repaso") { (await import("./repaso.js")).repasoManual(); return; }
