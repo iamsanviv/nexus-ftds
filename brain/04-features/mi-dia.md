@@ -25,8 +25,11 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
 - Tarjeta de un lead de WhatsApp: «Abrir chat», «Enviar seguimiento» (abre el envío de
   `envioleads.js` con `soloId`: SOLO esa persona marcada, porque la eligió con el clic; ahí elige
   una plantilla guardada) y «Ver en Leads» (lleva al panel «Hoy» en su etapa, donde se
-  anota el contacto/promesa/depósito). El seguimiento cuenta como «atendido» cuando sale el
-  mensaje 1 (el trigger anota el contacto).
+  anota el contacto/promesa/depósito). El seguimiento cuenta como «atendido» DESDE QUE SE PONE
+  EN COLA (pedido del usuario, 14/10/2026: el worker tarda): mensaje 1 (`tipo='masivo'`) con
+  `cliente_id`, `enviar_en` de hoy y estado distinto de `error`/`cancelado`. Si termina en
+  error o cancelado deja de contar y el lead vuelve a la guía en el siguiente refresco (≤2 min).
+  No se escribe nada nuevo: se deriva de `mensajes_programados` (no tiene `created_at`).
 
 ## HighLevel (fase 2)
 - El agente no tiene token de la API (usuario de subcuenta): los leads llegan **empujados**.

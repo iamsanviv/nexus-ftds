@@ -58,7 +58,7 @@ async function cargarExtra(alTerminar) {
     const hasta = new Date(inicioHoy().getTime() + 24 * HORA_MS).toISOString();
     // Leads del CRM: los asignados hace poco y los que vuelven por fecha propia.
     const hace3 = new Date(inicioHoy().getTime() - 3 * 24 * HORA_MS).toISOString();
-    const [acts, chats, msgs, crm, tok] = await Promise.all([
+    const [acts, chats, msgs, crm, tok, segs] = await Promise.all([
       SB.from("actividades").select("id, nombre, inicio, owner_id, compartida")
         .eq("estado", "activa").gte("inicio", desde).lt("inicio", hasta).order("inicio"),
       SB.from("chats_recientes").select("telefono, ultimo_en, entrante_en")
@@ -69,6 +69,13 @@ async function cargarExtra(alTerminar) {
         .or(`asignado_en.gte.${hace3},siguiente_en.lt.${hasta},vuelve_en.lt.${hasta}`)
         .order("asignado_en"),
       SB.from("crm_tokens").select("token").eq("owner_id", me).maybeSingle(),
+      // Seguimientos a leads de hoy (mensaje 1 de la serie): cuentan como
+      // «le escribiste» desde que se ponen en cola, sin esperar al worker. Si
+      // el envío termina en error o cancelado deja de contar y el lead vuelve.
+      SB.from("mensajes_programados").select("cliente_id, estado")
+        .eq("owner_id", me).eq("tipo", "masivo").not("cliente_id", "is", null)
+        .not("estado", "in", "(error,cancelado)")
+        .gte("enviar_en", desde).lt("enviar_en", hasta),
     ]);
     // Clases de hoy que el agente puede usar: las suyas y las compartidas por
     // su director. Las de los agentes de un director son supervisión, no suyas.
@@ -85,9 +92,10 @@ async function cargarExtra(alTerminar) {
     (chats.data || []).forEach(c => { const k = claveTel(c.telefono); if (k) chatsPor[k] = c; });
     extra = { clases, invitados, msgs: msgs.data || [], auto, chats: chatsPor,
       crm: crm.data || [], token: tok.data?.token || null,
+      seg: Object.fromEntries((segs.data || []).map(m => [m.cliente_id, m.estado])),
       error: acts.error || chats.error || msgs.error || crm.error };
     extraEn = Date.now();
-  })().catch(e => { console.warn("Mi día:", e); extra = extra || { clases: [], invitados: {}, msgs: [], auto: {}, chats: {}, crm: [], token: null, error: e }; })
+  })().catch(e => { console.warn("Mi día:", e); extra = extra || { clases: [], invitados: {}, msgs: [], auto: {}, chats: {}, crm: [], token: null, seg: {}, error: e }; })
     .finally(() => { cargando = null; alTerminar(); });
 }
 
@@ -128,9 +136,11 @@ function itemsDelDia() {
       || (a.cat === "pend" ? new Date(a.c.promesaEn) - new Date(b.c.promesaEn) : a.c.nombre.localeCompare(b.c.nombre, "es")))
     .forEach(({ c, cat }) => {
       const at = cat === "pend" && !sinHora(c.promesaEn) && dias(c.promesaEn) === 0 ? new Date(c.promesaEn).getTime() : null;
-      const porWa = escribisteHoy(c), aMano = contactoHoy(c);
+      const porWa = escribisteHoy(c), aMano = contactoHoy(c), seg = extra?.seg[c.id];
       items.push({ b: "wa", id: "wa" + c.id, c, cat, at, t: c.nombre, s: razon(c),
-        hecho: porWa || aMano, ok: porWa ? "Le escribiste hoy por WhatsApp" : "Contacto registrado hoy",
+        hecho: porWa || aMano || !!seg,
+        ok: porWa ? "Le escribiste hoy por WhatsApp" : aMano ? "Contacto registrado hoy"
+          : seg === "enviado" ? "Le enviaste un seguimiento" : "Seguimiento en camino",
         acc: "lead",
         why: { pend: "Prometió depositar: es lo más cerca de un FTD.",
                reg: "Ya abrió cuenta: falta que prometa depositar.",
@@ -485,7 +495,7 @@ export function renderMiDia(cont, render) {
     if (a === "seg") { document.getElementById("btnSeg").click(); return; }
     // Uno de tus seguimientos guardados (plantillas_lead) solo a esta persona.
     // Queda hecho cuando sale el mensaje 1: la base anota el contacto en su ficha.
-    if (a === "seglead") { (await import("./envioleads.js")).abrirEnvioLeads(render, { soloId: b.dataset.id }); return; }
+    if (a === "seglead") { (await import("./envioleads.js")).abrirEnvioLeads(() => { extraEn = 0; render(); }, { soloId: b.dataset.id }); return; }
     if (a === "lead") {
       irAEtapa(b.dataset.cat);
       // Igual que la pestaña Leads: cambiar de módulo limpia los filtros del otro.
