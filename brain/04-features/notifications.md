@@ -7,7 +7,7 @@ Avisos en la PC y el teléfono del agente aunque el panel esté cerrado. Web Pus
 - `public/sw.js` — service worker: solo `push` y `notificationclick`. **Sin manejador `fetch` a propósito**: un SW que cachea serviría paneles viejos tras cada despliegue.
 - `public/js/notificaciones.js` — fila «🔔 Notificaciones» en Más, modal para activar por dispositivo, elegir tipos y «Enviar una prueba». Al entrar renueva la suscripción si ya hay permiso; al cerrar sesión la quita (`olvidarDispositivo`).
 - `supabase/functions/enviar-push/index.ts` — Edge Function (verify_jwt) que reclama la cola y envía con `web-push`. Se despliega con el MCP de Supabase; no hay CLI en el repo.
-- SQL: `sql/2026-10-14_33_notificaciones_push.sql` (aplicado).
+- SQL: `sql/2026-10-14_34_notificaciones_push.sql` (aplicado).
 
 ## Flujo
 

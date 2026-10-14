@@ -6,7 +6,7 @@
 // invocaciones coinciden.
 //
 // Despliegue: con el MCP de Supabase (deploy_edge_function, verify_jwt=true).
-// SQL y diseño: sql/2026-10-14_33_notificaciones_push.sql.
+// SQL y diseño: sql/2026-10-14_34_notificaciones_push.sql.
 import * as wpMod from "npm:web-push@3.6.7";
 // En el runtime de Supabase el default import de este paquete CommonJS llega
 // incompleto (faltaba setVAPIDDetails, aunque en Deno local sí está).

@@ -3,7 +3,7 @@
 // La suscripción es POR DISPOSITIVO (cada navegador tiene su endpoint): el
 // agente la activa una vez en la PC y otra en el teléfono. Qué genera un aviso
 // y cómo se entrega vive en la base y en la Edge Function `enviar-push`
-// (sql/2026-10-14_33_notificaciones_push.sql); aquí solo se suscribe, se
+// (sql/2026-10-14_34_notificaciones_push.sql); aquí solo se suscribe, se
 // eligen tipos y se manda una prueba.
 import { SB } from "./supabase.js";
 import { state, $, esc, toast } from "./state.js";

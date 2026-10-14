@@ -3,7 +3,7 @@
 // No tiene manejador `fetch` a propósito: no cachea nada. Un service worker
 // que cachea sirve versiones viejas del panel después de un despliegue, y
 // este panel cambia seguido. La entrega y el diseño están en
-// sql/2026-10-14_33_notificaciones_push.sql y en brain/04-features/notifications.md.
+// sql/2026-10-14_34_notificaciones_push.sql y en brain/04-features/notifications.md.
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", e => e.waitUntil(self.clients.claim()));
