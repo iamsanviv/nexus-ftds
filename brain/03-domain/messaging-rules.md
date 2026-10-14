@@ -81,6 +81,8 @@ Importa que el filtro esté en el envío y no solo en la lista: un segmento guar
 
 Antes de agregar una tercera vía de envío, preguntar por qué no puede pasar por una de estas dos.
 
+El botón «💬 Escribirle» del Repaso del día (`escribirle()` en `public/js/repaso.js`) no es una tercera vía: es un masivo de una persona. Valida al destinatario con `destinatariosMasivo(true)`, pide confirmación con el texto ya resuelto y encola un `tipo='masivo'` **sin campaña** (`campana_id` nulo, que el worker entrega igual) para no llenar «Envíos masivos» de tandas de uno.
+
 ## Etiquetas antes que variantes
 
 `aplicar()` sustituye las etiquetas **antes** de sortear los grupos `{a|b|c}`, no al revés. Es lo que permite escribir `{Hoy tenemos|{dia} tenemos}`: para cuando el sorteo mira el texto, la etiqueta ya es una palabra y el grupo no tiene llaves adentro.

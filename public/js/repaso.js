@@ -9,10 +9,12 @@
 // desde el inicio de la actividad. Como `conf` guarda solo la fecha (sin hora),
 // la hora real se busca en la tabla `actividades`; si no hay actividad asociada
 // (invitación marcada a mano), se usa la regla de "día anterior".
-import { state, $, esc, fmtF, toast, todos, hoyISO, syncZoom } from "./state.js";
+import { state, $, esc, fmtF, toast, todos, hoyISO, syncZoom, componerMensaje, esInactivo, motivoCorto } from "./state.js";
 import { SB } from "./supabase.js";
-import { dbPatch } from "./data.js";
+import { dbPatch, cuotaDiaria } from "./data.js";
 import { render } from "./ui.js";
+import { canalVinculado } from "./canal.js";
+import { destinatariosMasivo } from "./masivo.js";
 
 const clave = () => "nexusRepaso:" + state.me.id;
 
@@ -95,6 +97,54 @@ export async function repasoPreparar() {
   render();
 }
 
+/* ---------- mensaje al cliente ---------- */
+
+// Variantes {a|b|c} sorteadas por persona, como en el masivo: que no llegue
+// idéntico a todos.
+const MENSAJE_SEGUIMIENTO =
+  "{Hola|Buenas|Qué tal|Hola, qué gusto saludarte} {nombre}, " +
+  "{espero tengas un buen día|espero que vayas muy bien|ojalá estés teniendo un gran día}. " +
+  "{¿Lograste ingresar a la clase que te invité?|¿Pudiste entrar a la clase a la que te invité?|¿Alcanzaste a conectarte a la clase que te compartí?} " +
+  "{Estoy atento a tu progreso|Quedo pendiente de cómo te va|Estoy pendiente de tu avance} {🙌🏻|💪🏻|🚀}";
+
+// Un solo mensaje, encolado como masivo sin campaña: no es una tercera vía de
+// envío sino un masivo de una persona, y por eso el destinatario se valida con
+// el mismo cuello (`destinatariosMasivo`). Sin campaña para no llenar «Envíos
+// masivos» de tandas de uno; el worker ya entrega masivos con `campana_id` nulo.
+async function escribirle(c, btn) {
+  // Inactivas incluidas a propósito: aquí el agente eligió a esta persona, y la
+  // confirmación de abajo se lo recuerda.
+  if (!destinatariosMasivo(true).some(x => x.id === c.id)) {
+    toast(c.tel ? "Solo puedes escribirle a tus propios clientes" : "Esta persona no tiene teléfono");
+    return;
+  }
+  if (!(await canalVinculado())) {
+    toast("Vincula tu WhatsApp en «Más → Mi WhatsApp» para poder enviar");
+    return;
+  }
+  const texto = componerMensaje(MENSAJE_SEGUIMIENTO, { nombre: (c.nombre || "").trim().split(/\s+/)[0] });
+  const cuota = await cuotaDiaria();
+  const avisos = [
+    esInactivo(c) ? `😴 Está marcada como inactiva (${motivoCorto(c.inactivoMotivo)}).` : "",
+    cuota.restan === 0 ? `⚠ Ya alcanzaste el límite diario de envíos (${cuota.enviados}/${cuota.tope}): este mensaje se cancelará.` : "",
+  ].filter(Boolean).join("\n");
+  if (!confirm(`Vas a enviarle a ${c.nombre} desde tu WhatsApp:\n\n«${texto}»${avisos ? "\n\n" + avisos : ""}\n\n¿Enviar?`)) return;
+
+  btn.disabled = true; btn.textContent = "Enviando…";
+  const { error } = await SB.from("mensajes_programados").insert({
+    tipo: "masivo", cliente_id: c.id, telefono: c.tel, texto,
+    enviar_en: new Date().toISOString(),
+  });
+  if (error) {
+    toast("⚠ " + error.message);
+    btn.disabled = false; btn.textContent = "💬 Escribirle";
+    return;
+  }
+  // Queda deshabilitado para este paso: un segundo toque no duplica el mensaje.
+  btn.textContent = "✓ Mensaje en cola";
+  toast(`✓ Mensaje a ${c.nombre.split(" ")[0]} en cola`);
+}
+
 /* ---------- overlay ---------- */
 
 function abrir(items, marcarHecho) {
@@ -121,12 +171,15 @@ function abrir(items, marcarHecho) {
         <div style="font-size:.95rem">¿<b>${esc(c.nombre)}</b> <span class="badge b-${c.mem}">${c.mem}</span> asistió a <b>${esc(s.n)}</b>?
           <span class="sfecha">invitado el ${fmtF(f)}</span>
         </div>
+        ${c.tel ? `<div><button class="pmark off mini" data-escribir>💬 Escribirle</button></div>` : ""}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="pmark" data-r="si">✓ Sí asistió</button>
           <button class="pmark off" data-r="no">✗ No asistió</button>
           <button class="tbtn" data-r="skip">Saltar por hoy</button>
         </div>
       </div>`;
+    const bEsc = $("repBody").querySelector("[data-escribir]");
+    if (bEsc) bEsc.onclick = () => escribirle(c, bEsc);
     $("repBody").querySelectorAll("[data-r]").forEach(b => b.onclick = async () => {
       if (b.dataset.r === "si") {
         if (actId) {
