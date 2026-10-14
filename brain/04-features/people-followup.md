@@ -30,6 +30,8 @@ Los filtros de progreso (`En progreso` / `Completos` / `Todos` / `Inactivas`) y 
 
 En móvil el buscador vive entre los filtros y la lista (`#buscarFila` en `index.html`); en escritorio se reubica por JS a la fila de filtros, junto a «+ Cliente»; en las demás vistas vuelve al encabezado. Es **un solo nodo** que se mueve, no copias: duplicarlo partiría el texto escrito.
 
+Los ejes secundarios (broker, depósito, servicio) viven plegados tras el botón «Más filtros» (`state.filtrosMas`, cerrado al entrar), porque juntos eran demasiados mandos a la vista. El botón va primero en la fila de píldoras —en celular la fila se desplaza de lado y al final quedaba oculto— y muestra cuántos de esos ejes están activos: plegar nunca puede esconder un filtro que recorta la lista sin decirlo. La tira de estado también los nombra y «Quitar filtros» los limpia.
+
 Distinguir siempre:
 
 - filtro visual;
