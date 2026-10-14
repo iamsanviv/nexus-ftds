@@ -10,9 +10,11 @@
 // seis etapas en orden de prioridad y, debajo, los leads de la etapa elegida.
 import { state, esc, esLead, esInactivo, nombreBroker } from "./state.js";
 import {
-  TEMP, CATEGORIAS, categoria, temperatura, razon, manualVigente, contactosDe,
+  TEMP, CATEGORIAS, categoria, temperatura, razon, tempAMano, contactosDe,
   form, abiertoAqui, esMio, manejarLead, cuandoTxt, nombreTipo, dias,
+  respondioAuto, horaTxt, entranteDe,
 } from "./leads.js";
+import { primeroHoy } from "./entrantes.js";
 import { renderMetaHoy } from "./ftd.js";
 
 const ORDEN_T = { caliente: 0, tibio: 1, frio: 2 };
@@ -45,6 +47,10 @@ function ordenPend(a, b) {
   return va ? -d : d;
 }
 const ordenResto = (a, b) => ORDEN_T[temperatura(a)] - ORDEN_T[temperatura(b)] || a.nombre.localeCompare(b.nombre, "es");
+// «Te escribieron»: por la hora de su PRIMER mensaje de hoy, el más antiguo
+// arriba: es quien lleva más rato esperando respuesta.
+const primeroDe = c => primeroHoy(c) || entranteDe(c) || "";
+const ordenEscribio = (a, b) => primeroDe(a).localeCompare(primeroDe(b)) || ordenResto(a, b);
 
 // Dato corto bajo el número de cada etapa: lo que pide atención dentro de ella.
 function subEtapa(k, ls) {
@@ -65,7 +71,7 @@ const iniciales = n => n.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0])
 
 const chip = c => {
   const t = temperatura(c);
-  return `<button class="ltemp ${t}" data-l="temp" aria-label="Corregir temperatura"><i></i>${TEMP[t]}${manualVigente(c) ? " · a mano" : ""}</button>`;
+  return `<button class="ltemp ${t}" data-l="temp" aria-label="Corregir temperatura"><i></i>${TEMP[t]}${tempAMano(c) ? " · a mano" : ""}</button>`;
 };
 
 const MAS = '<path d="M12 5v14M5 12h14"/>';
@@ -83,6 +89,9 @@ function acciones(c) {
 function esperando(c) {
   const x = contactosDe(c)[0];
   if (!x || x.respuesta) return "";
+  // Si ya te escribió después, no hay nada que preguntar: lo dice WhatsApp.
+  const auto = respondioAuto(c, x);
+  if (auto) return `<div class="hesp"><span>Le escribiste ${cuandoTxt(x.en)} · ${esc(nombreTipo(x.tipo))} · <b>✓ respondió</b> (automático)</span></div>`;
   return `<div class="hesp"><span>Le escribiste ${cuandoTxt(x.en)} · ${esc(nombreTipo(x.tipo))}</span>
     <span class="lacc"><button class="lbtn mini" data-l="resp" data-v="${x.id}" data-r="si">Respondió</button><button class="lbtn mini" data-l="resp" data-v="${x.id}" data-r="no">No</button></span></div>`;
 }
@@ -93,10 +102,15 @@ const fila = c => {
   // para no confundirlo con un lead en su primer FTD.
   const dep2 = !esLead(c) && c.promesaBroker
     ? `<span class="h2dep">2º depósito · ${esc(nombreBroker(c.promesaBroker))}</span>` : "";
+  // Te escribió hoy: se marca en CUALQUIER etapa (un pendiente que escribe
+  // sigue en Pendientes, pero hay que verlo). Con la hora de su primer mensaje.
+  const ent = entranteDe(c), p = primeroHoy(c);
+  const escr = ent && dias(ent) === 0
+    ? `<span class="hescr">💬 ${p ? `Primer mensaje de hoy · ${horaTxt(p)}` : "Te escribió hoy"}</span>` : "";
   return `<div class="hfila" data-id="${c.id}">
     <div class="hl1">
       <span class="hav ${t}" aria-hidden="true">${esc(iniciales(c.nombre))}</span>
-      <div class="hl1t"><button class="hnm" data-ver="${c.id}">${esc(c.nombre)}</button>${dep2}<div class="lwhy">${razon(c)}</div></div>
+      <div class="hl1t"><button class="hnm" data-ver="${c.id}">${esc(c.nombre)}</button>${dep2}${escr}<div class="lwhy">${razon(c)}</div></div>
       ${chip(c)}
     </div>
     ${abiertoAqui(c, "temp") ? form(c) : ""}
@@ -113,7 +127,7 @@ export function renderHoy(cont, render) {
   const por = Object.fromEntries(CATEGORIAS.map(([k]) => [k, []]));
   mios.forEach(c => por[categoria(c)].push(c));
   por.pend.sort(ordenPend);
-  CATEGORIAS.forEach(([k]) => { if (k !== "pend") por[k].sort(ordenResto); });
+  CATEGORIAS.forEach(([k]) => { if (k !== "pend") por[k].sort(k === "bajo" ? ordenEscribio : ordenResto); });
 
   const sel = etapaSel || (CATEGORIAS.find(([k]) => por[k].length) || ["pend"])[0];
   const prometieronHoy = por.pend.filter(c => dias(c.promesaEn) === 0).length;

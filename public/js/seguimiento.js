@@ -11,6 +11,7 @@ import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
   normBusqueda, BROKERS, insigniasBroker, mesCorto, cuandoParte } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
+import { asegurarEntrantes, entranteDe, escribioTras } from "./entrantes.js";
 import { avisarSiCanalCaido } from "./salud.js";
 import { subirImagenMensaje, guardarHistorialSegmento } from "./data.js";
 import { BASE_URL } from "./config.js";
@@ -2049,9 +2050,34 @@ async function abrirEntradas(a) {
   $("repOverlay").classList.add("open");
 
   const { data, error } = await SB.from("seguimientos")
-    .select("id, cliente_id, clic_token, clic_en, clics, clientes(nombre)")
+    .select("id, owner_id, cliente_id, clic_token, clic_en, clics, clientes(nombre)")
     .eq("actividad_id", a.id).neq("estado", "cancelado");
   if (error) { $("repBody").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
+
+  // «Respondió» = te escribió por WhatsApp DESPUÉS del primer mensaje que le
+  // salió de este seguimiento. Solo para los tuyos: los chats que se ven son
+  // los de tu WhatsApp. Si algo falla, el panel sale igual, sin esa marca.
+  const primerEnvio = new Map();   // seguimiento_id → primer enviado_en
+  const mios = (data || []).filter(s => s.owner_id === state.me?.id).map(s => s.id);
+  if (mios.length) {
+    // En tandas de 100: los ids viajan en la URL y una actividad grande la
+    // pasaría del límite.
+    const tandas = [];
+    for (let i = 0; i < mios.length; i += 100) tandas.push(mios.slice(i, i + 100));
+    const [, ...envs] = await Promise.all([
+      asegurarEntrantes(),
+      ...tandas.map(ids => SB.from("mensajes_programados").select("seguimiento_id, enviado_en")
+        .in("seguimiento_id", ids).eq("estado", "enviado").not("enviado_en", "is", null)),
+    ]);
+    for (const m of envs.flatMap(r => r.data || [])) {
+      const p = primerEnvio.get(m.seguimiento_id);
+      if (!p || m.enviado_en < p) primerEnvio.set(m.seguimiento_id, m.enviado_en);
+    }
+  }
+  const respondio = (s, c) => {
+    const p = primerEnvio.get(s.id);
+    return p && escribioTras(c, p) ? entranteDe(c) : null;
+  };
 
   // NO se filtra por token. Desde que el rastreo se decide por tanda, una misma
   // actividad puede tener gente rastreada y gente sin rastrear, y a los segundos
@@ -2077,10 +2103,12 @@ async function abrirEntradas(a) {
     const fila = ({ s, c }) => {
       const nombre = s.clientes?.nombre || "(cliente)";
       const marcada = asistio(c);
+      const resp = respondio(s, c);
       return `<div class="prow">
         <div class="pl"><span class="pn">${esc(nombre)}</span>
           ${s.clic_en ? `<span class="sfecha">abrió ${esc(fechaHoraCO(s.clic_en))}</span>`
            : s.clics ? `<span class="pdate">abrió tarde · no cuenta</span>` : ""}
+          ${resp ? `<span class="sfecha" title="Te escribió por WhatsApp después de tu mensaje">💬 respondió ${esc(fechaHoraCO(resp))}</span>` : ""}
         </div>
         <div class="pr">
           ${marcada
@@ -2094,7 +2122,8 @@ async function abrirEntradas(a) {
       `<div class="pstitle">${titulo} (${lista.length})</div>` +
       (lista.length ? lista.map(fila).join("") : `<div class="naplica">${vacio}</div>`);
 
-    $("repSub").textContent = a.nombre;
+    const nResp = conCli.filter(({ s, c }) => respondio(s, c)).length;
+    $("repSub").textContent = nResp ? `${a.nombre} · 💬 ${nResp} te respondi${nResp === 1 ? "ó" : "eron"}` : a.nombre;
     $("repBody").innerHTML = (!filas.length
         ? `<div class="naplica">A esta actividad no le programaste a nadie.</div>`
         : (rastreados.length

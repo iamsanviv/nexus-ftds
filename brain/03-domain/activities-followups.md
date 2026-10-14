@@ -186,6 +186,13 @@ editor por persona («✎ Mensajes») muestra «❄ congelado» en vez de la fec
 mensajes congelados (`esCongelado`), para no liberar sin querer un enlace retenido a
 propósito. Solo se libera desde «▶ Enviar enlace».
 
+## «Respondió» en «Quiénes entraron» (14/10/2026)
+
+El panel de entradas de una actividad marca «💬 respondió <fecha>» a quien te escribió por
+WhatsApp DESPUÉS del primer mensaje enviado de su seguimiento (`mensajes_programados.enviado_en`
+mínimo con `estado='enviado'`), y el subtítulo cuenta cuántos. Solo seguimientos propios: los
+chats visibles son los de tu WhatsApp. Usa `entrantes.js`, el mismo cruce que Leads.
+
 ## Rastreo
 
 Cada seguimiento rastreado tiene su propio `clic_token`. El token identifica a esa persona dentro de esa actividad y debe sobrevivir a reprogramaciones de mensajes.

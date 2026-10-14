@@ -1834,6 +1834,13 @@ body:has(.overlay.open){overflow:hidden}
 .hoyadd .tbtn{flex:0 0 auto;border-color:var(--gold-dim);color:var(--on-gold);background:var(--gold-fill);font-size:.78rem;padding:9px 13px}
 .h2dep{display:inline-block;font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:7px;margin:3px 0 1px;
   background:var(--gold-fill);color:var(--on-gold);border:1px solid var(--gold-dim)}
+/* «Te escribió hoy»: el azul de la etapa «Te escribieron» como fondo; el texto
+   va en el color normal para que se lea igual en claro y en oscuro. */
+.hescr{display:inline-block;font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:7px;margin:3px 0 1px;white-space:nowrap;
+  background:color-mix(in srgb,#5B9BD5 16%,transparent);color:var(--text);border:1px solid color-mix(in srgb,#5B9BD5 50%,transparent)}
+/* Separación cuando van los dos: en el que va primero, para que al bajar de
+   línea en móvil el segundo no quede corrido a la derecha. */
+.h2dep{margin-right:5px}
 /* Modal del selector de pendiente de depósito. */
 .pdlista{display:flex;flex-direction:column;gap:7px;max-height:40vh;overflow:auto;margin:10px 0}
 .pdrow{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:10px 12px;
