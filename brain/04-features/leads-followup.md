@@ -124,6 +124,22 @@ temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`),
   muestra lo que llevas hoy y, si la tanda no cabe, cuántos leads no saldrán; el confirm lo repite.
   Mismo aviso en el masivo. El registro de envíos ya muestra el motivo también de los CANCELADOS.
 
+## Historial de plantillas por lead (14/10/2026)
+Para no repetir una plantilla de seguimiento (`plantillas_lead`) al mismo lead.
+- Vínculo: `campanas.plantilla_id` (SQL `2026-10-14_36`, `on delete set null`). Antes la campaña
+  solo guardaba el nombre: renombrar la plantilla rompía el vínculo. El relleno histórico enlazó por
+  dueño + nombre (recortado a 60) solo cuando el nombre era único.
+- El historial NO se guarda aparte: se deriva del mensaje 1 (`tipo='masivo'`) de cada campaña de
+  leads en `mensajes_programados` (`cargarPlantillasEnviadas`, data.js → `state.plantillasEnviadas`).
+  `enviado` = recibida, `pendiente` = programada; cancelado/error no cuentan (no le llegó).
+- Tarjeta del lead: bloque «Plantillas enviadas» (solo si hay) sobre «Contactos», una marca por
+  plantilla con veces y fecha (`plantillasDe`, `marcaPlantilla` en leads.js).
+- Modal «Enviar seguimiento»: al elegir una plantilla, cada lead que ya la recibió o la tiene
+  programada muestra «Ya la recibió» / «Programada» y la fila se atenúa; el confirm los nombra. NO se
+  quitan solos de la selección (repetir puede ser a propósito; la selección es del agente). Al abrir
+  el modal se recarga el historial para que «Programada» pase a «Ya la recibió» sin recargar la página.
+- Un envío desde «＋ Nueva (sin guardar)» va con `plantilla_id` null y se agrupa por nombre.
+
 ## Pendiente de depósito por bróker — 2º depósito de un becado (`promesa_broker`, 09/10/2026)
 Alguien que ya es Beca (depositó en un bróker) puede quedar pendiente de depositar en OTRO. Antes
 imposible: la promesa (`promesa_en`) era un solo dato sin bróker y Pendientes exigía `mem = 'Lead'`.

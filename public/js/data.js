@@ -86,6 +86,26 @@ export async function cargarTodo() {
   state.contactos = {};
   if (e2) console.warn("lead_contactos:", e2.message);
   (lc || []).forEach(x => (state.contactos[x.cliente_id] ||= []).push(x));
+
+  await cargarPlantillasEnviadas();
+}
+
+// Qué plantilla de seguimiento recibió (o tiene programada) cada lead, para no
+// repetirla. Se deriva del mensaje 1 de cada campaña de leads: `enviado` =
+// recibida, `pendiente` = programada; cancelados y fallidos no cuentan porque
+// no le llegaron. Un fallo aquí no tumba el panel: solo falta la marca.
+export async function cargarPlantillasEnviadas() {
+  const { data, error } = await SB.from("mensajes_programados")
+    .select("cliente_id, estado, enviar_en, enviado_en, campanas!inner(nombre, plantilla_id, lead_tipo)")
+    .eq("tipo", "masivo").not("cliente_id", "is", null).in("estado", ["pendiente", "enviado"])
+    .not("campanas.lead_tipo", "is", null)
+    .order("enviar_en", { ascending: false });
+  state.plantillasEnviadas = {};
+  if (error) { console.warn("plantillas enviadas:", error.message); return; }
+  (data || []).forEach(m => (state.plantillasEnviadas[m.cliente_id] ||= []).push({
+    plantillaId: m.campanas.plantilla_id, nombre: m.campanas.nombre,
+    estado: m.estado, en: m.enviado_en || m.enviar_en,
+  }));
 }
 
 export async function dbInsert(c) {

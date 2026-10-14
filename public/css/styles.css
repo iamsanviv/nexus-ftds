@@ -2053,3 +2053,16 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .mdcon p{color:var(--muted);font-size:.78rem;margin:4px 0}
 .mdurl{display:flex;gap:8px;align-items:center}
 .mdurl code{flex:1;min-width:0;overflow-wrap:anywhere;font-size:.74rem;background:var(--surface2);border-radius:8px;padding:7px 9px}
+
+/* Plantillas de seguimiento que ya recibió el lead (para no repetirlas). */
+.lplants{display:flex;flex-wrap:wrap;gap:6px}
+/* El nombre es lo que importa: se parte en líneas antes que recortarse. */
+.lplant{display:inline-flex;align-items:baseline;gap:5px;max-width:100%;font-size:.76rem;color:var(--ok);
+  background:color-mix(in srgb,var(--ok) 12%,transparent);border-radius:10px;padding:4px 10px}
+.lplant b{color:var(--text);font-weight:600;overflow-wrap:anywhere;min-width:0}
+.lplant i{font-style:normal;color:var(--muted);font-size:.7rem;white-space:nowrap}
+.lplant.prog{color:var(--gold);background:color-mix(in srgb,var(--gold) 12%,transparent)}
+#ldLista .ldya{font-size:.62rem;font-weight:700;color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent);
+  border-radius:999px;padding:2px 8px;white-space:nowrap;flex:0 0 auto}
+#ldLista .ldya.prog{color:var(--gold);background:color-mix(in srgb,var(--gold) 14%,transparent)}
+#ldLista .seg-row.ldyafila{opacity:.62}
