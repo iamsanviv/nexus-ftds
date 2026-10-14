@@ -255,6 +255,9 @@
   .prow .pl{flex:1;min-width:0;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
   .prow .pn{font-family:'Archivo';font-weight:700;font-size:.92rem}
   .prow .pr{flex:0 0 auto;display:flex;align-items:center;gap:8px}
+  /* Fila marcable de «Sin respuesta»: el input global ocupa 100% de ancho. */
+  .prow.srfila{cursor:pointer}
+  .prow.srfila input{width:auto;flex:0 0 auto;accent-color:var(--gold)}
   .pdate{font-size:.7rem;color:var(--ok);font-variant-numeric:tabular-nums}
   .wabtn{font-size:.7rem;font-weight:700;color:#3ddc84;border:1px solid rgba(61,220,132,.35);border-radius:8px;padding:5px 9px;text-decoration:none}
   .pmark{font-size:.72rem;font-weight:700;color:var(--gold);border:1px solid var(--gold-dim);border-radius:8px;padding:6px 10px}
@@ -891,7 +894,7 @@ body.segwide .tabinner{max-width:1180px}
   color:var(--muted);background:none;border:none}
 .tipoact button.on{background:var(--surface2);color:var(--gold);font-weight:700}
 #segImgPrev{width:76px;height:76px;object-fit:cover}
-.actcard .ab{display:flex;gap:6px;align-items:center;flex:0 0 auto;margin-left:auto}
+.actcard .ab{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;align-items:center;flex:0 1 auto;max-width:100%;margin-left:auto}
 .actcard .ab .pmark{margin-left:0}
 
 /* ---- estado vacío ---- */

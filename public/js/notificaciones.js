@@ -15,6 +15,7 @@ const TIPOS = [
   ["escribio_hoy", "Te escribió hoy",         "El primer mensaje del día de un lead o un pendiente de depósito."],
   ["temperatura",  "Subió de temperatura",    "Un lead volvió a escribir y subió de nivel."],
   ["zoom",         "Tu zoom empieza pronto",  "Una hora antes de una actividad tuya o con invitados tuyos."],
+  ["sin_respuesta", "Invitados sin contestar", "15 min antes del recordatorio de 1 h, si hay invitados tuyos que no te contestaron (para cancelarles el seguimiento)."],
   ["canal",        "Problemas con tu WhatsApp", "Se desconectó, dejó de dar señales o los envíos están fallando."],
 ];
 

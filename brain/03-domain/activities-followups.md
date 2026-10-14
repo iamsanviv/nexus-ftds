@@ -193,6 +193,24 @@ WhatsApp DESPUÉS del primer mensaje enviado de su seguimiento (`mensajes_progra
 mínimo con `estado='enviado'`), y el subtítulo cuenta cuántos. Solo seguimientos propios: los
 chats visibles son los de tu WhatsApp. Usa `entrantes.js`, el mismo cruce que Leads.
 
+## Cancelar a quien no contestó la invitación (14/10/2026)
+
+En la tarjeta de la actividad, **«🔕 Sin respuesta»** (`abrirSinRespuesta`, `seguimiento.js`)
+aparece si hay seguimientos MÍOS activos y la actividad aún no empieza. Lista a quienes no
+contestaron, todos marcados (se puede desmarcar a quien se sabe que va), y cancela esos
+seguimientos con sus mensajes pendientes.
+
+«No contestó» = su primer mensaje ya salió (`enviado`) y no te escribió por WhatsApp
+después (`escribioTras`, la misma regla que «💬 respondió»). Quedan fuera quien todavía no
+recibe nada y quien abrió su enlace. **No se mira la asistencia**: en catálogo `acc` es por
+servicio y sacaría a quien fue a una clase anterior aunque a esta no conteste.
+
+- Solo `owner_id = me`: los chats visibles son los de mi WhatsApp; un director no poda la
+  lista de su agente.
+- La persona queda «invitada» (`conf` no se toca).
+- La regla está duplicada en SQL (`sin_respuesta_de`) para el aviso push de 15 min antes
+  del recordatorio de 1 h (ver [[../04-features/notifications]]). Cambiar las dos juntas.
+
 ## Rastreo
 
 Cada seguimiento rastreado tiene su propio `clic_token`. El token identifica a esa persona dentro de esa actividad y debe sobrevivir a reprogramaciones de mensajes.
