@@ -5,6 +5,7 @@
 // igual: la lista y el panel tienen que decir la misma temperatura.
 import { state, esc, fmtF, hoyISO, fechaCO, toast, BROKERS, nombreBroker } from "./state.js";
 import { dbPatch, crearContacto, actualizarContacto, borrarContacto } from "./data.js";
+import { entranteDe } from "./entrantes.js";
 
 export const TIPOS = [
   ["objecion", "Resolver objeción"], ["prueba_social", "Prueba social"],
@@ -41,51 +42,82 @@ const llegada = c => c.creado || (c.createdAt ? fechaCO(new Date(c.createdAt)) :
 export const contactosDe = c => state.contactos?.[c.id] || [];   // más reciente primero
 const ultimoSi = c => contactosDe(c).find(x => x.respuesta === "si");
 
-// Último mensaje que el lead te ESCRIBIÓ, desde `chats_recientes.entrante_en`
-// (lo publica el worker, cruzado por teléfono). Es la señal automática de «bajó
-// hoy»: no depende de que marques «Me respondió» a mano. null si no hay chat o
-// si el lead no tiene teléfono para cruzar.
-const digitos = t => (t || "").replace(/\D/g, "");
-export const entranteDe = c => { const k = digitos(c.tel); return (k && state.entrantes?.[k]) || null; };
+// Lo que el lead te ESCRIBIÓ sale de entrantes.js (automático, ~5 min de
+// demora): no depende de que marques «Me respondió» a mano.
+export { entranteDe };
+
+// «Respondió» automático a un contacto: el lead te escribió DESPUÉS de ese
+// contacto y ANTES del siguiente. Se marca solo el contacto inmediatamente
+// anterior a su mensaje: si le escribiste dos veces y contestó una, no se sabe
+// si contestó al primero, pero sí que el segundo tuvo respuesta.
+// Contactos más recientes primero, así que es el primero anterior al mensaje.
+export function respondioAuto(c, x) {
+  const ent = entranteDe(c);
+  if (!ent || x.respuesta) return null;
+  const previo = contactosDe(c).find(y => new Date(y.en) < new Date(ent));
+  return previo && previo.id === x.id ? ent : null;
+}
 
 /* ----------------------------------------------------------- temperatura */
 // Reglas acordadas con el usuario (05/10/2026):
 //  · pendiente con fecha de hoy o futura: caliente; vencido 1–2 días: tibio; 3+: frío
-//  · te escribió / respondió hoy: caliente; hace 1–2 días: tibio; 3+: frío
+//  · respondió («Me respondió») hoy: caliente; hace 1–2 días: tibio; 3+: frío
 //  · sin contactar: según cuándo llegó (hoy caliente, 1–2 tibio, 3+ frío)
 //  · contactado y sin respuesta: tibio (aunque haya llegado hoy); 3+ días: frío
 //  · abrir cuenta cuenta como una señal: un registrado de ayer no es «frío»
 //    solo porque llegó hace una semana.
+// Y desde el 14/10/2026: cuando el lead VUELVE A ESCRIBIR, la temperatura SUBE
+// UN NIVEL sobre la que tenía (frío → tibio → caliente), no salta a caliente.
+// También sube la corrección a mano: un mensaje suyo es información nueva.
 const porDias = (d, hoyEs = "caliente") => d <= 0 ? hoyEs : d <= 2 ? "tibio" : "frio";
+const NIVEL = ["frio", "tibio", "caliente"];
+const subir = t => NIVEL[Math.min(NIVEL.indexOf(t) + 1, 2)];
+const masFria = (a, b) => NIVEL[Math.min(NIVEL.indexOf(a), NIVEL.indexOf(b))];
 
-// La señal más reciente que marca la temperatura, aparte de la promesa: lo que
-// te escribió (automático), lo que registró en el broker, o el «Me respondió»
-// a mano. Gana la más nueva. La usan tempAuto y razon para no contradecirse.
-function senalReciente(c) {
+// Señal del lead aparte de la promesa: el «Me respondió» a mano o el registro
+// en el broker. Gana la más nueva. El mensaje entrante NO entra aquí: es lo que
+// hace subir un nivel sobre esto.
+function senalBase(c) {
   const cand = [];
   const si = ultimoSi(c);
   if (si) cand.push({ tipo: "resp", en: si.respuesta_en });
   if (c.registroEn) cand.push({ tipo: "reg", en: c.registroEn });
-  const ent = entranteDe(c);
-  if (ent) cand.push({ tipo: "escribio", en: ent });
   return cand.length ? cand.reduce((a, b) => new Date(b.en) > new Date(a.en) ? b : a) : null;
 }
 
-export function tempAuto(c) {
-  if (c.promesaEn) return porDias(dias(c.promesaEn));
-  const s = senalReciente(c);
-  if (s) return porDias(dias(s.en));
-  const cs = contactosDe(c);
-  if (!cs.length) return porDias(dias(llegada(c)) ?? 99);
-  return porDias(dias(cs[cs.length - 1].en), "tibio");
-}
 // La corrección a mano vale hasta el siguiente contacto.
 export function manualVigente(c) {
   if (!c.tempManual) return false;
   const ult = contactosDe(c)[0];
   return !ult || new Date(c.tempManualEn) > new Date(ult.en);
 }
-export const temperatura = c => manualVigente(c) ? c.tempManual : tempAuto(c);
+
+// La temperatura SIN contar lo que te escribió, y desde cuándo vale (`en`):
+// solo un mensaje POSTERIOR a ese momento la hace subir. Si escribió y después
+// le volviste a escribir sin respuesta, manda tu último contacto.
+function base(c) {
+  if (manualVigente(c)) return { t: c.tempManual, en: c.tempManualEn };
+  if (c.promesaEn) return { t: porDias(dias(c.promesaEn)), en: c.promesaEn };
+  const s = senalBase(c);
+  if (s) return { t: porDias(dias(s.en)), en: s.en, s };
+  const cs = contactosDe(c);
+  if (!cs.length) return { t: porDias(dias(llegada(c)) ?? 99), en: llegada(c) };
+  return { t: porDias(dias(cs[cs.length - 1].en), "tibio"), en: cs[0].en };
+}
+
+// Temperatura final y, si subió por un mensaje suyo, desde cuál (`antes`) y
+// cuándo escribió (`ent`). El nivel ganado envejece como cualquier señal: un
+// mensaje de hace 3+ días ya no sostiene nada por encima de frío.
+function calcTemp(c) {
+  const b = base(c), ent = entranteDe(c);
+  if (ent && b.en && new Date(ent) > new Date(b.en)) {
+    return { ...b, t: masFria(subir(b.t), porDias(dias(ent))), antes: b.t, ent };
+  }
+  return b;
+}
+export const temperatura = c => calcTemp(c).t;
+// «· a mano» solo mientras manda la corrección: si después te escribió, ya no.
+export const tempAMano = c => manualVigente(c) && !calcTemp(c).ent;
 
 /* ------------------------------------------------------------- categoría */
 // Orden de prioridad del usuario. Un lead está SOLO en su categoría más alta.
@@ -107,17 +139,24 @@ export function categoria(c) {
   return "resto";
 }
 
-// Por qué tiene esa temperatura, en una línea.
+// Por qué tiene esa temperatura, en una línea. Si subió por un mensaje suyo,
+// se dice encima del motivo de base (la promesa o el registro siguen siendo lo
+// importante); el «sin respuesta» se reemplaza, porque ya no es verdad.
 export function razon(c) {
+  const r = calcTemp(c);
+  const escribio = r.ent
+    ? `Te escribió <b>${cuandoTxt(r.ent)}</b>${r.t !== r.antes ? ` · subió de ${TEMP[r.antes]} a ${TEMP[r.t]}` : ""}`
+    : "";
   if (c.promesaEn) {
     const d = dias(c.promesaEn);
     const br = c.promesaBroker ? ` en <b>${esc(nombreBroker(c.promesaBroker))}</b>` : "";
-    return `Prometió depositar${br} <b>${cuandoHora(c.promesaEn)}</b>${d > 0 ? " y no depositó" : ""}`;
+    const txt = `Prometió depositar${br} <b>${cuandoHora(c.promesaEn)}</b>${d > 0 ? " y no depositó" : ""}`;
+    return escribio ? `${txt} · ${escribio.replace("Te", "te")}` : txt;
   }
-  const s = senalReciente(c);
+  if (escribio) return escribio;
+  const s = senalBase(c);
   if (s) {
     if (s.tipo === "reg") return `Abrió cuenta en ${esc(nombreBroker(c.registroBroker))} <b>${cuandoTxt(c.registroEn)}</b>`;
-    if (s.tipo === "escribio") return `Te escribió <b>${cuandoTxt(s.en)}</b>`;
     return `Te respondió <b>${cuandoTxt(s.en)}</b>`;
   }
   const cs = contactosDe(c);
@@ -129,7 +168,7 @@ export function razon(c) {
 /* ----------------------------------------------------------------- vista */
 export const chipTemp = c => {
   const t = temperatura(c);
-  return `<span class="ltemp ${t}"><i></i>${TEMP[t]}${manualVigente(c) ? " · a mano" : ""}</span>`;
+  return `<span class="ltemp ${t}"><i></i>${TEMP[t]}${tempAMano(c) ? " · a mano" : ""}</span>`;
 };
 
 // Formulario abierto, uno a la vez: { id, modo }.
@@ -167,7 +206,7 @@ export function form(c) {
       <div class="lacc"><button class="btn-oro" data-l="okContacto" ${abierto.tipo ? "" : "disabled"}>Guardar</button><button class="lbtn" data-l="cancel">Cancelar</button></div></div>`;
   }
   if (abierto.modo === "temp") {
-    return `<div class="lform"><div class="lft">Corregir temperatura (vale hasta el próximo contacto)</div>
+    return `<div class="lform"><div class="lft">Corregir temperatura (vale hasta tu próximo contacto; si te escribe, sube un nivel)</div>
       <div class="lchips">${Object.entries(TEMP).map(([k, n]) => `<button class="lchip" data-l="setTemp" data-v="${k}">${n}</button>`).join("")}
       <button class="lchip" data-l="setTemp" data-v="">Automática</button></div></div>`;
   }
@@ -199,6 +238,7 @@ export function seguimientoHTML(c) {
       ${x.nota ? `<div class="lnota">${esc(x.nota)}</div>` : ""}
       ${x.respuesta ? `<div class="lresp ${x.respuesta}">${x.respuesta === "si" ? "✓ Respondió" : "No respondió"} · ${cuandoTxt(x.respuesta_en)}
           ${mio ? `<button class="llink" data-l="limpiarResp" data-v="${x.id}">Cambiar</button>` : ""}</div>`
+        : respondioAuto(c, x) ? `<div class="lresp si" title="Te escribió por WhatsApp después de este contacto">✓ Respondió · ${cuandoTxt(respondioAuto(c, x))} ${horaTxt(respondioAuto(c, x))} · automático</div>`
         : mio ? `<div class="lacc"><button class="lbtn" data-l="resp" data-v="${x.id}" data-r="si">Me respondió</button><button class="lbtn" data-l="resp" data-v="${x.id}" data-r="no">No respondió</button></div>` : `<div class="lresp">Esperando respuesta</div>`}
     </div>`).join("");
 

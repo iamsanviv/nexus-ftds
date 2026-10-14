@@ -49,12 +49,33 @@ pend (promesa) > reg (registro) > hoy (llegó hoy) > bajo (respondió hoy; F4 lo
 - `chats_recientes.entrante_en` = último mensaje ENTRANTE (is_from_me=0), que publica
   `chats_sync.py` en la misma lectura que ya hace (no agrega sondeos). `ultimo_en` NO
   sirve: es el último mensaje en cualquier dirección y se mueve cuando el agente escribe.
-- El panel lo cruza por teléfono (`state.entrantes`, dígitos→fecha). Se pide UNA vez al
-  entrar a Leads (`ui.js`, guard `state.entrantes===null`), filtrado a los últimos días.
-- `senalReciente(c)` elige la señal más nueva entre: te escribió (entrante), registro en
-  el broker y «Me respondió» a mano. La usan `tempAuto` y `razon` para no contradecirse.
+- Todo el cruce vive en `public/js/entrantes.js` (Leads, «Hoy» y Seguimiento usan lo mismo):
+  carga al entrar a Leads y se refresca si pasaron 5 min (la cadencia del worker); no
+  re-pinta si hay un campo con foco. Solo cruza personas PROPIAS (`owner_id === me`): RLS de
+  `chats_recientes` es `owner_id = auth.uid()` y un mismo número puede ser lead de un agente.
+  Consecuencia: el director NO ve estas señales en los leads de su equipo.
+- **Cruce por teléfono normalizado (`claveTel`)**: México 521+10 ↔ 52+10 y Argentina 549 ↔ 54.
+  WhatsApp guarda el «1»/«9» de móvil y la ficha no. Con dígitos exactos cruzaban 15 de 74
+  leads/pendientes; normalizado, 41 (14/10/2026).
 - Categoría `bajo` = escribió hoy (entrante de hoy, o «Me respondió» de hoy).
-- Un mensaje entrante mueve la temperatura igual que una respuesta: «te escribió hoy» → caliente.
+
+## Automatizaciones con mensajes entrantes (14/10/2026)
+- **Temperatura: volver a escribir SUBE UN NIVEL** (frío → tibio → caliente), decisión del
+  usuario; antes saltaba a caliente. `base(c)` = temperatura sin el entrante + desde cuándo
+  vale (corrección a mano, promesa, «Me respondió»/registro, último contacto o llegada). Solo
+  un entrante POSTERIOR a ese momento sube: si escribió y después le volviste a escribir sin
+  respuesta, manda tu contacto. El nivel ganado envejece como cualquier señal
+  (`masFria(subir(base), porDias(entrante))`): a los 3+ días ya no sostiene nada sobre frío.
+  También sube la corrección a mano, y entonces deja de decir «· a mano» (`tempAMano`).
+- **«Respondió» automático a un contacto**: `respondioAuto(c, x)` marca solo el contacto
+  inmediatamente anterior a su último mensaje. No se escribe en `lead_contactos.respuesta`:
+  es derivable de `chats_recientes` y persistirlo lo convertiría en señal de base y anularía
+  la subida de nivel. El «Me respondió» a mano sigue existiendo y gana.
+- **«Primer mensaje de hoy · 9:12 am»** en cada fila del panel «Hoy» (leads y becados con
+  depósito pendiente, en CUALQUIER etapa). Sale de `chats_recientes.primer_entrante_dia`; si
+  el worker aún no lo publica, dice solo «Te escribió hoy». La etapa «Te escribieron» se
+  ordena por ese primer mensaje, el más antiguo arriba.
+- Se sabe CUÁNDO escribió, no QUÉ: «respondió» = «te escribió después de tu mensaje».
 
 ## Hora de la promesa: opcional (05/10/2026)
 `promesa_en` sigue siendo `timestamptz`. La hora es OPCIONAL en el formulario; cuando no la
