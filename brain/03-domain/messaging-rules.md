@@ -81,9 +81,10 @@ Importa que el filtro esté en el envío y no solo en la lista: un segmento guar
 
 Antes de agregar una tercera vía de envío, preguntar por qué no puede pasar por una de estas dos.
 
-El botón «💬 Escribirle» del Repaso del día (`escribirle()` en `public/js/repaso.js`) no es una tercera vía: es un masivo de una persona. Valida al destinatario con `destinatariosMasivo(true)`, pide confirmación con el texto ya resuelto y encola un `tipo='masivo'` **sin campaña** (`campana_id` nulo, que el worker entrega igual) para no llenar «Envíos masivos» de tandas de uno.
+El Repaso del día (`public/js/repaso.js`) tiene dos botones por persona:
 
-Solo encola si el WhatsApp del agente está vinculado al abrir el repaso (y se vuelve a comprobar al enviar). Sin canal, el botón es un enlace `https://wa.me/<tel>?text=<mensaje>` que abre el chat en el WhatsApp del propio agente con el texto escrito: no pasa por la cola ni por el worker, y enviarlo lo decide el agente.
+- «💬 Enviar mensaje» (`escribirle()`) no es una tercera vía: es un masivo de una persona. Solo está habilitado si el WhatsApp del agente está vinculado al abrir el repaso (y se vuelve a comprobar al enviar). Valida al destinatario con `destinatariosMasivo(true)`, pide confirmación con el texto ya resuelto y encola un `tipo='masivo'` **sin campaña** (`campana_id` nulo, que el worker entrega igual) para no llenar «Envíos masivos» de tandas de uno.
+- «↗ Ir al chat» siempre está: es un enlace `https://wa.me/<tel>?text=<mensaje>` que abre el chat en el WhatsApp del propio agente con el texto escrito. No pasa por la cola ni por el worker; enviarlo lo decide el agente.
 
 ## Etiquetas antes que variantes
 

@@ -114,8 +114,9 @@ const MENSAJE_SEGUIMIENTO =
 const textoSeguimiento = c =>
   componerMensaje(MENSAJE_SEGUIMIENTO, { nombre: (c.nombre || "").trim().split(/\s+/)[0] });
 
-// Sin canal vinculado no hay cola que pueda enviarlo: se abre el chat en el
-// WhatsApp del propio agente con el texto escrito, y él decide si lo envía.
+// «Ir al chat»: abre el chat en el WhatsApp del propio agente con el texto ya
+// escrito, y él decide si lo envía. No pasa por la cola, así que no depende
+// de tener el canal vinculado.
 const enlaceWa = c =>
   `https://wa.me/${c.tel.replace(/\D/g, "")}?text=${encodeURIComponent(textoSeguimiento(c))}`;
 
@@ -128,7 +129,7 @@ async function escribirle(c, btn) {
   }
   // Se vuelve a comprobar al enviar: el canal pudo caerse con el repaso abierto.
   if (!(await canalVinculado())) {
-    toast("Tu WhatsApp se desvinculó: vuelve a abrir el repaso para escribirle desde tu teléfono");
+    toast("Tu WhatsApp se desvinculó: usa «Ir al chat» para escribirle desde tu teléfono");
     return;
   }
   const texto = textoSeguimiento(c);
@@ -146,7 +147,7 @@ async function escribirle(c, btn) {
   });
   if (error) {
     toast("⚠ " + error.message);
-    btn.disabled = false; btn.textContent = "💬 Escribirle";
+    btn.disabled = false; btn.textContent = "💬 Enviar mensaje";
     return;
   }
   // Queda deshabilitado para este paso: un segundo toque no duplica el mensaje.
@@ -156,8 +157,8 @@ async function escribirle(c, btn) {
 
 /* ---------- overlay ---------- */
 
-// `canal`: si el WhatsApp del agente está vinculado al abrir el repaso. Decide
-// si el botón encola el mensaje o abre wa.me.
+// `canal`: si el WhatsApp del agente está vinculado al abrir el repaso. Sin él,
+// «Enviar mensaje» (que encola) queda deshabilitado; «Ir al chat» siempre está.
 function abrir(items, marcarHecho, canal) {
   const hoy = hoyISO();
   let i = 0;
@@ -182,9 +183,10 @@ function abrir(items, marcarHecho, canal) {
         <div style="font-size:.95rem">¿<b>${esc(c.nombre)}</b> <span class="badge b-${c.mem}">${c.mem}</span> asistió a <b>${esc(s.n)}</b>?
           <span class="sfecha">invitado el ${fmtF(f)}</span>
         </div>
-        ${!c.tel ? "" : canal
-          ? `<div><button class="pmark off mini" data-escribir>💬 Escribirle</button></div>`
-          : `<div><a class="pmark off mini" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="${esc(enlaceWa(c))}" title="Tu WhatsApp no está vinculado: se abre el chat con el mensaje escrito">💬 Escribirle en WhatsApp</a></div>`}
+        ${!c.tel ? "" : `<div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="pmark off mini" data-escribir ${canal ? "" : `disabled title="Vincula tu WhatsApp en «Más → Mi WhatsApp» para enviarlo automáticamente"`}>💬 Enviar mensaje</button>
+          <a class="pmark off mini" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="${esc(enlaceWa(c))}">↗ Ir al chat</a>
+        </div>`}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="pmark" data-r="si">✓ Sí asistió</button>
           <button class="pmark off" data-r="no">✗ No asistió</button>
