@@ -20,43 +20,81 @@ const clave = () => "nexusRepaso:" + state.me.id;
 
 const MARGEN_MS = 60 * 60 * 1000;   // 1 hora después del inicio de la actividad
 
-// Índice "servicio_id|fecha" -> inicio (ms), con las actividades del agente.
-// Permite saber a qué hora empezó realmente la actividad que se invitó.
-let horarios = null;
+// Horarios reales de las actividades, para no preguntar por una que todavía
+// no ocurrió. `conf` guarda el día en que se PROGRAMÓ la invitación, no el de
+// la actividad (se invita el lunes a la clase del jueves), así que buscar la
+// actividad de ese día fallaba y se preguntaba al día siguiente de invitar.
+//
+// Fuentes, de más precisa a menos:
+//   1. invitada: "cliente|servicio" -> inicio de la actividad de su seguimiento
+//      más reciente. Es exactamente a la que se le invitó.
+//   2. porServicio: la primera actividad propia de ese servicio que empieza el
+//      día de la invitación o después (invitaciones sin seguimiento).
+//   3. sin nada: desde el día siguiente a la invitación (marcada a mano).
+// Puntuales: `porId` con el inicio vigente de la tabla, porque el copiado en
+// `puntuales` se queda viejo si la actividad se reprograma.
+// Se recarga cada pocos minutos: el panel puede quedar abierto días enteros.
+let horarios = null, horariosEn = 0, cargando = null;
+const VIGENCIA_MS = 5 * 60 * 1000;
+const VENTANA_SEG_MS = 60 * 24 * 60 * 60 * 1000;   // seguimientos de los últimos 60 días
 
 async function cargarHorarios() {
-  if (horarios) return horarios;
-  horarios = new Map();
-  try {
-    const { data } = await SB.from("actividades")
-      .select("servicio_id, inicio")
-      .eq("owner_id", state.me.id);
-    for (const a of data || []) {
-      const d = new Date(a.inicio);
-      if (isNaN(d)) continue;
-      const fecha = fechaLocalISO(d);
-      const k = a.servicio_id + "|" + fecha;
-      // Si hubo varias del mismo servicio ese día, vale la última en empezar.
-      const prev = horarios.get(k);
-      if (!prev || d.getTime() > prev) horarios.set(k, d.getTime());
-    }
-  } catch (e) {
-    // Sin horarios se cae a la regla de "día anterior": nunca bloquea el repaso.
-  }
-  return horarios;
+  if (horarios && Date.now() - horariosEn < VIGENCIA_MS) return horarios;
+  if (cargando) return cargando;
+  cargando = (async () => {
+    const porServicio = new Map(), porId = new Map(), servicioDe = new Map(), invitada = new Map();
+    try {
+      const { data, error } = await SB.from("actividades").select("id, servicio_id, inicio, owner_id");
+      if (error) throw error;
+      for (const a of data || []) {
+        const t = new Date(a.inicio).getTime();
+        if (isNaN(t)) continue;
+        porId.set(a.id, t);
+        if (a.servicio_id) servicioDe.set(a.id, a.servicio_id);
+        if (a.servicio_id && a.owner_id === state.me.id) {
+          if (!porServicio.has(a.servicio_id)) porServicio.set(a.servicio_id, []);
+          porServicio.get(a.servicio_id).push(t);
+        }
+      }
+      porServicio.forEach(l => l.sort((x, y) => x - y));
+
+      const desde = new Date(Date.now() - VENTANA_SEG_MS).toISOString();
+      const { data: segs, error: e2 } = await SB.from("seguimientos")
+        .select("cliente_id, actividad_id, inicio")
+        .eq("owner_id", state.me.id).neq("estado", "cancelado").gte("created_at", desde)
+        .order("created_at", { ascending: false });
+      if (e2) throw e2;
+      for (const g of segs || []) {
+        const sid = servicioDe.get(g.actividad_id);
+        if (!sid) continue;
+        const k = g.cliente_id + "|" + sid;
+        if (invitada.has(k)) continue;                       // vale la más reciente
+        const t = porId.get(g.actividad_id) ?? new Date(g.inicio).getTime();
+        if (!isNaN(t)) invitada.set(k, t);
+      }
+      horarios = { porServicio, porId, invitada };
+      horariosEn = Date.now();
+    } catch (e) {
+      // Sin horarios se cae a la regla de "día anterior": nunca bloquea el repaso.
+      // Se marca la hora igual: reintentar en cada render haría un bucle.
+      horarios = horarios || { porServicio, porId, invitada };
+      horariosEn = Date.now();
+    } finally { cargando = null; }
+    return horarios;
+  })();
+  return cargando;
 }
 
-// Fecha local en formato ISO (no UTC): así coincide con lo que guarda `conf`.
-function fechaLocalISO(d) {
-  const p = n => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
+// Inicio del día `f` (YYYY-MM-DD) en hora local, en ms.
+const inicioDia = f => new Date(f + "T00:00:00").getTime();
 
-// ¿Ya se le puede preguntar a esta invitación?
-function yaSePuedePreguntar(sid, f, hoy) {
-  const inicio = horarios?.get(sid + "|" + f);
+// ¿Ya se le puede preguntar a esta invitación del catálogo? Solo cuando pasó
+// MARGEN_MS desde que empezó la actividad a la que se invitó.
+function yaSePuedePreguntar(c, sid, f, hoy) {
+  let inicio = horarios?.invitada.get(c.id + "|" + sid);
+  if (inicio == null) inicio = horarios?.porServicio.get(sid)?.find(t => t >= inicioDia(f));
   if (inicio != null) return Date.now() >= inicio + MARGEN_MS;
-  return f < hoy;   // sin hora conocida: solo desde el día siguiente
+  return f < hoy;
 }
 
 // Invitados (conf) sin asistencia marcada (acc), míos, ya "preguntables".
@@ -71,13 +109,13 @@ function pendientes() {
     if (c.owner_id !== state.me.id) continue;
     for (const s of todos()) {
       const f = (c.conf || {})[s.id];
-      if (f && !c.acc[s.id] && yaSePuedePreguntar(s.id, f, hoy)) items.push({ c, s, f });
+      if (f && !c.acc[s.id] && yaSePuedePreguntar(c, s.id, f, hoy)) items.push({ c, s, f });
     }
     // Actividades puntuales: viven en su propio mapa y traen nombre y hora
     // copiados, así que no hay que resolver nada contra otra tabla.
     for (const [actId, p] of Object.entries(c.pun || {})) {
       if (!p || !p.conf || p.acc) continue;
-      const inicio = p.i ? new Date(p.i).getTime() : null;
+      const inicio = horarios?.porId.get(actId) ?? (p.i ? new Date(p.i).getTime() : null);
       const listo = inicio != null ? Date.now() >= inicio + MARGEN_MS : p.conf < hoy;
       if (listo) items.push({ c, actId, s: { n: p.n || "actividad" }, f: p.conf });
     }
@@ -88,6 +126,8 @@ function pendientes() {
 // Cuántas quedan sin responder (para el indicador del header).
 export function repasoPendientes() {
   if (!state.me) return 0;
+  // Si los horarios envejecieron, se piden de nuevo en segundo plano y se repinta.
+  if (horarios && Date.now() - horariosEn >= VIGENCIA_MS && !cargando) cargarHorarios().then(() => render());
   return pendientes().length;
 }
 
@@ -261,8 +301,7 @@ export async function repasoDiario() {
 
 // A demanda: desde el indicador del header, sin importar el candado del día.
 export async function repasoManual() {
-  await cargarHorarios();
-  horarios = null;                 // refresca horarios en el próximo cálculo
+  horarios = null;                 // a demanda: siempre con horarios frescos
   await cargarHorarios();
   const items = pendientes();
   if (!items.length) { toast("🎉 No hay invitaciones pendientes"); render(); return; }
