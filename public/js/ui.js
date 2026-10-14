@@ -47,7 +47,7 @@ const contacto = c => c.tel
 
 /* ================= RENDER PRINCIPAL ================= */
 export function render() {
-  renderModuleSwitch();
+  $("abrirModal").textContent = state.modulo === "leads" ? "+ Lead" : "+ Cliente";
   renderShell();
   const isLead = state.modulo === "leads";
   const desk = window.matchMedia("(min-width:1040px)").matches;
@@ -540,27 +540,13 @@ function wireCards() {
   });
 }
 
-/* ================= SWITCH DE MÓDULO Y DE VISTA ================= */
-function renderModuleSwitch() {
-  const ms = [["comunidad", "🎓 Comunidad"], ["leads", "🌱 Leads"]];
-  $("modSwitch").innerHTML = ms.map(([v, l]) => `<button class="mbtn ${v} ${state.modulo === v ? 'on' : ''}" data-m="${v}">${l}</button>`).join("");
-  $("modSwitch").querySelectorAll(".mbtn").forEach(b => b.onclick = () => {
-    if (state.modulo === b.dataset.m && state.vista !== "seguimiento") return;
-    state.modulo = b.dataset.m; state.filtro = "todos"; state.filtroTemp = null;
-    if (b.dataset.m === "leads") state.leadsVista = "hoy";
-    if (state.vista === "seguimiento") state.vista = "cliente";
-    render();
-  });
-  $("abrirModal").textContent = state.modulo === "leads" ? "+ Lead" : "+ Cliente";
-}
-
 /* ================= SHELL DE APP (header + tab bar) ================= */
 export const iniciales = n => (n || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase();
 
 function renderShell() {
   const V = state.vista;
   const isLead = state.modulo === "leads";
-  const titulos = { cliente: isLead ? "Leads" : "Personas", seguimiento: "Seguimiento", ventas: "Ventas", mas: "Más" };
+  const titulos = { cliente: isLead ? "Leads" : "Comunidad", seguimiento: "Seguimiento", ventas: "Ventas", mas: "Más" };
   $("viewTitle").textContent = titulos[V] || "Seguimiento";
   let sub = "";
   if (V === "cliente") {
@@ -571,10 +557,11 @@ function renderShell() {
   else sub = "Cuenta y herramientas";
   $("viewSub").textContent = sub;
 
-  document.querySelectorAll(".tabbar .tab").forEach(t => t.classList.toggle("on", t.dataset.v === V));
+  // Comunidad y Leads comparten vista («cliente»); los distingue el módulo.
+  document.querySelectorAll(".tabbar .tab").forEach(t => t.classList.toggle("on",
+    t.dataset.v === V && (!t.dataset.m || t.dataset.m === state.modulo)));
 
   const enListas = V === "cliente";
-  $("modSwitch").classList.toggle("hidden", !enListas);
   $("buscar").classList.toggle("hidden", !enListas);
 
   const av = $("meAv");
@@ -601,7 +588,18 @@ $("repInd").onclick = async () => {
   repasoManual();
 };
 
-$("tabPersonas").onclick = () => { state.vista = "cliente"; render(); };
+// Volver a la pestaña ya activa no resetea nada; cambiar de módulo sí limpia los
+// filtros propios del otro y Leads abre en «Hoy», como hacía el selector.
+const irModulo = m => () => {
+  if (state.vista === "cliente" && state.modulo === m) return;
+  if (state.modulo !== m) {
+    state.modulo = m; state.filtro = "todos"; state.filtroTemp = null;
+    if (m === "leads") state.leadsVista = "hoy";
+  }
+  state.vista = "cliente"; render();
+};
+$("tabComunidad").onclick = irModulo("comunidad");
+$("tabLeads").onclick = irModulo("leads");
 $("tabMas").onclick = () => { state.vista = "mas"; render(); };
 
 /* ================= PERFIL (crear / editar persona) ================= */
