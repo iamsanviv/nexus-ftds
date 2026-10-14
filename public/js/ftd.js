@@ -49,27 +49,18 @@ export function renderBloqueFtd() {
   //   g → la meta que se puso, medida SOLO con los FTD del mes (sin base)
   //   f → la comisión, que sí cuenta la base porque para eso se acumula
   const g = progresoMeta(p, yo());
-  // La comisión de ventas del mes, solo para el total discreto de la esquina.
+  // La comisión de ventas causada en el mes: entra en la comisión actual.
   const vent = resumenVentas(p, yo()).causada;
 
-  // La misma tarjeta en los dos anchos: una fila principal con la cifra del mes
-  // y su barra, y debajo comisión y total. Escritorio la reparte en tres
-  // columnas porque le sobra ancho; móvil apila esas dos piezas en dos mitades.
-  // El texto explicativo (base, notas) no está en ninguna de las dos: vive en el
-  // asistente, que es donde se puede leer con calma.
-  const desk = window.matchMedia("(min-width:1040px)").matches;
-  // La cifra grande y el «de N · te faltan M» comparten línea base (mockup): el
-  // número solo, con la meta en un renglón aparte, desbalanceaba la columna.
+  // Una sola tarjeta para los dos anchos (variante «Limpio» aprobada en mockup):
+  // el mes, el ritmo y la comisión. Escritorio las pone en tres columnas y
+  // móvil las apila; eso lo decide el CSS, no hay dos plantillas que mantener.
+  // Las acciones salen al menú ⋯ para que la tarjeta solo tenga cifras.
   const metaTxt = g.meta
     ? (g.cumplida
-        ? `de <b class="metabig">${g.meta}</b> · cumplida ✓`
-        : `de <b class="metabig">${g.meta}</b> · te faltan <b class="fuerte">${g.faltan}</b>`)
-    : "sin meta puesta";
-  const enlaces = `
-    <div class="ftdlinks">
-      <button class="metalink" id="ftdAjustar">${f.declaro ? "Ajustar" : "Poner mis números"}</button>
-      <button class="metalink quiet" id="ftdMeses">Meses anteriores</button>
-    </div>`;
+        ? `<span class="ftdde">/ ${g.meta}</span><span class="ftdfalt ok">cumplida ✓</span>`
+        : `<span class="ftdde">/ ${g.meta}</span><span class="ftdfalt">te faltan <b>${g.faltan}</b></span>`)
+    : `<span class="ftdfalt">sin meta puesta</span>`;
   // Desglose por broker. Va DEBAJO de la barra y en tamaño de pie porque es
   // composición, no progreso: si compite con la cifra grande, la tarjeta deja de
   // leerse de un vistazo. Solo aparece si hay algo que distinguir — con un solo
@@ -79,59 +70,83 @@ export function renderBloqueFtd() {
     `<span class="bk ${b.id}"><i></i>${esc(b.n).replace(/ /g, "&nbsp;")} <b>${mix.por[b.id]}</b></span>`);
   if (mix.trasladados) partes.push(
     `<span class="bk tras"><i></i><b>${mix.trasladados}</b> trasladado${mix.trasladados === 1 ? "" : "s"}</span>`);
-  const desglose = partes.length > 1 ? `<div class="ftdmix">${partes.join("")}</div>` : "";
+  // El chip de «sin subir» es el único aviso de que faltan comprobantes: va
+  // pegado al desglose, que es la cifra a la que le falta respaldo.
+  const chip = f.sinSubir ? `<button class="chipsub" id="ftdSinSubir">↑ ${f.sinSubir} sin subir</button>` : "";
+  const pie = (partes.length > 1 ? partes.join("") : "") + chip;
 
   const hero = `
-    <span class="ftdlbl oro">FTD de ${mesLegible(p)}</span>
-    <div class="ftdcifra">
-      <b class="ftdbig">${f.reales}</b>
-      <span class="ftdmeta">${metaTxt}</span>
-    </div>
-    <div class="barra dos ${g.cumplida ? "full" : ""}">
-      <u style="width:${g.pctCargados}%"></u><i style="width:${g.pct}%"></i>
-    </div>${desglose}${ritmoHtml(ritmoMeta(p, yo()))}`;
+    <div class="ftdcol ftdhero">
+      <span class="ftdlbl oro">FTD de ${mesLegible(p)}</span>
+      <div class="ftdcifra"><b class="ftdbig">${f.reales}</b>${metaTxt}</div>
+      <div class="barra dos ${g.cumplida ? "full" : ""}">
+        <u style="width:${g.pctCargados}%"></u><i style="width:${g.pct}%"></i>
+      </div>
+      ${pie ? `<div class="ftdmix">${pie}</div>` : ""}
+    </div>`;
+
+  const r = ritmoMeta(p, yo());
+  const ritmo = r ? ritmoHtml(r) : `
+    <div class="ftdcol ftdsinritmo">
+      <span class="ftdlbl">Meta de hoy</span>
+      <div class="ftdsup">Ponte una meta del mes y aquí verás cuánto te toca hoy y en la semana.</div>
+      <button class="metalink" id="ftdPonerMeta">Poner mi meta</button>
+    </div>`;
+
+  // Comisión ACTUAL: lo que ya se causó (escalón alcanzado con base + ventas).
+  // Comisión ESPERADA: lo que paga su meta de FTD más su meta de ventas. Sin
+  // metas, la referencia es el siguiente escalón. Cada parte toma el mayor
+  // entre lo esperado y lo ya causado: si ya pasó su meta, la esperada no puede
+  // quedar por debajo de lo que de verdad va a cobrar.
+  const metas = metasDe(p, yo());
+  const actual = f.pago + vent;
+  const espFtd = Math.max(f.pago, metas?.metaFtd ? pagoDeMeta(metas.metaFtd)
+    : (f.siguiente ? pagoDeMeta(f.siguiente) : f.pago));
+  const espVent = Math.max(vent, metas?.metaVentas || 0);
+  const esperada = espFtd + espVent;
+  const lblEsp = metas ? "Esperada" : "Siguiente escalón";
+  const pctCom = esperada ? Math.min(100, Math.round(actual / esperada * 100)) : 0;
   const comision = `
-    <span class="ftdlbl">Comisión FTD</span>
-    <div class="ftdbig md ${f.pago ? "" : "mut"}">${usd(f.pago)}</div>
-    <div class="ftdsup">${f.cargados} cargados${f.base ? ` · ${f.base} con tu base` : ""}</div>`;
-  const total = `
-    <span class="ftdlbl">Total del mes</span>
-    <div class="ftdbig gold">${usd(f.pago + vent)}</div>`;
+    <div class="ftdcol ftdcom">
+      <div class="ftdcomrow">
+        <div><span class="ftdlbl">Comisión actual</span><b class="ftdbig md ${actual ? "gold" : "mut"}">${usd(actual)}</b></div>
+        ${esperada > actual ? `<div><span class="ftdlbl">${lblEsp}</span><b class="ftdbig md mut">${usd(esperada)}</b></div>` : ""}
+      </div>
+      ${esperada > actual ? `<div class="barra"><i style="width:${pctCom}%"></i></div>` : ""}
+      <div class="ftdsup">FTD <b>${usd(f.pago)}</b> · Ventas <b>${usd(vent)}</b>${esperada > actual ? ` · llevas el ${pctCom}%` : ""}</div>
+    </div>`;
 
-  if (desk) {
-    cont.innerHTML = `
-      <div class="metacard ftdcard ftddesk">
-        <div class="ftdcol">${hero}</div>
-        <div class="ftdsep"></div>
-        <div class="ftdcol">${comision}</div>
-        <div class="ftdsep"></div>
-        <div class="ftdcol">${total}${enlaces}</div>
-      </div>`;
-  } else {
-    // El chip de «sin subir» es el único aviso de que faltan comprobantes, así
-    // que se queda en móvil, pegado a la cifra a la que le falta respaldo.
-    cont.innerHTML = `
-      <div class="metacard ftdcard ftdmov">
-        <div class="ftdcol">${hero}
-          ${f.sinSubir ? `<button class="chipsub" id="ftdSinSubir">↑ ${f.sinSubir} sin subir</button>` : ""}
-        </div>
-        <div class="ftdsep"></div>
-        <div class="ftdduo">
-          <div class="ftdcol">${comision}</div>
-          <div class="ftdcol">${total}</div>
-        </div>
-        ${enlaces}
-      </div>`;
-  }
+  cont.innerHTML = `
+    <div class="metacard ftdcard">
+      <button class="ftdmas" id="ftdMas" aria-label="Más opciones" aria-haspopup="true" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+      </button>
+      <div class="ftdmenu hidden" id="ftdMenu" role="menu">
+        <button role="menuitem" id="ftdAjustar">${f.declaro ? "Ajustar mis números" : "Poner mis números"}</button>
+        <button role="menuitem" id="ftdMeta">Cambiar mis metas</button>
+        <button role="menuitem" id="ftdMeses">Meses anteriores</button>
+      </div>
+      ${hero}<div class="ftdsep"></div>${ritmo}<div class="ftdsep"></div>${comision}
+    </div>`;
 
-  const chip = $("ftdSinSubir");
-  if (chip) chip.onclick = () => toast(
+  const chipBtn = $("ftdSinSubir");
+  if (chipBtn) chipBtn.onclick = () => toast(
     `Llevas ${f.reales} FTD pero solo ${f.cargados} están cargados. Sube los ${f.sinSubir} que faltan cuando puedas.`);
-  if ($("ftdAjustar")) $("ftdAjustar").onclick = () => abrirAsistente("ajuste");
+  const menu = $("ftdMenu"), mas = $("ftdMas");
+  const cerrarMenu = () => { menu.classList.add("hidden"); mas.setAttribute("aria-expanded", "false"); };
+  mas.onclick = e => {
+    e.stopPropagation();
+    const abrir = menu.classList.contains("hidden");
+    menu.classList.toggle("hidden", !abrir);
+    mas.setAttribute("aria-expanded", String(abrir));
+    if (abrir) document.addEventListener("click", cerrarMenu, { once: true });
+  };
+  $("ftdAjustar").onclick = () => abrirAsistente("ajuste");
   // La meta es tocable: el asistente promete que se puede cambiar cuando sea, y
   // "Ajustar" solo abre los números del mes.
-  if ($("ftdMeta")) $("ftdMeta").onclick = () => abrirAsistente("metas");
-  if ($("ftdMeses")) $("ftdMeses").onclick = () => abrirResumen();
+  $("ftdMeta").onclick = () => abrirAsistente("metas");
+  $("ftdMeses").onclick = () => abrirResumen();
+  if ($("ftdPonerMeta")) $("ftdPonerMeta").onclick = () => abrirAsistente("metas");
 
   // Momento natural para el ritual: el agente acaba de llegar a Personas.
   revisarRituales();
@@ -177,22 +192,36 @@ export function renderMetaHoy(cont, alCargar, prometieron = 0) {
 
 // Meta de hoy y corte semanal: solo cifras; la explicación vive en la ⓘ para
 // no cargar la tarjeta de texto.
+const DIA_CORTO = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 function ritmoHtml(r) {
-  if (!r) return "";
   // Mismo icono que el resto de la app (`.infoi`): el globo se abre al pasar el
   // puntero, o con un toque en el teléfono (lo maneja ui.js, delegado).
   const info = (lbl, txt) => `<button type="button" class="infoi" aria-label="${lbl}" data-info="${txt}"></button>`;
   const pct = (a, b) => b ? Math.min(100, Math.round(a / b * 100)) : 100;
-  const caja = (lbl, a, b, extra = "", estilo = "") => `
-    <div class="ritmocaja ${estilo} ${a >= b ? "ok" : ""}">
-      <span class="ftdlbl oro">${lbl}${extra}</span>
-      <div class="ritmonum"><b>${a}</b> / <b class="m">${b}</b>${a >= b ? " ✓" : ""}</div>
-      <div class="barra"><i style="width:${pct(a, b)}%"></i></div>
-    </div>`;
+  const hoy = hoyISO();
+  const dia = `${DIA_CORTO[new Date(hoy + "T12:00:00").getDay()]} ${Number(hoy.slice(8, 10))}`;
+  const { hechos, meta } = r.hoy;
+  // «Meta de hoy» lleva distintivo (sello dorado con diana y fecha): es la
+  // cifra que el agente puede mover hoy, la que más debe llamar.
   return `
-    <div class="ftdritmo">
-      ${caja("Hoy", r.hoy.hechos, r.hoy.meta, info("Cómo se calcula la meta de hoy", "Lo que te falta para el corte, repartido en los días que quedan. El fin de semana pide menos. Si te prometieron depositar hoy, cuenta esas promesas."), "dorado")}
-      ${caja(`Corte día ${r.corte.dia}`, r.corte.llevas, r.corte.meta, info("Qué es el corte", "Lo que deberías llevar al cerrar esta semana. Lo que falte pasa a la siguiente."), "borde")}
+    <div class="ftdcol ftdritmo">
+      <div class="ritmo hoy ${hechos >= meta ? "ok" : ""}">
+        <span class="ftdlbl oro">
+          <svg class="diana" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+          Meta de hoy
+          ${info("Cómo se calcula la meta de hoy", "Lo que te falta para el corte, repartido en los días que quedan. El fin de semana pide menos. Si te prometieron depositar hoy, cuenta esas promesas.")}
+          <span class="sello">Hoy · ${dia}</span>
+        </span>
+        <div class="ritmonum"><b>${hechos}</b> de <b class="m">${meta}</b>
+          <span class="ritmofalta">${hechos >= meta ? "cumplida ✓" : `faltan <b>${meta - hechos}</b>`}</span></div>
+        <div class="barra"><i style="width:${pct(hechos, meta)}%"></i></div>
+      </div>
+      <div class="ritmo corte ${r.corte.llevas >= r.corte.meta ? "ok" : ""}">
+        <span class="ftdlbl">Semana · corte día ${r.corte.dia}
+          ${info("Qué es el corte", "Lo que deberías llevar al cerrar esta semana. Lo que falte pasa a la siguiente.")}</span>
+        <div class="ritmonum"><b>${r.corte.llevas}</b> de <b class="m">${r.corte.meta}</b>${r.corte.llevas >= r.corte.meta ? " ✓" : ""}</div>
+        <div class="barra"><i style="width:${pct(r.corte.llevas, r.corte.meta)}%"></i></div>
+      </div>
     </div>`;
 }
 

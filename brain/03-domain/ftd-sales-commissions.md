@@ -64,3 +64,11 @@ No reimplementar el cálculo desde cero sin revisar las funciones vigentes y las
 - Solo cuentan los FTD **cargados con fecha** (`clientes.ftds`). Un número declarado sin fechas no dice en qué día pasó.
 - La meta base es la de `progresoMeta` (la propia del agente o, si no tiene, la siguiente de comisión).
 - La explicación vive detrás de la ⓘ: el usuario pidió la tarjeta limpia, sin texto.
+
+## Tarjeta de FTD en Comunidad (2026-10-14)
+
+Diseño «Limpio» elegido por el usuario entre tres mockups (`ftd.js`, `renderBloqueFtd`). Una sola plantilla: móvil apila y escritorio (≥1040 px) pone tres columnas: **mes** (FTD reales / meta, barra, desglose por broker y «sin subir»), **ritmo** (meta de hoy y corte) y **comisión**. Las acciones (ajustar números, cambiar metas, meses anteriores) viven en el menú ⋯.
+
+- **Meta de hoy lleva distintivo** (variante «Sello», elegida por el usuario): fondo dorado suave, borde, diana y la fecha («Hoy · mié 14», solo en escritorio).
+- **Comisión actual** = `f.pago` (escalón alcanzado con base) + ventas causadas del mes. Reemplaza al antiguo «Total del mes».
+- **Comisión esperada** = pago de su meta de FTD (`pagoDeMeta`, no coincidencia exacta con `metas_ftd`) + su meta de ventas. Sin metas propias se muestra «Siguiente escalón» (pago de `f.siguiente`). Cada parte toma el mayor entre lo esperado y lo ya causado, para que la esperada nunca quede por debajo de lo que se cobra. Si no hay nada por encima de lo actual, la esperada y su barra no se muestran.
