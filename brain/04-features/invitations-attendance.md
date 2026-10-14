@@ -105,6 +105,12 @@ El clic es evidencia útil, no prueba perfecta de permanencia en la clase. La as
 
 Cuando se corrige una actividad pasada, la fecha registrada debe corresponder al inicio de esa actividad, no al día en que se hace la corrección.
 
+## Repaso del día: cuándo se pregunta
+
+El repaso (`repaso.js`) solo pregunta «¿asistió?» cuando pasó **1 hora desde el inicio de la actividad a la que se invitó**. Nunca antes.
+
+Trampa que ya falló: `conf[servicio]` guarda el día en que se **programó** la invitación, no el de la actividad. Buscar «la actividad de ese servicio ese día» fallaba al invitar con días de anticipación (caía a «desde el día siguiente» y preguntaba antes de la clase) o encontraba otra actividad del mismo servicio que ya había pasado. Por eso la hora sale, en este orden, de: el seguimiento más reciente de ese cliente para ese servicio (la actividad exacta), la primera actividad propia del servicio desde el día de la invitación, y solo para invitaciones a mano sin actividad, el día siguiente. En puntuales manda el `inicio` vigente de `actividades`, no el copiado en `puntuales` (se queda viejo si se reprograma). Los horarios se recargan cada 5 min porque el panel puede quedar abierto días.
+
 ## Zooms y asistencia
 
 Una actividad puntual puede representar una etapa de zoom mediante `actividades.zoom_tipo`.
