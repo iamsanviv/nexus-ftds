@@ -11,6 +11,7 @@ import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
   normBusqueda, BROKERS, insigniasBroker, mesCorto, cuandoParte } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
+import { porBajar } from "./crm.js";
 import { asegurarEntrantes, entranteDe, escribioTras } from "./entrantes.js";
 import { avisarSiCanalCaido } from "./salud.js";
 import { subirImagenMensaje, guardarHistorialSegmento } from "./data.js";
@@ -995,8 +996,9 @@ async function cargarActividades() {
 // filtrar en un solo punto cubre las tres. Un segmento guardado hace meses
 // puede traer gente que se marcó inactiva después: por eso el filtro tiene que
 // estar en el envío y no solo en la lista.
+// Tampoco salen invitaciones a un lead de HighLevel que no ha bajado a WhatsApp.
 const mios = () => state.clientes.filter(c =>
-  c.tel && c.owner_id === state.me.id && (segIncInact || !esInactivo(c)));
+  c.tel && c.owner_id === state.me.id && (segIncInact || !esInactivo(c)) && !porBajar(c));
 
 // Universo elegible para programar: los que faltan, y —si el toggle está
 // activo— también quienes ya asistieron (para reinvitarlos).

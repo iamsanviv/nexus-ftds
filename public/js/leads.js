@@ -157,6 +157,11 @@ export function categoria(c) {
   // escribió hoy.
   const ent = entranteDe(c), si = ultimoSi(c);
   if ((ent && dias(ent) === 0) || (si && dias(si.respuesta_en) === 0)) return "bajo";
+  // Lead de HighLevel que te respondió en el CRM (marcado a mano en crm.js):
+  // también te escribió hoy, aunque no por WhatsApp. Se lee de state y no de
+  // crm.js para no crear un import circular (crm.js usa leads.js).
+  const rc = state.crmPor?.[c.id]?.respondio_en;
+  if (rc && dias(rc) === 0) return "bajo";
   if (dl === 1) return "ayer";
   return "resto";
 }

@@ -8,6 +8,7 @@ import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
   componerMensaje, horaDeCliente, etiquetaZona, todos } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento, cuotaDiaria } from "./data.js";
 import { canalVinculado } from "./canal.js";
+import { porBajar } from "./crm.js";
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
 let masSel = new Set();     // ids seleccionados
@@ -71,8 +72,10 @@ const resolverMensaje = (tpl, nombre, iso, tzOff, crudo = false) =>
 // Acá, y a diferencia de las actividades, las inactivas SE PUEDEN incluir a
 // propósito: un masivo de reactivación es justo el mensaje que tiene sentido
 // mandarle a quien se enfrió. Pero solo si se pide en esta tanda.
+// Un lead de HighLevel que no ha bajado a WhatsApp no recibe envíos automáticos:
+// no te ha escrito por WhatsApp y su seguimiento es desde el CRM (crm.js).
 export const destinatariosMasivo = (incInact = false) => state.clientes.filter(c =>
-  c.tel && c.owner_id === state.me.id && (incInact || !esInactivo(c)));
+  c.tel && c.owner_id === state.me.id && (incInact || !esInactivo(c)) && !porBajar(c));
 // El seguimiento de leads (envioleads.js) usa este MISMO filtro: es un masivo a
 // leads, no una tercera vía de envío.
 const pool = () => destinatariosMasivo(masIncInact);

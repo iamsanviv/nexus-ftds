@@ -87,7 +87,19 @@ export async function cargarTodo() {
   if (e2) console.warn("lead_contactos:", e2.message);
   (lc || []).forEach(x => (state.contactos[x.cliente_id] ||= []).push(x));
 
-  await cargarPlantillasEnviadas();
+  await Promise.all([cargarPlantillasEnviadas(), cargarCrm()]);
+}
+
+// Leads de HighLevel propios (RLS: owner_id = auth.uid()). Se cargan junto con
+// las personas porque deciden quién está «por bajar», y a esos no les sale
+// ningún envío automático: el masivo y el seguimiento los leen de aquí.
+export async function cargarCrm() {
+  const { data, error } = await SB.from("crm_leads").select("*").order("asignado_en");
+  if (error) { console.warn("crm_leads:", error.message); state.crm = state.crm || []; }
+  else state.crm = data || [];
+  state.crmPor = {};
+  state.crm.forEach(l => { if (l.cliente_id) state.crmPor[l.cliente_id] = l; });
+  return state.crm;
 }
 
 // Qué plantilla de seguimiento recibió (o tiene programada) cada lead, para no
