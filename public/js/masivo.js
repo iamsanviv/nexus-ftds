@@ -5,7 +5,7 @@ import { SB } from "./supabase.js";
 import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
   esInactivo, nombreMotivo, motivoCorto, BROKERS, insigniasBroker, mesCorto,
   MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto,
-  componerMensaje, horaDeCliente, etiquetaZona } from "./state.js";
+  componerMensaje, horaDeCliente, etiquetaZona, todos } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento, cuotaDiaria } from "./data.js";
 import { canalVinculado } from "./canal.js";
 
@@ -13,6 +13,8 @@ const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
 let masSel = new Set();     // ids seleccionados
 let masFiltro = "todos";    // filtro de membresía
 let masBroker = "todos";    // filtro por broker del FTD (eje aparte del anterior)
+let masSrv = "";            // servicio del catálogo por el que se filtra ("" = ninguno)
+let masSrvModo = "no";      // "no" = aún no asistió · "si" = ya asistió
 let masImg = null;          // URL del adjunto subido (imagen o video), o null
 let masImgTipo = null;      // "imagen" | "video" — para la vista previa y el nombre de la campaña
 
@@ -104,6 +106,29 @@ function renderFiltros() {
     `<button class="pill ${masFiltro === v ? "on" : ""}" data-fmem="${v}">${l}</button>`).join("");
   $("masFiltros").querySelectorAll("[data-fmem]").forEach(b => b.onclick = () => { masFiltro = b.dataset.fmem; renderLista(); });
   pintarBrokers(lista);
+  pintarServicios();
+}
+
+// Servicio: reemplaza a la antigua pestaña «Servicios», cuyo único uso vivo era
+// ver quién asistió o no a un servicio. Va aquí porque ese «quién no ha ido» es
+// justo a quien se le escribe. La asistencia la marca Seguimiento en `acc`.
+function pintarServicios() {
+  const fila = $("masSrvFila");
+  if (!fila) return;
+  const grupos = state.catalogo.filter(g => g.items.length);
+  fila.classList.toggle("hidden", !grupos.length);
+  // Un servicio borrado del catálogo no puede quedar filtrando escondido.
+  if (!todos().some(s => s.id === masSrv)) masSrv = "";
+  const sel = $("masSrv"), modo = $("masSrvModo");
+  sel.innerHTML = `<option value="">Todos los servicios</option>` + grupos.map(g =>
+    `<optgroup label="${esc(g.g)}">` + g.items.map(s =>
+      `<option value="${s.id}">${esc(s.n)}</option>`).join("")
+    + `</optgroup>`).join("");
+  sel.value = masSrv;
+  modo.value = masSrvModo;
+  modo.classList.toggle("hidden", !masSrv);
+  sel.onchange = () => { masSrv = sel.value; pintarServicios(); renderLista(); };
+  modo.onchange = () => { masSrvModo = modo.value; renderLista(); };
 }
 
 // Broker: eje APARTE de la membresía, y por eso desplegable y no una píldora más
@@ -157,7 +182,7 @@ function renderSegs() {
     const ids = idsDeSegmento(s);
     const enPool = new Set(pool().map(c => c.id));
     masSel = new Set(ids.filter(id => enPool.has(id)));
-    masFiltro = "todos"; masBroker = "todos";
+    masFiltro = "todos"; masBroker = "todos"; masSrv = ""; masSrvModo = "no";
     renderFiltros(); renderLista();
     const omit = ids.length - masSel.size;
     toast(omit > 0
@@ -171,7 +196,8 @@ function visibles() {
   return pool().filter(c => {
     const okMem = masFiltro === "todos" || (masFiltro === "invitadas" ? yaInvitada(c) : c.mem === masFiltro);
     const okBrk = masBroker === "todos" || !!c.ftds?.[masBroker];
-    return okMem && okBrk && (!q || normBusqueda(c.nombre).includes(q));
+    const okSrv = !masSrv || (!!c.acc?.[masSrv] === (masSrvModo === "si"));
+    return okMem && okBrk && okSrv && (!q || normBusqueda(c.nombre).includes(q));
   });
 }
 
@@ -348,7 +374,7 @@ function setImg(url, tipo) {
 
 /* ---------- abrir / enviar ---------- */
 async function abrir() {
-  masSel = new Set(); masFiltro = "todos"; masBroker = "todos";
+  masSel = new Set(); masFiltro = "todos"; masBroker = "todos"; masSrv = ""; masSrvModo = "no";
   masCuando = "ahora"; masIncInact = false;
   $("masTexto").value = ""; $("masBuscar").value = ""; $("masBuscarX").classList.add("hidden");
   $("masHoraRef").value = ""; $("masHoraRow").classList.add("hidden");

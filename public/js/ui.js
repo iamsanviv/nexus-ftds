@@ -48,7 +48,6 @@ const contacto = c => c.tel
 /* ================= RENDER PRINCIPAL ================= */
 export function render() {
   renderModuleSwitch();
-  renderViewToggle();
   renderShell();
   const isLead = state.modulo === "leads";
   const desk = window.matchMedia("(min-width:1040px)").matches;
@@ -78,7 +77,6 @@ export function render() {
   $("vistaVentas").classList.toggle("hidden", state.vista !== "ventas");
   if (state.vista === "ventas") {
     $("vistaCliente").classList.add("hidden");
-    $("vistaServicio").classList.add("hidden");
     $("vistaSeguimiento").classList.add("hidden");
     $("vistaMas").classList.add("hidden");
     $("abrirModal").classList.add("hidden");
@@ -90,7 +88,6 @@ export function render() {
 
   if (state.vista === "mas") {
     $("vistaCliente").classList.add("hidden");
-    $("vistaServicio").classList.add("hidden");
     $("vistaSeguimiento").classList.add("hidden");
     $("vistaMas").classList.remove("hidden");
     $("abrirModal").classList.add("hidden");
@@ -101,7 +98,6 @@ export function render() {
 
   if (state.vista === "seguimiento") {
     $("vistaCliente").classList.add("hidden");
-    $("vistaServicio").classList.add("hidden");
     $("vistaSeguimiento").classList.remove("hidden");
     $("abrirModal").classList.add("hidden");
     $("buscar").classList.add("hidden");
@@ -110,16 +106,7 @@ export function render() {
   $("vistaSeguimiento").classList.add("hidden");
   $("buscar").classList.remove("hidden");
 
-  if (state.vista === "servicio") {
-    $("vistaCliente").classList.add("hidden");
-    $("vistaServicio").classList.remove("hidden");
-    $("abrirModal").classList.add("hidden");
-    $("buscar").placeholder = "Buscar persona…";
-    renderServicio();
-    return;
-  }
   $("vistaCliente").classList.remove("hidden");
-  $("vistaServicio").classList.add("hidden");
   $("abrirModal").classList.remove("hidden");
   $("buscar").placeholder = isLead ? "Buscar lead…" : "Buscar por nombre o teléfono…";
 
@@ -295,6 +282,35 @@ export function render() {
     }
   }
 
+  // Servicio: quién asistió o no a un servicio del catálogo. Heredó el único uso
+  // vivo de la vieja pestaña «Servicios»; la asistencia la marca Seguimiento.
+  const srvFila = $("filtrosSrv");
+  if (srvFila) {
+    const grupos = state.catalogo.filter(g => g.items.length);
+    if (state.filtroSrv && !todos().some(s => s.id === state.filtroSrv.id)) state.filtroSrv = null;
+    srvFila.classList.toggle("hidden", !grupos.length);
+    if (!grupos.length) srvFila.innerHTML = "";
+    else {
+      const f = state.filtroSrv;
+      srvFila.innerHTML = `<span class="ejelbl">Servicio</span>
+        <select class="brksel" id="srvSel" aria-label="Filtrar por servicio">
+          <option value="">Todos los servicios</option>
+          ${grupos.map(g => `<optgroup label="${esc(g.g)}">` + g.items.map(s =>
+            `<option value="${s.id}" ${f?.id === s.id ? "selected" : ""}>${esc(s.n)}</option>`).join("") + `</optgroup>`).join("")}
+        </select>
+        ${f ? `<select class="brksel srvmodo" id="srvModo" aria-label="Asistencia al servicio">
+          <option value="no" ${f.modo === "no" ? "selected" : ""}>No ha asistido</option>
+          <option value="si" ${f.modo === "si" ? "selected" : ""}>Ya asistió</option>
+        </select>` : ""}`;
+      $("srvSel").onchange = e => {
+        const id = e.target.value;
+        state.filtroSrv = id ? { id, modo: state.filtroSrv?.modo || "no" } : null;
+        render();
+      };
+      if ($("srvModo")) $("srvModo").onchange = e => { state.filtroSrv.modo = e.target.value; render(); };
+    }
+  }
+
   /* ----- orden ----- */
   const ords = isLead
     ? [["cerca", "🔥 Por temperatura"], ["recientes", "Recientes"], ["az", "A–Z"]]
@@ -320,6 +336,7 @@ export function render() {
     if (state.filtroMem && c.mem !== state.filtroMem) return false;
     if (state.filtroBrk && !c.ftds?.[state.filtroBrk]) return false;
     if (state.filtroDep && !enRango(c)) return false;
+    if (state.filtroSrv && !!c.acc[state.filtroSrv.id] !== (state.filtroSrv.modo === "si")) return false;
     if (isLead && state.filtroTemp && temperatura(c) !== state.filtroTemp) return false;
     if (state.filtro === "todos" || state.filtro === "inactivas") return true;
     if (state.filtro === "activos") return pr(c).extra > 0;
@@ -354,6 +371,8 @@ export function render() {
       if (state.filtroBrk) partes.push(nombreBroker(state.filtroBrk));
       if (state.filtroDep) { const r = state.filtroDep;
         partes.push(r.desde && r.hasta ? `depósito ${fmtF(r.desde)}–${fmtF(r.hasta)}` : r.hasta ? `depósito hasta ${fmtF(r.hasta)}` : `depósito desde ${fmtF(r.desde)}`); }
+      if (state.filtroSrv) { const s = todos().find(x => x.id === state.filtroSrv.id);
+        if (s) partes.push(`${state.filtroSrv.modo === "si" ? "asistió a" : "no ha ido a"} «${esc(s.n)}»`); }
       if (state.filtro === "incompletos") partes.push("en progreso");
       else if (state.filtro === "completos") partes.push("completos");
       else if (state.filtro === "inactivas") partes.push("inactivas · no reciben mensajes");
@@ -362,13 +381,13 @@ export function render() {
       // fuera evita que alguien las dé por perdidas o las vuelva a agregar.
       if (state.filtro !== "inactivas" && inactivas.length)
         partes.push(`${inactivas.length} inactiva${inactivas.length === 1 ? "" : "s"} sin mostrar`);
-      const hayFiltro = !!state.filtroMem || !!state.filtroBrk || !!state.filtroDep || !!crudo
+      const hayFiltro = !!state.filtroMem || !!state.filtroBrk || !!state.filtroDep || !!state.filtroSrv || !!crudo
         || state.filtro === "completos" || state.filtro === "inactivas";
       estadoEl.innerHTML = `<span>${partes.join(" · ")}</span>`
         + (hayFiltro ? ` <button class="quitarf" id="quitarFiltros">Quitar filtros</button>` : "");
       const qf = $("quitarFiltros");
       if (qf) qf.onclick = () => {
-        state.filtroMem = null; state.filtroBrk = null; state.filtroDep = null; state.filtro = "todos";
+        state.filtroMem = null; state.filtroBrk = null; state.filtroDep = null; state.filtroSrv = null; state.filtro = "todos";
         $("buscar").value = ""; render();
       };
     } else estadoEl.innerHTML = "";
@@ -521,22 +540,16 @@ function renderModuleSwitch() {
   $("abrirModal").textContent = state.modulo === "leads" ? "+ Lead" : "+ Cliente";
 }
 
-function renderViewToggle() {
-  const vs = [["cliente", "👤 Por persona"], ["servicio", "📋 Por servicio"]];
-  $("viewToggle").innerHTML = vs.map(([v, l]) => `<button class="vbtn ${state.vista === v ? 'on' : ''}" data-v="${v}">${l}</button>`).join("");
-  $("viewToggle").querySelectorAll(".vbtn").forEach(b => b.onclick = () => { state.vista = b.dataset.v; render(); });
-}
-
 /* ================= SHELL DE APP (header + tab bar) ================= */
 export const iniciales = n => (n || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase();
 
 function renderShell() {
   const V = state.vista;
   const isLead = state.modulo === "leads";
-  const titulos = { cliente: isLead ? "Leads" : "Personas", servicio: "Servicios", seguimiento: "Seguimiento", ventas: "Ventas", mas: "Más" };
+  const titulos = { cliente: isLead ? "Leads" : "Personas", seguimiento: "Seguimiento", ventas: "Ventas", mas: "Más" };
   $("viewTitle").textContent = titulos[V] || "Seguimiento";
   let sub = "";
-  if (V === "cliente" || V === "servicio") {
+  if (V === "cliente") {
     const n = state.clientes.filter(c => isLead ? esLead(c) : !esLead(c)).length;
     sub = isLead ? `${n} lead${n === 1 ? "" : "s"}` : `${n} en la comunidad`;
   } else if (V === "seguimiento") sub = "Actividades y mensajes automáticos";
@@ -546,7 +559,7 @@ function renderShell() {
 
   document.querySelectorAll(".tabbar .tab").forEach(t => t.classList.toggle("on", t.dataset.v === V));
 
-  const enListas = V === "cliente" || V === "servicio";
+  const enListas = V === "cliente";
   $("modSwitch").classList.toggle("hidden", !enListas);
   $("buscar").classList.toggle("hidden", !enListas);
 
@@ -575,94 +588,7 @@ $("repInd").onclick = async () => {
 };
 
 $("tabPersonas").onclick = () => { state.vista = "cliente"; render(); };
-$("tabServicios").onclick = () => { state.vista = "servicio"; render(); };
 $("tabMas").onclick = () => { state.vista = "mas"; render(); };
-
-/* ================= VISTA POR SERVICIO ================= */
-function renderServicio() {
-  const isLead = state.modulo === "leads";
-  // Sin las inactivas: esta vista existe para saber a quién falta invitar, y a
-  // ellas no se les va a invitar.
-  const base = state.clientes.filter(c =>
-    (isLead ? esLead(c) : !esLead(c)) && !esInactivo(c));
-
-  const sel = $("srvPick"), cur = sel.value;
-  sel.innerHTML = state.catalogo.map(g => `<optgroup label="${esc(g.g)}">` +
-    g.items.map(s => `<option value="${s.id}">${esc(s.n)}${s.tier ? (s.tier === 'oro' ? ' (Oro)' : ' (VIP)') : ''}</option>`).join("")
-    + `</optgroup>`).join("");
-  if (cur && todos().some(s => s.id === cur)) sel.value = cur;
-  sel.onchange = () => render();
-
-  const sid = sel.value, s = todos().find(x => x.id === sid);
-  if (!s) { $("srvStats").innerHTML = ""; $("srvLista").innerHTML = `<div class="vacio"><b>No hay servicios en el catálogo</b></div>`; return; }
-
-  const q = normBusqueda($("buscar").value);
-  const conf = c => (c.conf || {})[sid];
-  const asis = c => c.acc[sid];
-  const asistieron = base.filter(c => asis(c));
-  const invitados = base.filter(c => conf(c) && !asis(c));
-  const porInvitar = base.filter(c => !conf(c) && !asis(c));
-  const total = base.length;
-  const pct = total ? Math.round(asistieron.length / total * 100) : 0;
-
-  const filt = arr => arr.filter(c => !q || normBusqueda(c.nombre).includes(q));
-  const aA = filt(asistieron).sort((a, b) => (a.acc[sid] || "").localeCompare(b.acc[sid] || "") * -1);
-  const aC = filt(invitados).sort((a, b) => (conf(b) || "").localeCompare(conf(a) || ""));
-  const aP = filt(porInvitar).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-
-  $("srvStats").innerHTML = `<div class="srvstat">
-    <div class="srvstat-top"><b>${asistieron.length}</b> asistieron · <b>${invitados.length}</b> invitados · <span class="falta">${porInvitar.length} por invitar</span></div>
-    <div class="barra"><i style="width:${pct}%"></i></div>
-  </div>`;
-
-  const dir = state.me.role === 'director';
-  const owner = c => (dir && c.owner_id !== state.me.id) ? `<span class="owner">👤 ${esc(state.perfiles[c.owner_id] || 'agente')}</span>` : '';
-  const info = c => `<div class="pl"><span class="pn nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span><span class="badge b-${c.mem}">${c.mem}</span>${banderaTag(c)}${owner(c)}${contacto(c)}</div>`;
-
-  const rowAsis = c => `<div class="prow">${info(c)}<div class="pr"><span class="pdate">asistió ${fmtF(c.acc[sid])}</span><button class="pmark off" data-unasis="${c.id}" title="Quitar asistencia">✕</button></div></div>`;
-  const rowConf = c => `<div class="prow">${info(c)}<div class="pr"><span class="pdate conf">invitado ${fmtF(conf(c))}</span><button class="pmark" data-asis="${c.id}">✓ Asistió</button><button class="pmark off" data-unconf="${c.id}" title="Quitar confirmación">✕</button></div></div>`;
-  const rowPend = c => `<div class="prow">${info(c)}<div class="pr"><button class="pmark" data-conf="${c.id}">✓ invitado</button></div></div>`;
-  const mini = t => `<div class="naplica">${t}</div>`;
-
-  // Acordeón: cada grupo se pliega/despliega; con búsqueda activa se abren todos.
-  const grupoAcc = (key, titulo, filas, vacioMsg) => {
-    const open = q ? true : state.srvOpen[key];
-    return `<div class="grupo acc ${open ? 'open' : ''}">
-      <div class="gtitle gclick" data-g="${key}"><span class="gchev">▸</span>${titulo}</div>
-      <div class="gbody">${filas || mini(vacioMsg)}</div>
-    </div>`;
-  };
-  $("srvLista").innerHTML =
-      grupoAcc("asis", `✓ Asistieron (${aA.length})`, aA.map(rowAsis).join(""), q ? "Nadie coincide" : "Nadie aún")
-    + grupoAcc("conf", `📋 invitados · falta preguntar asistencia (${aC.length})`, aC.map(rowConf).join(""), q ? "Nadie coincide" : "Nadie confirmado todavía")
-    + grupoAcc("pend", `${isLead ? '🌱 Por invitar' : '⏳ Por invitar'} (${aP.length})`, aP.map(rowPend).join(""), q ? "Nadie coincide" : "¡Todos contactados! 🎉");
-
-  $("srvLista").querySelectorAll(".gclick").forEach(t => t.onclick = () => {
-    const k = t.dataset.g;
-    state.srvOpen[k] = !state.srvOpen[k];
-    render();
-  });
-
-  const find = id => state.clientes.find(x => x.id === id);
-  $("srvLista").querySelectorAll("[data-perfil]").forEach(b => b.onclick = () => { const c = find(b.dataset.perfil); if (c) abrirPerfil(c); });
-  $("srvLista").querySelectorAll("[data-conf]").forEach(b => b.onclick = async () => {
-    const c = find(b.dataset.conf); if (!c) return; c.conf = c.conf || {}; c.conf[sid] = hoyISO();
-    render(); await dbPatch(c, { conf: c.conf }); toast(`✓ ${c.nombre.split(' ')[0]} invitado «${s.n}»`);
-  });
-  $("srvLista").querySelectorAll("[data-unconf]").forEach(b => b.onclick = async () => {
-    const c = find(b.dataset.unconf); if (!c) return; c.conf = c.conf || {}; delete c.conf[sid];
-    render(); await dbPatch(c, { conf: c.conf });
-  });
-  $("srvLista").querySelectorAll("[data-asis]").forEach(b => b.onclick = async () => {
-    const c = find(b.dataset.asis); if (!c) return; c.acc[sid] = (c.conf || {})[sid] || hoyISO();
-    render(); await dbPatch(c, { acc: c.acc }); toast(`✓ ${c.nombre.split(' ')[0]} asistió a «${s.n}»`);
-  });
-  $("srvLista").querySelectorAll("[data-unasis]").forEach(b => b.onclick = async () => {
-    const c = find(b.dataset.unasis); if (!c) return; delete c.acc[sid];
-    render(); await dbPatch(c, { acc: c.acc });
-  });
-  $("srvLista").querySelectorAll(".copynum").forEach(b => b.onclick = e => { e.stopPropagation(); copyNum(b.dataset.num); });
-}
 
 /* ================= PERFIL (crear / editar persona) ================= */
 // Clase de color por nivel; la misma familia que usan las tarjetas de conteo.

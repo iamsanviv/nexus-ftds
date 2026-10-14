@@ -8,11 +8,11 @@ La vista de Personas concentra clientes, membresía/progreso, filtros, búsqueda
 
 La búsqueda vigente contempla nombre y teléfono. Para teléfono se comparan dígitos normalizados; no romper la búsqueda por nombre al ampliar criterios.
 
-Para el nombre se usa `normBusqueda()` de `state.js`, **en los cuatro buscadores**: Personas, vista por servicio, selección de una actividad y masivo. Reduce el texto a letras y números en minúscula con un espacio simple, así que da igual la tilde, la ñ, la mayúscula, el punto de «Ma. José» o un espacio doble invisible en el nombre guardado.
+Para el nombre se usa `normBusqueda()` de `state.js`, **en los tres buscadores**: Personas, selección de una actividad y masivo. Reduce el texto a letras y números en minúscula con un espacio simple, así que da igual la tilde, la ñ, la mayúscula, el punto de «Ma. José» o un espacio doble invisible en el nombre guardado.
 
 Es más agresiva que `norm()` a propósito. `norm()` se sigue usando donde el texto se compara consigo mismo (país, detección de nombres duplicados); un buscador necesita perdonar más que una comparación.
 
-Si aparece un quinto buscador, tiene que usar la misma función: tener uno que distinga tildes y otro que no es peor que que ninguno lo haga, porque nadie sabe cuál es cuál.
+Si aparece otro buscador, tiene que usar la misma función: tener uno que distinga tildes y otro que no es peor que que ninguno lo haga, porque nadie sabe cuál es cuál.
 
 ## Registrar desde un chat reciente
 
@@ -38,6 +38,15 @@ Distinguir siempre:
 
 Un filtro nunca debe seleccionar silenciosamente destinatarios.
 
+## Filtro por servicio (sustituye a la pestaña «Servicios»)
+
+La pestaña «Servicios» (vista por servicio con «invitado / asistió» a mano) se quitó el 14/10/2026: invitar ya lo hace Seguimiento y la asistencia la marca él mismo en `acc[servicio]`. Su único uso vivo —ver quién fue o no a un servicio— quedó como un eje de filtro más:
+
+- Personas: `state.filtroSrv = { id, modo: "si" | "no" }`, combinable con membresía, broker, depósito y progreso; sale en la tira de estado y lo limpia «Quitar filtros».
+- Masivo: `masSrv` + `masSrvModo`, para escribirle directo a quien le falta un servicio. Como los demás filtros del masivo, es visual: no marca a nadie; «Marcar visibles» sigue siendo la acción explícita.
+
+El catálogo **no** se quitó: lo usan las actividades de catálogo (imagen, asistencia) y el % de progreso. Se sigue editando desde «Más».
+
 ## Filas en escritorio
 
 La fila de cliente fue compactada para mostrar nombre, nivel/indicadores, teléfono, progreso y estado en una línea. Los nombres largos deben ceder con ellipsis sin desplazar insignias/banderas ni romper el layout.
@@ -55,7 +64,7 @@ No es una membresía: estado y nivel son ejes independientes, alguien puede ser 
 Reglas:
 
 - **no se borra**: conserva asistencia, ventas e historial;
-- queda fuera de la lista de Personas, de los conteos por membresía y de la vista por servicio;
+- queda fuera de la lista de Personas y de los conteos por membresía;
 - se ve con su propio filtro, y la tira de estado dice cuántas quedaron sin mostrar;
 - el motivo es **solo un dato** para excluir, pero **sí se muestra**: cada motivo tiene una forma larga (perfil) y una corta (insignia de fila);
 - reactivar es un clic, sin distinción por motivo;

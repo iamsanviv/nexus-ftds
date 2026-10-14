@@ -134,7 +134,6 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
        sitio del buscador para las vistas que no son Personas; en Personas lo
        reubica el JS (escritorio: fila de filtros · móvil: #buscarFila). -->
   <div class="headctl">
-    <div class="vtoggle hidden" id="viewToggle"></div>
     <input class="buscar" id="buscar" placeholder="Buscar cliente…">
   </div>
 
@@ -161,6 +160,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
              ui.js solo cuando hay más de un broker que distinguir. -->
         <div class="filtros filtrosbrk hidden" id="filtrosBrk"></div>
         <div class="filtros filtrosbrk hidden" id="filtrosDep"></div>
+        <div class="filtros filtrosbrk hidden" id="filtrosSrv"></div>
       </div>
       <div class="clifiltros-r">
         <div class="ordwrap"><span class="lbl">Orden</span><div class="ordseg" id="orden"></div></div>
@@ -175,14 +175,6 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <!-- Tira de estado: resumen del filtro activo. -->
     <div class="cliestado" id="cliEstado"></div>
     <div id="lista"></div>
-  </div>
-
-  <div id="vistaServicio" class="hidden">
-    <div class="frow" style="margin-bottom:12px"><label>Elige un servicio</label>
-      <select id="srvPick"></select>
-    </div>
-    <div id="srvStats"></div>
-    <div id="srvLista"></div>
   </div>
 
   <!-- vista seguimiento automatizado (acceso restringido) -->
@@ -528,9 +520,6 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <button class="tab" data-v="cliente" id="tabPersonas">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5" stroke-linecap="round"/></svg>
       Personas</button>
-    <button class="tab" data-v="servicio" id="tabServicios">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg>
-      Servicios</button>
     <button class="tab" data-v="seguimiento" id="btnSeg">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M21 4L3 11l6 2.5L11 20l3-6 7-10z"/></svg>
       Seguimiento</button>
@@ -1011,6 +1000,15 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <div class="brkfila hidden" id="masBrkFila">
       <span class="ejelbl">Broker</span>
       <select class="brksel" id="masBrk" aria-label="Filtrar por broker del FTD"></select>
+    </div>
+    <!-- Servicio: quién asistió o no a un servicio del catálogo. Lo pinta masivo.js. -->
+    <div class="brkfila hidden" id="masSrvFila">
+      <span class="ejelbl">Servicio</span>
+      <select class="brksel" id="masSrv" aria-label="Filtrar por servicio"></select>
+      <select class="brksel srvmodo hidden" id="masSrvModo" aria-label="Asistencia al servicio">
+        <option value="no">No ha asistido</option>
+        <option value="si">Ya asistió</option>
+      </select>
     </div>
     <div class="masbuscarwrap"><input id="masBuscar" placeholder="🔎 Buscar persona…" autocomplete="off"><button id="masBuscarX" class="masbuscarx hidden" title="Limpiar">✕</button></div>
     <div class="segselbar">
