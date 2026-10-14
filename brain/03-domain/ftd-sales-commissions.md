@@ -61,7 +61,7 @@ No reimplementar el cálculo desde cero sin revisar las funciones vigentes y las
 - **Cuatro cortes:** 1–7, 8–14, 15–21 y **22–fin** (los días 29–31 se suman a la cuarta semana; decidido por el usuario el 2026-10-05: un corte de 3 días no sirve como cierre). Cada corte pide el **acumulado** proporcional: `ceil(meta × díaFinBloque ÷ díasDelMes)`, y el último pide la meta entera. Lo que falte en una semana pasa solo al siguiente corte.
 - **Meta de hoy** = lo que falta para el corte, medido con lo hecho **hasta ayer** (para que no baje mientras se trabaja hoy), repartido en enteros (mayor resto) entre los días que le quedan al bloque con **peso por día**: entre semana 1, sábado 0,6, domingo 0,4.
 - **Pendientes de hoy** (leads propios con `promesa_en` de hoy) suben la meta de hoy si son más, sin pasar de lo que falta. `ritmoMeta` los cuenta solo y les suma los FTD ya hechos hoy, para que la meta no baje cuando un pendiente deposita (deja de ser lead). Ver `04-features/leads-followup.md`.
-- Solo cuentan los FTD **cargados con fecha** (`clientes.ftds`). Un número declarado sin fechas no dice en qué día pasó.
+- Cuentan los FTD **reales**, no solo los cargados (pedido del usuario el 2026-10-14): los reportados sin cargar (`sinSubir`) se suman a lo hecho **hasta ayer**, porque no tienen fecha. Bajan la meta de hoy y suben el «llevas» del corte sin tocar los «hechos hoy». Si se cargan después con fecha anterior a hoy, nada se mueve; si se cargan con fecha de hoy, pasan a «hechos hoy» y la meta de hoy puede subir lo mismo.
 - La meta base es la de `progresoMeta` (la propia del agente o, si no tiene, la siguiente de comisión).
 - La explicación vive detrás de la ⓘ: el usuario pidió la tarjeta limpia, sin texto.
 

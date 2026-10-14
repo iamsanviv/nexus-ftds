@@ -723,14 +723,18 @@ export function progresoMeta(periodo, ownerId) {
 // porque un pendiente que deposita deja de ser lead, y sin eso la meta bajaría
 // justo al cumplirse una promesa.
 //
-// Solo cuentan los FTD CARGADOS con fecha: un número declarado sin fechas no
-// dice en qué día pasó.
+// Los FTD reportados y aún sin cargar (`sinSubir`) también descuentan: el
+// agente ya los hizo y la meta debe reflejarlo. Como no tienen fecha se tratan
+// como hechos antes de hoy — así bajan la meta de hoy y suben lo que llevas en
+// la semana, sin inflar los «hechos hoy». Si luego se cargan con fecha de un
+// día anterior, solo cambian de casilla y nada se mueve.
 const PESO_DIA = [0.4, 1, 1, 1, 1, 1, 0.6];   // domingo … sábado
 export function ritmoMeta(periodo, ownerId) {
   const hoy = hoyISO();
   if (periodo !== hoy.slice(0, 7)) return null;
   const { meta } = progresoMeta(periodo, ownerId);
   if (!meta) return null;
+  const { sinSubir } = comisionFtd(periodo, ownerId);
 
   const [y, m, d] = hoy.split("-").map(Number);
   const D = new Date(Date.UTC(y, m, 0)).getUTCDate();
@@ -740,7 +744,7 @@ export function ritmoMeta(periodo, ownerId) {
   const fin = ini === 22 ? D : ini + 6;
   const corteMeta = fin === D ? meta : Math.ceil(meta * fin / D);
 
-  let hastaAyer = 0, hoyHechos = 0, pendHoy = 0;
+  let hastaAyer = sinSubir, hoyHechos = 0, pendHoy = 0;
   for (const c of state.clientes) {
     if (c.owner_id !== ownerId) continue;
     // Cuenta las promesas de HOY: la de un lead (1er depósito) y la de un becado
