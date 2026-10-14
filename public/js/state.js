@@ -43,6 +43,11 @@ export const state = {
   // anteriores: se combina con ellos en vez de reemplazarlos. null = sin filtro.
   filtroBrk: null,
   filtroDep: null,   // { modo, desde, hasta } — rango de fecha de depósito
+  // Paginación de Comunidad. El tamaño se recuerda en este navegador; la página
+  // vuelve a 1 cada vez que cambia lo que se está mirando (filtros, orden, búsqueda).
+  pagina: 1,
+  porPagina: (() => { try { const n = +localStorage.getItem("nx.porPagina"); return [20, 50, 100].includes(n) ? n : 20; } catch { return 20; } })(),
+  paginaFirma: "",
   filtrosMas: false, // ¿desplegados los filtros secundarios (broker, depósito, servicio)?
   filtroSrv: null,   // { id, modo: "si" | "no" } — asistencia a un servicio del catálogo
   filtroTemp: null,  // caliente | tibio | frio — filtro de la lista «Todos los leads»

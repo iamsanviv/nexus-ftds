@@ -135,6 +135,7 @@ export function render() {
   $("vistaCliente").classList.toggle("modohoy", enHoy);
   $("vistaHoy").classList.toggle("hidden", !enHoy);
   if (enHoy) {
+    $("paginador").classList.add("hidden");
     $("buscar").classList.add("hidden");
     $("ftdPanel").innerHTML = "";
     renderHoy($("vistaHoy"), render);
@@ -407,6 +408,9 @@ export function render() {
     } else estadoEl.innerHTML = "";
   }
 
+  const pagEl = $("paginador");
+  if (pagEl) { pagEl.classList.add("hidden"); pagEl.innerHTML = ""; }
+
   if (!vis.length) {
     const vacioMsg = isLead
       ? (base.length ? "Prueba otro filtro." : "Toca «+ Lead» para registrar a alguien que aún no es de la Comunidad.")
@@ -416,8 +420,57 @@ export function render() {
   }
 
   const dir = state.me.role === "director";
-  $("lista").innerHTML = vis.map(c => cardHTML(c, pr(c), rankMap[c.id], isLead, dir)).join("");
+  $("lista").innerHTML = paginar(vis, isLead).map(c => cardHTML(c, pr(c), rankMap[c.id], isLead, dir)).join("");
   wireCards();
+}
+
+/* ---------- paginación (solo Comunidad) ----------
+   Leads no se pagina: su lista de trabajo es «Hoy» y la completa es corta.
+   El número de rango (`rankMap`) se calcula sobre la lista entera, así que la
+   página 2 sigue en el 21: la posición es la del orden, no la de la página. */
+function paginar(vis, isLead) {
+  const el = $("paginador");
+  if (isLead || !el) return vis;
+  // Cualquier cambio en lo que se mira devuelve a la página 1: quedarse en la 4
+  // de un filtro nuevo que solo tiene 2 mostraría una lista vacía.
+  const firma = JSON.stringify([state.filtro, state.filtroMem, state.filtroBrk, state.filtroDep,
+    state.filtroSrv, state.orden, normBusqueda($("buscar").value)]);
+  if (firma !== state.paginaFirma) { state.paginaFirma = firma; state.pagina = 1; }
+  const tam = state.porPagina, paginas = Math.max(1, Math.ceil(vis.length / tam));
+  state.pagina = Math.min(Math.max(1, state.pagina), paginas);
+  const desde = (state.pagina - 1) * tam, hasta = Math.min(desde + tam, vis.length);
+
+  el.classList.remove("hidden");
+  // Números visibles: primera, última y las vecinas de la actual; el resto se
+  // resume en «…» para que la barra no crezca con la lista.
+  const nums = [...new Set([1, state.pagina - 1, state.pagina, state.pagina + 1, paginas])]
+    .filter(n => n >= 1 && n <= paginas).sort((x, y) => x - y);
+  let botones = "", prev = 0;
+  for (const n of nums) {
+    if (n - prev > 1) botones += `<span class="pgdots">…</span>`;
+    botones += `<button class="pgnum ${n === state.pagina ? "on" : ""}" data-pg="${n}" ${n === state.pagina ? 'aria-current="page"' : ""}>${n}</button>`;
+    prev = n;
+  }
+  el.innerHTML = `
+    <div class="pginfo"><span class="pglargo">Mostrando </span><b>${desde + 1}–${hasta}</b> de <b>${vis.length}</b><span class="pglargo"> personas</span></div>
+    <nav class="pgnav" aria-label="Paginación">
+      <button class="pgflecha" data-pg="${state.pagina - 1}" ${state.pagina === 1 ? "disabled" : ""} aria-label="Página anterior">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      ${botones}
+      <button class="pgflecha" data-pg="${state.pagina + 1}" ${state.pagina === paginas ? "disabled" : ""} aria-label="Página siguiente">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    </nav>
+    <div class="pgtam"><span class="lbl">Por página</span><div class="ordseg">
+      ${[20, 50, 100].map(n => `<button class="oseg ${n === tam ? "on" : ""}" data-tam="${n}">${n}</button>`).join("")}
+    </div></div>`;
+  const ir = n => { state.pagina = n; render(); $("vistaCliente").scrollIntoView({ block: "start" }); };
+  el.querySelectorAll("[data-pg]").forEach(btn => btn.onclick = () => ir(+btn.dataset.pg));
+  el.querySelectorAll("[data-tam]").forEach(btn => btn.onclick = () => {
+    state.porPagina = +btn.dataset.tam;
+    try { localStorage.setItem("nx.porPagina", String(state.porPagina)); } catch {}
+    ir(1);
+  });
+  return vis.slice(desde, hasta);
 }
 
 function stat(cls, n, label) {
