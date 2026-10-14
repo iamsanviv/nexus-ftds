@@ -1939,12 +1939,33 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 #ldEtapas,#ldTemps{margin-bottom:8px}
 .fs2.alerta{color:var(--gold)}
 
-/* Paginación de Comunidad: rango a la izquierda, navegación al centro y tamaño
-   a la derecha; en celular se envuelve sin desbordar. */
-.paginador{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
-  gap:10px;margin:12px 0 90px;font-size:.8rem;color:var(--muted)}
-.paginador .pagnav{display:flex;align-items:center;gap:8px}
-.paginador .pagnum{font-variant-numeric:tabular-nums;color:var(--text)}
-.paginador .pill{min-width:36px;justify-content:center}
-.paginador .pill:disabled{opacity:.4;cursor:default}
-.pagrango{font-variant-numeric:tabular-nums}
+/* Paginación de Comunidad: una barra con el mismo marco que la lista. La página
+   activa lleva el dorado del rango nº 1; el tamaño es el mismo segmento que
+   «Orden». En celular se apila: números arriba, cifra y tamaño debajo. */
+.paginador{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px 16px;
+  margin:12px 0 90px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);font-size:.8rem;color:var(--muted)}
+.pginfo b{font-family:'Archivo';font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
+.pgnav{display:flex;align-items:center;gap:4px}
+.pgnum,.pgflecha{min-width:34px;height:34px;padding:0 8px;border-radius:10px;border:1px solid transparent;
+  background:transparent;color:var(--muted);font-family:'Archivo';font-weight:700;font-size:.86rem;
+  font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.pgnum:hover,.pgflecha:hover:not(:disabled){background:var(--surface2);color:var(--text)}
+.pgnum.on{background:linear-gradient(160deg,var(--gold-fill),var(--gold-dim));color:var(--on-gold);
+  box-shadow:0 4px 14px rgba(232,184,75,.25)}
+.pgflecha{border-color:var(--border)}
+.pgflecha svg{width:16px;height:16px}
+.pgflecha:disabled{opacity:.35;cursor:default}
+.pgdots{color:var(--muted);padding:0 2px;letter-spacing:.1em}
+.pgtam{display:flex;align-items:center;gap:8px}
+.pgtam .lbl{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+@media (max-width:640px){
+  .paginador{justify-content:center}
+  .pgnav{order:-1;width:100%;justify-content:center}
+  .pginfo,.pgtam{flex:1 1 auto}
+  .pgtam{justify-content:flex-end}
+  /* La cifra y el tamaño caben en una fila si el rótulo se va: los 20/50/100
+     junto al conteo ya se leen como «por página». */
+  .pgtam .lbl,.pglargo{display:none}
+  .pgtam .oseg{padding:6px 9px}
+}

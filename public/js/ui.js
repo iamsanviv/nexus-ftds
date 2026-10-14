@@ -441,23 +441,35 @@ function paginar(vis, isLead) {
   const desde = (state.pagina - 1) * tam, hasta = Math.min(desde + tam, vis.length);
 
   el.classList.remove("hidden");
-  el.innerHTML = `<span class="pagrango">${desde + 1}–${hasta} de ${vis.length}</span>
-    <div class="pagnav">
-      <button class="pill" id="pagAnt" ${state.pagina === 1 ? "disabled" : ""} aria-label="Página anterior">‹</button>
-      <span class="pagnum">Página ${state.pagina} de ${paginas}</span>
-      <button class="pill" id="pagSig" ${state.pagina === paginas ? "disabled" : ""} aria-label="Página siguiente">›</button>
-    </div>
-    <select class="brksel" id="pagTam" aria-label="Personas por página">
-      ${[20, 50, 100].map(n => `<option value="${n}" ${n === tam ? "selected" : ""}>${n} por página</option>`).join("")}
-    </select>`;
+  // Números visibles: primera, última y las vecinas de la actual; el resto se
+  // resume en «…» para que la barra no crezca con la lista.
+  const nums = [...new Set([1, state.pagina - 1, state.pagina, state.pagina + 1, paginas])]
+    .filter(n => n >= 1 && n <= paginas).sort((x, y) => x - y);
+  let botones = "", prev = 0;
+  for (const n of nums) {
+    if (n - prev > 1) botones += `<span class="pgdots">…</span>`;
+    botones += `<button class="pgnum ${n === state.pagina ? "on" : ""}" data-pg="${n}" ${n === state.pagina ? 'aria-current="page"' : ""}>${n}</button>`;
+    prev = n;
+  }
+  el.innerHTML = `
+    <div class="pginfo"><span class="pglargo">Mostrando </span><b>${desde + 1}–${hasta}</b> de <b>${vis.length}</b><span class="pglargo"> personas</span></div>
+    <nav class="pgnav" aria-label="Paginación">
+      <button class="pgflecha" data-pg="${state.pagina - 1}" ${state.pagina === 1 ? "disabled" : ""} aria-label="Página anterior">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      ${botones}
+      <button class="pgflecha" data-pg="${state.pagina + 1}" ${state.pagina === paginas ? "disabled" : ""} aria-label="Página siguiente">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    </nav>
+    <div class="pgtam"><span class="lbl">Por página</span><div class="ordseg">
+      ${[20, 50, 100].map(n => `<button class="oseg ${n === tam ? "on" : ""}" data-tam="${n}">${n}</button>`).join("")}
+    </div></div>`;
   const ir = n => { state.pagina = n; render(); $("vistaCliente").scrollIntoView({ block: "start" }); };
-  $("pagAnt").onclick = () => ir(state.pagina - 1);
-  $("pagSig").onclick = () => ir(state.pagina + 1);
-  $("pagTam").onchange = e => {
-    state.porPagina = +e.target.value;
+  el.querySelectorAll("[data-pg]").forEach(btn => btn.onclick = () => ir(+btn.dataset.pg));
+  el.querySelectorAll("[data-tam]").forEach(btn => btn.onclick = () => {
+    state.porPagina = +btn.dataset.tam;
     try { localStorage.setItem("nx.porPagina", String(state.porPagina)); } catch {}
     ir(1);
-  };
+  });
   return vis.slice(desde, hasta);
 }
 
