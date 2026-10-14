@@ -14,7 +14,8 @@
 import { state, esc, hoyISO, esLead, esInactivo, usd, saldo, estaSaldada, toast } from "./state.js";
 import { SB } from "./supabase.js";
 import { SUPABASE_URL } from "./config.js";
-import { cargarEntrantes, dbInsert } from "./data.js";
+import { dbInsert } from "./data.js";
+import { asegurarEntrantes, entranteDe, claveTel } from "./entrantes.js";
 import { repasoPendientes } from "./repaso.js";
 import { categoria, razon, contactosDe, esMio, sinHora, horaTxt, dias } from "./leads.js";
 import { irAEtapa } from "./hoy.js";
@@ -77,9 +78,9 @@ async function cargarExtra(alTerminar) {
       (data || []).forEach(g => { invitados[g.actividad_id] = (invitados[g.actividad_id] || 0) + 1; });
     }
     const auto = {};   // teléfono → envíos automáticos de hoy (ms)
-    (msgs.data || []).forEach(m => { const k = digitos(m.telefono); if (k) (auto[k] ||= []).push(new Date(m.enviado_en).getTime()); });
+    (msgs.data || []).forEach(m => { const k = claveTel(m.telefono); if (k) (auto[k] ||= []).push(new Date(m.enviado_en).getTime()); });
     const chatsPor = {};
-    (chats.data || []).forEach(c => { const k = digitos(c.telefono); if (k) chatsPor[k] = c; });
+    (chats.data || []).forEach(c => { const k = claveTel(c.telefono); if (k) chatsPor[k] = c; });
     extra = { clases, invitados, msgs: msgs.data || [], auto, chats: chatsPor,
       crm: crm.data || [], token: tok.data?.token || null,
       error: acts.error || chats.error || msgs.error || crm.error };
@@ -95,7 +96,8 @@ async function cargarExtra(alTerminar) {
 // mueven `ultimo_en`: si coincide con uno de ellos (±2 min) no cuenta, porque
 // la guía pregunta si TÚ atendiste al lead, no si Nexus le escribió.
 function escribisteHoy(c) {
-  const k = digitos(c.tel), ch = k && extra?.chats[k];
+  // claveTel y no dígitos crudos: WhatsApp guarda 521… y la ficha 52… (México).
+  const k = claveTel(c.tel), ch = k && extra?.chats[k];
   if (!ch || dias(ch.ultimo_en) !== 0) return false;
   const ult = new Date(ch.ultimo_en).getTime();
   if (ch.entrante_en && new Date(ch.entrante_en).getTime() >= ult) return false;
@@ -240,7 +242,7 @@ const bajandoAuto = new Set();
 function detectarBajadas(render) {
   if (!extra?.crm?.length || !state.entrantes) return;
   extra.crm.filter(l => (l.estado === "pendiente" || l.estado === "seguir") && !bajandoAuto.has(l.id)).forEach(l => {
-    const ent = state.entrantes[digitos(l.telefono)];
+    const ent = entranteDe({ tel: l.telefono, owner_id: state.me.id });
     if (ent && new Date(ent) >= new Date(l.asignado_en)) { bajandoAuto.add(l.id); marcarBajo(l, render); }
   });
 }
@@ -248,8 +250,8 @@ function detectarBajadas(render) {
 // Pasar a lead de WhatsApp = quedar como lead en Nexus. Si ya existe alguien
 // con ese número, se enlaza en vez de duplicarlo.
 async function marcarBajo(l, render) {
-  const k = digitos(l.telefono);
-  let c = k ? state.clientes.find(x => x.owner_id === state.me.id && digitos(x.tel) === k) : null;
+  const k = claveTel(l.telefono);
+  let c = k ? state.clientes.find(x => x.owner_id === state.me.id && claveTel(x.tel) === k) : null;
   if (!c && (l.nombre || k)) {
     c = await dbInsert({ nombre: l.nombre || l.telefono, tel: l.telefono || null, mem: "Lead", creado: hoyISO(), acc: {}, conf: {} });
     if (c) state.clientes.push(c);
@@ -370,13 +372,13 @@ function sistemaHTML() {
   if (!extra) return "";
   const cuenta = tipos => extra.msgs.filter(m => tipos.includes(m.tipo)).length;
   const escribieron = state.clientes.filter(c => esMio(c) && esLead(c)
-    && state.entrantes?.[digitos(c.tel)] && dias(state.entrantes[digitos(c.tel)]) === 0).length;
+    && entranteDe(c) && dias(entranteDe(c)) === 0).length;
   const filas = [
     [cuenta(["invitacion"]), "invitaciones a clases"],
     [cuenta(["rec_60", "rec_15", "confirmacion"]), "recordatorios y confirmaciones"],
     [cuenta(["enlace"]), "enlaces de clase"],
     [cuenta(["masivo"]), "mensajes masivos"],
-    [escribieron, `lead${escribieron === 1 ? "" : "s"} te escribieron y subieron a caliente`],
+    [escribieron, `lead${escribieron === 1 ? "" : "s"} te escribi${escribieron === 1 ? "ó" : "eron"} hoy (su temperatura sube un nivel)`],
     [(extra.crm || []).filter(l => l.estado === "bajo" && esHoy(l.resultado_en)).length, "leads de HighLevel pasaron a WhatsApp"],
   ].filter(([n]) => n > 0);
   return `<div class="mdsis"><b>Lo que Nexus hizo por ti hoy</b>
@@ -401,10 +403,10 @@ let reloj = null;
 
 export function renderMiDia(cont, render) {
   // «Te escribieron» y «le escribiste» necesitan los entrantes, igual que Leads.
-  if (state.entrantes === null) {
-    state.entrantes = {};
-    cargarEntrantes().then(m => { state.entrantes = m; render(); });
-  }
+  asegurarEntrantes().then(nuevo => {
+    const ae = document.activeElement;
+    if (nuevo && !(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) render();
+  });
   if (!extra || Date.now() - extraEn > VIGENCIA_MS) cargarExtra(render);
   // La urgencia depende de la hora: se repinta cada minuto mientras la vista
   // está abierta, para que lo que entra en su última hora suba solo.

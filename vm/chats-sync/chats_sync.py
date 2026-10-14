@@ -52,6 +52,15 @@ def _owner_de(dirbase):
     return None
 
 
+def _inicio_dia_utc():
+    """Medianoche de HOY en Colombia (UTC-5 fijo, sin horario de verano, la
+    misma regla que `hoyISO()` del panel), en UTC y con el formato de
+    `datetime()` de SQLite para comparar texto con texto."""
+    co = datetime.now(timezone.utc) - timedelta(hours=5)
+    ini = co.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(hours=5)
+    return ini.strftime("%Y-%m-%d %H:%M:%S")
+
+
 def _abrir_ro(ruta):
     """Abre la base de un bridge SIN TOMAR NINGÚN CANDADO (`nolock=1`).
 
@@ -105,13 +114,22 @@ def _chats_de(dirbase):
     # `entrante` = MAX(timestamp) de los mensajes recibidos. Como el EXISTS ya
     # exige que haya al menos uno, nunca sale NULL para las filas devueltas.
     # Sale de la misma consulta: no cuesta una lectura más.
+    #
+    # `primero_dia` = MIN de los recibidos DESDE la medianoche de Colombia: el
+    # primer mensaje del día. `datetime()` normaliza a UTC el texto que guarda
+    # el bridge (con su desfase), así que ni el filtro ni el MIN ni la mezcla de
+    # dos chats dependen del huso en que se escribió. Si no lo pudiera leer daría
+    # NULL: «no escribió hoy».
     cm = _abrir_ro(mdb)
     try:
         filas = cm.execute(
             """
             SELECT c.jid, c.last_message_time,
                    (SELECT MAX(m2.timestamp) FROM messages m2
-                     WHERE m2.chat_jid = c.jid AND m2.is_from_me = 0) AS entrante
+                     WHERE m2.chat_jid = c.jid AND m2.is_from_me = 0) AS entrante,
+                   (SELECT MIN(datetime(m3.timestamp)) FROM messages m3
+                     WHERE m3.chat_jid = c.jid AND m3.is_from_me = 0
+                       AND datetime(m3.timestamp) >= ?) AS primero_dia
               FROM chats c
              WHERE c.last_message_time >= datetime('now', ?)
                AND (c.jid LIKE '%@lid' OR c.jid LIKE '%@s.whatsapp.net')
@@ -120,7 +138,7 @@ def _chats_de(dirbase):
              ORDER BY c.last_message_time DESC
              LIMIT ?
             """,
-            (f"-{VENTANA_DIAS} days", MAX_POR_AGENTE),
+            (_inicio_dia_utc(), f"-{VENTANA_DIAS} days", MAX_POR_AGENTE),
         ).fetchall()
     finally:
         cm.close()
@@ -129,7 +147,7 @@ def _chats_de(dirbase):
     # La misma persona puede tener chat por LID y por número: se queda el más
     # reciente, pero sin perder un nombre o un entrante que solo tuviera el otro.
     por_tel = {}
-    for jid, ts, ent in filas:
+    for jid, ts, ent, pdia in filas:
         usuario = jid.split("@")[0].split(":")[0]
         if jid.endswith("@lid"):
             pn, lid = lidmap.get(usuario), usuario
@@ -143,10 +161,12 @@ def _chats_de(dirbase):
         tel = "+" + pn
         nom = nombres.get(usuario) or nombres.get(pn)
         ent = str(ent) if ent else None
+        pdia = f"{pdia}+00:00" if pdia else None   # datetime() lo dejó en UTC
         prev = por_tel.get(tel)
         if prev is None:
             por_tel[tel] = {"telefono": tel, "nombre_wa": nom,
-                            "ultimo_en": str(ts), "entrante_en": ent, "lid": lid}
+                            "ultimo_en": str(ts), "entrante_en": ent,
+                            "primer_entrante_dia": pdia, "lid": lid}
             continue
         # El nombre y el entrante más reciente se conservan de cualquiera de los
         # dos chats; `ultimo_en` y `lid` los define el del último mensaje más
@@ -155,6 +175,9 @@ def _chats_de(dirbase):
             prev["nombre_wa"] = nom
         if ent and (not prev.get("entrante_en") or ent > prev["entrante_en"]):
             prev["entrante_en"] = ent
+        # El primero del día es el MÁS ANTIGUO de los dos chats (LID y número).
+        if pdia and (not prev.get("primer_entrante_dia") or pdia < prev["primer_entrante_dia"]):
+            prev["primer_entrante_dia"] = pdia
         if str(ts) > str(prev["ultimo_en"]):
             prev["ultimo_en"] = str(ts)
             prev["lid"] = lid

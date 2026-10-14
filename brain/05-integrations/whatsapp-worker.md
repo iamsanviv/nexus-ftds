@@ -187,6 +187,25 @@ Como el `EXISTS (is_from_me=0)` ya exige al menos un entrante, nunca sale NULL. 
 ninguna petición**: es una columna más en el upsert que ya se hacía, a la misma cadencia.
 Parche idempotente y copia de referencia en `vm/chats-sync/` del repo.
 
+### `primer_entrante_dia`: primer mensaje de hoy (14/10/2026)
+
+`MIN(datetime(timestamp))` de los entrantes desde la medianoche de Colombia (UTC-5 fijo), en la
+misma consulta. `datetime()` normaliza a UTC el texto del bridge para que el filtro, el MIN y la
+mezcla LID/número no dependan del desfase con que se guardó (comparar el texto crudo con
+desfases distintos da el orden equivocado; probado). Es del día de la ÚLTIMA sincronización: el
+panel compara la fecha con hoy. SQL: `sql/2026-10-14_33_primer_entrante_dia.sql` (aplicado).
+
+Instalación: `vm/chats-sync/instalar_primer_entrante.py` reemplaza el archivo SOLO si el de la
+VM es exactamente la versión anterior conocida (hash), con respaldo y validación de sintaxis;
+luego `sudo systemctl restart nexus-worker`. **Pendiente de instalar en VM1** al 14/10/2026, y
+VM2 sigue sin `chats_sync` (ver KI-014 en `08-memory/known-issues.md`).
+
+**Punto de enganche para eventos** (p. ej. notificaciones): una fila de `chats_recientes` cuyo
+`entrante_en` cambia ES «esta persona te escribió» (`owner_id` + `telefono`). «Primer mensaje del
+día» = `primer_entrante_dia` pasa a una fecha de hoy. «Respondió» = ese `entrante_en` es posterior
+al último `enviado_en` de esa persona. El cruce teléfono↔cliente debe usar la misma
+normalización que `claveTel` (`public/js/entrantes.js`).
+
 ## `comando`: la orden de desvincular se queda encolada
 
 `canales_wa.comando` es cómo el panel le habla al bridge («desvincular»). El bridge la consume y la borra.

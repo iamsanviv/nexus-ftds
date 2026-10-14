@@ -395,18 +395,18 @@ export async function cuotaDiaria() {
   return { enviados, tope: TOPE_DIARIO, restan: Math.max(0, TOPE_DIARIO - enviados) };
 }
 
+// Quién te escribió y cuándo, desde `chats_recientes` (lo publica el worker
+// cada ~5 min). RLS deja ver solo los chats PROPIOS. 14 días bastan para
+// «respondió» a un seguimiento reciente y para la temperatura (a los 3 ya es
+// frío). Devuelve las filas tal cual (null si falla); el cruce con las
+// personas lo hace entrantes.js.
 export async function cargarEntrantes() {
-  const desde = fechaCO(new Date(Date.now() - 3 * 864e5));   // superconjunto de hoy/ayer/anteayer
-  const mapa = {};
+  const desde = fechaCO(new Date(Date.now() - 14 * 864e5));
   const { data, error } = await SB
     .from("chats_recientes")
-    .select("telefono,entrante_en")
+    .select("telefono,entrante_en,primer_entrante_dia")
     .not("entrante_en", "is", null)
     .gte("entrante_en", desde);
-  if (error) { console.warn("entrantes:", error.message); return mapa; }
-  for (const r of (data || [])) {
-    const k = (r.telefono || "").replace(/\D/g, "");
-    if (k && (!mapa[k] || r.entrante_en > mapa[k])) mapa[k] = r.entrante_en;
-  }
-  return mapa;
+  if (error) { console.warn("entrantes:", error.message); return null; }
+  return data || [];
 }

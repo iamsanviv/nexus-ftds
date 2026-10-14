@@ -8,7 +8,8 @@ import {
   MOTIVOS_INACTIVO, esInactivo, nombreMotivo, motivoCorto, BROKERS, nombreBroker,
   insigniasBroker,
 } from "./state.js";
-import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio, cargarChatsRecientes, cargarEntrantes } from "./data.js";
+import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio, cargarChatsRecientes } from "./data.js";
+import { asegurarEntrantes } from "./entrantes.js";
 // repaso.js importa a ui.js: para no crear un ciclo, aquí solo se usa el
 // contador (función pura sobre `state`) y el modo manual se carga a demanda.
 import { repasoPendientes } from "./repaso.js";
@@ -120,13 +121,16 @@ export function render() {
   $("abrirModal").classList.remove("hidden");
   $("buscar").placeholder = isLead ? "Buscar lead…" : "Buscar por nombre o teléfono…";
 
-  // «Bajaron hoy» y la temperatura necesitan saber quién te escribió. Se pide
-  // UNA vez al entrar a Leads (no en bucle, no en cada render): el guard deja de
-  // ser null tras la primera carga. Una sesión que solo mira Comunidad nunca lo
-  // pide. Al llegar, re-render para que la categoría y la temperatura ya cuenten.
-  if (isLead && state.entrantes === null) {
-    state.entrantes = {};
-    cargarEntrantes().then(m => { state.entrantes = m; render(); });
+  // «Te escribió hoy», «respondió» y la temperatura necesitan saber quién te
+  // escribió. Se pide al entrar a Leads y se refresca si pasaron 5 min (lo que
+  // tarda el worker en publicar); una sesión que solo mira Comunidad nunca lo
+  // pide. Al llegar datos nuevos se re-pinta, salvo que estés escribiendo en un
+  // campo: re-pintar te borraría lo tecleado, y el dato entra en el siguiente.
+  if (isLead) {
+    asegurarEntrantes().then(nuevo => {
+      const ae = document.activeElement;
+      if (nuevo && !(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) render();
+    });
   }
 
   // Leads abre en «Hoy». La lista sigue a un toque en el mismo selector.
