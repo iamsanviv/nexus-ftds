@@ -248,13 +248,9 @@
   .toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--gold-dim);color:var(--gold);font-size:.85rem;font-weight:600;padding:10px 18px;border-radius:999px;z-index:40;opacity:0;transition:opacity .25s;pointer-events:none;max-width:92vw;text-align:center}
   .toast.show{opacity:1}
 
-  /* vista por servicio */
-  .vtoggle{display:flex;gap:7px;margin:0 0 12px}
+  /* botón de segmento (Hoy / Todos los leads) */
   .vbtn{flex:1;font-size:.82rem;font-weight:700;padding:10px;border-radius:11px;border:1px solid var(--border);background:var(--surface);color:var(--muted);text-align:center}
   .vbtn.on{background:var(--gold-fill);color:var(--on-gold);border-color:var(--gold)}
-  .srvstat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:14px}
-  .srvstat-top{font-size:.82rem;color:var(--muted);margin-bottom:8px}
-  .srvstat-top b{font-family:'Archivo';color:var(--text);font-size:1.05rem}
   .prow{display:flex;align-items:center;gap:8px;padding:11px 12px;background:var(--surface);border:1px solid var(--border);border-radius:11px;margin-bottom:7px}
   .prow .pl{flex:1;min-width:0;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
   .prow .pn{font-family:'Archivo';font-weight:700;font-size:.92rem}
@@ -265,7 +261,6 @@
   .pmark.off{color:var(--muted);border-color:var(--border)}
   .pmark.mini{flex:0 0 auto;padding:4px 9px;font-size:.7rem}
   .naplica{font-size:.76rem;color:var(--muted);text-align:center;padding:12px;margin-top:4px}
-  #srvPick{margin-bottom:0}
 
   /* ---- pantalla de login ---- */
   /* ── Pantalla de entrada: dos paneles ──────────────────────────────────
@@ -521,7 +516,6 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 .apphead .modswitch{flex:1 0 100%;margin:12px 0 0}
 .apptitle{font-family:'Archivo';font-size:1.7rem;font-weight:800;letter-spacing:-.02em;color:var(--text);line-height:1.1}
 .appsub{font-size:.78rem;color:var(--muted);margin-top:2px}
-.vtoggle{display:none!important}
 
 /* indicador de repaso pendiente (header) */
 .repind{display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);
@@ -763,7 +757,6 @@ body.segwide .tabinner{max-width:1180px}
      segmento del mockup no distingue entre los dos. */
   .apphead .modswitch .mbtn.leads.on{color:var(--lead)}
   .headctl{display:flex;align-items:flex-start;gap:12px}
-  .headctl .vtoggle{flex:0 0 auto}
 
   /* La tarjeta del mes ocupa TODO el ancho y las cifras van en su propia fila
      completa debajo (mockup). Antes iban a media pantalla cada una y se veía
@@ -1718,6 +1711,9 @@ body:has(.overlay.open){overflow:hidden}
    un desplegable de dos opciones ocupando todo el ancho pesa más que los chips
    que tiene encima. */
 .brksel{width:auto;flex:0 1 auto;min-width:0;font-size:.8rem;padding:7px 11px;border-radius:999px}
+/* «No ha asistido / Ya asistió» es corto y es lo que decide el filtro: no cede
+   ancho; lo cede el nombre del servicio, que puede ser largo. */
+.brksel.srvmodo{flex:0 0 auto}
 /* El rótulo del eje. Antes vivía dentro de `.filtrosbrk`; ahora lo comparten la
    lista de personas, el masivo y las invitaciones. */
 .ejelbl{flex:0 0 auto;font-size:.66rem;font-weight:800;letter-spacing:.07em;

@@ -43,13 +43,12 @@ export const state = {
   // anteriores: se combina con ellos en vez de reemplazarlos. null = sin filtro.
   filtroBrk: null,
   filtroDep: null,   // { modo, desde, hasta } — rango de fecha de depósito
+  filtroSrv: null,   // { id, modo: "si" | "no" } — asistencia a un servicio del catálogo
   filtroTemp: null,  // caliente | tibio | frio — filtro de la lista «Todos los leads»
   filtroDefDesk: false,  // ¿ya se aplicó el defecto "En progreso"?
   orden: "cerca",
-  vista: "cliente",      // "cliente" | "servicio"
+  vista: "cliente",
   abiertos: new Set(),
-  // Acordeones de la vista por servicio (true = desplegado).
-  srvOpen: { asis: false, conf: true, pend: true },
   cliEdit: null,
   srvEdit: null,
   signupMode: false,
