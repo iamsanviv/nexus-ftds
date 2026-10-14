@@ -364,6 +364,7 @@ function accionesHTML(it) {
     const tel = digitos(it.c.tel);
     return `<div class="mdacts">
       ${tel ? `<a class="btn-oro mdbtn" href="https://wa.me/${tel}" target="_blank" rel="noopener">${ICO_WA}Abrir chat</a>` : ""}
+      ${tel ? `<button class="lbtn mdbtn" data-md="seglead" data-id="${it.c.id}">Hacer seguimiento</button>` : ""}
       <button class="lbtn mdbtn" data-md="lead" data-id="${it.c.id}" data-cat="${it.cat}">Registrar en Leads</button></div>`;
   }
   const L = { repaso: "Hacer el repaso", venta: "Ir a Ventas", seg: it.id === "cla-crear" ? "Crear en Seguimiento" : "Programar invitados" };
@@ -480,6 +481,9 @@ export function renderMiDia(cont, render) {
     if (a === "repaso") { (await import("./repaso.js")).repasoManual(); return; }
     if (a === "venta") { state.vista = "ventas"; render(); return; }
     if (a === "seg") { document.getElementById("btnSeg").click(); return; }
+    // Uno de tus seguimientos guardados (plantillas_lead) solo a esta persona.
+    // Queda hecho cuando sale el mensaje 1: la base anota el contacto en su ficha.
+    if (a === "seglead") { (await import("./envioleads.js")).abrirEnvioLeads(render, { soloId: b.dataset.id }); return; }
     if (a === "lead") {
       irAEtapa(b.dataset.cat);
       // Igual que la pestaña Leads: cambiar de módulo limpia los filtros del otro.

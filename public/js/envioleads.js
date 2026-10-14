@@ -343,11 +343,15 @@ async function enviar() {
 }
 
 /* ---------- abrir ---------- */
-export async function abrirEnvioLeads(render) {
+// `soloId`: se abre desde la tarjeta de UNA persona («Hacer seguimiento» en Mi
+// día). Esa persona va marcada porque el agente la eligió con el clic, no por un
+// filtro; si no está en el universo (sin teléfono, no es suya) no se marca nada.
+export async function abrirEnvioLeads(render, { soloId } = {}) {
   alTerminar = render;
-  sel = new Set(); fEtapa = "todas"; fTemp = "todas"; cuando = "ahora";
+  const solo = soloId && universo().find(c => c.id === soloId);
+  sel = new Set(solo ? [solo.id] : []); fEtapa = "todas"; fTemp = "todas"; cuando = "ahora";
   bor = nuevoBorrador();
-  $("ldNombre").value = ""; $("ldBuscar").value = "";
+  $("ldNombre").value = ""; $("ldBuscar").value = solo ? solo.nombre : "";
   $("ldFecha").value = ""; $("ldHora").value = ""; $("ldHoraRef").value = "";
   pintarTipos(); pintarMsgs(); pintarFiltros(); pintarLista(); pintarCuando(); pintarPlantillas();
   $("ldOverlay").classList.add("open");
