@@ -99,8 +99,13 @@ export async function repasoPreparar() {
 
 /* ---------- mensaje al cliente ---------- */
 
+// Variantes {a|b|c} sorteadas por persona, como en el masivo: que no llegue
+// idéntico a todos.
 const MENSAJE_SEGUIMIENTO =
-  "Hola {nombre}, espero tengas un buen día. ¿Lograste ingresar a la clase que te invité? Estoy atento a tu progreso 🙌🏻";
+  "{Hola|Buenas|Qué tal|Hola, qué gusto saludarte} {nombre}, " +
+  "{espero tengas un buen día|espero que vayas muy bien|ojalá estés teniendo un gran día}. " +
+  "{¿Lograste ingresar a la clase que te invité?|¿Pudiste entrar a la clase a la que te invité?|¿Alcanzaste a conectarte a la clase que te compartí?} " +
+  "{Estoy atento a tu progreso|Quedo pendiente de cómo te va|Estoy pendiente de tu avance} {🙌🏻|💪🏻|🚀}";
 
 // Un solo mensaje, encolado como masivo sin campaña: no es una tercera vía de
 // envío sino un masivo de una persona, y por eso el destinatario se valida con
