@@ -147,7 +147,7 @@ async function escribirle(c, btn) {
   });
   if (error) {
     toast("⚠ " + error.message);
-    btn.disabled = false; btn.textContent = "💬 Enviar mensaje";
+    btn.disabled = false; btn.textContent = "⚡ Preguntarle en automático";
     return;
   }
   // Queda deshabilitado para este paso: un segundo toque no duplica el mensaje.
@@ -158,7 +158,7 @@ async function escribirle(c, btn) {
 /* ---------- overlay ---------- */
 
 // `canal`: si el WhatsApp del agente está vinculado al abrir el repaso. Sin él,
-// «Enviar mensaje» (que encola) queda deshabilitado; «Ir al chat» siempre está.
+// «Preguntarle en automático» (que encola) queda deshabilitado; «Ir al chat» siempre está.
 function abrir(items, marcarHecho, canal) {
   const hoy = hoyISO();
   let i = 0;
@@ -184,7 +184,7 @@ function abrir(items, marcarHecho, canal) {
           <span class="sfecha">invitado el ${fmtF(f)}</span>
         </div>
         ${!c.tel ? "" : `<div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="pmark off mini" data-escribir ${canal ? "" : `disabled title="Vincula tu WhatsApp en «Más → Mi WhatsApp» para enviarlo automáticamente"`}>💬 Enviar mensaje</button>
+          <button class="pmark off mini" data-escribir ${canal ? "" : `disabled title="Vincula tu WhatsApp en «Más → Mi WhatsApp» para enviarlo automáticamente"`}>⚡ Preguntarle en automático</button>
           <a class="pmark off mini" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="${esc(enlaceWa(c))}">↗ Ir al chat</a>
         </div>`}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
