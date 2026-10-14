@@ -6,6 +6,7 @@ import { cargarTodo } from "./data.js";
 import { render } from "./ui.js";
 import { repasoDiario } from "./repaso.js";
 import { refrescarIndicadorAgentes } from "./salud.js";
+import { iniciarNotificaciones, olvidarDispositivo } from "./notificaciones.js";
 
 /* ---------- ver la contraseña ---------- */
 // Un botón dentro del campo que alterna type=password/text. Se arma desde JS y
@@ -181,6 +182,7 @@ async function entrar() {
       ? "Director · ves lo tuyo y lo de los agentes de tu equipo"
       : "Tus clientes · solo tú ves y gestionas los que registras";
 
+  iniciarNotificaciones();
   try { await cargarTodo(); render(); repasoDiario(); }
   catch (err) { toast("⚠ Error cargando datos: " + err.message); }
 }
@@ -422,4 +424,4 @@ $("passGuardar").onclick = async () => {
   toast("🔑 Contraseña cambiada");
 };
 
-$("btnLogout").onclick = async () => { await SB.auth.signOut(); location.reload(); };
+$("btnLogout").onclick = async () => { await olvidarDispositivo(); await SB.auth.signOut(); location.reload(); };

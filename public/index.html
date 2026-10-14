@@ -507,6 +507,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
 
     <div class="mgrp">
       <button class="mrow" id="btnCanal"><span class="mi">💬</span>Mi WhatsApp<span class="wstate" id="canalEstado">…</span></button>
+      <button class="mrow" id="btnNotif"><span class="mi">🔔</span>Notificaciones<span class="wstate" id="notifEstado">…</span></button>
       <button class="mrow" id="btnPass"><span class="mi">🔑</span>Cambiar mi contraseña<span class="mc">›</span></button>
     </div>
 
@@ -786,6 +787,15 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <h2>💬 Mi WhatsApp</h2>
     <div id="canalBody"></div>
     <div class="mfoot"><button class="tbtn" id="canalCerrar">Cerrar</button></div>
+  </div>
+</div>
+
+<!-- modal Notificaciones (push por dispositivo; lo maneja notificaciones.js) -->
+<div class="overlay" id="notifOverlay">
+  <div class="modal">
+    <h2>🔔 Notificaciones</h2>
+    <div id="notifBody"></div>
+    <div class="mfoot"><button class="tbtn" id="notifCerrar">Cerrar</button></div>
   </div>
 </div>
 

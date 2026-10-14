@@ -42,6 +42,7 @@ Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir 
 - `04-features/tracked-links.md` — enlaces rastreados, clics y ventana de asistencia.
 - `04-features/ftd-sales.md` — comportamiento detallado de FTD, ventas, abonos, upgrades y cierres.
 - `04-features/channel-health.md` — vinculación, salud y supervisión de canales WhatsApp.
+- `04-features/notifications.md` — notificaciones push al agente (PC y teléfono), eventos y entrega.
 - `04-features/ui-theme-responsive.md` — modo claro/oscuro y diferencias escritorio/móvil.
 
 ## Integraciones
@@ -87,6 +88,7 @@ Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir 
 | enlace rastreado `/i` | `04-features/tracked-links.md` + `05-integrations/cloudflare.md` |
 | FTD/meta/cierre | `04-features/ftd-sales.md` |
 | venta/abono/upgrade/comisión | `04-features/ftd-sales.md` + `03-domain/ftd-sales-commissions.md` |
+| notificaciones push | `04-features/notifications.md` |
 | canal caído/QR/bridge | `04-features/channel-health.md` + `05-integrations/whatsapp-worker.md` |
 | VM/cupo/métricas Oracle | `05-integrations/oracle-mcp.md` |
 | cambio visual | `04-features/ui-theme-responsive.md` + `08-memory/ui-css-traps.md` |
