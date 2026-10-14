@@ -159,6 +159,33 @@ por tarjeta): ese control se retiró y su función vive ahora dentro del editor,
 no tener dos mecanismos para lo mismo. El update va por `seguimiento_id` + `tipo` +
 `estado` previo, así un doble clic no pisa un estado que ya cambió.
 
+## Congelar el enlace cuando la actividad se demora (14/10/2026)
+
+El enlace sale a la hora de inicio; si la actividad arranca tarde, la gente recibe
+el link (y entra a una sala vacía) antes de tiempo. En la tarjeta de la actividad
+hay **«❄ Congelar enlace»** / **«▶ Enviar enlace»** (`congelarEnlace` /
+`descongelarEnlace`, `seguimiento.js`), que operan sobre **todos MIS seguimientos**
+de esa actividad (`owner_id = me`; un director no congela los de su equipo).
+
+- **Congelar** retiene el **enlace Y la confirmación** pendientes: empuja su
+  `enviar_en` al centinela `2999-01-01` (el worker solo manda lo vencido). NO cambia
+  el `estado` (siguen `pendiente`): no es cancelar. **Sin tocar el worker.**
+- **Liberar** («▶ Enviar enlace»): el enlace pasa a `now` (sale en el próximo ciclo,
+  ~1 min) y la confirmación a `now + CONF_OFFSET_MIN` (10 min, el mismo desfase de
+  `HITOS`). Solo toca los congelados (`enviar_en >= 2900`), no un pendiente normal.
+- **Eliminar por completo** sigue siendo el cancelar de siempre (congelar ≠ cancelar).
+
+Detección: `esCongelado(ts)` compara el **año por string** (`Number(ts.slice(0,4)) >=
+2900`), no con `Date`, porque el offset del timestamp (`+00`, `Z`, con espacio) hacía
+que `new Date()` devolviera Invalid Date y la detección fallara. `estadoEnlace(actIds)`
+clasifica cada actividad en `congelable` / `congelado` (2 consultas, como
+`contarEntradas`). La tarjeta muestra el chip «❄ Enlace congelado» cuando aplica, y el
+editor por persona («✎ Mensajes») muestra «❄ congelado» en vez de la fecha centinela.
+
+**Invariante:** `reprogramarPorHora` (cambio de hora de la actividad) **salta** los
+mensajes congelados (`esCongelado`), para no liberar sin querer un enlace retenido a
+propósito. Solo se libera desde «▶ Enviar enlace».
+
 ## Rastreo
 
 Cada seguimiento rastreado tiene su propio `clic_token`. El token identifica a esa persona dentro de esa actividad y debe sobrevivir a reprogramaciones de mensajes.

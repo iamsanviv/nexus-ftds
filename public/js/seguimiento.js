@@ -56,6 +56,19 @@ const CONSECUENCIA_HITO = {
   enlace: "NADIE recibe el enlace de la sala",
   confirmacion: "no se pregunta si lograron entrar",
 };
+
+// Congelar el enlace (cuando la actividad se demora): se empuja el `enviar_en`
+// del enlace y de la confirmación a un centinela lejano para que el worker no
+// los mande —solo envía lo vencido—, sin cambiar el `estado` (siguen pendientes)
+// ni tocar el worker. Liberar = enlace en `now` y confirmación 10 min después
+// (su desfase, el mismo de HITOS).
+const CONGELADO_TS    = "2999-01-01T00:00:00Z";     // enviar_en de un mensaje congelado
+const CONGELADO_CORTE = "2900-01-01T00:00:00Z";     // umbral para detectarlo en la base
+// El año es siempre los 4 primeros caracteres del timestamp; se compara como
+// número para no depender de cómo parsee `Date` el offset («+00», «Z», con
+// espacio…), que es justo lo que rompía la detección.
+const esCongelado = ts => !!ts && Number(String(ts).slice(0, 4)) >= 2900;
+const CONF_OFFSET_MIN = 10;   // minutos entre el enlace y la confirmación (= HITOS)
 // Un recordatorio que sale pegado a la invitación es el problema que este
 // selector existe para resolver. Por debajo de esto se avisa en la fila misma.
 const MIN_PEGADO = 45;
@@ -846,10 +859,12 @@ async function cargarActividades() {
   // actividad con el rastreo apagado) no tienen nada que informar, y meterlos en
   // el denominador diría «0 de 30 entraron» de algo que nunca se midió.
   const entradas = await contarEntradas(actividades.map(a => a.id));
+  const estadoEnl = await estadoEnlace(actividades.map(a => a.id));
 
   $("segActividades").innerHTML = actividades.map(a => {
     const mia = esMia(a);
     const ent = entradas.get(a.id);
+    const enl = estadoEnl.get(a.id);   // "congelado" | "congelable" | undefined
     return `
     <article class="actcard">
       <div class="am">
@@ -858,6 +873,7 @@ async function cargarActividades() {
           <span class="atime">${fechaHoraCO(a.inicio)}</span>
           ${esLibre(a) ? `<span class="achip suelta" title="No está en el catálogo">✦ Puntual</span>` : ""}
           ${deMiDirector(a) ? `<span class="achip equipo" title="La creó tu director: puedes programar, no editar">👥 De tu director</span>` : ""}
+          ${enl === "congelado" ? `<span class="achip" title="El enlace y la confirmación están retenidos: no salen hasta que des «Enviar enlace»">❄ Enlace congelado</span>` : ""}
           ${a.enlace
             ? `<span class="achip ok">Enlace listo</span>`
             : `<span class="achip miss">Falta el enlace</span>`}
@@ -874,6 +890,11 @@ async function cargarActividades() {
         </div>
       </div>
       <div class="ab">
+        ${enl === "congelado"
+          ? `<button class="pmark" data-descong="${a.id}" title="Enviar el enlace ya y la confirmación 10 min después">▶ Enviar enlace</button>`
+          : enl === "congelable"
+            ? `<button class="pmark off" data-cong="${a.id}" title="Retener el enlace y la confirmación hasta que los liberes (útil si la actividad se demora)">❄ Congelar enlace</button>`
+            : ""}
         <button class="pmark" data-prog="${a.id}">📨 Programar</button>
         ${mia ? `
         <button class="pmark" data-edit="${a.id}" title="Editar actividad">✎</button>
@@ -907,6 +928,32 @@ async function cargarActividades() {
     toast(`${cancelados} seguimiento(s) cancelado(s)`);
     renderActivos(); renderLogs();
     b.disabled = false;
+  });
+
+  $("segActividades").querySelectorAll("[data-cong]").forEach(b => b.onclick = async () => {
+    const id = b.dataset.cong;
+    if (!confirm("¿Congelar el enlace y la confirmación de esta actividad?\n\n"
+               + "No saldrán hasta que des «▶ Enviar enlace». Útil si la actividad se está demorando. "
+               + "Solo afecta a los tuyos que todavía no han salido.")) return;
+    b.disabled = true;
+    try {
+      const n = await congelarEnlace(id);
+      toast(n ? `Enlace congelado · ${n} mensaje(s) retenido(s)` : "No hay enlaces pendientes que congelar");
+    } catch (e) { toast("⚠ " + e.message); }
+    await cargarActividades(); renderActivos();
+  });
+
+  $("segActividades").querySelectorAll("[data-descong]").forEach(b => b.onclick = async () => {
+    const id = b.dataset.descong;
+    if (!confirm("¿Enviar el enlace ahora?\n\nSale de inmediato y la confirmación "
+               + `${CONF_OFFSET_MIN} min después.`)) return;
+    b.disabled = true;
+    try {
+      const n = await descongelarEnlace(id);
+      toast(n ? `Enlace enviándose a ${n} persona(s) · confirmación en ${CONF_OFFSET_MIN} min`
+              : "No había enlaces congelados");
+    } catch (e) { toast("⚠ " + e.message); }
+    await cargarActividades(); renderActivos();
   });
 
   $("segActividades").querySelectorAll("[data-delact]").forEach(b => b.onclick = async () => {
@@ -1821,6 +1868,70 @@ async function contarSeguimientosDe(actividadId) {
   return count || 0;
 }
 
+// Ids de MIS seguimientos activos de una actividad (regla de oro: solo congelo
+// lo mío, aunque un director vea los de su equipo).
+async function misSegsDe(actividadId) {
+  const { data } = await SB.from("seguimientos")
+    .select("id").eq("actividad_id", actividadId)
+    .eq("estado", "activo").eq("owner_id", state.me.id);
+  return (data || []).map(s => s.id);
+}
+
+// Congelar: retener el enlace y la confirmación pendientes. Se empuja su
+// `enviar_en` al centinela; el estado sigue `pendiente` (no es cancelar).
+async function congelarEnlace(actividadId) {
+  const ids = await misSegsDe(actividadId);
+  if (!ids.length) return 0;
+  const { error, count } = await SB.from("mensajes_programados")
+    .update({ enviar_en: CONGELADO_TS }, { count: "exact" })
+    .in("seguimiento_id", ids).in("tipo", ["enlace", "confirmacion"])
+    .eq("estado", "pendiente").lt("enviar_en", CONGELADO_CORTE);
+  if (error) throw error;
+  return count || 0;
+}
+
+// Liberar: el enlace sale YA y la confirmación CONF_OFFSET_MIN después. Solo
+// toca los congelados (enviar_en >= centinela), no un pendiente normal.
+async function descongelarEnlace(actividadId) {
+  const ids = await misSegsDe(actividadId);
+  if (!ids.length) return 0;
+  const ahora = new Date();
+  const conf = new Date(ahora.getTime() + CONF_OFFSET_MIN * 60000);
+  const r1 = await SB.from("mensajes_programados")
+    .update({ enviar_en: ahora.toISOString() }, { count: "exact" })
+    .in("seguimiento_id", ids).eq("tipo", "enlace")
+    .eq("estado", "pendiente").gte("enviar_en", CONGELADO_CORTE);
+  const r2 = await SB.from("mensajes_programados")
+    .update({ enviar_en: conf.toISOString() })
+    .in("seguimiento_id", ids).eq("tipo", "confirmacion")
+    .eq("estado", "pendiente").gte("enviar_en", CONGELADO_CORTE);
+  if (r1.error || r2.error) throw (r1.error || r2.error);
+  return r1.count || 0;
+}
+
+// Estado del enlace por actividad, para el botón de la tarjeta: "congelado" si
+// hay un enlace mío pendiente en el centinela, "congelable" si hay uno pendiente
+// a su hora normal. Sin entrada = no hay enlace mío que congelar (ya salió o no
+// programé). Dos consultas, como `contarEntradas`.
+async function estadoEnlace(actIds) {
+  const res = new Map();
+  if (!actIds.length) return res;
+  const { data: segs } = await SB.from("seguimientos")
+    .select("id, actividad_id").in("actividad_id", actIds)
+    .eq("estado", "activo").eq("owner_id", state.me.id);
+  const porSeg = new Map((segs || []).map(s => [s.id, s.actividad_id]));
+  if (!porSeg.size) return res;
+  const { data: msgs } = await SB.from("mensajes_programados")
+    .select("seguimiento_id, enviar_en")
+    .in("seguimiento_id", [...porSeg.keys()]).eq("tipo", "enlace").eq("estado", "pendiente");
+  for (const m of msgs || []) {
+    const act = porSeg.get(m.seguimiento_id);
+    if (esCongelado(m.enviar_en)) res.set(act, "congelado");
+    else if (res.get(act) !== "congelado") res.set(act, "congelable");
+  }
+  return res;
+}
+
 /* ================= CAMBIO DE HORA ================= */
 // Si se mueve la hora de una actividad, los mensajes pendientes quedan mal en
 // dos sentidos: saldrían a la hora vieja Y el texto anunciaría una hora que ya
@@ -1880,6 +1991,10 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
   const aCancelar = [];
   const tareas = [];
   for (const m of msgs) {
+    // Un mensaje CONGELADO se deja intacto: cambiar la hora de la actividad no
+    // debe liberar un enlace que el agente retuvo a propósito. Se libera solo
+    // desde «▶ Enviar enlace».
+    if (esCongelado(m.enviar_en)) continue;
     const tpl = textos.get(m.seguimiento_id);
     const cuando = nuevaHora[m.tipo];
     const campos = {};
@@ -2423,9 +2538,10 @@ async function abrirEditarMensajes(s) {
       else if (m.estado === "pendiente") acc = `<button class="pmark off" data-ht="${t}" data-acc="silenciar" title="${esc(CONSECUENCIA_HITO[t] || "")}">🔕 No enviar</button>`;
       else if (m.estado === "cancelado" && !paso) acc = `<button class="pmark" data-ht="${t}" data-acc="activar">🔔 Volver a enviar</button>`;
       else /* cancelado y ya pasó */     acc = `<span class="sfecha">silenciado · ya pasó su hora</span>`;
+      const cuando = esCongelado(m.enviar_en) ? "❄ congelado (se libera desde la actividad)" : esc(fechaHoraCO(m.enviar_en));
       return `<div class="prow">
         <div class="pl"><span class="pn">${esc(LBL_HITO[t] || t)}</span>
-          <span class="sfecha">${esc(fechaHoraCO(m.enviar_en))}${m.estado === "cancelado" ? " · silenciado" : ""}</span></div>
+          <span class="sfecha">${cuando}${m.estado === "cancelado" ? " · silenciado" : ""}</span></div>
         ${acc}</div>`;
     }).join("");
     $("repBody").innerHTML = `
