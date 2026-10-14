@@ -35,6 +35,7 @@ Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir 
 - `04-features/authentication-approval.md` — registro, aprobación, roles y recuperación de contraseña.
 - `04-features/people-followup.md` — Personas, clientes, filtros y seguimiento.
 - `04-features/leads-followup.md` — leads: embudo hacia la beca, contactos, temperatura y prioridad.
+- `04-features/mi-dia.md` — guía personal del agente («Mi día»): orden, urgencias y cómo se deriva «hecho».
 - `04-features/invitations-attendance.md` — precedencia de invitaciones, asistencia y zooms.
 - `04-features/segments-history.md` — historial reutilizable de invitados entre Seguimiento y Masivo.
 - `04-features/mass-messaging.md` — campañas masivas y sus protecciones.
@@ -42,6 +43,7 @@ Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir 
 - `04-features/tracked-links.md` — enlaces rastreados, clics y ventana de asistencia.
 - `04-features/ftd-sales.md` — comportamiento detallado de FTD, ventas, abonos, upgrades y cierres.
 - `04-features/channel-health.md` — vinculación, salud y supervisión de canales WhatsApp.
+- `04-features/notifications.md` — notificaciones push al agente (PC y teléfono), eventos y entrega.
 - `04-features/ui-theme-responsive.md` — modo claro/oscuro y diferencias escritorio/móvil.
 
 ## Integraciones
@@ -78,6 +80,7 @@ Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir 
 | login, registro, aprobación, contraseña | `04-features/authentication-approval.md` |
 | roles, permisos, RLS | `02-architecture/security-rls.md` + `08-memory/database-security-traps.md` |
 | personas/clientes | `04-features/people-followup.md` |
+| guía «Mi día» | `04-features/mi-dia.md` |
 | actividad/seguimiento | `03-domain/activities-followups.md` |
 | texto de invitación/asistencia | `04-features/invitations-attendance.md` |
 | programar destinatarios | `03-domain/messaging-rules.md` + `08-memory/dangerous-patterns.md` |
@@ -87,6 +90,7 @@ Claude no debe leer todo `brain/` por defecto. Debe identificar la tarea, abrir 
 | enlace rastreado `/i` | `04-features/tracked-links.md` + `05-integrations/cloudflare.md` |
 | FTD/meta/cierre | `04-features/ftd-sales.md` |
 | venta/abono/upgrade/comisión | `04-features/ftd-sales.md` + `03-domain/ftd-sales-commissions.md` |
+| notificaciones push | `04-features/notifications.md` |
 | canal caído/QR/bridge | `04-features/channel-health.md` + `05-integrations/whatsapp-worker.md` |
 | VM/cupo/métricas Oracle | `05-integrations/oracle-mcp.md` |
 | cambio visual | `04-features/ui-theme-responsive.md` + `08-memory/ui-css-traps.md` |

@@ -1,0 +1,295 @@
+// «Mi día»: la guía personal del agente. Una sola tarjeta «Ahora» con lo que
+// toca, y debajo los bloques del día en el orden que eligió el usuario
+// (entrevista del 14/10/2026): Repaso → leads de WhatsApp → posibles ventas →
+// clase de hoy. Leads de HighLevel, interesados y tareas propias llegan en
+// fases siguientes.
+//
+// No se marca nada a mano: cada paso se da por hecho leyendo datos que ya
+// existen (Repaso, contactos, chats, abonos, seguimientos). Por eso aquí no hay
+// reglas propias de leads: categoría y razón salen de leads.js, igual que en el
+// panel «Hoy», para que las dos pantallas nunca digan cosas distintas.
+//
+// Solo ve lo PROPIO: es una lista de trabajo. Un director no recibe aquí a los
+// leads de sus agentes aunque pueda verlos.
+import { state, esc, hoyISO, esLead, esInactivo, usd, saldo, estaSaldada } from "./state.js";
+import { SB } from "./supabase.js";
+import { cargarEntrantes } from "./data.js";
+import { repasoPendientes } from "./repaso.js";
+import { categoria, razon, contactosDe, esMio, sinHora, horaTxt, dias } from "./leads.js";
+import { irAEtapa } from "./hoy.js";
+import { renderMetaHoy } from "./ftd.js";
+
+const HORA_MS = 60 * 60 * 1000;
+// Lo que tiene hora sube al frente una hora antes (respuesta del usuario).
+const URGENTE_ANTES_MS = HORA_MS;
+// A partir de esta hora aparece el cierre del día.
+const HORA_CIERRE = 21;
+const VIGENCIA_MS = 2 * 60 * 1000;
+
+const BLOQUES = [
+  { k: "rep", n: "Repaso" },
+  { k: "wa", n: "Leads de WhatsApp" },
+  { k: "ven", n: "Posibles ventas" },
+  { k: "cla", n: "Clase de hoy" },
+];
+// Etapas del panel «Hoy» que entran a la guía: las urgentes. «Ayer» y «el
+// resto» siguen en el panel; meterlas aquí alargaría la guía sin mover FTD hoy.
+const ETAPAS_WA = ["pend", "reg", "bajo", "hoy"];
+
+/* ------------------------------------------------------------------ datos */
+// Lo que la guía necesita y el resto de la app no carga: actividades y
+// seguimientos de hoy, chats y mensajes automáticos de hoy. Se pide al entrar
+// y se refresca cada pocos minutos; nunca bloquea el render.
+let extra = null, extraEn = 0, cargando = null;
+
+const digitos = t => (t || "").replace(/\D/g, "");
+const inicioHoy = () => new Date(hoyISO() + "T00:00:00-05:00");
+
+async function cargarExtra(alTerminar) {
+  if (cargando) return;
+  cargando = (async () => {
+    const me = state.me.id;
+    const desde = inicioHoy().toISOString();
+    const hasta = new Date(inicioHoy().getTime() + 24 * HORA_MS).toISOString();
+    const [acts, chats, msgs] = await Promise.all([
+      SB.from("actividades").select("id, nombre, inicio, owner_id, compartida")
+        .eq("estado", "activa").gte("inicio", desde).lt("inicio", hasta).order("inicio"),
+      SB.from("chats_recientes").select("telefono, ultimo_en, entrante_en")
+        .eq("owner_id", me).gte("ultimo_en", desde),
+      SB.from("mensajes_programados").select("tipo, telefono, enviado_en")
+        .eq("owner_id", me).eq("estado", "enviado").gte("enviado_en", desde),
+    ]);
+    // Clases de hoy que el agente puede usar: las suyas y las compartidas por
+    // su director. Las de los agentes de un director son supervisión, no suyas.
+    const clases = (acts.data || []).filter(a => a.owner_id === me || a.compartida);
+    let invitados = {};
+    if (clases.length) {
+      const { data } = await SB.from("seguimientos").select("actividad_id")
+        .eq("owner_id", me).neq("estado", "cancelado").in("actividad_id", clases.map(a => a.id));
+      (data || []).forEach(g => { invitados[g.actividad_id] = (invitados[g.actividad_id] || 0) + 1; });
+    }
+    const auto = {};   // teléfono → envíos automáticos de hoy (ms)
+    (msgs.data || []).forEach(m => { const k = digitos(m.telefono); if (k) (auto[k] ||= []).push(new Date(m.enviado_en).getTime()); });
+    const chatsPor = {};
+    (chats.data || []).forEach(c => { const k = digitos(c.telefono); if (k) chatsPor[k] = c; });
+    extra = { clases, invitados, msgs: msgs.data || [], auto, chats: chatsPor, error: acts.error || chats.error || msgs.error };
+    extraEn = Date.now();
+  })().catch(e => { console.warn("Mi día:", e); extra = extra || { clases: [], invitados: {}, msgs: [], auto: {}, chats: {}, error: e }; })
+    .finally(() => { cargando = null; alTerminar(); });
+}
+
+/* ------------------------------------------------------------------ reglas */
+// ¿Le escribiste hoy por WhatsApp? `ultimo_en` es el último mensaje en cualquier
+// dirección; si es posterior al último entrante, el último lo mandaste tú. Pero
+// los envíos automáticos (recordatorios, masivos) también salen por tu número y
+// mueven `ultimo_en`: si coincide con uno de ellos (±2 min) no cuenta, porque
+// la guía pregunta si TÚ atendiste al lead, no si Nexus le escribió.
+function escribisteHoy(c) {
+  const k = digitos(c.tel), ch = k && extra?.chats[k];
+  if (!ch || dias(ch.ultimo_en) !== 0) return false;
+  const ult = new Date(ch.ultimo_en).getTime();
+  if (ch.entrante_en && new Date(ch.entrante_en).getTime() >= ult) return false;
+  return !(extra.auto[k] || []).some(t => Math.abs(t - ult) <= 2 * 60 * 1000);
+}
+const contactoHoy = c => contactosDe(c).some(x => dias(x.en) === 0);
+
+function itemsDelDia() {
+  const ahora = Date.now(), me = state.me.id, hoy = hoyISO();
+  const items = [];
+
+  // 0 · Repaso de asistencias: antes de todo.
+  const nRep = repasoPendientes();
+  items.push({ b: "rep", id: "rep", t: "Repaso de asistencias",
+    s: nRep ? `${nRep} invitación${nRep === 1 ? "" : "es"} sin responder` : "Al día",
+    hecho: nRep === 0, ok: "Sin invitaciones pendientes", acc: "repaso",
+    why: "Va primero: deja al día la asistencia de la clase anterior." });
+
+  // 1 · Leads de WhatsApp en etapas urgentes.
+  const ORD = Object.fromEntries(ETAPAS_WA.map((k, i) => [k, i]));
+  state.clientes
+    .filter(c => !esInactivo(c) && esMio(c) && (esLead(c) || (c.promesaEn && c.promesaBroker)))
+    .map(c => ({ c, cat: categoria(c) }))
+    .filter(x => ETAPAS_WA.includes(x.cat))
+    .sort((a, b) => ORD[a.cat] - ORD[b.cat]
+      || (a.cat === "pend" ? new Date(a.c.promesaEn) - new Date(b.c.promesaEn) : a.c.nombre.localeCompare(b.c.nombre, "es")))
+    .forEach(({ c, cat }) => {
+      const at = cat === "pend" && !sinHora(c.promesaEn) && dias(c.promesaEn) === 0 ? new Date(c.promesaEn).getTime() : null;
+      const porWa = escribisteHoy(c), aMano = contactoHoy(c);
+      items.push({ b: "wa", id: "wa" + c.id, c, cat, at, t: c.nombre, s: razon(c),
+        hecho: porWa || aMano, ok: porWa ? "Le escribiste hoy por WhatsApp" : "Contacto registrado hoy",
+        acc: "lead",
+        why: { pend: "Prometió depositar: es lo más cerca de un FTD.",
+               reg: "Ya abrió cuenta: falta que prometa depositar.",
+               bajo: "Te escribió hoy: está caliente.",
+               hoy: "Llegó hoy y espera tu primer contacto." }[cat] });
+    });
+
+  // 3 · Posibles ventas: por ahora, los cobros. Aparece el día de su fecha de
+  // pago (o si ya venció) y queda hecho al registrar un abono hoy o al mover la
+  // fecha. Sin hora: no sube al frente, respeta el orden del bloque.
+  if (state.ventasOk) {
+    state.ventas
+      .filter(v => v.owner_id === me && v.estado === "abierta" && v.fecha_pago)
+      .filter(v => v.fecha_pago <= hoy || (v.abonos || []).some(a => a.fecha === hoy))
+      .sort((a, b) => a.fecha_pago.localeCompare(b.fecha_pago))
+      .forEach(v => {
+        const c = state.clientes.find(x => x.id === v.cliente_id);
+        const abonoHoy = (v.abonos || []).filter(a => a.fecha === hoy).reduce((s, a) => s + a.monto, 0);
+        const vencida = v.fecha_pago < hoy;
+        items.push({ b: "ven", id: "v" + v.id, t: c?.nombre || "Venta", acc: "venta",
+          s: `Cobro pendiente · saldo ${usd(saldo(v))}${vencida ? " · vencido" : ""}`,
+          hecho: abonoHoy > 0 || estaSaldada(v), ok: `Abono de ${usd(abonoHoy)} registrado hoy`,
+          why: vencida ? "Su fecha de pago ya pasó." : "Hoy es su fecha de pago." });
+      });
+  }
+
+  // 4 · Clase de hoy: todos los días hay clase. Si no hay ninguna (propia ni
+  // compartida), se pide crearla; si existe, invitar al menos una tanda.
+  if (extra) {
+    if (!extra.clases.length) {
+      items.push({ b: "cla", id: "cla-crear", t: "Crea la clase de hoy", s: "No tienes ninguna clase para hoy",
+        hecho: false, acc: "seg", why: "Todos los días hay clase. Créala y luego invita." });
+    }
+    extra.clases.forEach(a => {
+      const n = extra.invitados[a.id] || 0, at = new Date(a.inicio).getTime();
+      items.push({ b: "cla", id: "cla" + a.id, at: at > ahora ? at : null,
+        t: `${a.nombre} · ${horaTxt(a.inicio)}`, s: n ? `${n} invitados tuyos` : "Sin invitados tuyos",
+        hecho: n > 0, ok: `${n} invitados programados`, acc: "seg",
+        why: "Invita al menos una tanda y los recordatorios salen solos." });
+    });
+  }
+  return items;
+}
+
+const urgente = (it, ahora) => !it.hecho && it.at != null && ahora >= it.at - URGENTE_ANTES_MS;
+const idxBloque = it => BLOQUES.findIndex(b => b.k === it.b);
+
+// Orden: lo urgente primero (por hora), después el orden fijo del usuario.
+function cola(items, ahora) {
+  const pend = items.filter(i => !i.hecho);
+  const u = pend.filter(i => urgente(i, ahora)).sort((a, b) => a.at - b.at);
+  const r = pend.filter(i => !urgente(i, ahora)).sort((a, b) => idxBloque(a) - idxBloque(b) || items.indexOf(a) - items.indexOf(b));
+  return [...u, ...r];
+}
+
+/* ------------------------------------------------------------------ vista */
+const ICO_WA = '<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .3-3.4-.7-2.9-1.2-4.7-4.1-4.9-4.3-.1-.2-1.2-1.6-1.2-3s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .6l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.3.1.2.1.7-.1 1.2z"/></svg>';
+
+function accionesHTML(it) {
+  if (it.acc === "lead") {
+    const tel = digitos(it.c.tel);
+    return `<div class="mdacts">
+      ${tel ? `<a class="btn-oro mdbtn" href="https://wa.me/${tel}" target="_blank" rel="noopener">${ICO_WA}Abrir chat</a>` : ""}
+      <button class="lbtn mdbtn" data-md="lead" data-id="${it.c.id}" data-cat="${it.cat}">Registrar en Leads</button></div>`;
+  }
+  const L = { repaso: "Hacer el repaso", venta: "Ir a Ventas", seg: it.id === "cla-crear" ? "Crear en Seguimiento" : "Programar invitados" };
+  return `<div class="mdacts"><button class="btn-oro mdbtn" data-md="${it.acc}">${L[it.acc]}</button></div>`;
+}
+
+function sistemaHTML() {
+  if (!extra) return "";
+  const cuenta = tipos => extra.msgs.filter(m => tipos.includes(m.tipo)).length;
+  const escribieron = state.clientes.filter(c => esMio(c) && esLead(c)
+    && state.entrantes?.[digitos(c.tel)] && dias(state.entrantes[digitos(c.tel)]) === 0).length;
+  const filas = [
+    [cuenta(["invitacion"]), "invitaciones a clases"],
+    [cuenta(["rec_60", "rec_15", "confirmacion"]), "recordatorios y confirmaciones"],
+    [cuenta(["enlace"]), "enlaces de clase"],
+    [cuenta(["masivo"]), "mensajes masivos"],
+    [escribieron, `lead${escribieron === 1 ? "" : "s"} te escribieron y subieron a caliente`],
+  ].filter(([n]) => n > 0);
+  return `<div class="mdsis"><b>Lo que Nexus hizo por ti hoy</b>
+    ${filas.length ? `<ul>${filas.map(([n, t]) => `<li><span>${n}</span> ${t}</li>`).join("")}</ul>`
+      : `<p>Todavía nada hoy. Cuando salgan invitaciones o recordatorios, los verás aquí.</p>`}</div>`;
+}
+
+function cierreHTML(items) {
+  const me = state.me.id, hoy = hoyISO();
+  const ftdHoy = state.clientes.filter(c => c.owner_id === me && Object.values(c.ftds || {}).includes(hoy)).length;
+  const cobrado = state.ventas.filter(v => v.owner_id === me)
+    .flatMap(v => v.abonos || []).filter(a => a.fecha === hoy).reduce((s, a) => s + a.monto, 0);
+  const contactos = Object.values(state.contactos || {}).flat().filter(x => dias(x.en) === 0).length;
+  const quedan = items.filter(i => !i.hecho);
+  return `<div class="mdcierre"><div class="mdeb">Cierre del día</div><h3>Así te fue hoy</h3>
+    <div class="mdnums"><div><b>${ftdHoy}</b><small>FTD</small></div><div><b>${contactos}</b><small>contactos</small></div><div><b>${usd(cobrado)}</b><small>cobrado</small></div></div>
+    ${quedan.length ? `<div class="mdsubl">Pasa a mañana</div><ul>${quedan.map(i => `<li>${esc(i.t)}</li>`).join("")}</ul>`
+      : "<p>No queda nada pendiente para mañana.</p>"}</div>`;
+}
+
+let reloj = null;
+
+export function renderMiDia(cont, render) {
+  // «Te escribieron» y «le escribiste» necesitan los entrantes, igual que Leads.
+  if (state.entrantes === null) {
+    state.entrantes = {};
+    cargarEntrantes().then(m => { state.entrantes = m; render(); });
+  }
+  if (!extra || Date.now() - extraEn > VIGENCIA_MS) cargarExtra(render);
+  // La urgencia depende de la hora: se repinta cada minuto mientras la vista
+  // está abierta, para que lo que entra en su última hora suba solo.
+  if (!reloj) reloj = setInterval(() => { if (state.vista === "midia") render(); }, 60 * 1000);
+
+  const ahora = Date.now();
+  const items = itemsDelDia();
+  const q = cola(items, ahora), foco = q[0];
+  const listos = items.filter(i => i.hecho).length;
+  const hora = new Date(ahora).getHours();
+
+  let top = "";
+  if (hora >= HORA_CIERRE) top += cierreHTML(items);
+  if (foco) {
+    const u = urgente(foco, ahora);
+    const falta = u ? Math.max(0, Math.round((foco.at - ahora) / 60000)) : null;
+    top += `<div class="mdahora ${u ? "urg" : ""}">
+      <div class="mdeb"><span>${u ? "Urgente · " : ""}Ahora</span><span>${BLOQUES[idxBloque(foco)].n}</span></div>
+      <h3>${esc(foco.t)}</h3><p>${foco.s}</p>
+      <div class="mdwhy">${u ? (falta > 0 ? `Faltan ${falta} min: por eso subió al frente. ` : "Ya es la hora. ") : ""}${foco.why}</div>
+      ${accionesHTML(foco)}</div>`;
+  } else if (hora < HORA_CIERRE) {
+    top += `<div class="mdahora"><div class="mdeb"><span>Al día</span></div><h3>No tienes nada pendiente ahora</h3>
+      <p>A las 9 pm verás el cierre del día.</p></div>`;
+  }
+
+  const bloques = BLOQUES.map((b, i) => {
+    const ls = items.filter(x => x.b === b.k);
+    if (!ls.length && !(b.k === "cla" && !extra)) return "";
+    const ok = ls.filter(x => x.hecho).length;
+    return `<section class="mdblq"><div class="mdblq-h"><span><i>${i}</i>${b.n}</span><em>${ok}/${ls.length}</em></div>
+      ${ls.length ? ls.map(x => {
+        const cls = [x.hecho ? "hecho" : "", x === foco ? "foco" : "", urgente(x, ahora) ? "urg" : ""].join(" ");
+        return `<div class="mdpaso ${cls}" data-paso="${x.id}"><span class="mddot"></span>
+          <div class="mdpaso-t"><b>${esc(x.t)}</b><small>${x.hecho ? x.ok : x.s}</small></div>
+          ${x.at != null && !x.hecho ? `<span class="mdhora">${horaTxt(x.at)}</span>` : ""}</div>`;
+      }).join("") : `<div class="mdcarga">Cargando…</div>`}</section>`;
+  }).join("");
+
+  cont.innerHTML = `
+    <div id="mdMeta"></div>
+    <div class="mdruta" aria-hidden="true">${items.map(x => `<i class="${x.hecho ? "on" : ""}"></i>`).join("")}</div>
+    <div class="mdruta-t">${listos} de ${items.length} listos</div>
+    ${top}
+    <div class="mdgrid"><div class="mdcol">${bloques}</div><div class="mdcol">${sistemaHTML()}</div></div>
+    ${extra?.error ? `<p class="mderr">Parte de la guía no cargó: ${esc(extra.error.message || String(extra.error))}</p>` : ""}`;
+
+  renderMetaHoy(cont.querySelector("#mdMeta"), render, 0);
+
+  cont.querySelectorAll("[data-md]").forEach(b => b.onclick = async () => {
+    const a = b.dataset.md;
+    if (a === "repaso") { (await import("./repaso.js")).repasoManual(); return; }
+    if (a === "venta") { state.vista = "ventas"; render(); return; }
+    if (a === "seg") { document.getElementById("btnSeg").click(); return; }
+    if (a === "lead") {
+      irAEtapa(b.dataset.cat);
+      // Igual que la pestaña Leads: cambiar de módulo limpia los filtros del otro.
+      if (state.modulo !== "leads") { state.filtro = "todos"; state.filtroTemp = null; }
+      state.modulo = "leads"; state.leadsVista = "hoy"; state.vista = "cliente";
+      render();
+      document.querySelector(`.hfila[data-id="${b.dataset.id}"]`)?.scrollIntoView({ block: "center" });
+    }
+  });
+}
+
+// La guía se activa primero solo para estos usuarios (decisión del 14/10/2026:
+// probarla en el día real antes de pedir a otros agentes que la configuren).
+export const MI_DIA_USUARIOS = ["a70d2670-74b2-4eb7-be6e-ed3c92068c14"];
+export const tieneMiDia = () => MI_DIA_USUARIOS.includes(state.me?.id);

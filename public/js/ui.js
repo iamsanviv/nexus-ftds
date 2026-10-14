@@ -16,6 +16,7 @@ import { repasoPendientes } from "./repaso.js";
 import { refrescarCanal } from "./canal.js";
 import { chipTemp, razon, seguimientoHTML, wireSeguimiento, temperatura } from "./leads.js";
 import { renderHoy } from "./hoy.js";
+import { renderMiDia, tieneMiDia } from "./midia.js";
 
 const NIVELES = ["Lead", "Beca", "VIP", "Platino", "Oro"];
 // Orden de urgencia de la temperatura para ordenar la lista de leads.
@@ -75,6 +76,15 @@ export function render() {
   // Ventas vive en ventas.js y se dibuja solo. El import es dinámico por lo
   // mismo que el de repaso.js: ventas.js importa render() de aquí, y hacerlo
   // estático en los dos sentidos crearía un ciclo.
+  // «Mi día» (guía del agente) tiene su propia vista y no usa buscador ni «+ Cliente».
+  $("vistaMiDia").classList.toggle("hidden", state.vista !== "midia");
+  if (state.vista === "midia") {
+    ["vistaCliente", "vistaSeguimiento", "vistaMas", "vistaVentas", "abrirModal", "buscar", "abrirVenta"]
+      .forEach(id => $(id).classList.add("hidden"));
+    renderMiDia($("vistaMiDia"), render);
+    return;
+  }
+
   $("vistaVentas").classList.toggle("hidden", state.vista !== "ventas");
   if (state.vista === "ventas") {
     $("vistaCliente").classList.add("hidden");
@@ -603,7 +613,7 @@ export const iniciales = n => (n || "?").trim().split(/\s+/).slice(0, 2).map(w =
 function renderShell() {
   const V = state.vista;
   const isLead = state.modulo === "leads";
-  const titulos = { cliente: isLead ? "Leads" : "Comunidad", seguimiento: "Seguimiento", ventas: "Ventas", mas: "Más" };
+  const titulos = { cliente: isLead ? "Leads" : "Comunidad", seguimiento: "Seguimiento", ventas: "Ventas", mas: "Más", midia: "Mi día" };
   $("viewTitle").textContent = titulos[V] || "Seguimiento";
   let sub = "";
   if (V === "cliente") {
@@ -611,9 +621,11 @@ function renderShell() {
     sub = isLead ? `${n} lead${n === 1 ? "" : "s"}` : `${n} en la comunidad`;
   } else if (V === "seguimiento") sub = "Actividades y mensajes automáticos";
   else if (V === "ventas") sub = "Facturación y comisiones";
+  else if (V === "midia") sub = new Date().toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" });
   else sub = "Cuenta y herramientas";
   $("viewSub").textContent = sub;
 
+  $("tabMiDia").classList.toggle("hidden", !tieneMiDia());
   // Comunidad y Leads comparten vista («cliente»); los distingue el módulo.
   document.querySelectorAll(".tabbar .tab").forEach(t => t.classList.toggle("on",
     t.dataset.v === V && (!t.dataset.m || t.dataset.m === state.modulo)));
@@ -658,6 +670,7 @@ const irModulo = m => () => {
 $("tabComunidad").onclick = irModulo("comunidad");
 $("tabLeads").onclick = irModulo("leads");
 $("tabMas").onclick = () => { state.vista = "mas"; render(); };
+$("tabMiDia").onclick = () => { state.vista = "midia"; render(); };
 
 /* ================= PERFIL (crear / editar persona) ================= */
 // Clase de color por nivel; la misma familia que usan las tarjetas de conteo.

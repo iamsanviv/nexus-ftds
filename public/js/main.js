@@ -9,6 +9,7 @@ import "./canal.js";   // "Mi WhatsApp": estado y vinculación del canal del age
 import "./salud.js";   // avisos de canal caído + panel de agentes del director
 import "./ventas.js";  // ventas, abonos y comisiones
 import "./ftd.js";     // bloque de FTD en Personas, metas y cierre mensual
+import "./notificaciones.js"; // activar push por dispositivo y elegir avisos
 import { boot } from "./auth.js"; // engancha login y revisa la sesión
 
 boot();

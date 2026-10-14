@@ -133,6 +133,9 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <input class="buscar" id="buscar" placeholder="Buscar cliente…">
   </div>
 
+  <!-- «Mi día»: guía personal del agente. La pinta midia.js. -->
+  <div id="vistaMiDia" class="hidden"></div>
+
   <div id="vistaCliente">
     <!-- Leads tiene dos caras: «Hoy» (qué hacer, te recibe al entrar) y la
          lista completa. Lo pinta ui.js solo en Leads. -->
@@ -507,6 +510,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
 
     <div class="mgrp">
       <button class="mrow" id="btnCanal"><span class="mi">💬</span>Mi WhatsApp<span class="wstate" id="canalEstado">…</span></button>
+      <button class="mrow" id="btnNotif"><span class="mi">🔔</span>Notificaciones<span class="wstate" id="notifEstado">…</span></button>
       <button class="mrow" id="btnPass"><span class="mi">🔑</span>Cambiar mi contraseña<span class="mc">›</span></button>
     </div>
 
@@ -521,6 +525,9 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
   <nav class="tabbar"><div class="sidebrand">SEGUIMIENTO <b>NX</b></div><div class="tabinner">
     <!-- Comunidad y Leads son dos pestañas: antes eran un selector dentro de
          «Personas», un segundo nivel de navegación que había que descubrir. -->
+    <button class="tab hidden" data-v="midia" id="tabMiDia">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      Mi día</button>
     <button class="tab" data-v="cliente" data-m="comunidad" id="tabComunidad">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5" stroke-linecap="round"/></svg>
       Comunidad</button>
@@ -786,6 +793,15 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <h2>💬 Mi WhatsApp</h2>
     <div id="canalBody"></div>
     <div class="mfoot"><button class="tbtn" id="canalCerrar">Cerrar</button></div>
+  </div>
+</div>
+
+<!-- modal Notificaciones (push por dispositivo; lo maneja notificaciones.js) -->
+<div class="overlay" id="notifOverlay">
+  <div class="modal">
+    <h2>🔔 Notificaciones</h2>
+    <div id="notifBody"></div>
+    <div class="mfoot"><button class="tbtn" id="notifCerrar">Cerrar</button></div>
   </div>
 </div>
 
