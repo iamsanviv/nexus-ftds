@@ -1954,3 +1954,22 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
   .pgtam .lbl,.pglargo{display:none}
   .pgtam .oseg{padding:6px 9px}
 }
+
+/* ---------- Notificaciones (notificaciones.js) ---------- */
+.mrow .wstate.off{color:var(--muted);font-weight:600}
+.notifok,.notifaviso{font-size:.84rem;line-height:1.45;border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.notifok{background:var(--surface2);color:var(--text);border-left:3px solid var(--ok)}
+.notifaviso{background:var(--surface2);color:var(--text);border-left:3px solid var(--gold)}
+.notifacc{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 14px}
+.notiftipos{display:flex;flex-direction:column;margin-bottom:10px}
+.notiftipo{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-top:1px solid var(--surface2);cursor:pointer}
+.notiftipo:first-child{border-top:0}
+.notiftipo input{width:auto;margin-top:3px;accent-color:var(--gold);flex:0 0 auto}
+.notiftipo span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.notiftipo b{font-size:.88rem;font-weight:600;color:var(--text)}
+.notiftipo small{font-size:.76rem;color:var(--muted);line-height:1.35}
+.notifintro{color:var(--muted);font-size:.84rem;margin-bottom:10px}
+.notifh{font-size:.69rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted);margin:6px 0 4px;display:flex;align-items:center;gap:9px}
+.notifh .rule{flex:1;height:1px;background:var(--border)}
+.notifacc .tbtn{width:auto;flex:0 0 auto;padding:10px 14px}
