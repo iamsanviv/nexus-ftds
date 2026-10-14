@@ -1996,6 +1996,8 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .mdwhy{font-size:.78rem;margin-top:9px;background:var(--surface2);border-radius:8px;padding:7px 10px}
 .mdacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .mdbtn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;align-self:auto}
+/* «Enviar seguimiento» con el estilo del de Leads, pero en fila con los demás botones. */
+.mdacts .hsegenv{margin-left:0;padding:9px 14px}
 .mdgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:0 24px;margin-top:6px}
 .mdcol{min-width:0}
 .mdblq{margin-top:14px}

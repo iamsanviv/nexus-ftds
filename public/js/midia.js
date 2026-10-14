@@ -356,6 +356,8 @@ function cola(items, ahora) {
 }
 
 /* ------------------------------------------------------------------ vista */
+// El mismo avión de papel del botón «Enviar seguimiento» de Leads (ui.js).
+const ICO_ENV = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>`;
 const ICO_WA = '<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .3-3.4-.7-2.9-1.2-4.7-4.1-4.9-4.3-.1-.2-1.2-1.6-1.2-3s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .6l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.3.1.2.1.7-.1 1.2z"/></svg>';
 
 function accionesHTML(it) {
@@ -364,8 +366,8 @@ function accionesHTML(it) {
     const tel = digitos(it.c.tel);
     return `<div class="mdacts">
       ${tel ? `<a class="btn-oro mdbtn" href="https://wa.me/${tel}" target="_blank" rel="noopener">${ICO_WA}Abrir chat</a>` : ""}
-      ${tel ? `<button class="lbtn mdbtn" data-md="seglead" data-id="${it.c.id}">Hacer seguimiento</button>` : ""}
-      <button class="lbtn mdbtn" data-md="lead" data-id="${it.c.id}" data-cat="${it.cat}">Registrar en Leads</button></div>`;
+      ${tel ? `<button type="button" class="hsegenv mdbtn" data-md="seglead" data-id="${it.c.id}">${ICO_ENV}Enviar seguimiento</button>` : ""}
+      <button class="lbtn mdbtn" data-md="lead" data-id="${it.c.id}" data-cat="${it.cat}">Ver en Leads</button></div>`;
   }
   const L = { repaso: "Hacer el repaso", venta: "Ir a Ventas", seg: it.id === "cla-crear" ? "Crear en Seguimiento" : "Programar invitados" };
   return `<div class="mdacts"><button class="btn-oro mdbtn" data-md="${it.acc}">${L[it.acc]}</button></div>`;
