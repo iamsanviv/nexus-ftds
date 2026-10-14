@@ -541,36 +541,6 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 /* El teléfono en el encabezado de la fila es solo de escritorio: en móvil la
    fila no cambia (el número sigue en el cuerpo, con el botón de copiar). */
 .cheadtel{display:none}
-/* Tarjeta de FTD en móvil: la cifra del mes con su barra arriba, y debajo
-   comisión y total en dos mitades. El separador es un filete corto centrado, no
-   un borde de celda: a altura completa partía la tarjeta en cajas. */
-.ftdmov{display:flex;flex-direction:column;gap:14px;padding:16px}
-.ftdmov .ftdcol{display:flex;flex-direction:column;gap:8px;min-width:0}
-.ftdmov .ftdduo{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
-.ftdmov .ftdsep{height:1px;background:var(--border)}
-/* Solo la etiqueta del mes va en dorado; si las tres lo van, ninguna destaca. */
-.ftdmov .ftdlbl{font-size:9px;text-transform:uppercase;letter-spacing:.1em;
-  color:var(--muted);font-weight:800;white-space:nowrap}
-.ftdmov .ftdlbl.oro{color:var(--gold)}
-.ftdmov .ftdcifra{display:flex;align-items:baseline;gap:9px;min-width:0}
-.ftdmov .ftdbig{font-family:'Archivo';font-weight:800;font-size:30px;line-height:1;
-  font-variant-numeric:tabular-nums;color:var(--text)}
-.ftdmov .ftdbig.md{font-size:20px}
-.ftdmov .ftdbig.gold{color:var(--gold)}
-/* Comisión en cero: el número no compite con el total que sí se cobra. */
-.ftdmov .ftdbig.mut{color:var(--muted)}
-.ftdmov .ftdmeta{font-size:12px;color:var(--muted);min-width:0;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ftdmov .ftdmeta b{color:var(--gold);font-variant-numeric:tabular-nums}
-.ftdmov .ftdmeta b.fuerte{color:var(--text)}
-.ftdmov .ftdsup{font-size:11px;color:var(--muted)}
-.ftdmov .barra{margin-top:0}
-.ftdmov .chipsub{align-self:flex-start}
-.ftdmov .ftdlinks{display:flex;align-items:baseline;gap:14px}
-.ftdmov .ftdlinks .metalink{font-size:12px;padding:0;
-  border-bottom:1px dotted var(--gold-dim);opacity:.7}
-.ftdmov .ftdlinks .metalink.quiet{color:var(--muted);border-bottom-color:var(--border)}
-
 /* En móvil el envoltorio de la derecha es transparente: el «+ Cliente» sigue
    flotando (position:fixed lo saca del flujo) y el «Orden» sale de la vista,
    igual que en escritorio: la lista ya viene ordenada por progreso. */
@@ -740,42 +710,6 @@ body.segwide .tabinner{max-width:1180px}
   .cliresumen #ftdPanel .metacard{margin-bottom:0}
   .cliresumen .stats{margin:0;grid-template-columns:repeat(4,1fr);gap:12px}
 
-  /* Tarjeta de FTD en tres columnas. La primera pesa más (lleva la cifra del mes
-     y la barra) y los separadores son filetes cortos centrados, no bordes de
-     celda: a altura completa partían la tarjeta en tres cajas. Todo el texto
-     explicativo (notas de base) sale de la vista y vive en el asistente. */
-  .ftddesk{display:grid;
-    grid-template-columns:minmax(0,1.5fr) 1px minmax(0,1fr) 1px minmax(0,1fr);
-    gap:22px;align-items:center;padding:18px 22px;
-    background:var(--ftd-grad);border:1px solid var(--ftd-border);border-radius:14px}
-  .ftddesk .ftdcol{display:flex;flex-direction:column;gap:6px;min-width:0}
-  .ftddesk .ftdcol:first-child{gap:10px}
-  .ftddesk .ftdsep{width:1px;height:56px;background:var(--border)}
-  /* Solo la etiqueta del mes va en dorado; si las tres lo van, ninguna destaca. */
-  .ftddesk .ftdlbl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;
-    color:var(--muted);font-weight:800;white-space:nowrap}
-  .ftddesk .ftdlbl.oro{color:var(--gold)}
-  .ftddesk .ftdcifra{display:flex;align-items:baseline;gap:10px;min-width:0}
-  .ftddesk .ftdbig{font-family:'Archivo';font-weight:800;font-size:34px;line-height:1;
-    font-variant-numeric:tabular-nums;color:var(--text)}
-  .ftddesk .ftdbig.md{font-size:26px}
-  .ftddesk .ftdbig.gold{color:var(--gold)}
-  /* Comisión en cero: el número no compite con el total que sí se cobra. */
-  .ftddesk .ftdbig.mut{color:var(--muted)}
-  .ftddesk .ftdmeta{font-size:14px;color:var(--muted);min-width:0;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ftddesk .ftdmeta b{color:var(--gold);font-variant-numeric:tabular-nums}
-  .ftddesk .ftdmeta b.fuerte{color:var(--text)}
-  .ftddesk .ftdsup{font-size:12px;color:var(--muted);white-space:nowrap;
-    overflow:hidden;text-overflow:ellipsis}
-  .ftddesk .barra{margin-top:0}
-  /* Los dos enlaces en una línea: apilados alargaban la tercera columna y
-     descuadraban la altura de la tarjeta. */
-  .ftddesk .ftdlinks{display:flex;flex-direction:row;align-items:baseline;gap:14px;margin-top:2px}
-  .ftddesk .ftdlinks .metalink{font-size:12px;white-space:nowrap;padding:0;
-    border-bottom:1px dotted var(--gold-dim);opacity:.6}
-  .ftddesk .ftdlinks .metalink:hover{opacity:1;background:none;border-bottom-style:dotted}
-  .ftddesk .ftdlinks .metalink.quiet{color:var(--muted);border-bottom-color:var(--border);opacity:.8}
 
   /* Filtros a la izquierda; buscador + «+ Cliente» a la derecha (mockup). El
      «Orden» sale de la vista: en escritorio la lista ya va por progreso y el
@@ -1667,10 +1601,6 @@ body:has(.overlay.open){overflow:hidden}
 .filtroscol .filtrosbrk{margin-bottom:10px;align-items:center}
 
 
-@media (min-width:1040px){
-  .ftddesk .ftdmix{font-size:12px}
-}
-
 /* La casilla de «ya lo conté» es OTRA pregunta, no parte de la lista de FTD.
    Sin un filete que las separe, su ayuda y la nota del bloque de arriba se leen
    como un solo párrafo largo — que es justo como se veía. */
@@ -1696,36 +1626,91 @@ body:has(.overlay.open){overflow:hidden}
    nada al elegir a quién escribirle; el mes sí dice qué tan nueva es la persona. */
 .seg-row .segmes{flex:0 0 auto;color:var(--muted);font-size:.72rem;white-space:nowrap}
 
-/* Meta de hoy y corte semanal dentro de la tarjeta de FTD. */
-.ftdritmo{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}
-.ritmocaja{background:var(--surface2);border-radius:11px;padding:8px 10px;min-width:0}
-.ritmocaja .ftdlbl{font-size:9px;text-transform:uppercase;letter-spacing:.1em}
-.ritmonum{margin-top:3px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
-.ritmonum b{font-family:'Archivo';font-weight:800;font-size:19px;color:var(--text)}
-.ritmocaja .barra{height:4px;margin-top:6px}
-.ritmocaja.ok .ritmonum{color:var(--gold)}
-.ritmocaja .ftdlbl{display:flex;align-items:center;gap:6px}
-/* La «i» de cada caja abre su globo a lo ancho de LAS DOS cajas: anclado al
-   icono, el de «Corte» se salía por la derecha a 320 px. */
+/* ---------------- Tarjeta de FTD del mes (Comunidad) ----------------
+   Una sola plantilla: móvil apila mes / ritmo / comisión y escritorio los pone
+   en tres columnas. Los separadores son filetes, no bordes de celda: a altura
+   completa partían la tarjeta en cajas. Sin `overflow:hidden` ni brillo de
+   esquina: así los globos de la «i» y el menú ⋯ pueden salirse de la tarjeta. */
+.ftdcard{display:flex;flex-direction:column;gap:14px;padding:16px;overflow:visible;
+  background:var(--ftd-grad);border:1px solid var(--ftd-border)}
+.ftdcard::after{display:none}
+.ftdcard .ftdcol{display:flex;flex-direction:column;gap:8px;min-width:0}
+.ftdcard .ftdsep{height:1px;background:var(--border)}
+.ftdcard .ftdlbl{font-family:'Archivo';font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--muted);font-weight:800;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.ftdcard .ftdlbl.oro{color:var(--gold)}
+.ftdcard .ftdbig{font-family:'Archivo';font-weight:800;font-size:32px;line-height:1;
+  font-variant-numeric:tabular-nums;color:var(--text);display:block}
+.ftdcard .ftdbig.md{font-size:24px;margin-top:5px}
+.ftdcard .ftdbig.gold{color:var(--gold)}
+/* Comisión en cero o esperada: el número no compite con lo que sí se cobra. */
+.ftdcard .ftdbig.mut{color:var(--muted)}
+.ftdcard .ftdcifra{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0}
+.ftdcard .ftdde{font-family:'Archivo';font-weight:800;font-size:20px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ftdcard .ftdfalt{font-size:12px;color:var(--muted)}
+.ftdcard .ftdfalt b{color:var(--text);font-variant-numeric:tabular-nums}
+.ftdcard .ftdfalt.ok{color:var(--ok);font-weight:700}
+.ftdcard .ftdsup{font-size:11px;color:var(--muted)}
+.ftdcard .ftdsup b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+.ftdcard .barra{margin-top:0}
+.ftdcard .ftdmix .chipsub{padding:1px 8px}
+.ftdsinritmo .metalink{align-self:flex-start;font-size:12px}
+
+/* Comisión actual y esperada lado a lado; la barra dice cuánto ya está asegurado. */
+.ftdcom .ftdcomrow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ftdcom .barra{height:4px}
+
+/* Ritmo: hoy y corte. En móvil van en dos mitades; en escritorio, apilados. */
+/* `.ftdcard` delante: si no, la regla de columna (`.ftdcard .ftdcol`, flex) le gana al grid. */
+.ftdcard .ftdritmo{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center}
+.ftdritmo .ritmo{display:flex;flex-direction:column;gap:6px;min-width:0}
+.ritmonum{display:flex;align-items:baseline;gap:5px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ritmonum b{font-family:'Archivo';font-weight:800;font-size:20px;color:var(--text)}
+.ritmonum b.m{color:var(--gold)}
+.ftdritmo .barra{height:4px}
+.ftdritmo .corte.ok .ritmonum{color:var(--gold)}
+/* «Meta de hoy» con distintivo (sello): fondo dorado suave, borde, diana y la
+   fecha. Es la cifra que el agente mueve hoy, así que es la que más llama sin
+   volverse un bloque sólido que se coma la tarjeta. */
+.ftdritmo .hoy{background:var(--gold-soft);border:1px solid color-mix(in srgb,var(--gold) 50%,transparent);
+  border-radius:12px;padding:9px 11px}
+.ftdritmo .hoy .diana{width:13px;height:13px;flex:0 0 auto}
+.ftdritmo .hoy .sello{display:none;margin-left:auto;font-family:'Inter',system-ui,sans-serif;font-size:9.5px;
+  font-weight:700;letter-spacing:.02em;text-transform:none;color:var(--on-gold);background:var(--gold-fill);
+  border-radius:999px;padding:1px 7px}
+.ftdritmo .ritmofalta{margin-left:auto;font-size:11px;color:var(--gold);white-space:nowrap}
+.ftdritmo .ritmofalta b{font-family:inherit;font-size:inherit;color:var(--gold)}
+.ftdritmo .hoy.ok .ritmofalta{font-weight:700}
+/* El globo de la «i» se ancla al bloque de ritmo entero (no al icono): anclado
+   al icono, el de «Corte» se salía por la derecha a 320 px. */
 .ftdritmo .infoi{position:static;margin-left:0}
 .ftdritmo .infoi::after{left:0;right:0;top:calc(100% + 7px);transform:none;width:auto;max-width:none}
-/* Dentro de la tarjeta de FTD se abre HACIA ARRIBA: la tarjeta recorta lo que
-   sobresale (`overflow:hidden`, por su brillo de fondo) y las cajas están al
-   fondo de la columna; arriba queda la cifra del mes, que sí tiene espacio. */
-.metacard .ftdritmo .infoi::after{top:auto;bottom:calc(100% + 7px)}
-/* Meta del mes al mismo tamaño que los FTD del mes. */
-.ftdmeta b.metabig{font-family:'Archivo';font-weight:800;font-size:30px;line-height:1;color:var(--gold)}
-.ftddesk .ftdmeta b.metabig{font-size:34px}
-/* Hoy en dorado sólido (lo primero que se ve); el corte, con borde dorado. */
-.ritmonum b.m{font-size:30px;color:var(--gold)}
-.ritmocaja.borde{border:1px solid color-mix(in srgb,var(--gold) 50%,transparent)}
-.ritmocaja.dorado{background:linear-gradient(135deg,#f2cd78,var(--gold-fill) 55%,var(--gold-dim));color:var(--on-gold)}
-.ritmocaja.dorado .ftdlbl,.ritmocaja.dorado .ritmonum,.ritmocaja.dorado .ritmonum b,
-.ritmocaja.dorado .ritmonum b.m{color:var(--on-gold)}
-.ritmocaja.dorado .infoi,.ritmocaja.dorado .infoi:hover,.ritmocaja.dorado .infoi.abierto{color:var(--on-gold);opacity:.8}
-.ritmocaja.dorado .infoi:hover,.ritmocaja.dorado .infoi.abierto{opacity:1}
-.ritmocaja.dorado .barra{background:color-mix(in srgb,var(--on-gold) 18%,transparent)}
-.ritmocaja.dorado .barra i{background:var(--on-gold)}
+
+/* Menú ⋯: las acciones del mes salieron de la tarjeta para que solo haya cifras. */
+.ftdmas{position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:9px;
+  display:grid;place-items:center;color:var(--muted);z-index:2}
+.ftdmas:hover,.ftdmas[aria-expanded="true"]{background:var(--surface2);color:var(--text)}
+.ftdmas svg{width:16px;height:16px}
+.ftdmenu{position:absolute;top:42px;right:8px;z-index:30;min-width:190px;padding:5px;
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,.35)}
+.ftdmenu button{display:block;width:100%;text-align:left;padding:9px 11px;border-radius:8px;font-size:.84rem;color:var(--text)}
+.ftdmenu button:hover{background:var(--hover)}
+
+@media (min-width:1040px){
+  .ftdcard{display:grid;grid-template-columns:minmax(0,1.35fr) 1px minmax(0,1fr) 1px minmax(0,1.05fr);
+    gap:24px;align-items:center;padding:20px 24px}
+  .ftdcard .ftdsep{width:1px;height:76px}
+  .ftdcard .ftdlbl{font-size:10px}
+  .ftdcard .ftdbig{font-size:38px}
+  .ftdcard .ftdbig.md{font-size:28px}
+  .ftdcard .ftdhero{gap:10px}
+  .ftdcard .ftdsup{font-size:12px}
+  .ftdcard .ftdmix{font-size:12px}
+  .ftdcard .ftdritmo{grid-template-columns:1fr;gap:12px}
+  .ftdritmo .hoy .sello{display:inline-block}
+  /* El ⋯ no puede pisar la etiqueta de la comisión. */
+  .ftdcom{padding-right:22px}
+}
 
 /* Campos del rango de fecha de depósito: compactos, como el desplegable. */
 .depfecha{width:auto;flex:0 1 auto;min-width:0;font-size:.78rem;padding:6px 9px;border-radius:999px}
