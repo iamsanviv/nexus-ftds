@@ -24,6 +24,7 @@ cron «notificaciones» (pg_cron, cada minuto) → generar_notificaciones() + re
 | tipo | origen | clave (dedupe) |
 |---|---|---|
 | `zoom` | cron: actividad `activa` que empieza en ≤60 min; al dueño y a quien tenga seguimientos no cancelados en ella | actividad + inicio (reprogramar vuelve a avisar) |
+| `sin_respuesta` | cron: `rec_60` pendiente propio que sale en ≤15 min, y `sin_respuesta_de(owner, actividad)` > 0 (`sql/2026-10-14_37_aviso_sin_respuesta.sql`). Si se desmarcó el recordatorio de 1 h, no avisa | actividad + inicio |
 | `canal` | trigger `canales_wa`: `vinculado` → otro estado, sin `comando`/baja | por hora |
 | `canal` | cron: `vinculado` pero sin latido >10 min (y <1 día) | último `actualizado` |
 | `canal` | cron: ≥3 errores en 30 min y ≥ enviados | por día (Bogotá) |
