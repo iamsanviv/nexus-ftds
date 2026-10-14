@@ -49,6 +49,10 @@ La pestaña «Servicios» (vista por servicio con «invitado / asistió» a mano
 
 El catálogo **no** se quitó: lo usan las actividades de catálogo (imagen, asistencia) y el % de progreso. Se sigue editando desde «Más».
 
+## Paginación (solo Comunidad)
+
+20 por página por defecto, con 20/50/100 a elegir (el tamaño se recuerda en el navegador, `nx.porPagina`). La página vuelve a 1 cuando cambia cualquier filtro, el orden o la búsqueda. El número de rango de «Cerca de completar» se cuenta sobre la lista entera: la página 2 empieza en 21. Leads no se pagina (su lista de trabajo es «Hoy»).
+
 ## Filas en escritorio
 
 La fila de cliente fue compactada para mostrar nombre, nivel/indicadores, teléfono, progreso y estado en una línea. Los nombres largos deben ceder con ellipsis sin desplazar insignias/banderas ni romper el layout.
