@@ -12,7 +12,7 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
   sube al frente 1 hora antes. Cierre del día a las 21:00.
 
 ## Reglas («hecho» se deriva, no se marca)
-- Repaso: `repasoPendientes() === 0`.
+- Repaso: `repasoPendientes() === 0`. Se puede **saltar por hoy** (botón en «Ahora» o enlace en la fila): sale de «Ahora», no cuenta como listo, sigue en «Pasa a mañana» y se puede retomar. El salto se guarda en `localStorage` (`nexus:midia:salto-repaso:<usuario>` = fecha) y caduca solo al cambiar el día.
 - Leads de WhatsApp: solo etapas `pend`, `reg`, `bajo`, `hoy` (las de `leads.categoria`).
   Atendido = contacto registrado hoy, o le escribiste hoy por WhatsApp: `chats_recientes.ultimo_en`
   de hoy y posterior a `entrante_en`, **excluyendo** si coincide (±2 min) con un
