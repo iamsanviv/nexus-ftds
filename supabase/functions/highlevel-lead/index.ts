@@ -40,6 +40,17 @@ const claveTel = (t?: string | null) => {
 };
 const hoyCO = () => new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10);
 
+// HighLevel manda `{{contact.phone}}` en formato nacional cuando el número es
+// del país de la subcuenta (Colombia): «318 5506790», sin «+57». Así no cruza
+// con WhatsApp (que guarda 57…) y la ficha lo vuelve «+318…», un número que no
+// existe. Solo se completa el móvil colombiano (10 dígitos que empiezan por 3);
+// lo que llega con «+» o con otra forma se deja como vino.
+const conIndicativo = (t?: string) => {
+  if (!t || t.trim().startsWith("+")) return t;
+  const d = t.replace(/\D/g, "");
+  return /^3\d{9}$/.test(d) ? "+57" + d : t;
+};
+
 // La persona en Nexus: la que ya tenga ese número (no se duplica) o una nueva.
 async function personaPara(owner: string, nombre: string | undefined, telefono: string | undefined) {
   const k = claveTel(telefono);
@@ -72,7 +83,7 @@ Deno.serve(async req => {
 
   const nombre = primero(b?.full_name, c?.full_name, c?.name, b?.name,
     [b?.first_name ?? c?.first_name ?? c?.firstName, b?.last_name ?? c?.last_name ?? c?.lastName].filter(Boolean).join(" "));
-  const telefono = primero(b?.phone, c?.phone, b?.phone_number);
+  const telefono = conIndicativo(primero(b?.phone, c?.phone, b?.phone_number));
   const email = primero(b?.email, c?.email);
 
   // Si el mismo contacto llega otra vez (reasignado), se actualizan sus datos
