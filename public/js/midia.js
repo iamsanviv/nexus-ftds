@@ -114,15 +114,26 @@ function escribisteHoy(c) {
 }
 const contactoHoy = c => contactosDe(c).some(x => dias(x.en) === 0);
 
+// El salto vale solo el día en que se hizo: mañana el repaso vuelve al frente.
+// En localStorage: es una comodidad del navegador, no un dato del negocio.
+const CLAVE_SALTO = () => `nexus:midia:salto-repaso:${state.me.id}`;
+function repasoSaltado() {
+  try { return localStorage.getItem(CLAVE_SALTO()) === hoyISO(); } catch { return false; }
+}
+function saltarRepaso(si) {
+  try { si ? localStorage.setItem(CLAVE_SALTO(), hoyISO()) : localStorage.removeItem(CLAVE_SALTO()); } catch { /* sin almacenamiento: no se recuerda */ }
+}
+
 function itemsDelDia() {
   const ahora = Date.now(), me = state.me.id, hoy = hoyISO();
   const items = [];
 
   // 0 · Repaso de asistencias: antes de todo.
-  const nRep = repasoPendientes();
+  // Se puede saltar por hoy: sale de «Ahora» pero sigue en «Pasa a mañana».
+  const nRep = repasoPendientes(), salto = nRep > 0 && repasoSaltado();
   items.push({ b: "rep", id: "rep", t: "Repaso de asistencias",
-    s: nRep ? `${nRep} invitación${nRep === 1 ? "" : "es"} sin responder` : "Al día",
-    hecho: nRep === 0, ok: "Sin invitaciones pendientes", acc: "repaso",
+    s: nRep ? `${nRep} invitaci${nRep === 1 ? "ón" : "ones"} sin responder` : "Al día",
+    hecho: nRep === 0 || salto, saltado: salto, ok: salto ? "Saltado por hoy" : "Sin invitaciones pendientes", acc: "repaso",
     why: "Va primero: deja al día la asistencia de la clase anterior." });
 
   // 1 · Leads de WhatsApp en etapas urgentes.
@@ -298,7 +309,7 @@ function accionesHTML(it) {
       <button class="lbtn mdbtn" data-md="lead" data-id="${it.c.id}" data-cat="${it.cat}">Ver en Leads</button></div>`;
   }
   const L = { repaso: "Hacer el repaso", venta: "Ir a Ventas", seg: it.id === "cla-crear" ? "Crear en Seguimiento" : "Programar invitados" };
-  return `<div class="mdacts"><button class="btn-oro mdbtn" data-md="${it.acc}">${L[it.acc]}</button></div>`;
+  return `<div class="mdacts"><button class="btn-oro mdbtn" data-md="${it.acc}">${L[it.acc]}</button>${it.acc === "repaso" ? `<button class="lbtn mdbtn" data-md="saltar">Saltar por hoy</button>` : ""}</div>`;
 }
 
 function sistemaHTML() {
@@ -325,7 +336,7 @@ function cierreHTML(items) {
   const cobrado = state.ventas.filter(v => v.owner_id === me)
     .flatMap(v => v.abonos || []).filter(a => a.fecha === hoy).reduce((s, a) => s + a.monto, 0);
   const contactos = Object.values(state.contactos || {}).flat().filter(x => dias(x.en) === 0).length;
-  const quedan = items.filter(i => !i.hecho);
+  const quedan = items.filter(i => !i.hecho || i.saltado);
   return `<div class="mdcierre"><div class="mdeb">Cierre del día</div><h3>Así te fue hoy</h3>
     <div class="mdnums"><div><b>${ftdHoy}</b><small>FTD</small></div><div><b>${contactos}</b><small>contactos</small></div><div><b>${usd(cobrado)}</b><small>cobrado</small></div></div>
     ${quedan.length ? `<div class="mdsubl">Pasa a mañana</div><ul>${quedan.map(i => `<li>${esc(i.t)}</li>`).join("")}</ul>`
@@ -348,7 +359,7 @@ export function renderMiDia(cont, render) {
   const ahora = Date.now();
   const items = itemsDelDia();
   const q = cola(items, ahora), foco = q[0];
-  const listos = items.filter(i => i.hecho).length;
+  const listos = items.filter(i => i.hecho && !i.saltado).length;
   const hora = new Date(ahora).getHours();
 
   let top = "";
@@ -369,22 +380,22 @@ export function renderMiDia(cont, render) {
   const bloques = BLOQUES.map((b, i) => {
     const ls = items.filter(x => x.b === b.k);
     if (!ls.length && !(b.k === "cla" && !extra) && b.k !== "hl") return "";
-    const ok = ls.filter(x => x.hecho).length;
+    const ok = ls.filter(x => x.hecho && !x.saltado).length;
     const vacioHl = b.k === "hl" && !ls.length
       ? `<div class="mdcarga">${!extra ? "Cargando…" : state.crm?.length || extra.token ? "Sin leads de HighLevel para hoy." : "Todavía no conectas HighLevel."}</div>` : "";
     return `<section class="mdblq"><div class="mdblq-h"><span><i>${i}</i>${b.n}</span><em>${b.k === "hl" ? `<button class="mdlink" data-con="abrir">${extra?.token ? "Enlace del webhook" : "Conectar"}</button> · ` : ""}${ok}/${ls.length}</em></div>
       ${b.k === "hl" ? conexionHTML() : ""}${vacioHl}
       ${ls.length ? ls.map(x => {
-        const cls = [x.hecho ? "hecho" : "", x === foco ? "foco" : "", urgente(x, ahora) ? "urg" : "", x.espera ? "espera" : ""].join(" ");
+        const cls = [x.saltado ? "salt" : x.hecho ? "hecho" : "", x === foco ? "foco" : "", urgente(x, ahora) ? "urg" : "", x.espera ? "espera" : ""].join(" ");
         return `<div class="mdpaso ${cls}" data-paso="${x.id}"><span class="mddot"></span>
-          <div class="mdpaso-t"><b>${esc(x.t)}</b><small>${x.hecho ? x.ok : x.s}</small></div>
+          <div class="mdpaso-t"><b>${esc(x.t)}</b><small>${x.hecho ? x.ok : x.s}${x.saltado ? ` · <button class="mdlink" data-md="retomar">Hacerlo ahora</button>` : x.id === "rep" && !x.hecho && x !== foco ? ` · <button class="mdlink" data-md="saltar">Saltar por hoy</button>` : ""}</small></div>
           ${x.at != null && !x.hecho ? `<span class="mdhora">${horaTxt(x.at)}</span>` : ""}</div>`;
       }).join("") : b.k === "hl" ? "" : `<div class="mdcarga">Cargando…</div>`}</section>`;
   }).join("");
 
   cont.innerHTML = `
     <div id="mdMeta"></div>
-    <div class="mdruta" aria-hidden="true">${items.map(x => `<i class="${x.hecho ? "on" : ""}"></i>`).join("")}</div>
+    <div class="mdruta" aria-hidden="true">${items.map(x => `<i class="${x.hecho && !x.saltado ? "on" : ""}"></i>`).join("")}</div>
     <div class="mdruta-t">${listos} de ${items.length} listos</div>
     ${top}
     <div class="mdgrid"><div class="mdcol">${bloques}</div><div class="mdcol">${sistemaHTML()}</div></div>
@@ -408,6 +419,7 @@ export function renderMiDia(cont, render) {
   cont.querySelectorAll("[data-md]").forEach(b => b.onclick = async () => {
     const a = b.dataset.md;
     if (a === "repaso") { (await import("./repaso.js")).repasoManual(); return; }
+    if (a === "saltar" || a === "retomar") { saltarRepaso(a === "saltar"); render(); return; }
     if (a === "venta") { state.vista = "ventas"; render(); return; }
     if (a === "seg") { document.getElementById("btnSeg").click(); return; }
     // Uno de tus seguimientos guardados (plantillas_lead) solo a esta persona.

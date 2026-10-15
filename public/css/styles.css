@@ -2044,6 +2044,9 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 }
 /* Mi día · HighLevel (fase 2) */
 .mdpaso.espera{opacity:.6}
+/* Saltado por hoy: ni hecho ni pendiente; el punto queda punteado. */
+.mdpaso.salt .mddot{border-style:dashed}
+.mdpaso.salt .mdpaso-t>b{color:var(--muted)}
 .mdlink{color:var(--gold);font-size:.72rem;font-weight:600;text-decoration:underline;text-underline-offset:2px}
 .mdbtn.mdon{border-color:var(--ok);color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent)}
 .mdfila{flex-wrap:nowrap;align-items:center}
