@@ -71,6 +71,7 @@ const CONGELADO_CORTE = "2900-01-01T00:00:00Z";     // umbral para detectarlo en
 // espacio…), que es justo lo que rompía la detección.
 const esCongelado = ts => !!ts && Number(String(ts).slice(0, 4)) >= 2900;
 const CONF_OFFSET_MIN = 10;   // minutos entre el enlace y la confirmación (= HITOS)
+const CONGELADO_VIDA_H = 6;   // horas tras el inicio en que un congelado sin liberar caduca
 // Un recordatorio que sale pegado a la invitación es el problema que este
 // selector existe para resolver. Por debajo de esto se avisa en la fila misma.
 const MIN_PEGADO = 45;
@@ -2444,11 +2445,35 @@ async function renderActivos() {
   // completó; aquí lo cerramos igual para que no quede colgado.
   const ahora = Date.now();
   const finConf = s => new Date(s.inicio).getTime() + 10 * 60000;
-  const vencidos = (data || []).filter(s => finConf(s) <= ahora);
+  let vencidos = (data || []).filter(s => finConf(s) <= ahora);
+  // Con el enlace congelado esa hora ya no dice nada: si se cerrara aquí,
+  // «▶ Enviar enlace» (que solo mira seguimientos activos) ya no encontraría
+  // nada que liberar. Sigue activo mientras esté congelado y, liberado tarde,
+  // mientras su enlace o confirmación sigan por salir. Un congelado que nadie
+  // libera caduca a las CONGELADO_VIDA_H del inicio: se cierra y se cancela,
+  // para no bloquear para siempre volver a programar a esa persona.
+  if (vencidos.length) {
+    const { data: vivos } = await SB.from("mensajes_programados")
+      .select("seguimiento_id, enviar_en")
+      .in("seguimiento_id", vencidos.map(s => s.id))
+      .in("tipo", ["enlace", "confirmacion"]).eq("estado", "pendiente")
+      .gt("enviar_en", new Date(ahora).toISOString());
+    const congelados = new Set(), porSalir = new Set();
+    for (const m of vivos || []) (esCongelado(m.enviar_en) ? congelados : porSalir).add(m.seguimiento_id);
+    const caduco = s => new Date(s.inicio).getTime() + CONGELADO_VIDA_H * 3600000 <= ahora;
+    const caducos = vencidos.filter(s => congelados.has(s.id) && caduco(s)).map(s => s.id);
+    if (caducos.length) {
+      await SB.from("mensajes_programados")
+        .update({ estado: "cancelado", error: "Enlace congelado que nunca se envió" })
+        .in("seguimiento_id", caducos).eq("estado", "pendiente").gte("enviar_en", CONGELADO_CORTE);
+    }
+    vencidos = vencidos.filter(s => caduco(s) || (!congelados.has(s.id) && !porSalir.has(s.id)));
+  }
   if (vencidos.length) {
     await SB.from("seguimientos").update({ estado: "completado" }).in("id", vencidos.map(s => s.id));
   }
-  const activos = (data || []).filter(s => finConf(s) > ahora);
+  const cerrados = new Set(vencidos.map(s => s.id));
+  const activos = (data || []).filter(s => !cerrados.has(s.id));
   setTile("segTileActivos", "segTActivos", activos.length, "acc");
 
   // Los mensajes de cada seguimiento (para silenciar/reactivar hitos puntuales)
