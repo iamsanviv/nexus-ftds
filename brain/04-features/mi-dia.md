@@ -48,6 +48,9 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
   con service role y es la única que inserta en `crm_leads` (upsert por `owner_id, ghl_id`,
   sin pisar las anotaciones del agente). SQL: `sql/2026-10-14_35_crm_leads.sql`.
 - RLS estricta `owner_id = auth.uid()` (select/update); sin insert/delete para authenticated.
+- El teléfono llega en formato **nacional** cuando es colombiano («318 5506790», sin +57):
+  la función le antepone +57 a móviles de 10 dígitos que empiezan por 3. Sin eso no cruza
+  con WhatsApp y la ficha lo guarda como «+318…» (pasó el 15/10/2026). `payload` queda crudo.
 - En la guía: asignados hoy o ayer, o con `vuelve_en`/`siguiente_en` hoy. «Hecho» = resultado
   de llamada de hoy + «Le escribí» (`escribi_en`, manual).
 - No contestó / Buzón: 1.er intento vuelve en 2 h, 2.º mañana, 3.º → `fuera`.
