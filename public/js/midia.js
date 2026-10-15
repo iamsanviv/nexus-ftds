@@ -248,8 +248,12 @@ function itemsCrm(ahora) {
       l.intentos ? `${l.intentos}.º intento hecho` : "",
       contestoHoy && !esHoy(l.escribi_en) ? "Contestó · falta «Le escribí»" : "",
     ].filter(Boolean).join(" · ");
-    out.push({ ...base, s: sub, hecho: listo, ok: `Contestó${l.siguiente === "bajara" ? " · bajará a WhatsApp" : ""} · le escribiste`,
-      at: llamadaHoy && !contestoHoy ? tLlamada : null });
+    // Recién llegado (hoy, sin ningún intento): se atiende de inmediato, antes
+    // que cualquier pendiente (decisión del usuario, 15/10/2026).
+    const nuevo = !listo && dias(l.asignado_en) === 0 && !l.intentos && !l.resultado && !l.siguiente;
+    out.push({ ...base, s: sub, hecho: listo, nuevo, ok: `Contestó${l.siguiente === "bajara" ? " · bajará a WhatsApp" : ""} · le escribiste`,
+      at: llamadaHoy && !contestoHoy ? tLlamada : null,
+      ...(nuevo ? { why: "Acaba de llegar de HighLevel: un lead fresco se atiende antes que cualquier pendiente. Queda listo con el resultado de la llamada y «Le escribí»." } : {}) });
   }
   return out;
 }
@@ -286,12 +290,14 @@ function conexionHTML() {
 const urgente = (it, ahora) => !it.hecho && it.at != null && ahora >= it.at - URGENTE_ANTES_MS;
 const idxBloque = it => BLOQUES.findIndex(b => b.k === it.b);
 
-// Orden: lo urgente primero (por hora), después el orden fijo del usuario.
+// Orden: los leads de HighLevel recién llegados (el que más espera primero),
+// después lo urgente (por hora) y al final el orden fijo del usuario.
 function cola(items, ahora) {
   const pend = items.filter(i => !i.hecho && !i.espera);
-  const u = pend.filter(i => urgente(i, ahora)).sort((a, b) => a.at - b.at);
-  const r = pend.filter(i => !urgente(i, ahora)).sort((a, b) => idxBloque(a) - idxBloque(b) || items.indexOf(a) - items.indexOf(b));
-  return [...u, ...r];
+  const n = pend.filter(i => i.nuevo).sort((a, b) => new Date(a.l.asignado_en) - new Date(b.l.asignado_en));
+  const u = pend.filter(i => !i.nuevo && urgente(i, ahora)).sort((a, b) => a.at - b.at);
+  const r = pend.filter(i => !i.nuevo && !urgente(i, ahora)).sort((a, b) => idxBloque(a) - idxBloque(b) || items.indexOf(a) - items.indexOf(b));
+  return [...n, ...u, ...r];
 }
 
 /* ------------------------------------------------------------------ vista */
@@ -367,8 +373,8 @@ export function renderMiDia(cont, render) {
   if (foco) {
     const u = urgente(foco, ahora);
     const falta = u ? Math.max(0, Math.round((foco.at - ahora) / 60000)) : null;
-    top += `<div class="mdahora ${u ? "urg" : ""}">
-      <div class="mdeb"><span>${u ? "Urgente · " : ""}Ahora</span><span>${BLOQUES[idxBloque(foco)].n}</span></div>
+    top += `<div class="mdahora ${u || foco.nuevo ? "urg" : ""}">
+      <div class="mdeb"><span>${foco.nuevo ? "Nuevo · " : u ? "Urgente · " : ""}Ahora</span><span>${BLOQUES[idxBloque(foco)].n}</span></div>
       <h3>${esc(foco.t)}</h3><p>${foco.s}</p>
       <div class="mdwhy">${u ? (falta > 0 ? `Faltan ${falta} min: por eso subió al frente. ` : "Ya es la hora. ") : ""}${foco.why}</div>
       ${accionesHTML(foco)}</div>`;
@@ -386,7 +392,7 @@ export function renderMiDia(cont, render) {
     return `<section class="mdblq"><div class="mdblq-h"><span><i>${i}</i>${b.n}</span><em>${b.k === "hl" ? `<button class="mdlink" data-con="abrir">${extra?.token ? "Enlace del webhook" : "Conectar"}</button> · ` : ""}${ok}/${ls.length}</em></div>
       ${b.k === "hl" ? conexionHTML() : ""}${vacioHl}
       ${ls.length ? ls.map(x => {
-        const cls = [x.saltado ? "salt" : x.hecho ? "hecho" : "", x === foco ? "foco" : "", urgente(x, ahora) ? "urg" : "", x.espera ? "espera" : ""].join(" ");
+        const cls = [x.saltado ? "salt" : x.hecho ? "hecho" : "", x === foco ? "foco" : "", urgente(x, ahora) || (x.nuevo && !x.hecho) ? "urg" : "", x.espera ? "espera" : ""].join(" ");
         return `<div class="mdpaso ${cls}" data-paso="${x.id}"><span class="mddot"></span>
           <div class="mdpaso-t"><b>${esc(x.t)}</b><small>${x.hecho ? x.ok : x.s}${x.saltado ? ` · <button class="mdlink" data-md="retomar">Hacerlo ahora</button>` : x.id === "rep" && !x.hecho && x !== foco ? ` · <button class="mdlink" data-md="saltar">Saltar por hoy</button>` : ""}</small></div>
           ${x.at != null && !x.hecho ? `<span class="mdhora">${horaTxt(x.at)}</span>` : ""}</div>`;
