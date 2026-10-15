@@ -137,18 +137,17 @@ function itemsDelDia() {
     why: "Va primero: deja al día la asistencia de la clase anterior." });
 
   // 1 · Leads de WhatsApp en etapas urgentes.
-  const ORD = Object.fromEntries(ETAPAS_WA.map((k, i) => [k, i]));
   state.clientes
     // Los de HighLevel por bajar van en su propio bloque (2), no aquí.
     .filter(c => !esInactivo(c) && esMio(c) && (esLead(c) || (c.promesaEn && c.promesaBroker)) && !porBajar(c))
     .map(c => ({ c, cat: categoria(c) }))
     .filter(x => ETAPAS_WA.includes(x.cat))
-    .sort((a, b) => ORD[a.cat] - ORD[b.cat]
-      || (a.cat === "pend" ? new Date(a.c.promesaEn) - new Date(b.c.promesaEn) : a.c.nombre.localeCompare(b.c.nombre, "es")))
     .forEach(({ c, cat }) => {
       const at = cat === "pend" && !sinHora(c.promesaEn) && dias(c.promesaEn) === 0 ? new Date(c.promesaEn).getTime() : null;
       const porWa = escribisteHoy(c), aMano = contactoHoy(c), seg = extra?.seg[c.id];
-      items.push({ b: "wa", id: "wa" + c.id, c, cat, at, t: c.nombre, s: razon(c),
+      // Reciente = su último movimiento: te escribió, lo contactaste, prometió o llegó.
+      const rec = Math.max(ts(entranteDe(c)), ts(contactosDe(c)[0]?.en), cat === "pend" ? ts(c.promesaEn) : 0, ts(c.creado && c.creado + "T00:00:00-05:00"));
+      items.push({ b: "wa", id: "wa" + c.id, c, cat, at, prog: at, rec, t: c.nombre, s: razon(c),
         hecho: porWa || aMano || !!seg,
         ok: porWa ? "Le escribiste hoy por WhatsApp" : aMano ? "Contacto registrado hoy"
           : seg === "enviado" ? "Le enviaste un seguimiento" : "Seguimiento en camino",
@@ -174,7 +173,7 @@ function itemsDelDia() {
         const c = state.clientes.find(x => x.id === v.cliente_id);
         const abonoHoy = (v.abonos || []).filter(a => a.fecha === hoy).reduce((s, a) => s + a.monto, 0);
         const vencida = v.fecha_pago < hoy;
-        items.push({ b: "ven", id: "v" + v.id, t: c?.nombre || "Venta", acc: "venta",
+        items.push({ b: "ven", id: "v" + v.id, t: c?.nombre || "Venta", acc: "venta", rec: ts(v.fecha_pago + "T00:00:00-05:00"),
           s: `Cobro pendiente · saldo ${usd(saldo(v))}${vencida ? " · vencido" : ""}`,
           hecho: abonoHoy > 0 || estaSaldada(v), ok: `Abono de ${usd(abonoHoy)} registrado hoy`,
           why: vencida ? "Su fecha de pago ya pasó." : "Hoy es su fecha de pago." });
@@ -190,13 +189,21 @@ function itemsDelDia() {
     }
     extra.clases.forEach(a => {
       const n = extra.invitados[a.id] || 0, at = new Date(a.inicio).getTime();
-      items.push({ b: "cla", id: "cla" + a.id, at: at > ahora ? at : null,
+      items.push({ b: "cla", id: "cla" + a.id, at: at > ahora ? at : null, prog: at,
         t: `${a.nombre} · ${horaTxt(a.inicio)}`, s: n ? `${n} invitados tuyos` : "Sin invitados tuyos",
         hecho: n > 0, ok: `${n} invitados programados`, acc: "seg",
         why: "Invita al menos una tanda y los recordatorios salen solos." });
     });
   }
-  return items;
+  // Dentro de cada bloque: lo agendado para hoy, el más próximo primero; luego
+  // lo demás del más reciente al más antiguo (pedido del usuario, 15/10/2026).
+  return items.sort((a, b) => idxBloque(a) - idxBloque(b) || porTiempo(a, b));
+}
+const ts = x => (x ? new Date(x).getTime() || 0 : 0);
+function porTiempo(a, b) {
+  const pa = a.prog != null, pb = b.prog != null;
+  if (pa !== pb) return pa ? -1 : 1;
+  return pa ? a.prog - b.prog : (b.rec || 0) - (a.rec || 0);
 }
 
 
@@ -217,7 +224,8 @@ function itemsCrm(ahora) {
       || esHoy(l.resultado_en);
     if (!visibleHoy) continue;
     const t = l.nombre || l.telefono || "Lead sin nombre";
-    const base = { b: "hl", id: "hl" + l.id, l, t, acc: "crm",
+    const prog = [l.vuelve_en, l.siguiente === "llamada" && l.siguiente_en].filter(x => x && esHoy(x)).map(ts)[0] ?? null;
+    const base = { b: "hl", id: "hl" + l.id, l, t, acc: "crm", prog, rec: Math.max(ts(l.asignado_en), ts(l.respondio_en)),
       why: "Pediste llamar a los de ayer y a los de hoy. Queda listo con el resultado de la llamada y «Le escribí»." };
     if (l.estado === "bajo") { if (esHoy(l.resultado_en) || dias(l.asignado_en) <= 1) out.push({ ...base, hecho: true, ok: "Bajó a WhatsApp" }); continue; }
     if (l.estado === "fuera") { if (esHoy(l.resultado_en)) out.push({ ...base, hecho: true, ok: `${NOMBRE_RES[l.resultado] || "Fuera"} · sale de la guía` }); continue; }
@@ -290,11 +298,11 @@ function conexionHTML() {
 const urgente = (it, ahora) => !it.hecho && it.at != null && ahora >= it.at - URGENTE_ANTES_MS;
 const idxBloque = it => BLOQUES.findIndex(b => b.k === it.b);
 
-// Orden: los leads de HighLevel recién llegados (el que más espera primero),
+// Orden: los leads de HighLevel recién llegados (el más reciente primero),
 // después lo urgente (por hora) y al final el orden fijo del usuario.
 function cola(items, ahora) {
   const pend = items.filter(i => !i.hecho && !i.espera);
-  const n = pend.filter(i => i.nuevo).sort((a, b) => new Date(a.l.asignado_en) - new Date(b.l.asignado_en));
+  const n = pend.filter(i => i.nuevo).sort((a, b) => b.rec - a.rec);
   const u = pend.filter(i => !i.nuevo && urgente(i, ahora)).sort((a, b) => a.at - b.at);
   const r = pend.filter(i => !i.nuevo && !urgente(i, ahora)).sort((a, b) => idxBloque(a) - idxBloque(b) || items.indexOf(a) - items.indexOf(b));
   return [...n, ...u, ...r];

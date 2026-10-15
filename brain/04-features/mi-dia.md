@@ -12,8 +12,13 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
   sube al frente 1 hora antes. Cierre del día a las 21:00.
 - **Lead de HighLevel recién llegado** (asignado hoy, sin intentos, resultado ni
   siguiente paso) va primero en «Ahora», por encima de urgencias y del repaso
-  («Nuevo · Ahora», decisión del 15/10/2026). Si hay varios, el que más espera
-  primero. Deja de serlo al anotar cualquier resultado de llamada.
+  («Nuevo · Ahora», decisión del 15/10/2026). Si hay varios, el más reciente
+  primero.
+- **Dentro de cada bloque** (15/10/2026): primero lo agendado para hoy (promesa con
+  hora, llamada o reintento, clase), el más próximo antes; luego el resto del más
+  reciente al más antiguo (`prog`/`rec` en `itemsDelDia`, `porTiempo`). Reciente =
+  último movimiento: te escribió, contacto, promesa, llegada/asignación, respuesta
+  en el CRM, fecha de pago. Deja de serlo al anotar cualquier resultado de llamada.
 
 ## Reglas («hecho» se deriva, no se marca)
 - Repaso: `repasoPendientes() === 0`. Se puede **saltar por hoy** (botón en «Ahora» o enlace en la fila): sale de «Ahora», no cuenta como listo, sigue en «Pasa a mañana» y se puede retomar. El salto se guarda en `localStorage` (`nexus:midia:salto-repaso:<usuario>` = fecha) y caduca solo al cambiar el día.
