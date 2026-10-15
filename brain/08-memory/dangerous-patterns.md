@@ -387,3 +387,15 @@ Cómo trabajar:
 - Para objetos NUEVOS, aplicar solo `create …` (sin el `drop … if exists` de idempotencia). El archivo en `sql/` puede conservar los `drop` para quien lo reaplique por otra vía.
 - Si de verdad hay que borrar algo, hacerlo por el editor SQL del panel de Supabase, no por el MCP.
 - Antes de aplicar en producción, probar en `begin; … ; do $$ begin raise exception '…'; end $$;`: el error final deshace todo y devuelve los resultados en el mensaje.
+
+## Importar una dependencia de CDN con un rango de versión (15/10/2026)
+
+`public/js/supabase.js` importaba `https://esm.sh/@supabase/supabase-js@2`. Con el rango, esm.sh sirve **la última 2.x en cuanto se publica** y la compila bajo demanda en su primer pedido. El 15/10/2026 a las 07:57 (Bogotá) salió la 2.118.0 y minutos después el panel quedaba en blanco —solo el fondo del tema— **sin que hubiera cambiado una línea del repo** (el último despliegue era de la noche anterior).
+
+Por qué se ve así: `supabase.js` es la raíz del grafo de módulos (casi todo lo importa). Si su import de CDN falla, ningún módulo llega a evaluarse: no corre `boot()`, no se muestra ni el login ni la app. `tema.js` sí corre porque es un `<script>` clásico aparte, por eso el fondo sí respeta el tema.
+
+Cómo trabajar:
+- Toda dependencia de CDN va con **versión exacta** (`@2.117.3`, `@1.15.3`, `@1.5.4`), nunca `@2` ni `@latest`. Subir de versión es un cambio deliberado: se prueba y se despliega como cualquier otro.
+- Desde el entorno de Claude no se llega a `esm.sh` ni a `workers.dev`: para reproducir, construir el bundle de la versión con `npm` + `esbuild` (npm sí es accesible) y servirlo en lugar de esm.sh con `page.route`.
+- Diagnóstico rápido de «pantalla vacía»: si ni siquiera aparece el login, el fallo es de **carga/enlace de módulos** (un import que no resuelve, un error de sintaxis, un `$("id")` nulo al nivel superior), no de datos: un fallo al pintar con datos deja visible el menú lateral y un toast.
+- Opción a futuro (decisión pendiente): servir el bundle desde `public/` para no depender de esm.sh en tiempo de ejecución.

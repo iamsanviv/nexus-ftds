@@ -1,5 +1,12 @@
 // Cliente de Supabase (importado como módulo ES, sin <script> de CDN).
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+//
+// Versión EXACTA, nunca `@2`: con el rango, esm.sh sirve la última 2.x en cuanto
+// sale, y la compila bajo demanda en su primer uso. El 15/10/2026 el panel
+// quedó en blanco minutos después de publicarse la 2.118.0, sin que cambiara una
+// línea del repo. Si este import falla, falla TODO (nada más llega a ejecutarse),
+// así que subir de versión es una decisión deliberada y probada, no algo que
+// pase solo. 2.117.3 es la que corrió en producción del 07/10 al 15/10.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { SUPABASE_URL, SUPABASE_ANON } from "./config.js";
 
 /* El enlace de «recuperar contraseña» vuelve a la app con `type=recovery` en el
