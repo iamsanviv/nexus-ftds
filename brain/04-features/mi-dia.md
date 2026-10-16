@@ -22,7 +22,13 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
 
 ## Reglas («hecho» se deriva, no se marca)
 - Repaso de asistencias: **ya no está en Mi día** (quitado el 16/10/2026 a pedido del usuario; antes se podía saltar por hoy). Sigue el indicador del encabezado y el repaso automático al entrar (`repaso.js`).
-- Leads de WhatsApp: solo etapas `pend`, `reg`, `bajo`, `hoy` (las de `leads.categoria`).
+- Leads de WhatsApp **por temperatura** (`leads.temperatura`, decisión del 16/10/2026):
+  bloques «En la mira» (calientes, todos), «Recuperar tibios» (tope 10) y
+  «Recuperar fríos» (tope 5). En los topes entran primero los ya atendidos hoy y
+  luego los de movimiento más reciente (`TOPE_T`, `BLOQUE_T` en `midia.js`). La
+  etapa (`categoria`) sigue en el subtítulo y en la hora de la promesa. Un lead
+  contactado hoy sin respuesta pasa a tibio (regla de `leads.js`) y se ve en ese
+  bloque como hecho.
   Atendido = contacto registrado hoy, o le escribiste hoy por WhatsApp: `chats_recientes.ultimo_en`
   de hoy y posterior a `entrante_en`, **excluyendo** si coincide (±2 min) con un
   `mensajes_programados` enviado a ese teléfono — un recordatorio automático no es «atenderlo».
