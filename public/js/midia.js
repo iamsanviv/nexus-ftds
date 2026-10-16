@@ -21,7 +21,7 @@ import { SUPABASE_URL } from "./config.js";
 import { cargarCrm } from "./data.js";
 import { NOMBRE_RES, esHoy, accionCrm, accionesCrm, detectarBajadas, porBajar } from "./crm.js";
 import { asegurarEntrantes, entranteDe, claveTel } from "./entrantes.js";
-import { categoria, razon, temperatura, contactosDe, esMio, sinHora, horaTxt, dias } from "./leads.js";
+import { categoria, razon, temperatura, contactosDe, esMio, sinHora, horaTxt, dias, form, abiertoAqui, manejarLead } from "./leads.js";
 import { irAEtapa } from "./hoy.js";
 import { renderMetaHoy } from "./ftd.js";
 
@@ -123,6 +123,23 @@ function escribisteHoy(c) {
   return !(extra.auto[k] || []).some(t => Math.abs(t - ult) <= 2 * 60 * 1000);
 }
 const contactoHoy = c => contactosDe(c).some(x => dias(x.en) === 0);
+
+// «Pasar al siguiente»: aparta el foco un rato (p. ej. mientras el lead está
+// depositando) sin darlo por hecho; vuelve solo al cumplirse el plazo. Es una
+// comodidad de este navegador, por eso vive en localStorage y no en la base.
+const POSPONER_MS = 30 * 60 * 1000;
+const CLAVE_POSP = () => `nexus:midia:pospuestos:${state.me.id}`;
+function pospuestos() {
+  try {
+    const m = JSON.parse(localStorage.getItem(CLAVE_POSP()) || "{}"), ahora = Date.now();
+    return Object.fromEntries(Object.entries(m).filter(([, t]) => t > ahora));
+  } catch { return {}; }
+}
+function posponer(id, hasta) {
+  const m = pospuestos();
+  if (hasta) m[id] = hasta; else delete m[id];
+  try { localStorage.setItem(CLAVE_POSP(), JSON.stringify(m)); } catch { /* sin almacenamiento: no se recuerda */ }
+}
 
 function itemsDelDia() {
   const ahora = Date.now(), me = state.me.id, hoy = hoyISO();
@@ -305,17 +322,30 @@ const ICO_ENV = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" str
 const ICO_WA = '<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .3-3.4-.7-2.9-1.2-4.7-4.1-4.9-4.3-.1-.2-1.2-1.6-1.2-3s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .6l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.3.1.2.1.7-.1 1.2z"/></svg>';
 
 function accionesHTML(it) {
-  if (it.acc === "crm") return accionesCrm(it.l);
+  if (it.acc === "crm") return accionesCrm(it.l) + siguienteHTML(it);
   if (it.acc === "lead") {
     const tel = digitos(it.c.tel);
     return `<div class="mdacts">
       ${tel ? `<a class="btn-oro mdbtn" href="https://wa.me/${tel}" target="_blank" rel="noopener">${ICO_WA}Abrir chat</a>` : ""}
       ${tel ? `<button type="button" class="hsegenv mdbtn" data-md="seglead" data-id="${it.c.id}">${ICO_ENV}Enviar seguimiento</button>` : ""}
-      <button class="lbtn mdbtn" data-md="lead" data-id="${it.c.id}" data-cat="${it.cat}">Ver en Leads</button></div>`;
+      <button class="lbtn mdbtn" data-md="lead" data-id="${it.c.id}" data-cat="${it.cat}">Ver en Leads</button></div>
+      ${embudoHTML(it.c, it.cat)}${siguienteHTML(it)}`;
   }
   const L = { venta: "Ir a Ventas", seg: it.id === "cla-crear" ? "Crear en Seguimiento" : "Programar invitados" };
-  return `<div class="mdacts"><button class="btn-oro mdbtn" data-md="${it.acc}">${L[it.acc]}</button></div>`;
+  return `<div class="mdacts"><button class="btn-oro mdbtn" data-md="${it.acc}">${L[it.acc]}</button></div>${siguienteHTML(it)}`;
 }
+
+// El paso del embudo que toca, como en el panel «Hoy» de Leads: se anota aquí
+// mismo, sin salir de la guía (mismo formulario y misma lógica de leads.js).
+function embudoHTML(c, cat) {
+  if (!esMio(c)) return "";
+  for (const m of ["registro", "promesa", "deposito"]) if (abiertoAqui(c, m)) return `<div class="mdemb" data-cid="${c.id}">${form(c)}</div>`;
+  const b = cat === "pend" ? `<button class="btn-ok mdbtn" data-l="deposito">Depositó</button><button class="lbtn mdbtn" data-l="promesa">Reagendar</button>`
+    : cat === "reg" ? `<button class="lbtn mdbtn" data-l="promesa">Prometió depositar</button>`
+    : `<button class="lbtn mdbtn" data-l="registro">Abrió cuenta</button>`;
+  return `<div class="mdemb" data-cid="${c.id}"><div class="mdsubl">Embudo</div><div class="mdacts">${b}</div></div>`;
+}
+const siguienteHTML = it => `<div class="mdacts mdsig"><button class="lbtn mdbtn" data-md="despues" data-id="${it.id}">Pasar al siguiente · vuelve en 30 min</button></div>`;
 
 function sistemaHTML() {
   if (!extra) return "";
@@ -359,10 +389,14 @@ export function renderMiDia(cont, render) {
   if (!extra || Date.now() - extraEn > VIGENCIA_MS) cargarExtra(render);
   // La urgencia depende de la hora: se repinta cada minuto mientras la vista
   // está abierta, para que lo que entra en su última hora suba solo.
-  if (!reloj) reloj = setInterval(() => { if (state.vista === "midia") render(); }, 60 * 1000);
+  if (!reloj) reloj = setInterval(() => {
+    const ae = document.activeElement;
+    if (state.vista === "midia" && !(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) render();
+  }, 60 * 1000);
 
   const ahora = Date.now();
-  const items = itemsDelDia();
+  const items = itemsDelDia(), posp = pospuestos();
+  items.forEach(x => { if (!x.hecho && posp[x.id]) { x.espera = true; x.posp = posp[x.id]; } });
   const q = cola(items, ahora), foco = q[0];
   const listos = items.filter(i => i.hecho).length;
   const hora = new Date(ahora).getHours();
@@ -393,7 +427,7 @@ export function renderMiDia(cont, render) {
       ${ls.length ? ls.map(x => {
         const cls = [x.hecho ? "hecho" : "", x === foco ? "foco" : "", urgente(x, ahora) || (x.nuevo && !x.hecho) ? "urg" : "", x.espera ? "espera" : ""].join(" ");
         return `<div class="mdpaso ${cls}" data-paso="${x.id}"><span class="mddot"></span>
-          <div class="mdpaso-t"><b>${esc(x.t)}</b><small>${x.hecho ? x.ok : x.s}</small></div>
+          <div class="mdpaso-t"><b>${esc(x.t)}</b><small>${x.hecho ? x.ok : x.posp ? `En espera hasta las ${horaTxt(x.posp)} · <button class="mdlink" data-md="retomar" data-id="${x.id}">Atender ahora</button>` : x.s}</small></div>
           ${x.at != null && !x.hecho ? `<span class="mdhora">${horaTxt(x.at)}</span>` : ""}</div>`;
       }).join("") : b.k === "hl" ? "" : `<div class="mdcarga">Cargando…</div>`}</section>`;
   }).join("");
@@ -421,8 +455,17 @@ export function renderMiDia(cont, render) {
       navigator.clipboard?.writeText(txt).then(() => toast("Enlace copiado"), () => toast("Copia el enlace a mano"));
     }
   });
+  cont.querySelectorAll(".mdemb").forEach(el => {
+    const c = state.clientes.find(x => x.id === el.dataset.cid);
+    if (c) manejarLead(el, c, () => render());
+  });
   cont.querySelectorAll("[data-md]").forEach(b => b.onclick = async () => {
     const a = b.dataset.md;
+    if (a === "despues") {
+      const hasta = Date.now() + POSPONER_MS;
+      posponer(b.dataset.id, hasta); toast(`Vuelve a las ${horaTxt(hasta)}`); render(); return;
+    }
+    if (a === "retomar") { posponer(b.dataset.id, null); render(); return; }
     if (a === "venta") { state.vista = "ventas"; render(); return; }
     if (a === "seg") { document.getElementById("btnSeg").click(); return; }
     // Uno de tus seguimientos guardados (plantillas_lead) solo a esta persona.

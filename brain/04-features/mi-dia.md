@@ -86,3 +86,13 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
 ## Pendiente (fase 3, definida con el usuario)
 - Interesados (manual + sugeridos desde 5 clases asistidas) con fecha de próximo seguimiento.
 - Tareas propias con hora (tabla nueva).
+
+## Embudo y «Pasar al siguiente» en «Ahora» (16/10/2026)
+
+- La tarjeta de un lead de WhatsApp trae el paso del embudo que toca (Depositó/Reagendar,
+  Prometió depositar o Abrió cuenta) con el mismo formulario y lógica de `leads.js`
+  (`form`, `manejarLead`), como el panel «Hoy».
+- Toda tarjeta de «Ahora» tiene «Pasar al siguiente · vuelve en 30 min»: el ítem queda
+  en espera (no hecho) y vuelve solo. Se guarda en `localStorage`
+  (`nexus:midia:pospuestos:<usuario>` = {id: ms}); «Atender ahora» en la fila lo trae de vuelta.
+- El repintado de cada minuto se salta si hay un campo con foco, para no borrar un formulario a medio llenar.
