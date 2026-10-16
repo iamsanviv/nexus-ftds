@@ -402,6 +402,25 @@ $("ldBuscar").oninput = pintarLista;
 // silenciosa, y desmarcar quita solo lo visible.
 $("ldMarcar").onclick = () => { visibles().forEach(c => sel.add(c.id)); pintarLista(); };
 $("ldDesmarcar").onclick = () => { visibles().forEach(c => sel.delete(c.id)); pintarLista(); };
+// Formato del segmento guardado en Seguimiento (`tipo: "guardado"` +
+// `cliente_ids`): es el único que leen las DOS pantallas que cargan segmentos.
+// Masivo acepta también `{ ids }`, pero Seguimiento no lo muestra.
+// Se guarda lo elegido que sigue en el universo, no la selección cruda: un lead
+// que dejó de serlo con el panel abierto no entra.
+$("ldGuardarSeg").onclick = async () => {
+  const ids = elegidos().map(c => c.id);
+  if (!ids.length) { toast("Selecciona leads primero"); return; }
+  const nombre = prompt("Nombre del segmento (ej: Leads tibios de octubre):");
+  if (!nombre || !nombre.trim()) return;
+  const btn = $("ldGuardarSeg");
+  btn.disabled = true;
+  try {
+    const { error } = await SB.from("segmentos")
+      .insert({ nombre: nombre.trim(), definicion: { tipo: "guardado", cliente_ids: ids } });
+    if (error) { toast("⚠ " + error.message); return; }
+    toast(`Segmento «${nombre.trim()}» guardado · ${ids.length} lead${ids.length === 1 ? "" : "s"}`);
+  } finally { btn.disabled = false; }
+};
 $("ldCuando").querySelectorAll("button").forEach(b => b.onclick = () => { cuando = b.dataset.cuando; pintarCuando(); });
 $("ldFecha").onchange = pintarCuando; $("ldHora").onchange = pintarCuando;
 $("ldEnviar").onclick = enviar;
