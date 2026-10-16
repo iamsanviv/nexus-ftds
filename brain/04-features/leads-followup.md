@@ -158,6 +158,8 @@ imposible: la promesa (`promesa_en`) era un solo dato sin bróker y Pendientes e
   reemplaza) y la promesa se limpia (`promesa_en` + `promesa_broker`). Un lead además pasa a Beca; un
   becado conserva su `mem`. `comunidad_desde` lo recalcula el trigger (FTD más antiguo): en un 2º
   depósito no cambia. `ajustarDeclarado(+1)` corre igual (es un FTD nuevo del mes).
+- `clientes_promesa_ok` (SQL `2026-10-16_39`): promesa exige `registro_en` SOLO si no tiene bróker.
+  El becado con FTD nunca pasó por el registro del embudo; antes la base rechazaba su 2º depósito.
 - Meta (`state.js ritmoMeta`): `pendHoy` cuenta la promesa de hoy de un lead Y la de un becado con
   `promesa_broker` (ambas son un FTD esperado hoy).
 
