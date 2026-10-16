@@ -6,12 +6,12 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
 
 ## Alcance actual (fases 1 y 2)
 - Solo para los usuarios de `MI_DIA_USUARIOS` (`midia.js`); para ellos es la pantalla de inicio.
-- Una tarjeta «Ahora» y bloques en el orden del usuario: Repaso → leads de WhatsApp →
+- Una tarjeta «Ahora» y bloques en el orden del usuario: leads de WhatsApp →
   leads de HighLevel → posibles ventas (cobros) → clase de hoy. Bloque fijo «Lo que Nexus hizo por ti hoy».
 - Urgencias: lo que tiene hora (promesa de hoy con hora, clase de hoy sin invitados)
   sube al frente 1 hora antes. Cierre del día a las 21:00.
 - **Lead de HighLevel recién llegado** (asignado hoy, sin intentos, resultado ni
-  siguiente paso) va primero en «Ahora», por encima de urgencias y del repaso
+  siguiente paso) va primero en «Ahora», por encima de urgencias
   («Nuevo · Ahora», decisión del 15/10/2026). Si hay varios, el más reciente
   primero.
 - **Dentro de cada bloque** (15/10/2026): primero lo agendado para hoy (promesa con
@@ -21,7 +21,7 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
   en el CRM, fecha de pago. Deja de serlo al anotar cualquier resultado de llamada.
 
 ## Reglas («hecho» se deriva, no se marca)
-- Repaso: `repasoPendientes() === 0`. Se puede **saltar por hoy** (botón en «Ahora» o enlace en la fila): sale de «Ahora», no cuenta como listo, sigue en «Pasa a mañana» y se puede retomar. El salto se guarda en `localStorage` (`nexus:midia:salto-repaso:<usuario>` = fecha) y caduca solo al cambiar el día.
+- Repaso de asistencias: **ya no está en Mi día** (quitado el 16/10/2026 a pedido del usuario; antes se podía saltar por hoy). Sigue el indicador del encabezado y el repaso automático al entrar (`repaso.js`).
 - Leads de WhatsApp: solo etapas `pend`, `reg`, `bajo`, `hoy` (las de `leads.categoria`).
   Atendido = contacto registrado hoy, o le escribiste hoy por WhatsApp: `chats_recientes.ultimo_en`
   de hoy y posterior a `entrante_en`, **excluyendo** si coincide (±2 min) con un
