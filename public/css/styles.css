@@ -2085,3 +2085,9 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .hvino{display:inline-block;font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:7px;margin:3px 0 1px 5px;white-space:nowrap;
   background:color-mix(in srgb,#E8833A 14%,transparent);color:var(--text);border:1px solid color-mix(in srgb,#E8833A 45%,transparent)}
 .hcrm .mdsubl a{color:var(--gold)}
+
+/* «Bajado a WA»: el lead de HighLevel pasa a WhatsApp (ícono de descargar). */
+.hbajar{display:inline-flex;align-items:center;justify-content:center;gap:6px;color:#25D366;border-color:rgba(37,211,102,.45)}
+.lbajar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px}
+.lbajar .hbajar{min-height:40px;padding:0 14px;border-radius:12px}
+.lbajar span{font-size:.74rem;color:var(--muted)}

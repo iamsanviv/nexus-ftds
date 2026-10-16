@@ -29,6 +29,9 @@ const digitos = t => (t || "").replace(/\D/g, "");
 
 export const crmDe = c => state.crmPor?.[c.id] || null;
 
+// Ícono de «descargar»: el lead baja del CRM a WhatsApp (pedido del usuario).
+export const ICO_BAJAR = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>`;
+
 // ¿Ya escribió por WhatsApp después de que te lo asignaron? Entonces bajó,
 // aunque nadie lo haya marcado todavía.
 const bajoSolo = l => {
@@ -128,7 +131,7 @@ export function accionesCrm(l, extra = "") {
     <div class="mdacts">
       <button class="lbtn mdbtn ${esHoy(l.escribi_en) ? "mdon" : ""}" data-crm="escribi">${esHoy(l.escribi_en) ? "✓ Le escribí" : "Le escribí en HighLevel"}</button>
       <button class="lbtn mdbtn ${esHoy(l.respondio_en) ? "mdon" : ""}" data-crm="respondio">${esHoy(l.respondio_en) ? "✓ Me respondió en el CRM" : "Me respondió en el CRM"}</button>
-      <button class="lbtn mdbtn" data-crm="bajo">Bajó a WhatsApp</button>${extra}</div>`;
+      <button class="lbtn mdbtn hbajar" data-crm="bajo">${ICO_BAJAR}Bajado a WA</button>${extra}</div>`;
 }
 
 // Último resultado anotado, en una línea (para la fila del lead).
