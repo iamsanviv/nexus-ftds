@@ -1,6 +1,7 @@
 // «Mi día»: la guía personal del agente. Una sola tarjeta «Ahora» con lo que
 // toca, y debajo los bloques del día en el orden que eligió el usuario
-// (entrevista del 14/10/2026): leads de WhatsApp → leads de HighLevel →
+// (entrevista del 14/10/2026): leads de WhatsApp por temperatura (en la mira,
+// recuperar tibios, recuperar fríos) → leads de HighLevel →
 // posibles ventas → clase de hoy. El repaso de asistencias salió de aquí
 // el 16/10/2026 (pedido del usuario): sigue en el indicador del encabezado. Interesados y tareas propias llegan en la
 // fase siguiente.
@@ -20,7 +21,7 @@ import { SUPABASE_URL } from "./config.js";
 import { cargarCrm } from "./data.js";
 import { NOMBRE_RES, esHoy, accionCrm, accionesCrm, detectarBajadas, porBajar } from "./crm.js";
 import { asegurarEntrantes, entranteDe, claveTel } from "./entrantes.js";
-import { categoria, razon, contactosDe, esMio, sinHora, horaTxt, dias } from "./leads.js";
+import { categoria, razon, temperatura, contactosDe, esMio, sinHora, horaTxt, dias } from "./leads.js";
 import { irAEtapa } from "./hoy.js";
 import { renderMetaHoy } from "./ftd.js";
 
@@ -32,14 +33,24 @@ const HORA_CIERRE = 21;
 const VIGENCIA_MS = 2 * 60 * 1000;
 
 const BLOQUES = [
-  { k: "wa", n: "Leads de WhatsApp" },
+  { k: "cal", n: "En la mira" },
+  { k: "tib", n: "Recuperar tibios" },
+  { k: "fri", n: "Recuperar fríos" },
   { k: "hl", n: "Leads de HighLevel" },
   { k: "ven", n: "Posibles ventas" },
   { k: "cla", n: "Clase de hoy" },
 ];
-// Etapas del panel «Hoy» que entran a la guía: las urgentes. «Ayer» y «el
-// resto» siguen en el panel; meterlas aquí alargaría la guía sin mover FTD hoy.
-const ETAPAS_WA = ["pend", "reg", "bajo", "hoy"];
+// Leads de WhatsApp por temperatura (decisión del usuario, 16/10/2026): los
+// calientes entran todos («en la mira»); de tibios y fríos, solo un tope diario,
+// primero los ya atendidos hoy (para que el bloque se pueda terminar) y luego
+// los de movimiento más reciente, que son los más fáciles de recuperar.
+const BLOQUE_T = { caliente: "cal", tibio: "tib", frio: "fri" };
+const TOPE_T = { tibio: 10, frio: 5 };
+const WHY_T = {
+  caliente: "Caliente: está en la mira, atiéndelo hoy.",
+  tibio: "Tibio: recupéralo antes de que se enfríe.",
+  frio: "Frío: un mensaje a tiempo puede reactivarlo.",
+};
 
 /* ------------------------------------------------------------------ datos */
 // Lo que la guía necesita y el resto de la app no carga: actividades y
@@ -117,27 +128,26 @@ function itemsDelDia() {
   const ahora = Date.now(), me = state.me.id, hoy = hoyISO();
   const items = [];
 
-  // 1 · Leads de WhatsApp en etapas urgentes.
+  // 1 · Leads de WhatsApp, agrupados por temperatura.
+  const porTemp = { caliente: [], tibio: [], frio: [] };
   state.clientes
-    // Los de HighLevel por bajar van en su propio bloque (2), no aquí.
+    // Los de HighLevel por bajar van en su propio bloque, no aquí.
     .filter(c => !esInactivo(c) && esMio(c) && (esLead(c) || (c.promesaEn && c.promesaBroker)) && !porBajar(c))
-    .map(c => ({ c, cat: categoria(c) }))
-    .filter(x => ETAPAS_WA.includes(x.cat))
-    .forEach(({ c, cat }) => {
+    .forEach(c => {
+      const cat = categoria(c), t = temperatura(c);
       const at = cat === "pend" && !sinHora(c.promesaEn) && dias(c.promesaEn) === 0 ? new Date(c.promesaEn).getTime() : null;
       const porWa = escribisteHoy(c), aMano = contactoHoy(c), seg = extra?.seg[c.id];
       // Reciente = su último movimiento: te escribió, lo contactaste, prometió o llegó.
       const rec = Math.max(ts(entranteDe(c)), ts(contactosDe(c)[0]?.en), cat === "pend" ? ts(c.promesaEn) : 0, ts(c.creado && c.creado + "T00:00:00-05:00"));
-      items.push({ b: "wa", id: "wa" + c.id, c, cat, at, prog: at, rec, t: c.nombre, s: razon(c),
+      porTemp[t].push({ b: BLOQUE_T[t], id: "wa" + c.id, c, cat, at, prog: at, rec, t: c.nombre, s: razon(c),
         hecho: porWa || aMano || !!seg,
         ok: porWa ? "Le escribiste hoy por WhatsApp" : aMano ? "Contacto registrado hoy"
           : seg === "enviado" ? "Le enviaste un seguimiento" : "Seguimiento en camino",
-        acc: "lead",
-        why: { pend: "Prometió depositar: es lo más cerca de un FTD.",
-               reg: "Ya abrió cuenta: falta que prometa depositar.",
-               bajo: "Te escribió hoy: está caliente.",
-               hoy: "Llegó hoy y espera tu primer contacto." }[cat] });
+        acc: "lead", why: WHY_T[t] });
     });
+  items.push(...porTemp.caliente);
+  for (const t of ["tibio", "frio"])
+    items.push(...porTemp[t].sort((a, b) => b.hecho - a.hecho || b.rec - a.rec).slice(0, TOPE_T[t]));
 
   // 2 · Leads de HighLevel.
   if (extra) itemsCrm(ahora).forEach(it => items.push(it));
