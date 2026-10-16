@@ -160,7 +160,21 @@ const textoSeguimiento = c =>
 const enlaceWa = c =>
   `https://wa.me/${c.tel.replace(/\D/g, "")}?text=${encodeURIComponent(textoSeguimiento(c))}`;
 
+// El botón se bloquea ANTES del primer `await` (DP-010): antes se hacía tras
+// `canalVinculado()` y `cuotaDiaria()`, y un doble toque encolaba dos veces.
 async function escribirle(c, btn) {
+  if (btn.disabled) return;
+  btn.disabled = true;
+  let enCola = false;
+  try { enCola = await escribirleSinCandado(c, btn); }
+  catch (err) { toast("⚠ " + err.message); }
+  finally {
+    // En cola queda deshabilitado para este paso: un segundo toque no duplica.
+    if (!enCola) { btn.disabled = false; btn.textContent = "⚡ Preguntarle en automático"; }
+  }
+}
+
+async function escribirleSinCandado(c, btn) {
   // Inactivas incluidas a propósito: aquí el agente eligió a esta persona, y la
   // confirmación de abajo se lo recuerda.
   if (!destinatariosMasivo(true).some(x => x.id === c.id)) {
@@ -180,19 +194,15 @@ async function escribirle(c, btn) {
   ].filter(Boolean).join("\n");
   if (!confirm(`Vas a enviarle a ${c.nombre} desde tu WhatsApp:\n\n«${texto}»${avisos ? "\n\n" + avisos : ""}\n\n¿Enviar?`)) return;
 
-  btn.disabled = true; btn.textContent = "Enviando…";
+  btn.textContent = "Enviando…";
   const { error } = await SB.from("mensajes_programados").insert({
     tipo: "masivo", cliente_id: c.id, telefono: c.tel, texto,
     enviar_en: new Date().toISOString(),
   });
-  if (error) {
-    toast("⚠ " + error.message);
-    btn.disabled = false; btn.textContent = "⚡ Preguntarle en automático";
-    return;
-  }
-  // Queda deshabilitado para este paso: un segundo toque no duplica el mensaje.
+  if (error) { toast("⚠ " + error.message); return false; }
   btn.textContent = "✓ Mensaje en cola";
   toast(`✓ Mensaje a ${c.nombre.split(" ")[0]} en cola`);
+  return true;
 }
 
 /* ---------- overlay ---------- */

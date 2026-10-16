@@ -5,7 +5,7 @@ import { SB } from "./supabase.js";
 import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
   esInactivo, nombreMotivo, motivoCorto, BROKERS, insigniasBroker, mesCorto,
   MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto,
-  componerMensaje, horaDeCliente, etiquetaZona, todos } from "./state.js";
+  componerMensaje, horaDeCliente, etiquetaZona, todos, cuandoParte } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento, cuotaDiaria } from "./data.js";
 import { canalVinculado } from "./canal.js";
 import { porBajar } from "./crm.js";
@@ -26,6 +26,15 @@ let masCuando = "ahora";    // ahora | prog
 let masIncInact = false;
 let segmentos = [];         // segmentos guardados
 let masCuota = null;        // { enviados, tope, restan } del día
+let enviando = false;       // un envío en curso: ver enviar()
+
+// Mensajes 2..4. Mismo contrato de serie que el seguimiento a leads
+// (envioleads.js) y la invitación en serie: `cuandoParte()` decide el orden y
+// el worker pone la pausa natural. `partes` vacío = masivo de un solo mensaje,
+// que sale exactamente como antes.
+const MAX_PARTES = 3;
+let masSerie = { modo: "usuario", espera_min: 0, escalona: false, partes: [] };
+const esVideo = u => /\.(mp4|mov)(\?|$)/i.test(u || "");
 
 const primerNombre = n => (n || "").trim().split(/\s+/)[0];
 // resolverSnippets vive en state.js (lo comparten masivo y las actividades).
@@ -37,6 +46,10 @@ const primerNombre = n => (n || "").trim().split(/\s+/)[0];
 // `tzOff` nulo (casi todo el mundo) = la hora sale tal cual y {zona} se va
 // vacía, así que el mensaje se lee igual que antes de existir esta función.
 const usaHora = t => /\{hora\}|\{zona\}/.test(t || "");
+// La hora de referencia es una sola para toda la serie: se pide si CUALQUIER
+// mensaje la menciona, no solo el primero.
+const serieUsaHora = () =>
+  usaHora($("masTexto").value) || masSerie.partes.some(p => usaHora(p.texto));
 
 // La fecha es la del ENVÍO, no la de hoy: si la campaña está programada para
 // mañana, «a las 7» es la de mañana. Solo importa para convertir husos, porque
@@ -86,7 +99,7 @@ const pool = () => destinatariosMasivo(masIncInact);
 function renderPrev() {
   const t = $("masTexto").value.trim();
   // El campo de hora solo se muestra si el texto la menciona.
-  $("masHoraRow").classList.toggle("hidden", !usaHora(t));
+  $("masHoraRow").classList.toggle("hidden", !serieUsaHora());
   $("masPrevBox").classList.toggle("hidden", !t);
   // La previa usa una persona SIN desfase, que es el caso de casi todos: así
   // muestra el texto que verá la mayoría. Por eso {zona} sale vacía acá.
@@ -257,12 +270,15 @@ function renderCount() {
   // es la última oportunidad de notarlo.
   const inact = pool().filter(c => masSel.has(c.id) && esInactivo(c)).length;
   $("masFootN").textContent = masSel.size;
+  const P = 1 + partesUtiles().length, fs = $("masFootSerie");
+  fs.textContent = P > 1 ? `${P} mensajes a cada una` : "";
+  fs.classList.toggle("hidden", P === 1);
   const av = $("masFootInact");
   if (av) {
     av.textContent = inact ? `incluye ${inact} inactiva${inact === 1 ? "" : "s"}` : "";
     av.classList.toggle("hidden", !inact);
   }
-  $("masEnviar").disabled = masSel.size === 0;
+  $("masEnviar").disabled = enviando || masSel.size === 0;
   const cu = $("masFootCuota");
   if (cu) {
     const n = masSel.size, falta = masCuota && n > masCuota.restan ? n - masCuota.restan : 0;
@@ -375,15 +391,85 @@ function setImg(url, tipo) {
   else { del.classList.add("hidden"); }
 }
 
+/* ---------- mensajes 2..4 ---------- */
+// Copia del editor de envioleads.js en lo que ve el agente (mismas tarjetas,
+// mismas opciones), para que la serie se arme igual en los dos sitios.
+function renderPartes() {
+  const cont = $("masPartes");
+  cont.innerHTML = masSerie.partes.map((x, i) => `
+    <div class="seriep" data-i="${i}">
+      <div class="seriehd"><b>Mensaje ${i + 2}</b>
+        <button type="button" class="tbtn" data-quitar style="color:var(--bad)">Quitar</button></div>
+      <textarea rows="3" data-txt maxlength="4000" placeholder="Texto del mensaje ${i + 2}… (opcional si adjuntas imagen o video)">${esc(x.texto)}</textarea>
+      <div class="imgfield">
+        ${x.media ? (esVideo(x.media) ? `<video class="imgprev" src="${esc(x.media)}" muted controls></video>`
+                                      : `<img class="imgprev" src="${esc(x.media)}" alt="">`) : ""}
+        <div class="imgbtns">
+          <input type="file" data-file accept="${ACCEPT_ADJUNTO}" class="hidden">
+          <button type="button" class="tbtn" data-pick>${x.media ? "Cambiar adjunto" : "Adjuntar imagen o video"}</button>
+          ${x.media ? `<button type="button" class="tbtn" data-delmedia style="color:var(--bad)">Quitar adjunto</button>` : ""}
+          <span class="imgestado" data-est></span>
+        </div>
+      </div>
+      <div class="prevmsg" data-prev></div>
+    </div>`).join("");
+
+  const hay = masSerie.partes.length > 0;
+  $("masParteAdd").classList.toggle("hidden", masSerie.partes.length >= MAX_PARTES);
+  $("masM1Lbl").classList.toggle("hidden", !hay);
+  $("masImgLbl").textContent = hay ? "Imagen o video del mensaje 1" : "Imagen o video";
+  $("masOpts").classList.toggle("hidden", !hay);
+  $("masModo").querySelectorAll("[data-modo]").forEach(b => b.classList.toggle("on", b.dataset.modo === masSerie.modo));
+  const conMin = masSerie.espera_min > 0;
+  $("masEsp").querySelectorAll("[data-esp]").forEach(b => b.classList.toggle("on", (b.dataset.esp === "min") === conMin));
+  $("masMinWrap").classList.toggle("hidden", !conMin);
+  if (conMin) $("masMin").value = masSerie.espera_min;
+  // Escalonar entre personas solo tiene sentido en «por usuario» con minutos.
+  $("masEscWrap").classList.toggle("hidden", !(masSerie.modo === "usuario" && conMin));
+  $("masEsc").querySelectorAll("[data-esc]").forEach(b => b.classList.toggle("on", (b.dataset.esc === "1") === masSerie.escalona));
+
+  cont.querySelectorAll(".seriep").forEach(el => {
+    const i = +el.dataset.i, x = masSerie.partes[i];
+    const txt = el.querySelector("[data-txt]"), pv = el.querySelector("[data-prev]");
+    const pintarPrev = () => {
+      pv.textContent = x.texto.trim()
+        ? resolverMensaje(x.texto, "Ana Bermúdez", instanteReferencia(), null, true) : "";
+    };
+    pintarPrev();
+    txt.oninput = () => { x.texto = txt.value; pintarPrev(); renderPrev(); renderCount(); };
+    el.querySelector("[data-quitar]").onclick = () => { masSerie.partes.splice(i, 1); renderPartes(); renderPrev(); renderCount(); };
+    const file = el.querySelector("[data-file]"), est = el.querySelector("[data-est]");
+    el.querySelector("[data-pick]").onclick = () => file.click();
+    const del = el.querySelector("[data-delmedia]");
+    if (del) del.onclick = () => { x.media = null; renderPartes(); };
+    file.onchange = async () => {
+      const f = file.files[0]; if (!f) return;
+      const v = validarAdjunto(f);
+      if (!v.ok) { est.textContent = "⚠ " + v.error; file.value = ""; return; }
+      est.textContent = v.esVideo ? "Subiendo video…" : "Subiendo…";
+      try { x.media = await subirImagenMensaje(f); renderPartes(); }
+      catch (err) { est.textContent = "⚠ " + mensajeErrorAdjunto(err); file.value = ""; }
+    };
+  });
+}
+
+// Las partes que de verdad se envían: una tarjeta sin texto ni adjunto se
+// descarta, igual que en el seguimiento a leads.
+const partesUtiles = () => masSerie.partes
+  .map(x => ({ texto: x.texto.trim(), media: x.media || null }))
+  .filter(x => x.texto || x.media);
+
 /* ---------- abrir / enviar ---------- */
 async function abrir() {
   masSel = new Set(); masFiltro = "todos"; masBroker = "todos"; masSrv = ""; masSrvModo = "no";
   masCuando = "ahora"; masIncInact = false;
+  masSerie = { modo: "usuario", espera_min: 0, escalona: false, partes: [] };
   $("masTexto").value = ""; $("masBuscar").value = ""; $("masBuscarX").classList.add("hidden");
   $("masHoraRef").value = ""; $("masHoraRow").classList.add("hidden");
   setImg(null, null); $("masImgEstado").textContent = ""; renderPrev();
   if (rec && rec.state !== "inactive") { recDescartar = true; rec.stop(); }
   limpiarAudio(); $("masAudEstado").textContent = "";
+  renderPartes();
   $("masProgRow").classList.add("hidden");
   $("masCuandoSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.cuando === "ahora"));
   masCuota = null;
@@ -401,7 +487,27 @@ async function cargarSegs() {
   renderSegs();
 }
 
+// El candado se toma ANTES del primer `await` (DP-010). El botón se
+// deshabilitaba recién después de `canalVinculado()`, una consulta a la base:
+// en ese rato un doble clic entraba dos veces. El 15/10/2026 eso encoló el
+// mismo masivo dos veces, 161 ms aparte, y 25 personas lo recibieron doble.
 async function enviar() {
+  if (enviando) return;
+  enviando = true;
+  const btn = $("masEnviar");
+  btn.disabled = true;
+  try { await enviarSinCandado(btn); }
+  catch (err) { toast("⚠ " + err.message); }
+  finally {
+    enviando = false;
+    // Literal y no lo que hubiera en el DOM: leerlo puede dejar «Enviando…»
+    // pegado (DP-010).
+    btn.textContent = "Enviar mensaje";
+    renderCount();   // decide si el botón vuelve a estar habilitado
+  }
+}
+
+async function enviarSinCandado(btn) {
   // Un masivo sale por el mismo WhatsApp del agente: sin canal vinculado no
   // se encola nada, porque serían decenas de mensajes fallidos.
   if (!(await canalVinculado())) {
@@ -409,9 +515,19 @@ async function enviar() {
     return;
   }
   const tpl = $("masTexto").value.trim();
+  const partes = partesUtiles();
   if (rec && rec.state !== "inactive") { toast("Termina la grabación primero (✔ Listo)"); return; }
-  if (!tpl && !masImg && !masAudio) { toast("Escribe un mensaje, agrega una imagen o video, o graba una nota de voz"); return; }
+  if (!tpl && !masImg && !masAudio) {
+    toast(partes.length
+      ? "El mensaje 1 está vacío: escríbelo o adjúntale algo"
+      : "Escribe un mensaje, agrega una imagen o video, o graba una nota de voz");
+    return;
+  }
   if (masImg && masAudio) { toast("Adjunto y nota de voz a la vez no: quita uno de los dos"); return; }
+  if (partes.some(x => /\{dia\}/.test(x.texto))) {
+    toast("Los mensajes 2 a 4 no admiten {dia}: un masivo no cuelga de una actividad. Para la hora usa {hora}.");
+    return;
+  }
   const sel = pool().filter(c => masSel.has(c.id));
   if (!sel.length) { toast("No hay destinatarios seleccionados"); return; }
 
@@ -432,8 +548,8 @@ async function enviar() {
 
   // Si el texto menciona la hora, tiene que haber una hora. Sin esto el mensaje
   // saldría con un hueco donde debía ir, y a nadie se le ocurriría revisarlo.
-  if (usaHora(tpl) && !$("masHoraRef").value) {
-    toast("Escribiste {hora} en el mensaje: elige a qué hora te refieres");
+  if (serieUsaHora() && !$("masHoraRef").value) {
+    toast("Escribiste {hora} en un mensaje: elige a qué hora te refieres");
     $("masHoraRef").focus();
     return;
   }
@@ -450,57 +566,64 @@ async function enviar() {
   // desfase, no la hora del evento.
   const isoRef = instanteReferencia();
 
-  const btn = $("masEnviar");
-  btn.disabled = true; btn.textContent = "Enviando…";
-  try {
-    // La nota de voz se sube recién aquí (no al grabar): si el agente la
-    // descarta y regraba tres veces, solo la definitiva llega al Storage.
-    let media = masImg || null;
-    if (masAudio) {
-      $("masAudEstado").textContent = "Subiendo nota de voz…";
-      media = await subirAudioMensaje(masAudio.blob, masAudio.ext);
-      $("masAudEstado").textContent = "✓ Nota de voz lista";
-    }
-
-    const etiquetaAdjunto = masAudio ? "Nota de voz" : masImgTipo === "video" ? "Video" : "Imagen";
-    const { data: camp, error: e1 } = await SB.from("campanas").insert({
-      nombre: (tpl || etiquetaAdjunto).slice(0, 60), texto: tpl || null, media_url: media,
-      enviar_en: enviarEn.toISOString(), total: sel.length,
-    }).select("id").single();
-    if (e1) throw e1;
-
-    const rows = sel.map(c => ({
-      campana_id: camp.id, tipo: "masivo", enviar_en: enviarEn.toISOString(),
-      telefono: c.tel,
-      texto: tpl ? resolverMensaje(tpl, c.nombre, isoRef, c.tzOff) : null,
-      media_url: media,
-    }));
-    const { error: e2 } = await SB.from("mensajes_programados").insert(rows);
-    if (e2) throw e2;
-
-    // El historial también se alimenta desde acá. Antes solo lo escribía
-    // Seguimiento, así que una selección armada en Masivo no se podía
-    // reutilizar al programar una actividad — solo funcionaba al revés.
-    // Se unifica por campaña: reenviar la misma campaña engorda esa entrada en
-    // vez de crear otra.
-    await guardarHistorialSegmento({
-      clienteIds: sel.map(c => c.id),
-      nombre: `✉ ${camp.nombre}`,
-      clave: `cam:${camp.id}`,
-    });
-    await cargarSegs();
-
-    toast(`✓ ${sel.length} mensaje(s) ${masCuando === "prog" ? "programado(s)" : "en cola"} · salen en goteo`);
-    $("masOverlay").classList.remove("open");
-    // Que el envío aparezca de una vez en «Envíos masivos», donde se ve el
-    // progreso y se puede cancelar. Se importa a demanda para no crear un ciclo
-    // con seguimiento.js, que ya importa cosas de acá.
-    import("./seguimiento.js").then(m => m.renderCampanas(true)).catch(() => {});
-  } catch (err) {
-    toast("⚠ " + err.message);
-  } finally {
-    btn.disabled = false; btn.textContent = "Enviar mensaje";
+  btn.textContent = "Enviando…";
+  // La nota de voz se sube recién aquí (no al grabar): si el agente la
+  // descarta y regraba tres veces, solo la definitiva llega al Storage.
+  let media = masImg || null;
+  if (masAudio) {
+    $("masAudEstado").textContent = "Subiendo nota de voz…";
+    media = await subirAudioMensaje(masAudio.blob, masAudio.ext);
+    $("masAudEstado").textContent = "✓ Nota de voz lista";
   }
+
+  const etiquetaAdjunto = masAudio ? "Nota de voz" : masImgTipo === "video" ? "Video" : "Imagen";
+  const { data: camp, error: e1 } = await SB.from("campanas").insert({
+    nombre: (tpl || etiquetaAdjunto).slice(0, 60), texto: tpl || null, media_url: media,
+    enviar_en: enviarEn.toISOString(), total: sel.length,
+  }).select("id").single();
+  if (e1) throw e1;
+
+  // El mensaje 1 va como `masivo` (el tope diario lo frena) y del 2 al 4
+  // como `masivo_parte` (el tope no los corta), igual que en el seguimiento
+  // a leads. Si el 1 no sale, el trigger `mensajes_cancela_serie_lead`
+  // cancela lo que sigue de esa persona: o le llega la serie o nada.
+  const mensajes = [{ texto: tpl, media }, ...partes];
+  const serie = partes.length
+    ? { modo: masSerie.modo, espera_min: masSerie.espera_min, escalona: masSerie.escalona, partes } : null;
+  const base = enviarEn.getTime(), n = sel.length;
+  const rows = [];
+  sel.forEach((c, i) => mensajes.forEach((m, k) => rows.push({
+    campana_id: camp.id, tipo: k === 0 ? "masivo" : "masivo_parte",
+    enviar_en: new Date(cuandoParte(serie, base, i, k, n)).toISOString(),
+    telefono: c.tel,
+    texto: m.texto ? resolverMensaje(m.texto, c.nombre, isoRef, c.tzOff) : null,
+    media_url: m.media,
+  })));
+  // Las filas de una campaña se insertan juntas: si falla, no queda nadie
+  // con la serie a medias.
+  const { error: e2 } = await SB.from("mensajes_programados").insert(rows);
+  if (e2) throw e2;
+
+  // El historial también se alimenta desde acá. Antes solo lo escribía
+  // Seguimiento, así que una selección armada en Masivo no se podía
+  // reutilizar al programar una actividad — solo funcionaba al revés.
+  // Se unifica por campaña: reenviar la misma campaña engorda esa entrada en
+  // vez de crear otra.
+  await guardarHistorialSegmento({
+    clienteIds: sel.map(c => c.id),
+    nombre: `✉ ${camp.nombre}`,
+    clave: `cam:${camp.id}`,
+  });
+  await cargarSegs();
+
+  toast(mensajes.length > 1
+    ? `✓ ${mensajes.length} mensajes a ${n} persona(s) ${masCuando === "prog" ? "programados" : "en cola"} · salen en goteo`
+    : `✓ ${n} mensaje(s) ${masCuando === "prog" ? "programado(s)" : "en cola"} · salen en goteo`);
+  $("masOverlay").classList.remove("open");
+  // Que el envío aparezca de una vez en «Envíos masivos», donde se ve el
+  // progreso y se puede cancelar. Se importa a demanda para no crear un ciclo
+  // con seguimiento.js, que ya importa cosas de acá.
+  import("./seguimiento.js").then(m => m.renderCampanas(true)).catch(() => {});
 }
 
 /* ---------- wiring ---------- */
@@ -536,8 +659,8 @@ $("masHora").onchange = renderCuando;
 // rechazaba.
 $("masImgFile").accept = ACCEPT_ADJUNTO;
 // La previa depende de la hora elegida y de la fecha de envío.
-$("masHoraRef").oninput = renderPrev;
-$("masFecha").addEventListener("change", renderPrev);
+$("masHoraRef").oninput = () => { renderPrev(); renderPartes(); };
+$("masFecha").addEventListener("change", () => { renderPrev(); renderPartes(); });
 $("masImgPick").onclick = () => $("masImgFile").click();
 $("masImgFile").onchange = async () => {
   const file = $("masImgFile").files[0];
@@ -573,5 +696,19 @@ $("masGuardarSeg").onclick = async () => {
   toast(`Segmento «${nombre.trim()}» guardado`);
   await cargarSegs();
 };
+
+$("masParteAdd").onclick = () => {
+  if (masSerie.partes.length >= MAX_PARTES) return;
+  masSerie.partes.push({ texto: "", media: null });
+  renderPartes();
+  $("masPartes").querySelector(".seriep:last-child [data-txt]")?.focus();
+};
+$("masModo").querySelectorAll("[data-modo]").forEach(b => b.onclick = () => { masSerie.modo = b.dataset.modo; renderPartes(); });
+$("masEsp").querySelectorAll("[data-esp]").forEach(b => b.onclick = () => {
+  masSerie.espera_min = b.dataset.esp === "min" ? (masSerie.espera_min || 5) : 0; renderPartes();
+});
+$("masEsc").querySelectorAll("[data-esc]").forEach(b => b.onclick = () => { masSerie.escalona = b.dataset.esc === "1"; renderPartes(); });
+$("masMin").oninput = () => { const v = parseInt($("masMin").value, 10); if (v >= 1 && v <= 120) masSerie.espera_min = v; };
+$("masMin").onchange = renderPartes;
 
 $("masEnviar").onclick = enviar;

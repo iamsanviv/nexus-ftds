@@ -30,6 +30,7 @@ let fEtapa = "todas", fTemp = "todas";
 let cuando = "ahora";
 let alTerminar = null;
 let cuota = null;   // { enviados, tope, restan } del día; null mientras carga
+let enviando = false;   // un envío en curso: ver enviar()
 
 const primerNombre = n => (n || "").trim().split(/\s+/)[0];
 const esVideo = u => /\.(mp4|mov)(\?|$)/i.test(u || "");
@@ -235,7 +236,7 @@ function pintarConteo() {
   const n = elegidos().length;
   $("ldCount").textContent = n ? `${n} de ${universo().length}` : "";
   $("ldFootN").textContent = n;
-  $("ldEnviar").disabled = n === 0;
+  $("ldEnviar").disabled = enviando || n === 0;
   pintarCuota(n);
 }
 
@@ -266,7 +267,19 @@ function pintarCuando() {
 }
 
 /* ---------- enviar ---------- */
+// Candado tomado ANTES del primer `await` (DP-010): el botón se deshabilitaba
+// después de `canalVinculado()` y del `confirm`, y un doble clic alcanzaba a
+// entrar dos veces. Es lo que duplicó un masivo el 15/10/2026 (masivo.js).
 async function enviar() {
+  if (enviando) return;
+  enviando = true;
+  $("ldEnviar").disabled = true;
+  try { await enviarSinCandado(); }
+  catch (err) { toast("⚠ " + err.message); }
+  finally { enviando = false; pintarCuando(); pintarConteo(); }
+}
+
+async function enviarSinCandado() {
   if (!(await canalVinculado())) { toast("Vincula tu WhatsApp en «Más → Mi WhatsApp» para poder enviar"); return; }
   const d = leerBorrador({ paraEnviar: true }); if (!d) return;
   const lista = elegidos();
@@ -310,46 +323,39 @@ async function enviar() {
     : "";
   if (!confirm(`Vas a ${cuando === "prog" ? "programar" : "enviar"} «${d.nombre || nombreTipo(d.tipo)}» (${nombreTipo(d.tipo)}) a ${n} lead${n === 1 ? "" : "s"}:\n${nombres}.${como}${avisoRep}${avisoCuota}\n\nCuando salga el primer mensaje se anota el contacto en la ficha de cada lead.\n\n¿Continuar?`)) return;
 
-  const btn = $("ldEnviar");
-  btn.disabled = true; btn.textContent = "Enviando…";
-  try {
-    const nombreCamp = (d.nombre || `Seguimiento · ${nombreTipo(d.tipo)}`).slice(0, 60);
-    const { data: camp, error: e1 } = await SB.from("campanas").insert({
-      nombre: nombreCamp, texto: d.mensajes[0].texto || null, media_url: d.mensajes[0].media,
-      enviar_en: base.toISOString(), total: n, lead_tipo: d.tipo,
-      // Vínculo del historial por lead: sobrevive a renombrar la plantilla.
-      plantilla_id: bor.id || null,
-    }).select("id").single();
-    if (e1) throw e1;
+  $("ldEnviar").textContent = "Enviando…";
+  const nombreCamp = (d.nombre || `Seguimiento · ${nombreTipo(d.tipo)}`).slice(0, 60);
+  const { data: camp, error: e1 } = await SB.from("campanas").insert({
+    nombre: nombreCamp, texto: d.mensajes[0].texto || null, media_url: d.mensajes[0].media,
+    enviar_en: base.toISOString(), total: n, lead_tipo: d.tipo,
+    // Vínculo del historial por lead: sobrevive a renombrar la plantilla.
+    plantilla_id: bor.id || null,
+  }).select("id").single();
+  if (e1) throw e1;
 
-    // Un solo instante de referencia para toda la tanda: lo que cambia por
-    // persona es su huso, no la hora que se anuncia.
-    const isoRef = instanteReferencia();
-    const rows = [];
-    lista.forEach((c, i) => d.mensajes.forEach((m, k) => {
-      rows.push({
-        campana_id: camp.id, cliente_id: c.id, telefono: c.tel,
-        tipo: k === 0 ? "masivo" : "masivo_parte",
-        enviar_en: new Date(cuandoParte(serie, base.getTime(), i, k, n)).toISOString(),
-        // Cada lead recibe su propia redacción: {nombre}, {hora}/{zona} en su
-        // huso y las variantes {a|b} sorteadas por persona.
-        texto: m.texto ? resolverLead(m.texto, c.nombre, isoRef, c.tzOff) : null,
-        media_url: m.media,
-      });
-    }));
-    const { error: e2 } = await SB.from("mensajes_programados").insert(rows);
-    if (e2) throw e2;
+  // Un solo instante de referencia para toda la tanda: lo que cambia por
+  // persona es su huso, no la hora que se anuncia.
+  const isoRef = instanteReferencia();
+  const rows = [];
+  lista.forEach((c, i) => d.mensajes.forEach((m, k) => {
+    rows.push({
+      campana_id: camp.id, cliente_id: c.id, telefono: c.tel,
+      tipo: k === 0 ? "masivo" : "masivo_parte",
+      enviar_en: new Date(cuandoParte(serie, base.getTime(), i, k, n)).toISOString(),
+      // Cada lead recibe su propia redacción: {nombre}, {hora}/{zona} en su
+      // huso y las variantes {a|b} sorteadas por persona.
+      texto: m.texto ? resolverLead(m.texto, c.nombre, isoRef, c.tzOff) : null,
+      media_url: m.media,
+    });
+  }));
+  const { error: e2 } = await SB.from("mensajes_programados").insert(rows);
+  if (e2) throw e2;
 
-    await guardarHistorialSegmento({ clienteIds: lista.map(c => c.id), nombre: `✉ ${nombreCamp}`, clave: `cam:${camp.id}` });
-    toast(`✓ Seguimiento ${cuando === "prog" ? "programado" : "en cola"} para ${n} lead${n === 1 ? "" : "s"}`);
-    $("ldOverlay").classList.remove("open");
-    await cargarPlantillasEnviadas();
-    alTerminar?.();
-  } catch (err) {
-    toast("⚠ " + err.message);
-  } finally {
-    btn.disabled = false; pintarCuando(); pintarConteo();
-  }
+  await guardarHistorialSegmento({ clienteIds: lista.map(c => c.id), nombre: `✉ ${nombreCamp}`, clave: `cam:${camp.id}` });
+  toast(`✓ Seguimiento ${cuando === "prog" ? "programado" : "en cola"} para ${n} lead${n === 1 ? "" : "s"}`);
+  $("ldOverlay").classList.remove("open");
+  await cargarPlantillasEnviadas();
+  alTerminar?.();
 }
 
 /* ---------- abrir ---------- */
