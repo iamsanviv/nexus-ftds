@@ -275,7 +275,8 @@ cada envío. Ver `04-features/invitations-attendance.md`.
 
 Mensajes 2..4 de un seguimiento a leads. Igual que `invitacion_parte`: el worker lo envía como texto
 con `media_url` opcional y el tope no lo corta (no está en `NUEVOS`). La atomicidad por lead la
-sostiene el trigger `mensajes_cancela_serie_lead` (por `campana_id` + `cliente_id` + `enviar_en`).
+sostiene el trigger `mensajes_cancela_serie_lead` (por `campana_id` + `cliente_id` + `enviar_en`; sin
+`cliente_id`, por `telefono`). Desde el 15/10/2026 también lo usa el masivo normal con varios mensajes.
 
 ## Tope diario y zona horaria
 

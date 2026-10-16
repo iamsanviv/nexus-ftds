@@ -888,6 +888,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <div class="segselbar">
       <button class="pill" id="ldMarcar">✓ Marcar visibles</button>
       <button class="pill" id="ldDesmarcar">✗ Desmarcar</button>
+      <button class="pill" id="ldGuardarSeg">＋ Guardar como segmento</button>
     </div>
     <div id="ldLista" class="maslista"></div>
     </div><!-- /pane leads -->
@@ -950,7 +951,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <div class="pane">
     <h3 class="paneh">Mensaje<span class="rule"></span></h3>
 
-    <div class="frow"><textarea id="masTexto" rows="4" placeholder="¡Hola {nombre}! Te comparto algo importante…"></textarea>
+    <div class="frow"><label for="masTexto" id="masM1Lbl" class="hidden">Mensaje 1</label><textarea id="masTexto" rows="4" placeholder="¡Hola {nombre}! Te comparto algo importante…"></textarea>
       <div class="msgshelp">Etiquetas: <code>{nombre}</code> <code>{hora}</code> <code>{zona}</code>. Para variar el texto entre personas (más seguro): <code>{Hola|Buenas|Qué tal}</code>.</div>
       <!-- La hora de referencia solo aparece si el texto la menciona: un campo
            que casi nunca se usa estorba, y vacío no significa nada. -->
@@ -969,7 +970,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
          El tope de 16 MB es el mismo del bucket `mensajes`; los dos numeros
          tienen que moverse juntos. -->
     <div class="frow">
-      <label>Imagen o video <span class="opt">(opcional)</span></label>
+      <label><span id="masImgLbl">Imagen o video</span> <span class="opt">(opcional)</span></label>
       <div class="imgfield">
         <img id="masImgPrev" class="imgprev hidden" alt="">
         <video id="masVidPrev" class="imgprev hidden" muted controls></video>
@@ -1009,6 +1010,41 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
           <button type="button" class="tbtn" id="masAudDel" style="color:var(--bad)">Quitar</button>
         </div>
         <span id="masAudEstado" class="imgestado"></span>
+      </div>
+    </div>
+
+    <!-- Mensajes 2..4: el mismo editor y las mismas opciones de orden y pausa
+         que el seguimiento a leads (envioleads.js) y la invitación en serie. -->
+    <div class="frow">
+      <div id="masPartes" class="serielista"></div>
+      <button type="button" class="tbtn" id="masParteAdd">＋ Agregar otro mensaje</button>
+    </div>
+    <div id="masOpts" class="serieopts hidden">
+      <div class="serieopt">
+        <span class="serielbl">Enviar</span>
+        <div class="tipoact" id="masModo" role="group" aria-label="Orden de envío">
+          <button type="button" class="on" data-modo="usuario">Por usuario</button>
+          <button type="button" data-modo="mensaje">Por mensaje</button>
+        </div>
+        <button type="button" class="infoi" aria-label="Qué significa cada orden"
+          data-info="Por usuario: cada persona recibe todos sus mensajes y luego sigue la siguiente. Por mensaje: primero sale el mensaje 1 a todas, después el 2 a todas, y así."></button>
+      </div>
+      <div class="serieopt">
+        <span class="serielbl">Entre mensajes</span>
+        <div class="tipoact" id="masEsp" role="group" aria-label="Espera entre mensajes">
+          <button type="button" class="on" data-esp="0">Pausa natural</button>
+          <button type="button" data-esp="min">Minutos</button>
+        </div>
+        <label class="seriemin hidden" id="masMinWrap"><input type="number" id="masMin" min="1" max="120" step="1" value="5" inputmode="numeric"> min</label>
+      </div>
+      <div class="serieopt hidden" id="masEscWrap">
+        <span class="serielbl">Entre personas</span>
+        <div class="tipoact" id="masEsc" role="group" aria-label="Separación entre personas">
+          <button type="button" class="on" data-esc="0">Seguidas</button>
+          <button type="button" data-esc="1">Escalonadas</button>
+        </div>
+        <button type="button" class="infoi" aria-label="Qué significa escalonar entre personas"
+          data-info="Seguidas: las personas arrancan casi a la vez (al ritmo del worker) y cada una recibe su serie separada por los minutos elegidos. Escalonadas: cada persona arranca esos mismos minutos después de la anterior, así ni los saludos se juntan. Con muchas personas la tanda tarda más."></button>
       </div>
     </div>
 
@@ -1054,7 +1090,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         <div class="pf"><label for="masHora">Hora (Colombia)</label><input type="time" id="masHora"></div>
       </div>
       <div class="mfootmain">
-        <div class="fsum"><b id="masFootN">0</b> destinatarios<span class="fs2" id="masFootCuando">Se envía ahora mismo</span><span class="fs2 avisoinact hidden" id="masFootInact"></span><span class="fs2 avisoinact hidden" id="masFootCuota"></span></div>
+        <div class="fsum"><b id="masFootN">0</b> destinatarios<span class="fs2 hidden" id="masFootSerie"></span><span class="fs2" id="masFootCuando">Se envía ahora mismo</span><span class="fs2 avisoinact hidden" id="masFootInact"></span><span class="fs2 avisoinact hidden" id="masFootCuota"></span></div>
         <div class="cuando" id="masCuandoSeg" role="group" aria-label="Cuándo enviar">
           <button class="on" data-cuando="ahora">Ahora</button>
           <button data-cuando="prog">Programar</button>

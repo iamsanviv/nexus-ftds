@@ -169,6 +169,8 @@ Cualquier manejador `async` que inserte una fila tiene esta carrera. Al escribir
 
 `seguimiento.js`, `ventas.js` y `masivo.js` ya bloqueaban los suyos; `ui.js` era el único que no.
 
+**Reincidencia 15/10/2026.** `masivo.js` sí bloqueaba, pero **después** de `await canalVinculado()`. Un doble clic encoló el mismo masivo dos veces (dos campañas, 161 ms aparte) y 25 personas lo recibieron doble. `envioleads.js` y `repaso.js` tenían el mismo orden y se corrigieron a la vez. Bloquear «antes de insertar» no basta: tiene que ser antes de **cualquier** `await`, incluidas las comprobaciones previas.
+
 
 ---
 
