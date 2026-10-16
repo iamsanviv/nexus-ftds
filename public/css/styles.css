@@ -1874,6 +1874,7 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .hacc .hmain{flex:1.4 1 0;padding:0 12px}
 .hacc .lbtn{flex:1 1 0}
 .hacc .hico{flex:0 0 44px;padding:0;display:flex;align-items:center;justify-content:center}
+.hacc .hwa{min-height:44px;border-radius:12px;color:#25D366;border-color:rgba(37,211,102,.4);text-decoration:none}
 /* El «faltan N en D días» del corte solo se ve en escritorio, donde la tarjeta
    tiene una columna propia para el corte; en el celular sería un renglón más. */
 .hmeta-corte small{display:none}

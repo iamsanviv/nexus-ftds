@@ -84,6 +84,12 @@ const chip = c => {
 };
 
 const MAS = '<path d="M12 5v14M5 12h14"/>';
+// Solo el ícono, sin texto, para no quitarle espacio a la acción principal.
+const ICO_WA = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .3-3.4-.7-2.9-1.2-4.7-4.1-4.9-4.3-.1-.2-1.2-1.6-1.2-3s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .6l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.3.1.2.1.7-.1 1.2z"/></svg>';
+const waBtn = c => {
+  const tel = (c.tel || "").replace(/\D/g, "");
+  return tel ? `<a class="lbtn hico hwa" href="https://wa.me/${tel}" target="_blank" rel="noopener" title="Abrir chat de WhatsApp" aria-label="Abrir chat de WhatsApp">${ICO_WA}</a>` : "";
+};
 function acciones(c) {
   for (const m of ["registro", "promesa", "deposito", "contacto"]) if (abiertoAqui(c, m)) return form(c);
   const cat = categoria(c);
@@ -96,9 +102,10 @@ function acciones(c) {
     return `<div class="hcrm">${accionesCrm(l, emb)}</div>`;
   }
   const mas = `<button class="lbtn hico" data-l="contacto" aria-label="Registrar contacto">${svg(MAS, "currentColor", 18)}</button>`;
-  if (cat === "pend") return `<div class="hacc"><button class="btn-ok hmain" data-l="deposito">Depositó</button><button class="lbtn" data-l="promesa">Reagendar</button>${mas}</div>`;
-  if (cat === "reg") return `<div class="hacc"><button class="btn-oro hmain" data-l="promesa">Prometió depositar</button>${mas}</div>`;
-  return `<div class="hacc"><button class="btn-oro hmain" data-l="contacto">Registrar contacto</button><button class="lbtn" data-l="registro">Abrió cuenta</button></div>`;
+  const wa = waBtn(c);
+  if (cat === "pend") return `<div class="hacc"><button class="btn-ok hmain" data-l="deposito">Depositó</button><button class="lbtn" data-l="promesa">Reagendar</button>${mas}${wa}</div>`;
+  if (cat === "reg") return `<div class="hacc"><button class="btn-oro hmain" data-l="promesa">Prometió depositar</button>${mas}${wa}</div>`;
+  return `<div class="hacc"><button class="btn-oro hmain" data-l="contacto">Registrar contacto</button><button class="lbtn" data-l="registro">Abrió cuenta</button>${wa}</div>`;
 }
 
 // Si el último contacto no tiene respuesta, se pregunta aquí mismo: es lo que
