@@ -96,3 +96,9 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
   en espera (no hecho) y vuelve solo. Se guarda en `localStorage`
   (`nexus:midia:pospuestos:<usuario>` = {id: ms}); «Atender ahora» en la fila lo trae de vuelta.
 - El repintado de cada minuto se salta si hay un campo con foco, para no borrar un formulario a medio llenar.
+
+## «Bajado a WA» (16/10/2026)
+
+El antiguo «Bajó a WhatsApp» se llama **«Bajado a WA»** con ícono de descargar (`ICO_BAJAR`, `crm.js`).
+Aparece en la tarjeta de un lead de HighLevel por bajar en «Mi día», en Leads «Hoy» y,
+desde esta fecha, también en su tarjeta de «Todos los leads» (`ui.js`, `marcarBajo`).

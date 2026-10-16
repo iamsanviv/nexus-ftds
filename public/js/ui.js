@@ -16,6 +16,7 @@ import { repasoPendientes } from "./repaso.js";
 import { refrescarCanal } from "./canal.js";
 import { chipTemp, razon, seguimientoHTML, wireSeguimiento, temperatura } from "./leads.js";
 import { renderHoy } from "./hoy.js";
+import { porBajar, crmDe, marcarBajo, ICO_BAJAR } from "./crm.js";
 import { renderMiDia, tieneMiDia } from "./midia.js";
 
 const NIVELES = ["Lead", "Beca", "VIP", "Platino", "Oro"];
@@ -554,6 +555,7 @@ function cardHTML(c, p, rank, isLead, dir) {
       <div class="cbody">
         ${isLead ? (open ? seguimientoHTML(c) : "") + nota
                  : nota + grupos}
+        ${porBajar(c) ? `<div class="lbajar"><button class="lbtn hbajar" data-acc="bajado">${ICO_BAJAR}Bajado a WA</button><span>Lead de HighLevel: márcalo cuando ya te escriba por WhatsApp.</span></div>` : ""}
         <div class="cfoot">
           ${contacto(c)}
           <button data-acc="perfil">Perfil</button>
@@ -592,6 +594,8 @@ function wireCards() {
       };
     });
     card.querySelector('[data-acc="perfil"]').onclick = () => abrirPerfil(c);
+    const bj = card.querySelector('[data-acc="bajado"]');
+    if (bj) bj.onclick = e => { e.stopPropagation(); marcarBajo(crmDe(c), () => renderKeepingCard(c.id)); };
     const cn = card.querySelector('.copynum'); if (cn) cn.onclick = e => { e.stopPropagation(); copyNum(cn.dataset.num); };
     card.querySelector('[data-acc="borrar"]').onclick = async () => {
       if (!confirm(`¿Eliminar a ${c.nombre}?`)) return;
