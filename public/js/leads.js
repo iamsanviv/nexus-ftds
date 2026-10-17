@@ -10,7 +10,8 @@ import { entranteDe } from "./entrantes.js";
 export const TIPOS = [
   ["objecion", "Resolver objeción"], ["prueba_social", "Prueba social"],
   ["valor", "Agregar valor"], ["fidelizacion", "Fidelización"],
-  ["novedad", "Por novedad"], ["otro", "Saludar / otro"],
+  ["novedad", "Por novedad"], ["urgencia", "Urgencia"],
+  ["deposito", "Depósito"], ["otro", "Saludar / otro"],
 ];
 export const nombreTipo = t => (TIPOS.find(x => x[0] === t) || [, t])[1];
 export const TEMP = { caliente: "Caliente", tibio: "Tibio", frio: "Frío" };
