@@ -113,7 +113,11 @@ temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`),
   `cuandoParte`: `base + (i+k)*espera + i` (el `+i` solo desempata el instante). Cada lead sigue
   recibiendo SU serie separada por N min; el amontonamiento que el agente veía era solo en su salida.
 - `plantillas_lead` guarda flujos reutilizables (nombre, tipo, mensajes, modo, espera, escalona), privadas.
-- Campaña con `campanas.lead_tipo` (los 6 tipos de `lead_contactos`); cada fila con `cliente_id`.
+- Campaña con `campanas.lead_tipo` (los mismos tipos de `lead_contactos`); cada fila con `cliente_id`.
+- Tipos (`TIPOS` en leads.js): objeción, prueba social, valor, fidelización, novedad, urgencia
+  (cupos que se agotan), depósito (pedir el depósito directo) y otro. La lista cerrada vive en TRES
+  checks que deben cambiar juntos (`plantillas_lead.tipo`, `campanas.lead_tipo`,
+  `lead_contactos.tipo`): el trigger copia el tipo de la campaña al contacto al enviar (SQL 40).
   Mensaje 1 = `masivo` (lo frena el tope), 2..4 = `masivo_parte` (no). Orden por `enviar_en`, sin
   `parte` (un seguimiento no se re-genera por cambio de hora).
 - Triggers: `mensajes_cancela_serie_lead` cancela lo que sigue de ese lead si uno no sale;
