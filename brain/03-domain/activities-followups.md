@@ -170,8 +170,7 @@ de esa actividad (`owner_id = me`; un director no congela los de su equipo).
 - **Congelar** retiene el **enlace Y la confirmación** pendientes: empuja su
   `enviar_en` al centinela `2999-01-01` (el worker solo manda lo vencido). NO cambia
   el `estado` (siguen `pendiente`): no es cancelar. **Sin tocar el worker.**
-- **Liberar** («▶ Enviar enlace»): el enlace pasa a `now` (sale en el próximo ciclo,
-  ~1 min) y la confirmación a `now + CONF_OFFSET_MIN` (10 min, el mismo desfase de
+- **Liberar** («▶ Enviar enlace»): el enlace pasa a `now` y la confirmación a `now + CONF_OFFSET_MIN` (10 min, el mismo desfase de
   `HITOS`). Solo toca los congelados (`enviar_en >= 2900`), no un pendiente normal.
 - **Eliminar por completo** sigue siendo el cancelar de siempre (congelar ≠ cancelar).
 
@@ -185,6 +184,20 @@ editor por persona («✎ Mensajes») muestra «❄ congelado» en vez de la fec
 **Invariante:** `reprogramarPorHora` (cambio de hora de la actividad) **salta** los
 mensajes congelados (`esCongelado`), para no liberar sin querer un enlace retenido a
 propósito. Solo se libera desde «▶ Enviar enlace».
+
+**Invariante (15/10/2026):** `renderActivos` cierra como `completado` todo seguimiento
+pasado `inicio + 10 min`, y `descongelarEnlace` solo libera seguimientos `activo`. Sin
+excepción, congelar y liberar más de 10 min después del inicio no liberaba nada (el
+botón desaparecía). Por eso `renderActivos` **no cierra** un seguimiento con enlace o
+confirmación congelados, ni uno liberado tarde cuyo enlace/confirmación sigan por salir.
+Un congelado que nadie libera caduca a las `CONGELADO_VIDA_H` (6 h) del inicio: se cierra
+y lo congelado se cancela con motivo, para no bloquear el índice de seguimiento único.
+
+**Liberar no es instantáneo.** El worker vuelve a leer la cola solo cuando termina el
+lote en curso de TODOS los agentes (hasta `LOTE_MAX` 40 por agente, 4–8 s entre
+mensajes) y cada agente arranca con un desfase al azar de hasta 45 s. El 14/10 a las
+19:02 se liberaron 20 enlaces mientras se drenaban ~60 recordatorios de 1 h de otra
+actividad: el primero salió a las 19:07:53. No es un fallo del congelado.
 
 ## «Respondió» en «Quiénes entraron» (14/10/2026)
 
