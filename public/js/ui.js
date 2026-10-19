@@ -6,7 +6,7 @@ import {
   todos, esRequerido, esAdicional, esLead, progreso, siguiente,
   OPCIONES_TZ, etiquetaOffset, horaDeCliente,
   MOTIVOS_INACTIVO, esInactivo, nombreMotivo, motivoCorto, BROKERS, nombreBroker,
-  insigniasBroker,
+  insigniasBroker, telColombia, ICO_TEL,
 } from "./state.js";
 import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio, cargarChatsRecientes } from "./data.js";
 import { asegurarEntrantes } from "./entrantes.js";
@@ -42,9 +42,13 @@ const banderaTag = c => {
     : ` <span class="pais">${esc(c.pais)}</span>`;
 };
 
-// Los dos accesos al teléfono, iguales en la tarjeta y en la vista por servicio.
+const llamarBtn = co => co
+  ? `<a class="wabtn telbtn" href="tel:+${co}" title="Llamar al +${co}" aria-label="Llamar al +${co}">${ICO_TEL}</a>` : "";
+
+// Los accesos al teléfono (llamar solo si es de Colombia), iguales en la tarjeta y en la vista por servicio.
 const contacto = c => c.tel
   ? `<a class="wabtn" target="_blank" rel="noopener" href="https://wa.me/${c.tel.replace(/\D/g, '')}" title="Escribir por WhatsApp" aria-label="Escribir por WhatsApp">${ICO_WA}</a>`
+    + llamarBtn(telColombia(c.tel))
     + `<button class="copynum" data-num="${esc(c.tel)}" title="Copiar ${esc(c.tel)}" aria-label="Copiar el número"></button>`
   : '';
 

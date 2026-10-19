@@ -14,7 +14,7 @@
 // seguimiento es desde el CRM (sin «Enviar seguimiento»). Si no bajan, salen de
 // «Hoy» después de «Llegaron ayer», salvo que vuelvan por una fecha propia.
 // Al bajar pasan al grupo de WhatsApp con la nota «vino de HighLevel».
-import { state, esc, esLead, esInactivo, nombreBroker } from "./state.js";
+import { state, esc, esLead, esInactivo, nombreBroker, telColombia, ICO_TEL } from "./state.js";
 import {
   TEMP, CATEGORIAS, categoria, temperatura, razon, tempAMano, contactosDe,
   form, abiertoAqui, esMio, manejarLead, cuandoTxt, nombreTipo, dias,
@@ -90,6 +90,10 @@ const waBtn = c => {
   const tel = (c.tel || "").replace(/\D/g, "");
   return tel ? `<a class="lbtn hico hwa" href="https://wa.me/${tel}" target="_blank" rel="noopener" title="Abrir chat de WhatsApp" aria-label="Abrir chat de WhatsApp">${ICO_WA}</a>` : "";
 };
+const telBtn = c => {
+  const co = telColombia(c.tel);
+  return co ? `<a class="lbtn hico htel" href="tel:+${co}" title="Llamar al +${co}" aria-label="Llamar al +${co}">${ICO_TEL}</a>` : "";
+};
 function acciones(c) {
   for (const m of ["registro", "promesa", "deposito", "contacto"]) if (abiertoAqui(c, m)) return form(c);
   const cat = categoria(c);
@@ -102,7 +106,7 @@ function acciones(c) {
     return `<div class="hcrm">${accionesCrm(l, emb)}</div>`;
   }
   const mas = `<button class="lbtn hico" data-l="contacto" aria-label="Registrar contacto">${svg(MAS, "currentColor", 18)}</button>`;
-  const wa = waBtn(c);
+  const wa = telBtn(c) + waBtn(c);
   if (cat === "pend") return `<div class="hacc"><button class="btn-ok hmain" data-l="deposito">Depositó</button><button class="lbtn" data-l="promesa">Reagendar</button>${mas}${wa}</div>`;
   if (cat === "reg") return `<div class="hacc"><button class="btn-oro hmain" data-l="promesa">Prometió depositar</button>${mas}${wa}</div>`;
   return `<div class="hacc"><button class="btn-oro hmain" data-l="registro">Creó cuenta</button><button class="lbtn" data-l="contacto">Registrar contacto</button>${wa}</div>`;
