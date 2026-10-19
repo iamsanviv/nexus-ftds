@@ -484,5 +484,8 @@ export function renderMiDia(cont, render) {
 
 // La guía se activa primero solo para estos usuarios (decisión del 14/10/2026:
 // probarla en el día real antes de pedir a otros agentes que la configuren).
-export const MI_DIA_USUARIOS = ["a70d2670-74b2-4eb7-be6e-ed3c92068c14"];
+export const MI_DIA_USUARIOS = [
+  "a70d2670-74b2-4eb7-be6e-ed3c92068c14", // Sanviv
+  "85bf65bc-1cf2-4216-ab37-6e9da96cbce3", // Tatiana (19/10/2026)
+];
 export const tieneMiDia = () => MI_DIA_USUARIOS.includes(state.me?.id);
