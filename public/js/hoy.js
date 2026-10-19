@@ -30,7 +30,7 @@ const ORDEN_T = { caliente: 0, tibio: 1, frio: 2 };
 // son los de CATEGORIAS; aquí solo vive lo visual.
 const ETAPA = {
   pend:  { n: "Pendientes",     d: "Prometieron depositar",       c: "#E8B84B", ico: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 1.8"/>' },
-  reg:   { n: "Registrados",    d: "Abrieron cuenta, sin promesa", c: "#B07CE8", ico: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="12" r="2.5"/><path d="M14 10h4M14 14h3"/>' },
+  reg:   { n: "Registrados",    d: "Crearon cuenta, sin promesa", c: "#B07CE8", ico: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="12" r="2.5"/><path d="M14 10h4M14 14h3"/>' },
   hoy:   { n: "Llegaron hoy",   d: "Entraron hoy",                 c: "#4ECB8D", ico: '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/>' },
   bajo:  { n: "Te escribieron", d: "Te escribieron hoy",           c: "#5B9BD5", ico: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>' },
   ayer:  { n: "Llegaron ayer",  d: "Entraron ayer",                c: "#8E9AA8", ico: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>' },
@@ -98,14 +98,14 @@ function acciones(c) {
     // Lo mismo que en «Mi día» más el embudo: puede registrarse antes de bajar.
     const emb = cat === "pend" ? `<button class="btn-ok mdbtn" data-l="deposito">Depositó</button><button class="lbtn mdbtn" data-l="promesa">Reagendar</button>`
       : cat === "reg" ? `<button class="lbtn mdbtn" data-l="promesa">Prometió depositar</button>`
-      : `<button class="lbtn mdbtn" data-l="registro">Abrió cuenta</button>`;
+      : `<button class="lbtn mdbtn" data-l="registro">Creó cuenta</button>`;
     return `<div class="hcrm">${accionesCrm(l, emb)}</div>`;
   }
   const mas = `<button class="lbtn hico" data-l="contacto" aria-label="Registrar contacto">${svg(MAS, "currentColor", 18)}</button>`;
   const wa = waBtn(c);
   if (cat === "pend") return `<div class="hacc"><button class="btn-ok hmain" data-l="deposito">Depositó</button><button class="lbtn" data-l="promesa">Reagendar</button>${mas}${wa}</div>`;
   if (cat === "reg") return `<div class="hacc"><button class="btn-oro hmain" data-l="promesa">Prometió depositar</button>${mas}${wa}</div>`;
-  return `<div class="hacc"><button class="btn-oro hmain" data-l="contacto">Registrar contacto</button><button class="lbtn" data-l="registro">Abrió cuenta</button>${wa}</div>`;
+  return `<div class="hacc"><button class="btn-oro hmain" data-l="registro">Creó cuenta</button><button class="lbtn" data-l="contacto">Registrar contacto</button>${wa}</div>`;
 }
 
 // Si el último contacto no tiene respuesta, se pregunta aquí mismo: es lo que

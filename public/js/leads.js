@@ -184,7 +184,7 @@ export function razon(c) {
   if (escribio) return escribio;
   const s = senalBase(c);
   if (s) {
-    if (s.tipo === "reg") return `Abrió cuenta en ${esc(nombreBroker(c.registroBroker))} <b>${cuandoTxt(c.registroEn)}</b>`;
+    if (s.tipo === "reg") return `Creó cuenta en ${esc(nombreBroker(c.registroBroker))} <b>${cuandoTxt(c.registroEn)}</b>`;
     return `Te respondió <b>${cuandoTxt(s.en)}</b>`;
   }
   const cs = contactosDe(c);
@@ -207,7 +207,7 @@ export function form(c) {
   const hoy = hoyISO();
   if (abierto.modo === "registro") {
     const sel = abierto.brk || BROKERS[0].id;
-    return `<div class="lform"><div class="lft">¿En qué broker abrió cuenta?</div>
+    return `<div class="lform"><div class="lft">¿En qué broker creó cuenta?</div>
       <div class="lchips">${BROKERS.map(b => `<button class="lchip ${sel === b.id ? "on" : ""}" data-l="brk" data-v="${b.id}">${esc(b.n)}</button>`).join("")}</div>
       <label class="lfl">Fecha <input type="date" id="lFecha" value="${hoy}" max="${hoy}"></label>
       <div class="lacc"><button class="btn-oro" data-l="okRegistro">Confirmar</button><button class="lbtn" data-l="cancel">Cancelar</button></div></div>`;
@@ -246,14 +246,14 @@ export const abiertoAqui = (c, modo) => abierto && abierto.id === c.id && abiert
 export function seguimientoHTML(c) {
   const mio = esMio(c);
   const pasos = [];
-  if (c.registroEn) pasos.push(`<div class="lpaso ok">✓ Abrió cuenta en <b>${esc(nombreBroker(c.registroBroker))}</b> · ${cuandoTxt(c.registroEn)}
+  if (c.registroEn) pasos.push(`<div class="lpaso ok">✓ Creó cuenta en <b>${esc(nombreBroker(c.registroBroker))}</b> · ${cuandoTxt(c.registroEn)}
     ${mio && !c.promesaEn ? `<button class="llink" data-l="undoRegistro">Deshacer</button>` : ""}</div>`);
   if (c.promesaEn) pasos.push(`<div class="lpaso ok">✓ Prometió depositar <b>${cuandoHora(c.promesaEn)}</b>
     ${mio ? `<button class="llink" data-l="undoPromesa">Deshacer</button>` : ""}</div>`);
 
   let accion = "";
   if (mio) {
-    if (!c.registroEn) accion = abiertoAqui(c, "registro") ? form(c) : `<button class="btn-oro" data-l="registro">Abrió cuenta en el broker</button>`;
+    if (!c.registroEn) accion = abiertoAqui(c, "registro") ? form(c) : `<button class="btn-oro" data-l="registro">Creó cuenta en el broker</button>`;
     else if (!c.promesaEn) accion = abiertoAqui(c, "promesa") ? form(c) : `<button class="btn-oro" data-l="promesa">Prometió depositar</button>`;
     else accion = abiertoAqui(c, "deposito") || abiertoAqui(c, "promesa") ? form(c)
       : `<div class="lacc"><button class="btn-oro" data-l="deposito">Depositó</button><button class="lbtn" data-l="promesa">Reagendar</button></div>`;
@@ -353,7 +353,7 @@ export function manejarLead(raiz, c, rerender) {
       return listo();
     }
     if (a === "undoRegistro") {
-      if (!confirm(`¿Deshacer «abrió cuenta» de ${c.nombre}?`)) return;
+      if (!confirm(`¿Deshacer «creó cuenta» de ${c.nombre}?`)) return;
       if (await dbPatch(c, { registro_broker: null, registro_en: null })) Object.assign(c, { registroBroker: null, registroEn: null });
       return listo();
     }
