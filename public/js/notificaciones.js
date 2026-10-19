@@ -11,6 +11,7 @@ import { state, $, esc, toast } from "./state.js";
 // Orden y textos de los ajustes. Las claves son las de la base
 // (notificaciones.tipo / notif_apagadas.tipo).
 const TIPOS = [
+  ["lead_hl",      "Lead nuevo de HighLevel", "En cuanto te asignan un lead en HighLevel, para llamarlo mientras está fresco."],
   ["respondio",    "Te respondió un cliente", "Te escribió después de un mensaje tuyo de seguimiento o masivo."],
   ["escribio_hoy", "Te escribió hoy",         "El primer mensaje del día de un lead o un pendiente de depósito."],
   ["temperatura",  "Subió de temperatura",    "Un lead volvió a escribir y subió de nivel."],
