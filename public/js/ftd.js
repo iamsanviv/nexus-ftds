@@ -357,9 +357,11 @@ export function abrirAsistente(modo) {
     periodoCierre: cerrar,
     declarado: f.declaro ? f.reales : f.cargados,
     base: f.base,
-    // La base se escribe a mano SOLO para arrancar. Si ya hubo un mes cerrado,
-    // la calculó el cierre y no se toca.
-    baseManual: !haCerradoAlguno(),
+    // La base siempre se puede corregir al poner los números reales: el cierre
+    // la siembra con lo que sobra, pero el agente es quien sabe con cuánta
+    // quedó de verdad (pedido del usuario el 2026-10-19).
+    baseCalculada: haCerradoAlguno(),
+    baseCierre: cerrar ? state.ftdBase[`${yo()}|${cerrar}`]?.base || 0 : 0,
     finalMes: cerrar ? Math.max(comisionFtd(cerrar, yo()).reales, 0) : 0,
     metaFtd: metas?.metaFtd || (state.metasFtd[0]?.ftd ?? 45),
     metaVentas: metas?.metaVentas || 0,
@@ -403,13 +405,12 @@ function pasoNumeros() {
         <div class="frow"><label>FTD reales de este mes</label>
           <input id="asDeclarado" type="number" min="0" step="1" value="${asis.declarado}" inputmode="numeric">
         </div>
-        ${asis.baseManual ? `
         <div class="frow"><label>Base que traes de antes</label>
           <input id="asBase" type="number" min="0" step="1" value="${asis.base}" inputmode="numeric">
-          <div class="ayuda">Los FTD que te sobraron de meses anteriores y no se pagaron.
-            <b>Solo se pregunta esta vez</b>: de aquí en adelante la calcula el sistema al cerrar cada mes.</div>
-        </div>` : `
-        <div class="ayuda">Traes <b>${asis.base}</b> de base, calculada al cerrar ${mesLegible(periodoAntes(asis.periodo))}.</div>`}
+          <div class="ayuda">${asis.baseCalculada
+            ? `La calculó el sistema al cerrar ${mesLegible(periodoAntes(asis.periodo))}. Si tu base real es otra, corrígela.`
+            : "Los FTD que te sobraron de meses anteriores y no se pagaron."}</div>
+        </div>
         <div id="asEco" class="eco"></div>
         <button class="abtn" id="asSeguir">${asis.modo === "ajuste" ? "Guardar" : "Seguir"}</button>
         ${asis.modo === "ajuste" ? "" : `<button class="abtn quiet" id="asSaltar">Ahora no</button>`}
@@ -427,6 +428,10 @@ function pasoCierre() {
       <div class="abody">
         <div class="frow"><label>FTD de ${mesLegible(asis.periodoCierre)}</label>
           <input id="asFinal" type="number" min="0" step="1" value="${asis.finalMes}" inputmode="numeric">
+        </div>
+        <div class="frow"><label>Base que tenías en ${mesLegible(asis.periodoCierre)}</label>
+          <input id="asBaseCierre" type="number" min="0" step="1" value="${asis.baseCierre}" inputmode="numeric">
+          <div class="ayuda">Los FTD que traías de meses anteriores. Si no es tu base real, corrígela.</div>
         </div>
         <div id="asEco" class="eco"></div>
         <button class="abtn" id="asSeguir">Cerrar ${mesLegible(asis.periodoCierre).split(" ")[0]} y seguir</button>
@@ -543,7 +548,7 @@ function engancharPaso(cual) {
         b ? `<br>Con tus <b>${b}</b> de base sumas <b>${d + b}</b> para la comisión.` : ""}`;
     } else if (cual === "cierre") {
       const d = Number($("asFinal").value) || 0;
-      const b = state.ftdBase[`${yo()}|${asis.periodoCierre}`]?.base || 0;
+      const b = Number($("asBaseCierre").value) || 0;
       const ef = d + b;
       const alc = [...state.metasFtd].reverse().find(m => ef >= m.ftd);
       e.innerHTML = alc
@@ -551,7 +556,7 @@ function engancharPaso(cual) {
         : `No alcanzas la primera meta (${state.metasFtd[0]?.ftd ?? "—"}). Los <b>${ef}</b> pasan completos de base.`;
     }
   };
-  ["asDeclarado", "asBase", "asFinal"].forEach(id => { if ($(id)) $(id).oninput = eco; });
+  ["asDeclarado", "asBase", "asFinal", "asBaseCierre"].forEach(id => { if ($(id)) $(id).oninput = eco; });
   eco();
 
   // Deslizador y atajos son la misma cifra por dos caminos. Al arrastrar NO se
@@ -593,13 +598,13 @@ async function avanzar(cual) {
 
     if (cual === "cierre") {
       const d = Number($("asFinal").value) || 0;
-      const b = state.ftdBase[`${yo()}|${asis.periodoCierre}`]?.base || 0;
+      const b = Number($("asBaseCierre").value) || 0;
       const ef = d + b;
       const alc = [...state.metasFtd].reverse().find(m => ef >= m.ftd);
       // Congelar el mes que se cierra…
       if (!(await guardarFtd(yo(), asis.periodoCierre,
             { base: b, declarado: d, declarado_en: new Date().toISOString(), cerrado: true }))) return;
-      // …y sembrar la base del mes nuevo. De aquí en adelante nadie la escribe a mano.
+      // …y sembrar la base del mes nuevo (se puede corregir luego en «Ajustar mis números»).
       const sobra = ef - (alc ? alc.ftd : 0);
       if (!(await guardarFtd(yo(), asis.periodo, { base: sobra }))) return;
       asis.base = sobra;
