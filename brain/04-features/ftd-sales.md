@@ -39,6 +39,7 @@ Crear un FTD puede aumentar la cifra declarada. Borrar ese mismo cliente del mes
 - La meta personal del mes se mide sin sumar esa base.
 - La comisión FTD sí puede considerar base según la regla vigente.
 - Al cerrar el mes, el sobrante puede sembrar la base del siguiente.
+- La base es **siempre editable** al poner los números reales (decidido por el usuario el 2026-10-19): el cierre de mes (`pasoCierre`) pregunta los FTD del mes que se cierra **y** la base que tenía, y «Ajustar mis números» (`pasoNumeros`) deja corregir la base del mes en curso aunque la haya sembrado un cierre. Antes solo se preguntaba la primera vez.
 - Un mes cerrado no debe reabrirse para un agente normal; el cierre protege cifras ya pagadas.
 
 La meta del agente puede ser libre. Cuando se calcula qué pago corresponde a una cifra, se busca la mayor meta alcanzada, no una coincidencia exacta.
