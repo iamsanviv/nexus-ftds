@@ -85,6 +85,15 @@ export const $ = id => document.getElementById(id);
 export const hoyISO = () => fechaCO();
 export const fmtF = iso => { const p = (iso || "").split("-"); return p.length === 3 ? `${p[2]}/${p[1]}` : (iso || ""); };
 export const esc = s => (s || "").replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m]));
+
+// Llamada directa solo a números de Colombia (57 + 10 dígitos): el plan de los
+// agentes es local y llamar a otro país desde el celular cuesta larga distancia.
+// Devuelve el número listo para `tel:+…`, o "" si no aplica.
+export const telColombia = tel => {
+  const d = (tel || "").replace(/\D/g, "");
+  return /^57\d{10}$/.test(d) ? d : "";
+};
+export const ICO_TEL = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>';
 // Para búsquedas: minúsculas y sin acentos ("César" → "cesar").
 export const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
 
