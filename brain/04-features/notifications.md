@@ -28,6 +28,7 @@ cron «notificaciones» (pg_cron, cada minuto) → generar_notificaciones() + re
 | `canal` | trigger `canales_wa`: `vinculado` → otro estado, sin `comando`/baja | por hora |
 | `canal` | cron: `vinculado` pero sin latido >10 min (y <1 día) | último `actualizado` |
 | `canal` | cron: ≥3 errores en 30 min y ≥ enviados | por día (Bogotá) |
+| `lead_hl` | trigger `crm_leads` AFTER INSERT (lead nuevo de HighLevel; reasignar es UPDATE y no avisa). SQL: `sql/2026-10-19_41_notificar_lead_hl.sql` | id del lead |
 | `respondio` / `temperatura` / `escribio_hoy` | trigger `chats_recientes` al cambiar `entrante_en` | cliente + `entrante_en` |
 
 WhatsApp entrante: **un aviso por mensaje**, combinando los hechos nuevos (respondió a tu último envío de ≤3 días, subió de temperatura, primer mensaje del día). El tipo es el más importante encendido: respondió > temperatura > escribió hoy. Solo clientes propios (`owner_id` del chat). Escribió hoy y temperatura solo para leads y pendientes de depósito (lo que lista «Hoy»). Hereda la demora de ~5 min y los huecos de `chats_sync` (ver [[../05-integrations/whatsapp-worker]]: un bridge que no sincroniza no genera avisos).
