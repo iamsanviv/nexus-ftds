@@ -342,7 +342,7 @@ function embudoHTML(c, cat) {
   for (const m of ["registro", "promesa", "deposito"]) if (abiertoAqui(c, m)) return `<div class="mdemb" data-cid="${c.id}">${form(c)}</div>`;
   const b = cat === "pend" ? `<button class="btn-ok mdbtn" data-l="deposito">Depositó</button><button class="lbtn mdbtn" data-l="promesa">Reagendar</button>`
     : cat === "reg" ? `<button class="lbtn mdbtn" data-l="promesa">Prometió depositar</button>`
-    : `<button class="lbtn mdbtn" data-l="registro">Abrió cuenta</button>`;
+    : `<button class="lbtn mdbtn" data-l="registro">Creó cuenta</button>`;
   return `<div class="mdemb" data-cid="${c.id}"><div class="mdsubl">Embudo</div><div class="mdacts">${b}</div></div>`;
 }
 const siguienteHTML = it => `<div class="mdacts mdsig"><button class="lbtn mdbtn" data-md="despues" data-id="${it.id}">Pasar al siguiente · vuelve en 30 min</button></div>`;

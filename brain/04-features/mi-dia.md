@@ -90,7 +90,7 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
 ## Embudo y «Pasar al siguiente» en «Ahora» (16/10/2026)
 
 - La tarjeta de un lead de WhatsApp trae el paso del embudo que toca (Depositó/Reagendar,
-  Prometió depositar o Abrió cuenta) con el mismo formulario y lógica de `leads.js`
+  Prometió depositar o Creó cuenta) con el mismo formulario y lógica de `leads.js`
   (`form`, `manejarLead`), como el panel «Hoy».
 - Toda tarjeta de «Ahora» tiene «Pasar al siguiente · vuelve en 30 min»: el ítem queda
   en espera (no hecho) y vuelve solo. Se guarda en `localStorage`
