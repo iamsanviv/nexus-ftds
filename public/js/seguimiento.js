@@ -396,6 +396,11 @@ function renderForm() {
   // Compartir solo aplica si hay a quién: es cosa de directores.
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
   $("segCompartir").checked = true;
+  // Para todos nace APAGADO, al revés que la del director: el admin también
+  // arma clases para sus propios clientes, y encenderla por defecto las
+  // publicaría en la lista de todo el sistema sin que lo decida.
+  $("segParaTodosRow").classList.toggle("hidden", state.me.role !== "admin");
+  $("segParaTodos").checked = false;
   $("segZoom").value = "";
   setTipoActividad("cat");
 }
@@ -407,6 +412,9 @@ function renderForm() {
 // director, «no es mía» incluía las de sus propios agentes.
 const esMia = a => !a.owner_id || a.owner_id === state.me.id;
 const deMiDirector = a => !!state.me.directorId && a.owner_id === state.me.directorId;
+// La puso el admin para todos los equipos. Va antes que «de tu director» al
+// etiquetar: el admin puede tener director y no por eso es «de tu director».
+const deAdmin = a => !!a.para_todos && !esMia(a);
 
 // Alterna entre «del catálogo» y «puntual»: cambia qué campo se pide y el
 // texto de ayuda de la imagen, porque una puntual no tiene servicio del que
@@ -602,6 +610,8 @@ function entrarEdicion(a) {
   $("segImgEstado").textContent = "";
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
   $("segCompartir").checked = !!a.compartida;
+  $("segParaTodosRow").classList.toggle("hidden", state.me.role !== "admin");
+  $("segParaTodos").checked = !!a.para_todos;
   $("segFecha").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   $("segHora").value = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   $("segLink").value = a.enlace;
@@ -671,8 +681,20 @@ async function guardarActividad() {
       // cambiar de tipo para no dejar una del catálogo marcada como zoom.
       zoom_tipo: libre ? ($("segZoom").value || null) : null,
       compartida: state.me.role === "director" && $("segCompartir").checked,
+      para_todos: state.me.role === "admin" && $("segParaTodos").checked,
     };
     if (actEdit) {
+      // Dejar de compartirla no cancela nada, pero los agentes que ya
+      // programaron dejan de ver la tarjeta desde la que se cancela o congela
+      // lo suyo. Se cuenta con la RPC porque el admin no ve esos seguimientos.
+      if (actEdit.para_todos && !datos.para_todos) {
+        const { data } = await SB.rpc("seguimientos_de_mi_actividad", { act: actEdit.id });
+        const ajenos = data?.[0]?.ajenos || 0;
+        if (ajenos && !confirm(`${ajenos} seguimiento(s) de otros agentes siguen activos en esta actividad.\n\n`
+            + `Si dejas de compartirla, sus mensajes salen igual, pero ellos ya no la verán en su lista.`)) {
+          return;
+        }
+      }
       const cambioHora = new Date(actEdit.inicio).getTime() !== inicio.getTime();
       const { error } = await SB.from("actividades").update(datos).eq("id", actEdit.id);
       if (error) throw error;
@@ -830,7 +852,7 @@ async function renderPasadas() {
 
 async function cargarActividades() {
   const { data, error } = await SB.from("actividades")
-    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen, compartida, msg_invitacion, serie_invitacion, zoom_tipo, owner_id")
+    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen, compartida, para_todos, msg_invitacion, serie_invitacion, zoom_tipo, owner_id")
     .eq("estado", "activa")
     .order("inicio", { ascending: true });
   if (error) {
@@ -875,7 +897,9 @@ async function cargarActividades() {
         <div class="ameta">
           <span class="atime">${fechaHoraCO(a.inicio)}</span>
           ${esLibre(a) ? `<span class="achip suelta" title="No está en el catálogo">✦ Puntual</span>` : ""}
-          ${deMiDirector(a) ? `<span class="achip equipo" title="La creó tu director: puedes programar, no editar">👥 De tu director</span>` : ""}
+          ${deAdmin(a) ? `<span class="achip equipo" title="La compartió el administrador con todos los equipos: puedes programar, no editar">🌐 De administración</span>`
+            : deMiDirector(a) ? `<span class="achip equipo" title="La creó tu director: puedes programar, no editar">👥 De tu director</span>` : ""}
+          ${a.para_todos && esMia(a) ? `<span class="achip equipo" title="La ven y la pueden usar todos los equipos">🌐 Todos los equipos</span>` : ""}
           ${enl === "congelado" ? `<span class="achip" title="El enlace y la confirmación están retenidos: no salen hasta que des «Enviar enlace»">❄ Enlace congelado</span>` : ""}
           ${a.enlace
             ? `<span class="achip ok">Enlace listo</span>`
@@ -970,8 +994,11 @@ async function cargarActividades() {
   $("segActividades").querySelectorAll("[data-delact]").forEach(b => b.onclick = async () => {
     const id = b.dataset.delact;
     // Se cancela ANTES de borrar: si se borra primero, los seguimientos
-    // quedan huérfanos y ya no hay por dónde alcanzarlos.
-    const n = await contarSeguimientosDe(id);
+    // quedan huérfanos y ya no hay por dónde alcanzarlos. Los que el RLS no
+    // deja ver (otros equipos en una actividad para todos) los cancela el
+    // trigger `actividades_ajenos_del`; la RPC los incluye en la cuenta.
+    const { data: cuenta } = await SB.rpc("seguimientos_de_mi_actividad", { act: id });
+    const n = cuenta?.[0]?.total ?? await contarSeguimientosDe(id);
     const aviso = n
       ? `¿Eliminar esta actividad?\n\nSe cancelarán también ${n} seguimiento(s) activo(s) y sus mensajes pendientes.`
       : "¿Eliminar esta actividad?";
