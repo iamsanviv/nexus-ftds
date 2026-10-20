@@ -68,7 +68,7 @@ async function cargarExtra(alTerminar) {
     const desde = inicioHoy().toISOString();
     const hasta = new Date(inicioHoy().getTime() + 24 * HORA_MS).toISOString();
     const [acts, chats, msgs, crm, tok, segs] = await Promise.all([
-      SB.from("actividades").select("id, nombre, inicio, owner_id, compartida")
+      SB.from("actividades").select("id, nombre, inicio, owner_id, compartida, para_todos")
         .eq("estado", "activa").gte("inicio", desde).lt("inicio", hasta).order("inicio"),
       SB.from("chats_recientes").select("telefono, ultimo_en, entrante_en")
         .eq("owner_id", me).gte("ultimo_en", desde),
@@ -86,9 +86,10 @@ async function cargarExtra(alTerminar) {
         .not("estado", "in", "(error,cancelado)")
         .gte("enviar_en", desde).lt("enviar_en", hasta),
     ]);
-    // Clases de hoy que el agente puede usar: las suyas y las compartidas por
-    // su director. Las de los agentes de un director son supervisión, no suyas.
-    const clases = (acts.data || []).filter(a => a.owner_id === me || a.compartida);
+    // Clases de hoy que el agente puede usar: las suyas, las compartidas por
+    // su director y las que el admin puso para todos. Las de los agentes de un
+    // director son supervisión, no suyas.
+    const clases = (acts.data || []).filter(a => a.owner_id === me || a.compartida || a.para_todos);
     let invitados = {};
     if (clases.length) {
       const { data } = await SB.from("seguimientos").select("actividad_id")

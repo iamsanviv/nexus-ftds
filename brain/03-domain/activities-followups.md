@@ -6,12 +6,15 @@
 
 Una actividad `compartida` pertenece al director y puede ser utilizada por sus agentes para programar a sus propios clientes. El agente no adquiere permiso para editar o borrar la actividad del director.
 
+Una actividad `para_todos` (20/10/2026) es lo mismo un nivel más arriba: la crea el admin y la ven todos los usuarios aprobados de todos los equipos (RLS `actividades_sel`: `para_todos and aprobado()`). Solo un admin puede marcarla (`actividades_ins`/`actividades_upd` exigen `not para_todos or es_admin()`). Nadie más la edita, la borra ni puede ocultarla. El interruptor nace **apagado** (al revés que el del director): el admin también arma clases para sus propios clientes. Etiqueta: «🌐 De administración» para quien la usa, «🌐 Todos los equipos» para el admin. SQL: `sql/2026-10-20_43_actividades_para_todos.sql`.
+
 ## Lista visible
 
 La operación normal muestra:
 
 - actividades propias;
-- actividades compartidas por el director.
+- actividades compartidas por el director;
+- actividades del admin para todos los equipos.
 
 No mezclar aquí las actividades de los agentes del director; esa información corresponde a supervisión.
 
@@ -19,11 +22,15 @@ No mezclar aquí las actividades de los agentes del director; esa información c
 
 ### Eliminar
 
-Antes de borrar una actividad se cancelan sus seguimientos activos y los mensajes pendientes asociados. El orden inverso puede dejar huérfanos difíciles de identificar.
+Antes de borrar una actividad se cancelan sus seguimientos activos y los mensajes pendientes asociados. El orden inverso puede dejar huérfanos difíciles de identificar (el FK es `ON DELETE SET NULL`).
+
+El panel solo alcanza los seguimientos que el RLS le deja ver (`puede_ver_de`): el admin no ve los de otros equipos. Por eso el trigger `actividades_ajenos_del` (BEFORE DELETE) cancela en la base todos los activos, y el aviso cuenta con la RPC `seguimientos_de_mi_actividad` (solo responde al dueño).
 
 ### Cambiar la hora
 
 Reprogramar los recordatorios pendientes respecto de la nueva hora. Regenerar el texto dependiente de la hora. Si un recordatorio queda en el pasado, cancelarlo.
+
+Los seguimientos que el editor no ve (`not puede_ver_de`, p. ej. otros equipos en una `para_todos`) los mueve el trigger `actividades_ajenos_upd` con la misma regla que el panel aplica a los de un agente: corrige la hora, no reescribe el texto, respeta los congelados y cancela lo que caería antes de la invitación pendiente o en el pasado. También propaga el enlace nuevo a los que no tienen token. Panel y trigger cubren conjuntos disjuntos.
 
 La invitación no cambia su instante original de envío solo porque cambió la hora de la actividad, pero sí puede necesitar texto actualizado.
 

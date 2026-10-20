@@ -34,7 +34,7 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
   `mensajes_programados` enviado a ese teléfono — un recordatorio automático no es «atenderlo».
 - Cobros: ventas propias `abierta` con `fecha_pago <= hoy`; hecho con un abono de hoy.
   `fecha_pago` es fecha sin hora: nunca sube como urgencia.
-- Clase de hoy: actividades activas de hoy propias o compartidas. Sin ninguna → «Crea la clase de hoy».
+- Clase de hoy: actividades activas de hoy propias, compartidas por el director o del admin para todos. Sin ninguna → «Crea la clase de hoy».
   Hecho con al menos un seguimiento propio no cancelado.
 
 - Tarjeta de un lead de WhatsApp: «Abrir chat», «Enviar seguimiento» (abre el envío de
