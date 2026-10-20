@@ -107,6 +107,9 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
 - En Leads «Hoy» esa tarjeta va **plegada** por defecto (`hoy.js hlAbiertos`): el encabezado
   muestra nombre, temperatura, razón y el ícono de llamar (+57); se abre tocando el encabezado o
   el chevrón. Queda abierta tras una acción y se abre sola si hay un formulario del lead abierto.
+- Tocar un paso de Mi día o una etapa del riel de Leads «Hoy» NO mueve la pantalla
+  (`state.sinSalto`): sin `scrollIntoView` y con el alto anterior como mínimo, porque una lista
+  más corta hacía que el navegador subiera la página. Solo «Siguiente etapa» (al pie) desplaza.
 - Botón de llamar (`tel:`) solo para +57 de 10 dígitos (`state.telColombia`): también en las
   filas de leads de WhatsApp de Mi día, como ícono junto a «Abrir chat» y «Seguimiento».
 - En Mi día los por bajar NO salen en el bloque WhatsApp (van en su bloque HighLevel).
