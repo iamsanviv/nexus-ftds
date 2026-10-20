@@ -8,6 +8,7 @@ import { repasoDiario } from "./repaso.js";
 import { tieneMiDia } from "./midia.js";
 import { refrescarIndicadorAgentes } from "./salud.js";
 import { iniciarNotificaciones, olvidarDispositivo } from "./notificaciones.js";
+import { revisarAvisos } from "./avisos.js";
 
 /* ---------- ver la contraseña ---------- */
 // Un botón dentro del campo que alterna type=password/text. Se arma desde JS y
@@ -188,7 +189,7 @@ async function entrar() {
   iniciarNotificaciones();
   // Quien tiene «Mi día» entra por ahí: es su pantalla de inicio.
   if (tieneMiDia()) state.vista = "midia";
-  try { await cargarTodo(); render(); repasoDiario(); }
+  try { await cargarTodo(); render(); repasoDiario(); revisarAvisos(); }
   catch (err) { toast("⚠ Error cargando datos: " + err.message); }
 }
 

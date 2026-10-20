@@ -2227,3 +2227,22 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 @media (min-width:1040px){ .admag{grid-template-columns:minmax(0,1fr) 130px 104px} }
 .admagper b{color:var(--text)}
 .admvacio{padding:8px 0;font-size:.8rem;border-top:1px solid var(--border)}
+
+/* Avisos para todos (Administración › Avisos y ventana en el panel) */
+.admavalc{margin:0 0 12px}
+.admavalc b{color:var(--text)}
+.admavpl{display:flex;gap:8px;align-items:center}
+.admavpl select{flex:1;min-width:0}
+.admavacc{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:4px}
+.admavacc .tbtn{flex:0 0 auto;padding:10px 14px}
+.admaviso{display:flex;flex-direction:column;gap:6px;padding:11px 13px;background:var(--surface);
+  border:1px solid var(--border);border-radius:11px}
+.admavtop{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
+  font-size:.9rem;overflow-wrap:anywhere}
+.admavcuerpo,.avisotxt{font-size:.85rem;color:var(--muted);white-space:pre-line;overflow-wrap:anywhere}
+.avisoitem{padding:12px 0;border-top:1px solid var(--border)}
+.avisoitem:first-child{border-top:0;padding-top:4px}
+.avisoitem b{display:block;font-size:.95rem;margin-bottom:4px;overflow-wrap:anywhere}
+.avisoitem small{display:block;font-size:.7rem;color:var(--muted);margin-top:6px}
+/* Encima del repaso diario, que puede abrirse a la vez al entrar. */
+#avisoOverlay{z-index:31}

@@ -637,7 +637,7 @@ function renderShell() {
     sub = isLead ? `${n} lead${n === 1 ? "" : "s"}` : `${n} en la comunidad`;
   } else if (V === "seguimiento") sub = "Actividades y mensajes automáticos";
   else if (V === "ventas") sub = "Facturación y comisiones";
-  else if (V === "admin") sub = "Productos, comisiones y equipo";
+  else if (V === "admin") sub = "Productos, comisiones, equipo y avisos";
   else if (V === "midia") sub = new Date().toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" });
   else sub = "Cuenta y herramientas";
   $("viewSub").textContent = sub;

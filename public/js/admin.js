@@ -1,5 +1,5 @@
-// Módulo «Administración» (solo admin): catálogo de productos con su comisión
-// y el equipo agrupado por director con su WhatsApp.
+// Módulo «Administración» (solo admin): catálogo de productos con su comisión,
+// el equipo agrupado por director con su WhatsApp y los avisos para todos.
 //
 // La autorización real vive en la base: `productos_wr` solo deja escribir al
 // admin y las dos RPC (`admin_ventas_por_producto`, `admin_resumen_equipo`)
@@ -238,14 +238,148 @@ async function pintarEquipo() {
     ${sueltos.length ? grupo("Sin director", null, sueltos) : ""}`;
 }
 
+/* ================= AVISOS ================= */
+// Un mensaje para todas las cuentas aprobadas, ya o a una hora. El envío lo
+// hace la base (enviar_avisos, sql/2026-10-20_44): push a quien lo tenga
+// activado y ventana en el panel para todos (avisos.js).
+let plantillas = [];
+
+const fechaTxt = t => new Date(t).toLocaleString("es-CO",
+  { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+// datetime-local trabaja en hora local sin zona: se arma a mano.
+const aLocal = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+async function pintarAvisos() {
+  const body = $("admBody");
+  const [al, pl, av] = await Promise.all([
+    SB.rpc("admin_alcance_avisos"),
+    SB.from("aviso_plantillas").select("*").order("titulo"),
+    SB.from("avisos").select("*").order("enviar_en", { ascending: false }).limit(60),
+  ]);
+  if (state.vista !== "admin" || seccion !== "avisos") return;
+  const err = al.error || pl.error || av.error;
+  if (err) { body.innerHTML = `<div class="naplica">⚠ ${esc(err.message)}</div>`; return; }
+  plantillas = pl.data || [];
+  const { aprobados, con_push } = al.data?.[0] || { aprobados: 0, con_push: 0 };
+  const avisos = av.data || [];
+  const prog = avisos.filter(a => !a.enviado_en && !a.cancelado_en).reverse();
+  const hechos = avisos.filter(a => a.enviado_en || a.cancelado_en).slice(0, 20);
+  const enHora = new Date(Date.now() + 60 * 60000); enHora.setMinutes(0, 0, 0);
+
+  const item = (a, conCancelar) => `<div class="admaviso">
+      <div class="admavtop"><b>${esc(a.titulo)}</b>
+        ${a.cancelado_en ? `<span class="agchip gris">Cancelado</span>`
+          : a.enviado_en ? `<span class="agchip ok">Enviado · ${esc(fechaTxt(a.enviado_en))}</span>`
+          : `<span class="agchip ojo">${esc(fechaTxt(a.enviar_en))}</span>`}</div>
+      <div class="admavcuerpo">${esc(a.cuerpo)}</div>
+      ${conCancelar ? `<div><button class="pmark off mini" data-cancelar="${a.id}">Cancelar</button></div>` : ""}
+    </div>`;
+
+  body.innerHTML = `
+    <div class="admgrupo">
+      <div class="admgtop"><b>Nuevo aviso</b></div>
+      <div class="msgshelp admavalc">Llega a las <b>${aprobados}</b> cuentas aprobadas: como notificación a las
+        <b>${con_push}</b> que la tienen activada, y a todas como ventana al abrir el panel.</div>
+      <div class="frow"><label>Plantilla</label>
+        <div class="admavpl">
+          <select id="avPlantilla"><option value="">${plantillas.length ? "Elegir una plantilla…" : "Aún no hay plantillas"}</option>
+            ${plantillas.map(p => `<option value="${p.id}">${esc(p.titulo)}</option>`).join("")}</select>
+          <button class="pmark off mini hidden" id="avBorrarPl">Borrar</button>
+        </div></div>
+      <div class="frow"><label>Título</label><input id="avTitulo" maxlength="80" placeholder="Ej: Zoom general hoy 8 p. m." autocomplete="off"></div>
+      <div class="frow"><label>Mensaje</label><textarea id="avCuerpo" rows="3" maxlength="300" placeholder="Lo que verán en la notificación y en el panel"></textarea>
+        <div class="msgshelp" id="avCuenta">0 / 300</div></div>
+      <div class="frow"><label>Cuándo</label>
+        <div class="admtipo">
+          <label><input type="radio" name="avCuando" value="ya" checked> Ahora</label>
+          <label><input type="radio" name="avCuando" value="prog"> Programar</label>
+        </div>
+        <input id="avFecha" type="datetime-local" class="hidden" value="${aLocal(enHora)}" min="${aLocal(new Date())}">
+      </div>
+      <div class="admavacc">
+        <button class="tbtn" id="avGuardarPl">Guardar como plantilla</button>
+        <button class="btn-oro" id="avEnviar">Enviar a todos</button>
+      </div>
+    </div>
+    <div class="pstitle">Programados <span class="cnt">${prog.length}</span></div>
+    <div class="admlista">${prog.map(a => item(a, true)).join("") || `<div class="admuted admvacio">No hay avisos programados</div>`}</div>
+    <div class="pstitle">Últimos enviados</div>
+    <div class="admlista">${hechos.map(a => item(a, false)).join("") || `<div class="admuted admvacio">Todavía no se ha enviado ninguno</div>`}</div>`;
+
+  const cuando = () => document.querySelector('input[name="avCuando"]:checked').value;
+  const cuenta = () => { $("avCuenta").textContent = `${$("avCuerpo").value.length} / 300`; };
+  $("avCuerpo").oninput = cuenta;
+  document.querySelectorAll('input[name="avCuando"]').forEach(r => r.onchange = () => {
+    $("avFecha").classList.toggle("hidden", cuando() !== "prog");
+    $("avEnviar").textContent = cuando() === "prog" ? "Programar" : "Enviar a todos";
+  });
+  $("avPlantilla").onchange = () => {
+    const p = plantillas.find(x => String(x.id) === $("avPlantilla").value);
+    $("avBorrarPl").classList.toggle("hidden", !p);
+    if (!p) return;
+    $("avTitulo").value = p.titulo; $("avCuerpo").value = p.cuerpo; cuenta();
+  };
+  $("avBorrarPl").onclick = async () => {
+    const p = plantillas.find(x => String(x.id) === $("avPlantilla").value);
+    if (!p || !confirm(`¿Borrar la plantilla «${p.titulo}»?`)) return;
+    const { error } = await SB.from("aviso_plantillas").delete().eq("id", p.id);
+    if (error) return toast("⚠ " + error.message);
+    toast("Plantilla borrada"); pintarAvisos();
+  };
+
+  const leer = () => {
+    const titulo = $("avTitulo").value.trim(), cuerpo = $("avCuerpo").value.trim();
+    if (!titulo) { toast("⚠ Falta el título"); return null; }
+    if (!cuerpo) { toast("⚠ Falta el mensaje"); return null; }
+    return { titulo, cuerpo };
+  };
+  $("avGuardarPl").onclick = async () => {
+    const f = leer(); if (!f) return;
+    const { error } = await SB.from("aviso_plantillas").insert(f);
+    if (error) return toast("⚠ " + error.message);
+    toast("Plantilla guardada");
+    const t = $("avTitulo").value, c = $("avCuerpo").value;
+    await pintarAvisos();
+    // Se conserva lo escrito: guardar la plantilla no debe borrar el aviso en curso.
+    $("avTitulo").value = t; $("avCuerpo").value = c; cuenta();
+  };
+  $("avEnviar").onclick = async () => {
+    const f = leer(); if (!f) return;
+    let enviar_en;
+    if (cuando() === "prog") {
+      const d = new Date($("avFecha").value);
+      if (isNaN(d)) return toast("⚠ Elige la fecha y la hora");
+      if (d <= new Date()) return toast("⚠ Esa hora ya pasó");
+      enviar_en = d.toISOString();
+      if (!confirm(`¿Programar «${f.titulo}» para ${fechaTxt(d)}? Llegará a las ${aprobados} cuentas aprobadas.`)) return;
+    } else if (!confirm(`¿Enviar «${f.titulo}» ahora a las ${aprobados} cuentas aprobadas?`)) return;
+    const btn = $("avEnviar"); btn.disabled = true;
+    const { error } = await SB.from("avisos").insert(enviar_en ? { ...f, enviar_en } : f);
+    btn.disabled = false;
+    if (error) return toast("⚠ " + error.message);
+    toast(enviar_en ? "Aviso programado" : "Aviso enviado a todos");
+    pintarAvisos();
+  };
+  body.querySelectorAll("[data-cancelar]").forEach(b => b.onclick = async () => {
+    if (!confirm("¿Cancelar este aviso? No se enviará.")) return;
+    // Si ya salió, la política no deja tocarlo y no cambia ninguna fila.
+    const { data, error } = await SB.from("avisos").update({ cancelado_en: new Date().toISOString() })
+      .eq("id", b.dataset.cancelar).select("id");
+    if (error) return toast("⚠ " + error.message);
+    toast(data?.length ? "Aviso cancelado" : "⚠ Ya se había enviado");
+    pintarAvisos();
+  });
+}
+
 /* ================= VISTA ================= */
 export async function renderAdmin() {
-  $("admSecciones").innerHTML = [["productos", "Productos"], ["equipo", "Agentes"]].map(([k, t]) =>
+  $("admSecciones").innerHTML = [["productos", "Productos"], ["equipo", "Agentes"], ["avisos", "Avisos"]].map(([k, t]) =>
     `<button class="pill ${k === seccion ? "on" : ""}" data-s="${k}">${t}</button>`).join("");
   $("admSecciones").querySelectorAll(".pill").forEach(b =>
     b.onclick = () => { seccion = b.dataset.s; renderAdmin(); });
   $("admBody").innerHTML = `<div class="naplica">Cargando…</div>`;
   if (seccion === "equipo") return pintarEquipo();
+  if (seccion === "avisos") return pintarAvisos();
   try { await cargarProductos(); }
   catch (e) { $("admBody").innerHTML = `<div class="naplica">⚠ ${esc(e.message)}</div>`; return; }
   if (state.vista === "admin" && seccion === "productos") pintarProductos();
