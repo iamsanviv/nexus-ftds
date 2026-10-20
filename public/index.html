@@ -484,6 +484,12 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       reclamar un pago.</b></p>
   </div>
 
+  <!-- vista administración (solo admin): productos/comisiones y equipo -->
+  <div id="vistaAdmin" class="hidden">
+    <div class="filtros" id="admSecciones"></div>
+    <div id="admBody"></div>
+  </div>
+
   <!-- vista más (cuenta y herramientas) -->
   <div id="vistaMas" class="hidden">
     <div class="prof">
@@ -500,6 +506,9 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <div class="mgrp">
       <button class="mrow" id="btnStats"><span class="mi">📊</span>Estadísticas<span class="mc">›</span></button>
       <button class="mrow hidden" id="btnCat"><span class="mi">⚙</span>Servicios y catálogo<span class="mc">›</span></button>
+      <!-- En escritorio Administración es una pestaña de la barra lateral; esta
+           fila es su entrada en el móvil, cuya barra inferior ya va llena. -->
+      <button class="mrow hidden solo-movil" id="btnAdmin"><span class="mi">🛠</span>Administración<span class="mc">›</span></button>
       <button class="mrow hidden" id="btnAgentes"><span class="mi">🩺</span>Agentes y canales<span class="agstate" id="agentesEstado"></span><span class="mc">›</span></button>
     </div>
 
@@ -540,6 +549,9 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <button class="tab" data-v="ventas" id="tabVentas">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18"/><path d="M16.5 7.5c0-1.7-2-2.5-4.5-2.5s-4.5.8-4.5 2.8S9.5 11 12 11.5s4.5 1 4.5 3-2 2.7-4.5 2.7-4.5-.9-4.5-2.6"/></svg>
       Ventas</button>
+    <button class="tab hidden solo-escritorio" data-v="admin" id="tabAdmin">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg>
+      Administración</button>
     <button class="tab" data-v="mas" id="tabMas">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></svg>
       Más</button>
@@ -555,6 +567,43 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <div data-tema-toggle class="sidefoot-tema"></div>
     </div>
   </nav>
+</div>
+
+<!-- modal producto (administración) -->
+<div class="overlay" id="admProdOverlay">
+  <div class="modal">
+    <h2 id="apTitulo">Producto</h2>
+    <div class="frow"><label>Nombre</label><input id="apNombre" placeholder="Ej: Bot Gold (Anual)" autocomplete="off"></div>
+    <div class="frow"><div class="dual">
+      <div style="flex:1"><label>Categoría</label><select id="apCat">
+        <option value="membresia">Membresía</option>
+        <option value="servicio">Servicio</option>
+        <option value="bot">Bot</option>
+      </select></div>
+      <div style="flex:1" id="apNivelRow"><label>Nivel que otorga</label><select id="apNivel"></select></div>
+    </div><div class="msgshelp" id="apCatNota"></div></div>
+    <div class="frow"><label>Precio (USD)</label><input id="apPrecio" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Ej: 300"></div>
+    <div class="frow">
+      <label>Comisión</label>
+      <div class="admtipo">
+        <label><input type="radio" name="apTipo" value="fija" checked> Monto fijo</label>
+        <label><input type="radio" name="apTipo" value="pct"> Porcentaje</label>
+      </div>
+      <label id="apComLbl" class="admsublbl">Monto en USD</label>
+      <input id="apCom" type="number" inputmode="decimal" min="0" step="0.01">
+      <div class="msgshelp" id="apPrev"></div>
+    </div>
+    <div class="admacc">
+      <button class="pmark off hidden" id="apBorrar">Borrar</button>
+      <button class="pmark off hidden" id="apRetirar">Retirar</button>
+      <button class="pmark hidden" id="apReactivar">Reactivar</button>
+      <span class="msgshelp" id="apAccNota"></span>
+    </div>
+    <div class="mbtns">
+      <button class="cancelar" id="apCancelar">Cancelar</button>
+      <button class="guardar" id="apGuardar">Guardar</button>
+    </div>
+  </div>
 </div>
 
 <!-- modal supervisión de agentes (solo director) -->

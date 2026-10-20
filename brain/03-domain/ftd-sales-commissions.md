@@ -6,7 +6,7 @@ El módulo de ventas trabaja en dólares.
 
 ## Comisión de producto
 
-La comisión es un monto fijo por producto, no un porcentaje. Al crear la venta se congela el valor de comisión aplicable en ese momento. El catálogo sirve como valor por defecto para ventas nuevas; no debe modificar retroactivamente ventas históricas.
+Cada producto tiene comisión **fija** (monto) o **por porcentaje** del precio (`productos.comision_pct`, desde 2026-10-20). Con porcentaje, `comision` sigue existiendo pero es derivada: la mantiene el trigger `productos_comision_derivada` al cambiar precio o porcentaje, para que ventas y upgrades sigan leyendo un monto. Al crear la venta se congela el monto aplicable en ese momento. El catálogo sirve como valor por defecto para ventas nuevas; no debe modificar retroactivamente ventas históricas.
 
 `comision = 0` significa **sin definir**, no "sin comisión". Una comisión indefinida no debe sumar como si fuera una cifra conocida.
 

@@ -488,7 +488,7 @@ function membresiaActual(cliente) {
   if (pPrev) return { precio: Number(pPrev.precio), comision: Number(pPrev.comision) };
   // Sin venta previa: el más barato de su nivel (la promo), y de ESE mismo
   // producto se toman precio y comisión juntos.
-  const mismos = state.productos.filter(p => p.nivel === n);
+  const mismos = state.productos.filter(p => p.activo && p.nivel === n);
   if (!mismos.length) return { precio: 0, comision: 0 };
   const promo = mismos.reduce((a, b) => Number(b.precio) < Number(a.precio) ? b : a);
   return { precio: Number(promo.precio), comision: Number(promo.comision) };
@@ -560,7 +560,7 @@ function pintarProductos(filtro = "") {
       data-id="${id}" data-nom="${esc(nom)}"><span class="nm">${esc(nom)}</span>${extra}</button>`;
 
   let html = GRUPOS.map(([cat, titulo]) => {
-    const ps = state.productos.filter(p => p.categoria === cat && hit(p));
+    const ps = state.productos.filter(p => p.activo && p.categoria === cat && hit(p));
     if (!ps.length) return "";
     return `<div class="pkgrupo">${titulo}</div>` + ps.map(p =>
       fila(p.id, p.nombre, `<span class="pr">${usd(p.precio)}</span>`)).join("");

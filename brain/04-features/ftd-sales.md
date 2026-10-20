@@ -72,8 +72,10 @@ La comisión aplicable se copia a la venta al crearla. Cambiar el catálogo desp
 
 ## Comisión de los bots: no hay un porcentaje único
 
-`productos.comision` guarda un **monto**, no un porcentaje, así que el
-porcentaje solo existe en la cabeza de quien carga el precio. Hoy conviven dos:
+Desde 2026-10-20 un producto puede guardar su porcentaje (`comision_pct`) y el
+monto se recalcula solo al cambiar el precio (ver [[administracion]]). Todos
+los productos existentes quedaron como monto fijo por decisión del usuario: él
+decide cuáles pasar a porcentaje. Mientras sigan fijos, conviven dos:
 
 - familia **GoPro** → 25 % (siete precios, de $320 a $735 — `sql/2026-08-31_17_...`);
 - **Bot IA, GoTraders y Gold** → 30 %.
@@ -81,7 +83,7 @@ porcentaje solo existe en la cabeza de quien carga el precio. Hoy conviven dos:
 No hay excepciones dentro de cada familia: `gopro_vip` («Servicios VIP», $135)
 era la única y quedó retirada (`activo = false`, `sql/2026-08-31_18_...`).
 
-Consecuencia práctica: al cambiar el precio de un bot hay que **recalcular la
+Consecuencia práctica: al cambiar el precio de un bot con comisión fija hay que **recalcular la
 comisión a mano** con el porcentaje de SU familia. Asumir 30 % para todos ya es
 un error.
 

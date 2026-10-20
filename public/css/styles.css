@@ -2097,3 +2097,54 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .lbajar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px}
 .lbajar .hbajar{min-height:40px;padding:0 14px;border-radius:12px}
 .lbajar span{font-size:.74rem;color:var(--muted)}
+
+/* ================= Administración (solo admin) ================= */
+/* En escritorio se entra por la barra lateral; en el móvil, por «Más». */
+@media (max-width:1039px){ .solo-escritorio{display:none!important} }
+@media (min-width:1040px){ .solo-movil{display:none!important} }
+
+#vistaAdmin .filtros{margin-bottom:12px}
+.admbar{display:flex;justify-content:flex-end;margin-bottom:4px}
+.admnew{background:var(--gold-fill);color:var(--on-gold);font-family:'Archivo';font-weight:800;
+  font-size:.85rem;border-radius:11px;padding:9px 16px}
+.admuted{color:var(--muted);font-weight:500}
+.admlista{display:flex;flex-direction:column;gap:6px}
+.admprod{display:flex;flex-direction:column;gap:8px;width:100%;text-align:left;padding:11px 13px;
+  background:var(--surface);border:1px solid var(--border);border-radius:11px;color:var(--text)}
+.admprod:hover{background:var(--hover)}
+.admprod.off{opacity:.6}
+.admnom{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-weight:700;font-size:.9rem;
+  overflow-wrap:anywhere;min-width:0}
+.admcifras{display:grid;grid-template-columns:1fr 1.6fr .8fr;gap:8px;font-size:.82rem;font-variant-numeric:tabular-nums}
+.admcifras > span{display:flex;flex-direction:column;min-width:0}
+.admlbl{font-size:.62rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.admcifras b{font-weight:700}
+@media (min-width:1040px){
+  .admprod{flex-direction:row;align-items:center}
+  .admnom{flex:1}
+  .admcifras{flex:0 0 400px}
+}
+
+.admtipo{display:flex;gap:16px;margin:2px 0 8px;font-size:.85rem}
+.admtipo label{display:flex;align-items:center;gap:6px;margin:0;color:var(--text);font-weight:600;
+  text-transform:none;letter-spacing:0;font-size:.85rem}
+.admtipo input{width:auto;margin:0}
+.admsublbl{font-size:.72rem}
+.admacc{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 12px}
+.admacc .msgshelp{margin:0;flex:1 1 200px}
+
+.admresumen{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin-bottom:12px}
+.admresumen b{color:var(--text)}
+.admgrupo{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:12px 13px;margin-bottom:12px}
+.admgtop{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  font-family:'Archivo';font-size:.95rem;margin-bottom:6px}
+.admgtop .admuted{font-family:inherit;font-size:.76rem}
+.admag{display:grid;grid-template-columns:minmax(0,1fr) auto 92px;align-items:center;gap:10px;
+  padding:9px 0;border-top:1px solid var(--border);font-size:.86rem}
+.admagnom{min-width:0;overflow-wrap:anywhere;font-weight:600}
+.admagper{color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;text-align:right}
+.admag .agchip{justify-self:end}
+@media (min-width:1040px){ .admag{grid-template-columns:minmax(0,1fr) 130px 104px} }
+.admagper b{color:var(--text)}
+.admvacio{padding:8px 0;font-size:.8rem;border-top:1px solid var(--border)}
