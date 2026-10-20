@@ -14,7 +14,7 @@
 // seguimiento es desde el CRM (sin «Enviar seguimiento»). Si no bajan, salen de
 // «Hoy» después de «Llegaron ayer», salvo que vuelvan por una fecha propia.
 // Al bajar pasan al grupo de WhatsApp con la nota «vino de HighLevel».
-import { state, esc, esLead, esInactivo, nombreBroker, telColombia, ICO_TEL, sinSalto } from "./state.js";
+import { state, esc, esLead, esInactivo, nombreBroker, telColombia, ICO_TEL, sinSalto, raizScroll } from "./state.js";
 import {
   TEMP, CATEGORIAS, categoria, temperatura, razon, tempAMano, contactosDe,
   form, abiertoAqui, esMio, manejarLead, cuandoTxt, nombreTipo, dias,
@@ -253,7 +253,7 @@ export function renderHoy(cont, render) {
     const antes = document.querySelector(s)?.getBoundingClientRect().top;
     render();
     const el = document.querySelector(s);
-    if (antes != null && el) window.scrollBy(0, el.getBoundingClientRect().top - antes);
+    if (antes != null && el) raizScroll().scrollTop += el.getBoundingClientRect().top - antes;
   };
   cont.querySelectorAll(".hfila").forEach(el => {
     const c = state.clientes.find(x => x.id === el.dataset.id);
