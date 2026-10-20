@@ -402,6 +402,19 @@ Ahí viven `provisionar.sh` y los bridges; no hace falta saltar a VM2.
   directo en la base) pero **todos sus envíos fallan**, porque el worker los manda a VM1.
   Comprobar desde VM1 que el puerto responde: `curl -s -o /dev/null -w "%{http_code}"
   http://10.0.0.23:<puerto>/` (cualquier código HTTP sirve; `000` = bloqueado).
+- **VM2 no tiene `provisionar.sh` ni `~/nexus-worker/.env`** (verificado 20/10/2026): la alta
+  se hace a mano repitiendo lo que hace el script, en este orden:
+  1. crear la fila desde la base **antes** de arrancar el bridge (el bridge escribe ahí su
+     QR y su estado): `insert into canales_wa (owner_id, puerto, estado, host) values
+     ('<uuid>', <puerto>, 'sin_vincular', '10.0.0.23') on conflict (owner_id) do update set
+     puerto = excluded.puerto, host = excluded.host, estado = 'sin_vincular', comando = null;`
+  2. en VM2, comprobar que ningún `env` tiene ya ese `WA_OWNER` ni ese `WA_PORT`;
+  3. `mkdir -p ~/nexus-bridges/<slug>/store` y armar `env` con `WA_PORT`, `WA_OWNER` y las
+     líneas `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` copiadas con `grep` del `env` de otro
+     bridge (sin imprimirlas); `chmod 600`. Todo sin `sudo`;
+  4. `sudo systemctl enable --now nexus-bridge@<slug>`.
+- Firewall de VM2: acepta desde VM1 (`10.0.0.74`) solo `8092:8094` y `8095:8100`. Un puerto
+  fuera de ese rango necesita su regla `iptables` (y persistirla), o el worker no llega.
 - VM2 no corre `chats_sync` (KI-014): el agente no tiene «Te escribió», «respondió»
   automático ni subida de temperatura, ni los avisos push que dependen de eso.
   Enviar sí funciona. Para un agente que trabaja leads, VM1 es mejor mientras siga así.
