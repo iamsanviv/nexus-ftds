@@ -401,3 +401,7 @@ Cómo trabajar:
 - Desde el entorno de Claude no se llega a `esm.sh` ni a `workers.dev`: para reproducir, construir el bundle de la versión con `npm` + `esbuild` (npm sí es accesible) y servirlo en lugar de esm.sh con `page.route`.
 - Diagnóstico rápido de «pantalla vacía»: si ni siquiera aparece el login, el fallo es de **carga/enlace de módulos** (un import que no resuelve, un error de sintaxis, un `$("id")` nulo al nivel superior), no de datos: un fallo al pintar con datos deja visible el menú lateral y un toast.
 - Opción a futuro (decisión pendiente): servir el bundle desde `public/` para no depender de esm.sh en tiempo de ejecución.
+
+## Sobrescribir un archivo en la misma URL detrás de una caché por URL
+
+Hasta el 20/10/2026 la imagen de un servicio se reemplazaba con `upsert` en la misma ruta. Con la caché de multimedia del worker (clave por URL) y el CDN de Storage, el panel mostraba la imagen nueva y WhatsApp seguía recibiendo la vieja. Regla: cualquier archivo que el worker vaya a enviar debe cambiar de URL cuando cambia su contenido. Ver `04-features/media-attachments.md`.

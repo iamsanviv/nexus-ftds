@@ -1354,9 +1354,12 @@ $("eImgFile").onchange = async () => {
   const { gi, si } = state.srvEdit, s = state.catalogo[gi].items[si];
   $("eImgEstado").textContent = "Subiendo…";
   try {
-    const url = await subirImagenServicio(file, s.id);
+    const url = await subirImagenServicio(file, s.id), anterior = s.img;
     s.img = url;
-    await guardarCatalogo();
+    const guardado = await guardarCatalogo();
+    // Solo después de que el catálogo apunte a la nueva: si se borrara antes,
+    // un envío en curso resolvería una URL que ya no existe.
+    if (guardado && anterior && anterior !== url) borrarImagenServicio(anterior).catch(() => {});
     setImgPreview(url);
     $("eImgEstado").textContent = "✓ Imagen guardada";
     renderCat();
