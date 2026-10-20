@@ -6,7 +6,7 @@
 
 Una actividad `compartida` pertenece al director y puede ser utilizada por sus agentes para programar a sus propios clientes. El agente no adquiere permiso para editar o borrar la actividad del director.
 
-Una actividad `para_todos` (20/10/2026) es lo mismo un nivel más arriba: la crea el admin y la ven todos los usuarios aprobados de todos los equipos (RLS `actividades_sel`: `para_todos and aprobado()`). Solo un admin puede marcarla (`actividades_ins`/`actividades_upd` exigen `not para_todos or es_admin()`). Nadie más la edita, la borra ni puede ocultarla. El interruptor nace **apagado** (al revés que el del director): el admin también arma clases para sus propios clientes. Etiqueta: «🌐 De administración» para quien la usa, «🌐 Todos los equipos» para el admin. SQL: `sql/2026-10-20_43_actividades_para_todos.sql`.
+Una actividad `para_todos` (20/10/2026) es lo mismo un nivel más arriba: la crea el admin y la ven todos los usuarios aprobados de todos los equipos (RLS `actividades_sel`: `para_todos and aprobado()`). Solo un admin puede marcarla (`actividades_ins`/`actividades_upd` exigen `not para_todos or es_admin()`). Nadie más la edita, la borra ni puede ocultarla. El interruptor nace **apagado** (al revés que el del director): el admin también arma clases para sus propios clientes. Etiqueta «🌐 Global» para todos (pedido de Sanviv), y tiene prioridad sobre «De tu director»: el admin puede tener director. SQL: `sql/2026-10-20_43_actividades_para_todos.sql`.
 
 ## Lista visible
 
