@@ -17,7 +17,7 @@
 //
 // Solo ve lo PROPIO: es una lista de trabajo. Un director no recibe aquí a los
 // leads de sus agentes aunque pueda verlos.
-import { state, esc, hoyISO, esLead, esInactivo, usd, saldo, estaSaldada, toast, telColombia, ICO_TEL } from "./state.js";
+import { state, esc, hoyISO, esLead, esInactivo, usd, saldo, estaSaldada, toast, telColombia, ICO_TEL, sinSalto } from "./state.js";
 import { SB } from "./supabase.js";
 import { SUPABASE_URL } from "./config.js";
 import { cargarCrm } from "./data.js";
@@ -567,8 +567,7 @@ export function renderMiDia(cont, render) {
 
   detectarBajadas(render);
   cont.querySelectorAll("[data-paso-k]").forEach(b => b.onclick = () => {
-    pasoSel = b.dataset.pasoK; filaSel = null; render();
-    cont.querySelector(".mdlista")?.scrollIntoView({ block: "nearest" });
+    pasoSel = b.dataset.pasoK; filaSel = null; sinSalto(cont, render);
   });
   cont.querySelectorAll("[data-fila]").forEach(b => b.onclick = () => {
     const it = paso.ls.find(x => x.id === b.dataset.fila);

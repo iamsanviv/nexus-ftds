@@ -14,7 +14,7 @@
 // seguimiento es desde el CRM (sin «Enviar seguimiento»). Si no bajan, salen de
 // «Hoy» después de «Llegaron ayer», salvo que vuelvan por una fecha propia.
 // Al bajar pasan al grupo de WhatsApp con la nota «vino de HighLevel».
-import { state, esc, esLead, esInactivo, nombreBroker, telColombia, ICO_TEL } from "./state.js";
+import { state, esc, esLead, esInactivo, nombreBroker, telColombia, ICO_TEL, sinSalto } from "./state.js";
 import {
   TEMP, CATEGORIAS, categoria, temperatura, razon, tempAMano, contactosDe,
   form, abiertoAqui, esMio, manejarLead, cuandoTxt, nombreTipo, dias,
@@ -239,12 +239,13 @@ export function renderHoy(cont, render) {
   }
   cont.querySelectorAll("[data-etapa]").forEach(b => b.onclick = () => {
     etapaSel = b.dataset.etapa;
+    // Desde el riel la pantalla se queda quieta; «Siguiente etapa» (al pie) sí
+    // sube hasta el título de la etapa nueva.
+    if (!b.classList.contains("hsig")) { sinSalto(cont, render); return; }
     render();
-    if (b.classList.contains("hsig")) {
-      const t = document.querySelector(`.hetapa[data-etapa="${etapaSel}"]`);
-      t?.scrollIntoView({ block: "nearest", inline: "center" });
-      document.querySelector(".hseltit")?.scrollIntoView({ block: "start", behavior: "smooth" });
-    }
+    const t = document.querySelector(`.hetapa[data-etapa="${etapaSel}"]`);
+    t?.scrollIntoView({ block: "nearest", inline: "center" });
+    document.querySelector(".hseltit")?.scrollIntoView({ block: "start", behavior: "smooth" });
   });
 
   const mantener = id => {
