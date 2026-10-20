@@ -166,7 +166,8 @@ export function bandera(pais, tel) {
    adelantada (allá es más tarde). null = sin definir, y entonces el mensaje
    anuncia hora Colombia, igual que antes de existir esta columna.
 
-   Lo pone el agente a mano, siempre. NO se deduce del país: dentro de un mismo
+   Lo pone el agente a mano, salvo Colombia (+57 → 0, ver `paisDesdeTel` en
+   ui.js: un solo huso). NO se deduce del país: dentro de un mismo
    país puede haber varios husos —México tiene tres— así que adivinar acierta a
    veces y falla en silencio el resto, que es la peor de las dos.
 

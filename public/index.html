@@ -673,7 +673,8 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       </div></div>
       <!-- Desfase horario: hace que {hora} llegue en la hora de pared de la
            persona en vez de la de Colombia. Se pone A MANO: el país no sirve para
-           deducirlo (México tiene tres husos). `fTzPrev` muestra un ejemplo vivo,
+           deducirlo (México tiene tres husos). Excepción: un número +57 la pone
+           en 0 sola, porque Colombia tiene un único huso. `fTzPrev` muestra un ejemplo vivo,
            que es la única forma de que el agente note si eligió al revés. -->
       <div class="frow">
         <label>Diferencia de hora con Colombia <span class="opt">(opcional)</span></label>

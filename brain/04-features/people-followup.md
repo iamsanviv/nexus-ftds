@@ -85,7 +85,7 @@ Ver [[../03-domain/messaging-rules]] para dónde se aplica la exclusión.
 
 El perfil guarda la diferencia de hora del cliente con Colombia (`tz_offset_min`, en minutos; `NULL` = sin definir). Existe para que la hora del mensaje llegue ya convertida.
 
-Lo pone el agente a mano y **no se deduce del país**: un mismo país puede tener varios husos —México tiene tres— así que adivinar acierta a veces y falla en silencio el resto. El selector va en saltos de media hora y agrupado por dirección (atrasada / adelantada), con un ejemplo vivo debajo: es lo único que delata un signo invertido antes de que el error salga por WhatsApp.
+Lo pone el agente a mano y **no se deduce del país**: un mismo país puede tener varios husos —México tiene tres— así que adivinar acierta a veces y falla en silencio el resto. Única excepción: al escribir un número `+57` completo el formulario pone país Colombia y diferencia 0 (un solo huso, sin horario de verano). Un `+52` completo pone país México y deja la hora sin tocar (`paisDesdeTel` en `public/js/ui.js`). El CSV no hace esta deducción. El selector va en saltos de media hora y agrupado por dirección (atrasada / adelantada), con un ejemplo vivo debajo: es lo único que delata un signo invertido antes de que el error salga por WhatsApp.
 
 Ver [[../03-domain/messaging-rules]] para cómo se usa en el texto.
 

@@ -885,6 +885,7 @@ $("chatLista").onclick = e => {
   const fila = e.target.closest(".chatfila");
   if (!fila) return;
   $("fTel").value = fila.dataset.tel;
+  paisDesdeTel();
   // El nombre de WhatsApp es un punto de partida, no la verdad: el agente lo
   // corrige si hace falta. Por eso no se pisa un nombre ya escrito.
   if (!$("fNombre").value.trim() && fila.dataset.nom) $("fNombre").value = fila.dataset.nom;
@@ -1105,6 +1106,26 @@ $("abrirModal").onclick = () => {
   $("overlay").classList.add("open");
 };
 $("fTz").onchange = pintarEjemploTz;
+
+/* País (y hora) a partir del prefijo del número, solo para Colombia y México,
+   que son casi todas las personas. Corre al escribir el número, así que en un
+   perfil existente solo actúa si el agente cambia el teléfono.
+   Colombia tiene un único huso, así que su diferencia es siempre 0. México NO
+   toca la hora: tiene varios husos y adivinar fallaría en silencio (ver
+   OPCIONES_TZ en state.js).
+   Se exige el largo de un número internacional completo (57/52 + 10 dígitos,
+   o 521 + 10 en México) para no confundir un número local que empiece igual. */
+function paisDesdeTel() {
+  const d = $("fTel").value.replace(/\D/g, "");
+  if (d.length === 12 && d.startsWith("57")) {
+    $("fPais").value = "Colombia";
+    $("fTz").value = "0";
+    pintarEjemploTz();
+  } else if ((d.length === 12 || d.length === 13) && d.startsWith("52")) {
+    $("fPais").value = "México";
+  }
+}
+$("fTel").oninput = paisDesdeTel;
 $("fEstado").onchange = () => {
   const c = state.cliEdit ? state.clientes.find(x => x.id === state.cliEdit) : null;
   pintarAyudaEstado(c && c.inactivoDesde);
