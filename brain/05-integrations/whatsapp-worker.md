@@ -146,7 +146,7 @@ regla que `hoyISO()`.
 
 ## Dónde vive de verdad (verificado 20/08/2026)
 
-- VM: `ubuntu@141.148.40.31`, llave `~/.ssh/nexus_oracle`;
+- VM1: `ubuntu@141.148.40.31` = `nexus-cloud` (IP interna `10.0.0.74`), llave `~/.ssh/nexus_oracle` desde fuera; ahí está `provisionar.sh`. VM2 (`10.0.0.23`) se alcanza desde VM1 con `~/.ssh/vm2.key`;
 - worker: servicio `nexus-worker` en `/home/ubuntu/nexus-worker`;
 - bridges: un servicio por agente con plantilla `nexus-bridge@<slug>`, directorio por agente en `/home/ubuntu/nexus-bridges/<slug>` y `provisionar.sh` para dar de alta uno nuevo (tiene guardia anti-duplicados por owner y por puerto);
 - **los nueve bridges comparten un único ejecutable**: `/home/ubuntu/whatsapp-mcp/whatsapp-bridge/whatsapp-bridge-mt`. Cambiarlo los afecta a todos y exige recompilar y reiniciar los nueve servicios;
@@ -349,6 +349,54 @@ que el límite deja de ser preocupación; el arreglo de 60 s es holgura/limpieza
   whatsapp-bridge-mt.new .` (CGO por `go-sqlite3`). Respaldos:
   `whatsapp-bridge-mt.bak-<fecha>` y `.prev`. Probar siempre en 1 bridge con un
   override de systemd apuntando al `.new` antes de promover.
+
+## Runbook: dar de alta el WhatsApp de un agente nuevo (verificado 13/10/2026)
+
+Hecho así con Laura Sofía Charry (`laura_charry`, puerto 8083): quedó `vinculado` en
+menos de un minuto.
+
+**0. Requisitos en la base** (consultar antes de tocar la VM):
+`select p.id, p.aprobado, c.puerto, c.estado, c.comando from profiles p left join canales_wa c on c.owner_id = p.id where p.full_name ilike '%<apellido>%';`
+- `aprobado = true` (si no, el panel no lo deja entrar y el bridge no le sirve);
+- sin fila en `canales_wa`, o con `puerto` nulo; si ya tiene puerto, es una
+  **reactivación** (ver «Revertir» más abajo), no una alta;
+- `comando is null` (un `desvincular` viejo cerraría la sesión segundos después de
+  emparejar — ver «`comando`: la orden de desvincular se queda encolada»).
+
+**1. Elegir puerto:** libre en la **tabla** (la unicidad es global entre las dos VMs):
+`select string_agg(puerto::text, ', ' order by puerto) from canales_wa where puerto is not null;`
+y además libre en los `env` de la VM donde se provisiona (hay bridges cuyo puerto no
+está en la tabla). `provisionar.sh` revisa el segundo; el primero no.
+
+**2. Conectarse a la VM1** (`nexus-cloud`, `141.148.40.31`, IP interna `10.0.0.74`).
+Ahí viven `provisionar.sh` y los bridges; no hace falta saltar a VM2.
+
+**3. Comprobar slug y puerto en la VM:**
+`ls -d ~/nexus-bridges/<slug> 2>/dev/null; grep -l "WA_PORT=<puerto>" ~/nexus-bridges/*/env`
+(ambos deben salir vacíos). Slug: `nombre_apellido`, minúsculas, sin tildes,
+`^[a-z0-9][a-z0-9_-]{0,31}$`.
+
+**4. Provisionar — argumentos en este orden y SIN `sudo`:**
+`cd ~/nexus-bridges && ./provisionar.sh <slug> <puerto> <owner_id>`
+- El orden es **slug, puerto, owner**. (Al primer intento se escribió owner antes que
+  puerto: el script lo habría rechazado, pero hay que leer su cabecera, no adivinar.)
+- Sin `sudo`: el script se eleva solo para `systemctl`. Con `sudo` la carpeta y el
+  `env` quedarían de root y el bridge (corre como `ubuntu`) no podría escribir su sesión.
+- El script: crea `~/nexus-bridges/<slug>/{env,store}`, inserta/actualiza la fila de
+  `canales_wa` (`estado='sin_vincular'`) y hace `systemctl enable --now
+  nexus-bridge@<slug>`. Termina con `OK: <slug> en puerto …`.
+
+**5. Verificar:** `systemctl status nexus-bridge@<slug> --no-pager` → `active (running)`.
+
+**6. El agente escanea el QR:** panel → **Más → Mi WhatsApp**, desde su teléfono
+(WhatsApp → Dispositivos vinculados). En la base pasa a `vinculado`.
+
+**7. Confirmar estable:** `journalctl -u nexus-bridge@<slug> --no-pager | tail -30` sin
+`logged out` / `device removed`, y en la base `estado='vinculado'`, `comando` nulo.
+
+Si algo sale mal ANTES de vincular: `sudo systemctl disable --now nexus-bridge@<slug>` y
+`mv ~/nexus-bridges/<slug> ~/nexus-bridges/.<slug>-descartado` (el punto delante libera
+el puerto para `provisionar.sh`), y `update canales_wa set puerto = null where owner_id = '<uuid>';`.
 
 ## Runbook: dar de baja / desactivar un agente
 
