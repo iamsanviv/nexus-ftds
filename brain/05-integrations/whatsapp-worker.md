@@ -401,7 +401,12 @@ Ahí viven `provisionar.sh` y los bridges; no hace falta saltar a VM2.
   owner_id = '<uuid>';`. Si no, el emparejamiento por QR funciona (el bridge escribe
   directo en la base) pero **todos sus envíos fallan**, porque el worker los manda a VM1.
   Comprobar desde VM1 que el puerto responde: `curl -s -o /dev/null -w "%{http_code}"
-  http://10.0.0.23:<puerto>/` (cualquier código HTTP sirve; `000` = bloqueado).
+  --max-time 5 http://10.0.0.23:<puerto>/` (cualquier código HTTP sirve). **Solo vale
+  DESPUÉS de escanear el QR:** el bridge no abre su servidor HTTP hasta estar vinculado,
+  así que antes da `000` aunque todo esté bien (verificado 20/10/2026: Jhon y María José
+  sin vincular → `000`; Leonardo y Seleny vinculados → `404`). Compararlo siempre contra
+  un bridge vinculado de la misma VM, y correrlo desde VM1, no desde VM2 (el firewall
+  solo acepta esos puertos desde `10.0.0.74`).
 - **VM2 no tiene `provisionar.sh` ni `~/nexus-worker/.env`** (verificado 20/10/2026): la alta
   se hace a mano repitiendo lo que hace el script, en este orden:
   1. crear la fila desde la base **antes** de arrancar el bridge (el bridge escribe ahí su
