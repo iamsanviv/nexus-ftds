@@ -2166,6 +2166,12 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .hgrupo.hl b{color:#E8833A}
 .hgrupo.hl span{background:color-mix(in srgb,#E8833A 16%,transparent);color:#E8833A}
 .hfila.hfhl{border-left:3px solid #E8833A}
+.hfhl .hl1{cursor:pointer}
+.hfhl .hl1 .hico{flex:0 0 40px;height:40px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:11px}
+.hfhl .hl1 .hpleg{flex-basis:32px;width:32px;border:0;background:none;color:var(--muted)}
+.hfhl .lwhy .ltemp{margin:0 7px 0 0;vertical-align:middle}
+.hpleg svg{transition:transform .15s}
+.hfhl:not(.plegada) .hpleg svg{transform:rotate(180deg)}
 .hcrm .mdacts:first-of-type{margin-top:6px}
 .hvino{display:inline-block;font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:7px;margin:3px 0 1px 5px;white-space:nowrap;
   background:color-mix(in srgb,#E8833A 14%,transparent);color:var(--text);border:1px solid color-mix(in srgb,#E8833A 45%,transparent)}

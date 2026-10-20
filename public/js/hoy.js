@@ -124,6 +124,10 @@ function esperando(c) {
     <span class="lacc"><button class="lbtn mini" data-l="resp" data-v="${x.id}" data-r="si">Respondió</button><button class="lbtn mini" data-l="resp" data-v="${x.id}" data-r="no">No</button></span></div>`;
 }
 
+// Tarjetas de HighLevel abiertas a mano; las demás van plegadas.
+const hlAbiertos = new Set();
+const FORMS = ["temp", "registro", "promesa", "deposito", "contacto"];
+
 const fila = c => {
   const t = temperatura(c);
   // Quien ya es Beca y está pendiente de otro depósito: se marca como 2º depósito
@@ -138,14 +142,19 @@ const fila = c => {
   const l = crmDe(c), hl = porBajarCrm(l);
   const est = hl ? estadoCrm(l) : "";
   const origen = !hl && vinoDeHL(c) ? `<span class="hvino">vino de HighLevel</span>` : "";
-  return `<div class="hfila${hl ? " hfhl" : ""}" data-id="${c.id}">
-    <div class="hl1">
+  // La tarjeta de HighLevel es larga (cuatro grupos): va plegada y se abre al
+  // tocarla (pedido del usuario, 20/10/2026). «Llamar» queda a la vista y la
+  // temperatura baja junto a la razón para dejarle el ancho al nombre.
+  const abierta = !hl || hlAbiertos.has(c.id) || FORMS.some(m => abiertoAqui(c, m));
+  const pleg = hl ? `${abierta ? "" : telBtn({ tel: l.telefono || c.tel })}<button type="button" class="lbtn hico hpleg" data-pleg aria-expanded="${abierta}" aria-label="${abierta ? "Plegar" : "Abrir"} la tarjeta">${svg('<path d="M6 9l6 6 6-6"/>', "currentColor", 18)}</button>` : "";
+  return `<div class="hfila${hl ? " hfhl" : ""}${abierta ? "" : " plegada"}" data-id="${c.id}">
+    <div class="hl1"${hl ? " data-pleg-zona" : ""}>
       <span class="hav ${t}" aria-hidden="true">${esc(iniciales(c.nombre))}</span>
-      <div class="hl1t"><button class="hnm" data-ver="${c.id}">${esc(c.nombre)}</button>${dep2}${escr}${origen}<div class="lwhy">${razon(c)}${est ? ` · ${est}` : ""}</div></div>
-      ${chip(c)}
+      <div class="hl1t"><button class="hnm" data-ver="${c.id}">${esc(c.nombre)}</button>${dep2}${escr}${origen}<div class="lwhy">${hl ? chip(c) : ""}${razon(c)}${est ? ` · ${est}` : ""}</div></div>
+      ${hl ? pleg : chip(c)}
     </div>
-    ${abiertoAqui(c, "temp") ? form(c) : ""}
-    ${hl ? "" : esperando(c)}${acciones(c)}
+    ${abierta ? `${abiertoAqui(c, "temp") ? form(c) : ""}
+    ${hl ? "" : esperando(c)}${acciones(c)}` : ""}
   </div>`;
 };
 
@@ -254,6 +263,12 @@ export function renderHoy(cont, render) {
       accionCrm(l, b.dataset.crm, () => mantener(c.id), el);
     });
     manejarNotas(el);
+    // Plegar/abrir: el chevrón o cualquier parte del encabezado que no sea un botón.
+    el.querySelector("[data-pleg-zona]")?.addEventListener("click", e => {
+      if (e.target.closest("a, button:not([data-pleg]), [data-l]")) return;
+      hlAbiertos.has(c.id) ? hlAbiertos.delete(c.id) : hlAbiertos.add(c.id);
+      mantener(c.id);
+    });
     // El nombre lleva a su tarjeta completa (historial de contactos y embudo).
     el.querySelector("[data-ver]").onclick = e => {
       e.stopPropagation();
