@@ -394,6 +394,18 @@ Ahí viven `provisionar.sh` y los bridges; no hace falta saltar a VM2.
 **7. Confirmar estable:** `journalctl -u nexus-bridge@<slug> --no-pager | tail -30` sin
 `logged out` / `device removed`, y en la base `estado='vinculado'`, `comando` nulo.
 
+**Si el bridge va en VM2 (`10.0.0.23`)** — dos diferencias que no se ven a simple vista:
+- `canales_wa.host` es lo que le dice al worker (que corre en VM1) a qué máquina
+  llamar. Por defecto es `localhost`, y `provisionar.sh` no lo toca: después de
+  provisionar en VM2 hay que poner `update canales_wa set host = '10.0.0.23' where
+  owner_id = '<uuid>';`. Si no, el emparejamiento por QR funciona (el bridge escribe
+  directo en la base) pero **todos sus envíos fallan**, porque el worker los manda a VM1.
+  Comprobar desde VM1 que el puerto responde: `curl -s -o /dev/null -w "%{http_code}"
+  http://10.0.0.23:<puerto>/` (cualquier código HTTP sirve; `000` = bloqueado).
+- VM2 no corre `chats_sync` (KI-014): el agente no tiene «Te escribió», «respondió»
+  automático ni subida de temperatura, ni los avisos push que dependen de eso.
+  Enviar sí funciona. Para un agente que trabaja leads, VM1 es mejor mientras siga así.
+
 Si algo sale mal ANTES de vincular: `sudo systemctl disable --now nexus-bridge@<slug>` y
 `mv ~/nexus-bridges/<slug> ~/nexus-bridges/.<slug>-descartado` (el punto delante libera
 el puerto para `provisionar.sh`), y `update canales_wa set puerto = null where owner_id = '<uuid>';`.
