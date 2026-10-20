@@ -193,6 +193,31 @@ export function razon(c) {
   return l ? `Llegó <b>${cuandoTxt(l)}</b> · sin contactar` : "Sin contactar";
 }
 
+// La misma razón partida en etiqueta + dato corto, para las filas de «Mi día»
+// (una etiqueta de color se lee de un vistazo; la frase larga, no). Sale de las
+// mismas reglas que `razon` para que las dos nunca digan cosas distintas.
+// `det` es texto plano (sin HTML).
+export function razonCorta(c) {
+  const r = calcTemp(c);
+  const subio = r.ent && r.t !== r.antes ? `antes ${TEMP[r.antes].toLowerCase()}` : "";
+  if (c.promesaEn) {
+    const vencida = dias(c.promesaEn) > 0;
+    const det = [cuandoHora(c.promesaEn), c.promesaBroker ? nombreBroker(c.promesaBroker) : "",
+      r.ent ? `te escribió ${cuandoTxt(r.ent)}` : ""].filter(Boolean).join(" · ");
+    return { tag: vencida ? "Promesa vencida" : "Prometió depositar", tono: vencida ? "bad" : "oro", det };
+  }
+  if (r.ent) return { tag: "Te escribió", tono: "ok", det: [cuandoTxt(r.ent), subio].filter(Boolean).join(" · ") };
+  const s = senalBase(c);
+  if (s) {
+    if (s.tipo === "reg") return { tag: "Creó cuenta", tono: "ok", det: `${nombreBroker(c.registroBroker)} · ${cuandoTxt(c.registroEn)}` };
+    return { tag: "Te respondió", tono: "ok", det: cuandoTxt(s.en) };
+  }
+  const cs = contactosDe(c);
+  if (cs.length) return { tag: "Sin respuesta", tono: "neutro", det: `desde ${cuandoTxt(cs[cs.length - 1].en)}` };
+  const l = llegada(c);
+  return { tag: "Sin contactar", tono: "neutro", det: l ? `llegó ${cuandoTxt(l)}` : "" };
+}
+
 /* ----------------------------------------------------------------- vista */
 export const chipTemp = c => {
   const t = temperatura(c);

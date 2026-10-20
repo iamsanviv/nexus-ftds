@@ -1,10 +1,12 @@
-// «Mi día»: la guía personal del agente. Una sola tarjeta «Ahora» con lo que
-// toca, y debajo los bloques del día en el orden que eligió el usuario
-// (entrevista del 14/10/2026): leads de WhatsApp por temperatura (en la mira,
-// recuperar tibios, recuperar fríos) → leads de HighLevel →
-// posibles ventas → clase de hoy. El repaso de asistencias salió de aquí
-// el 16/10/2026 (pedido del usuario): sigue en el indicador del encabezado. Interesados y tareas propias llegan en la
-// fase siguiente.
+// «Mi día»: la guía personal del agente. Diseño «paso a paso» (alternativa B
+// que eligió el usuario el 20/10/2026): arriba los pasos del día en el orden del
+// usuario (entrevista del 14/10/2026) —leads de WhatsApp por temperatura (en la
+// mira, recuperar tibios, recuperar fríos) → leads de HighLevel → posibles
+// ventas → clase de hoy—, cada uno con su avance; abajo solo la lista del paso
+// elegido, con la fila de «Ahora» abierta y sus acciones. El repaso de
+// asistencias salió de aquí el 16/10/2026 (pedido del usuario): sigue en el
+// indicador del encabezado. Interesados y tareas propias llegan en la fase
+// siguiente.
 //
 // No se marca nada a mano: cada paso se da por hecho leyendo datos que ya
 // existen (contactos, chats, abonos, seguimientos). La excepción es
@@ -21,9 +23,9 @@ import { SUPABASE_URL } from "./config.js";
 import { cargarCrm } from "./data.js";
 import { NOMBRE_RES, esHoy, accionCrm, accionesCrm, detectarBajadas, porBajar } from "./crm.js";
 import { asegurarEntrantes, entranteDe, claveTel } from "./entrantes.js";
-import { categoria, razon, temperatura, contactosDe, esMio, sinHora, horaTxt, dias, form, abiertoAqui, manejarLead } from "./leads.js";
+import { categoria, razon, razonCorta, temperatura, contactosDe, esMio, sinHora, horaTxt, dias, form, abiertoAqui, manejarLead } from "./leads.js";
 import { irAEtapa } from "./hoy.js";
-import { renderMetaHoy } from "./ftd.js";
+import { metaHoyDatos } from "./ftd.js";
 
 const HORA_MS = 60 * 60 * 1000;
 // Lo que tiene hora sube al frente una hora antes (respuesta del usuario).
@@ -156,7 +158,7 @@ function itemsDelDia() {
       const porWa = escribisteHoy(c), aMano = contactoHoy(c), seg = extra?.seg[c.id];
       // Reciente = su último movimiento: te escribió, lo contactaste, prometió o llegó.
       const rec = Math.max(ts(entranteDe(c)), ts(contactosDe(c)[0]?.en), cat === "pend" ? ts(c.promesaEn) : 0, ts(c.creado && c.creado + "T00:00:00-05:00"));
-      porTemp[t].push({ b: BLOQUE_T[t], id: "wa" + c.id, c, cat, at, prog: at, rec, t: c.nombre, s: razon(c),
+      porTemp[t].push({ b: BLOQUE_T[t], id: "wa" + c.id, c, cat, at, prog: at, rec, t: c.nombre, s: razon(c), ...razonCorta(c),
         hecho: porWa || aMano || !!seg,
         ok: porWa ? "Le escribiste hoy por WhatsApp" : aMano ? "Contacto registrado hoy"
           : seg === "enviado" ? "Le enviaste un seguimiento" : "Seguimiento en camino",
@@ -183,6 +185,7 @@ function itemsDelDia() {
         const vencida = v.fecha_pago < hoy;
         items.push({ b: "ven", id: "v" + v.id, t: c?.nombre || "Venta", acc: "venta", rec: ts(v.fecha_pago + "T00:00:00-05:00"),
           s: `Cobro pendiente · saldo ${usd(saldo(v))}${vencida ? " · vencido" : ""}`,
+          tag: vencida ? "Cobro vencido" : "Cobro hoy", tono: vencida ? "bad" : "oro", det: `saldo ${usd(saldo(v))}`,
           hecho: abonoHoy > 0 || estaSaldada(v), ok: `Abono de ${usd(abonoHoy)} registrado hoy`,
           why: vencida ? "Su fecha de pago ya pasó." : "Hoy es su fecha de pago." });
       });
@@ -325,11 +328,11 @@ function accionesHTML(it) {
   if (it.acc === "crm") return accionesCrm(it.l) + siguienteHTML(it);
   if (it.acc === "lead") {
     const tel = digitos(it.c.tel);
-    return `<div class="mdacts">
-      ${tel ? `<a class="btn-oro mdbtn" href="https://wa.me/${tel}" target="_blank" rel="noopener">${ICO_WA}Abrir chat</a>` : ""}
-      ${tel ? `<button type="button" class="hsegenv mdbtn" data-md="seglead" data-id="${it.c.id}">${ICO_ENV}Enviar seguimiento</button>` : ""}
-      <button class="lbtn mdbtn" data-md="lead" data-id="${it.c.id}" data-cat="${it.cat}">Ver en Leads</button></div>
-      ${embudoHTML(it.c, it.cat)}${siguienteHTML(it)}`;
+    // Dos acciones a la vista (las que más se usan); el resto, en la fila de abajo.
+    return `${tel ? `<div class="mdprim">
+        <a class="btn-oro mdbtn" href="https://wa.me/${tel}" target="_blank" rel="noopener">${ICO_WA}Abrir chat</a>
+        <button type="button" class="hsegenv mdbtn" data-md="seglead" data-id="${it.c.id}">${ICO_ENV}Seguimiento</button></div>` : ""}
+      ${embudoHTML(it)}`;
   }
   const L = { venta: "Ir a Ventas", seg: it.id === "cla-crear" ? "Crear en Seguimiento" : "Programar invitados" };
   return `<div class="mdacts"><button class="btn-oro mdbtn" data-md="${it.acc}">${L[it.acc]}</button></div>${siguienteHTML(it)}`;
@@ -337,32 +340,67 @@ function accionesHTML(it) {
 
 // El paso del embudo que toca, como en el panel «Hoy» de Leads: se anota aquí
 // mismo, sin salir de la guía (mismo formulario y misma lógica de leads.js).
-function embudoHTML(c, cat) {
-  if (!esMio(c)) return "";
+// Va en la misma fila que «Ver en Leads» y «Pasar» para no apilar botones.
+function embudoHTML(it) {
+  const c = it.c, cat = it.cat;
+  if (!esMio(c)) return `<div class="mdsec">${verLeadsHTML(it)}${pasarHTML(it)}</div>`;
   for (const m of ["registro", "promesa", "deposito"]) if (abiertoAqui(c, m)) return `<div class="mdemb" data-cid="${c.id}">${form(c)}</div>`;
   const b = cat === "pend" ? `<button class="btn-ok mdbtn" data-l="deposito">Depositó</button><button class="lbtn mdbtn" data-l="promesa">Reagendar</button>`
     : cat === "reg" ? `<button class="lbtn mdbtn" data-l="promesa">Prometió depositar</button>`
     : `<button class="lbtn mdbtn" data-l="registro">Creó cuenta</button>`;
-  return `<div class="mdemb" data-cid="${c.id}"><div class="mdsubl">Embudo</div><div class="mdacts">${b}</div></div>`;
+  return `<div class="mdemb mdsec" data-cid="${c.id}">${b}${verLeadsHTML(it)}${pasarHTML(it)}</div>`;
 }
-const siguienteHTML = it => `<div class="mdacts mdsig"><button class="lbtn mdbtn" data-md="despues" data-id="${it.id}">Pasar al siguiente · vuelve en 30 min</button></div>`;
+const verLeadsHTML = it => `<button class="lbtn mdbtn" data-md="lead" data-id="${it.c.id}" data-cat="${it.cat}">Ver en Leads</button>`;
+const pasarHTML = it => `<button class="lbtn mdbtn mdpasar" data-md="despues" data-id="${it.id}" title="Pasar al siguiente: vuelve en 30 min" aria-label="Pasar al siguiente, vuelve en 30 minutos">Pasar${ICO_SIG}</button>`;
+const siguienteHTML = it => `<div class="mdacts mdsig">${pasarHTML(it)}</div>`;
 
+// «Lo que Nexus hizo»: a la vista solo el total; el detalle, plegado.
 function sistemaHTML() {
   if (!extra) return "";
   const cuenta = tipos => extra.msgs.filter(m => tipos.includes(m.tipo)).length;
   const escribieron = state.clientes.filter(c => esMio(c) && esLead(c)
     && entranteDe(c) && dias(entranteDe(c)) === 0).length;
-  const filas = [
-    [cuenta(["invitacion"]), "invitaciones a clases"],
-    [cuenta(["rec_60", "rec_15", "confirmacion"]), "recordatorios y confirmaciones"],
-    [cuenta(["enlace"]), "enlaces de clase"],
-    [cuenta(["masivo"]), "mensajes masivos"],
-    [escribieron, `lead${escribieron === 1 ? "" : "s"} te escribi${escribieron === 1 ? "ó" : "eron"} hoy (su temperatura sube un nivel)`],
-    [(state.crm || []).filter(l => l.estado === "bajo" && esHoy(l.resultado_en)).length, "leads de HighLevel pasaron a WhatsApp"],
+  const auto = [
+    [cuenta(["invitacion"]), "Invitaciones a clases"],
+    [cuenta(["rec_60", "rec_15", "confirmacion"]), "Recordatorios y confirmaciones"],
+    [cuenta(["enlace"]), "Enlaces de clase"],
+    [cuenta(["masivo"]), "Mensajes masivos"],
+  ];
+  const total = auto.reduce((s, [n]) => s + n, 0);
+  const filas = [...auto,
+    [escribieron, `Lead${escribieron === 1 ? "" : "s"} que te escribi${escribieron === 1 ? "ó" : "eron"} (su temperatura sube un nivel)`],
+    [(state.crm || []).filter(l => l.estado === "bajo" && esHoy(l.resultado_en)).length, "Leads de HighLevel que pasaron a WhatsApp"],
   ].filter(([n]) => n > 0);
-  return `<div class="mdsis"><b>Lo que Nexus hizo por ti hoy</b>
-    ${filas.length ? `<ul>${filas.map(([n, t]) => `<li><span>${n}</span> ${t}</li>`).join("")}</ul>`
-      : `<p>Todavía nada hoy. Cuando salgan invitaciones o recordatorios, los verás aquí.</p>`}</div>`;
+  return `<details class="mdtile mdsis"><summary>
+      <span class="mdtile-l">Nexus hizo hoy</span>
+      <b>${total}</b><span class="mdtile-s">mensaje${total === 1 ? "" : "s"} automático${total === 1 ? "" : "s"}</span>
+      <span class="mdlink">${filas.length ? "Ver detalle" : ""}</span></summary>
+    ${filas.length ? `<ul>${filas.map(([n, t]) => `<li><span>${t}</span><b>${n}</b></li>`).join("")}</ul>`
+      : ""}</details>`;
+}
+
+function corteHTML(r) {
+  if (!r) return "";
+  const pc = r.corte.meta ? Math.min(100, Math.round(r.corte.llevas / r.corte.meta * 100)) : 100;
+  return `<div class="mdtile"><span class="mdtile-l">Corte día ${r.corte.dia}</span>
+    <b>${r.corte.llevas} <em>/ ${r.corte.meta}</em></b>
+    <div class="mdbar oro"><i style="width:${pc}%"></i></div>
+    <span class="mdtile-s">${r.corte.faltan ? `Faltan ${r.corte.faltan} en ${r.corte.dias} día${r.corte.dias === 1 ? "" : "s"}` : "Corte cumplido ✓"}</span></div>`;
+}
+
+// La meta de hoy en una línea: es la cifra que el agente mueve hoy, pero la
+// tarjeta grande competía con «Ahora» por la atención.
+function metaHTML(r) {
+  if (!r) return "";
+  const { hechos, meta } = r.hoy;
+  return `<div class="mdmeta ${hechos >= meta ? "ok" : ""}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+    <span class="mdmeta-l">Meta de hoy</span>
+    <b>${hechos} de ${meta} FTD</b>
+    <span class="mdmeta-s">${hechos >= meta ? "cumplida ✓" : `te faltan ${meta - hechos}`}</span>
+    <button type="button" class="infoi" aria-label="Cómo se calcula la meta de hoy"
+      data-info="Lo que te falta para el corte, repartido en los días que quedan. El fin de semana pide menos. Si te prometieron depositar hoy, cuenta esas promesas."></button>
+  </div>`;
 }
 
 function cierreHTML(items) {
@@ -377,6 +415,40 @@ function cierreHTML(items) {
     ${quedan.length ? `<div class="mdsubl">Pasa a mañana</div><ul>${quedan.map(i => `<li>${esc(i.t)}</li>`).join("")}</ul>`
       : "<p>No queda nada pendiente para mañana.</p>"}</div>`;
 }
+
+// Etiqueta corta + dato de cada fila. Lo hecho y lo que espera mandan sobre la
+// razón: es lo primero que el agente necesita saber de esa fila.
+function etiqueta(it) {
+  if (it.hecho) return { tag: "Listo", tono: "ok", det: it.ok };
+  if (it.posp) return { tag: "En espera", tono: "neutro", det: `vuelve a las ${horaTxt(it.posp)}` };
+  if (it.espera) return { tag: "En espera", tono: "neutro", det: it.s };
+  if (it.nuevo) return { tag: "Nuevo", tono: "oro", det: it.s };
+  if (it.tag) return { tag: it.tag, tono: it.tono, det: it.det };
+  return { tag: "", tono: "", det: it.s };
+}
+
+// En la lista, primero lo que falta, luego lo que espera y al final lo hecho;
+// dentro de cada grupo se respeta el orden del día.
+const grupo = x => x.hecho ? 2 : x.espera ? 1 : 0;
+const porHacer = ls => ls.map((x, i) => [x, i]).sort((a, b) => grupo(a[0]) - grupo(b[0]) || a[1] - b[1]).map(([x]) => x);
+
+// Notas del encabezado de cada paso: de dónde sale la lista.
+const NOTA = {
+  cal: "Todos los calientes",
+  tib: `Hasta ${TOPE_T.tibio} por día`,
+  fri: `Hasta ${TOPE_T.frio} por día`,
+  ven: "Cobros con fecha de pago hoy o vencida",
+  cla: "Invita al menos una tanda",
+};
+
+// Qué paso se ve y qué fila está abierta. null = automático: el paso y la fila
+// de «Ahora». Al tocar otro paso se queda ahí hasta volver a «Ahora». La fila
+// elegida a mano se suelta sola cuando cambia de pendiente a hecha (o al revés),
+// para que la guía siga sola al terminar.
+let pasoSel = null, filaSel = null;
+
+const ICO_SIG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>`;
+const ICO_CHEV = `<svg class="mdchev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
 
 let reloj = null;
 
@@ -400,51 +472,110 @@ export function renderMiDia(cont, render) {
   const q = cola(items, ahora), foco = q[0];
   const listos = items.filter(i => i.hecho).length;
   const hora = new Date(ahora).getHours();
+  const meta = metaHoyDatos(render);
+
+  // Pasos visibles: los que tienen algo hoy, más HighLevel (se conecta desde
+  // ahí) y la clase mientras carga.
+  // Se numeran en el orden en que se ven: «Tus 5 pasos» va del 1 al 5.
+  const pasos = BLOQUES.map(b => ({ ...b, ls: items.filter(x => x.b === b.k) }))
+    .filter(p => p.ls.length || p.k === "hl" || (p.k === "cla" && !extra))
+    .map((p, i) => ({ ...p, num: i + 1 }));
+  const auto = foco ? foco.b : (pasos.find(p => p.ls.some(x => !x.hecho)) || pasos[0])?.k;
+  const paso = pasos.find(p => p.k === pasoSel) || pasos.find(p => p.k === auto);
+  if (paso && paso.k !== pasoSel) pasoSel = null;
+
+  let elegida = null;
+  if (filaSel) {
+    const x = paso?.ls.find(i => i.id === filaSel.id);
+    if (x && x.hecho === filaSel.hecho) elegida = x; else filaSel = null;
+  }
+  const abierta = filaSel ? (filaSel.cerrada ? null : elegida)
+    : paso?.ls.includes(foco) ? foco : paso?.ls.find(x => !x.hecho && !x.espera) || null;
 
   let top = "";
   if (hora >= HORA_CIERRE) top += cierreHTML(items);
-  if (foco) {
-    const u = urgente(foco, ahora);
-    const falta = u ? Math.max(0, Math.round((foco.at - ahora) / 60000)) : null;
-    top += `<div class="mdahora ${u || foco.nuevo ? "urg" : ""}">
-      <div class="mdeb"><span>${foco.nuevo ? "Nuevo · " : u ? "Urgente · " : ""}Ahora</span><span>${BLOQUES[idxBloque(foco)].n}</span></div>
-      <h3>${esc(foco.t)}</h3><p>${foco.s}</p>
-      <div class="mdwhy">${u ? (falta > 0 ? `Faltan ${falta} min: por eso subió al frente. ` : "Ya es la hora. ") : ""}${foco.why}</div>
-      ${accionesHTML(foco)}</div>`;
-  } else if (hora < HORA_CIERRE) {
-    top += `<div class="mdahora"><div class="mdeb"><span>Al día</span></div><h3>No tienes nada pendiente ahora</h3>
-      <p>A las 9 pm verás el cierre del día.</p></div>`;
+  if (!foco && hora < HORA_CIERRE) {
+    top += `<div class="mdalday"><b>Estás al día</b><span>No tienes nada pendiente ahora. A las 9 pm verás el cierre del día.</span></div>`;
   }
 
-  const bloques = BLOQUES.map((b, i) => {
-    const ls = items.filter(x => x.b === b.k);
-    if (!ls.length && !(b.k === "cla" && !extra) && b.k !== "hl") return "";
-    const ok = ls.filter(x => x.hecho).length;
-    const vacioHl = b.k === "hl" && !ls.length
-      ? `<div class="mdcarga">${!extra ? "Cargando…" : state.crm?.length || extra.token ? "Sin leads de HighLevel para hoy." : "Todavía no conectas HighLevel."}</div>` : "";
-    return `<section class="mdblq"><div class="mdblq-h"><span><i>${i + 1}</i>${b.n}</span><em>${b.k === "hl" ? `<button class="mdlink" data-con="abrir">${extra?.token ? "Enlace del webhook" : "Conectar"}</button> · ` : ""}${ok}/${ls.length}</em></div>
-      ${b.k === "hl" ? conexionHTML() : ""}${vacioHl}
-      ${ls.length ? ls.map(x => {
-        const cls = [x.hecho ? "hecho" : "", x === foco ? "foco" : "", urgente(x, ahora) || (x.nuevo && !x.hecho) ? "urg" : "", x.espera ? "espera" : ""].join(" ");
-        return `<div class="mdpaso ${cls}" data-paso="${x.id}"><span class="mddot"></span>
-          <div class="mdpaso-t"><b>${esc(x.t)}</b><small>${x.hecho ? x.ok : x.posp ? `En espera hasta las ${horaTxt(x.posp)} · <button class="mdlink" data-md="retomar" data-id="${x.id}">Atender ahora</button>` : x.s}</small></div>
-          ${x.at != null && !x.hecho ? `<span class="mdhora">${horaTxt(x.at)}</span>` : ""}</div>`;
-      }).join("") : b.k === "hl" ? "" : `<div class="mdcarga">Cargando…</div>`}</section>`;
+  const pasosHTML = pasos.map(p => {
+    const ok = p.ls.filter(x => x.hecho).length, n = p.ls.length;
+    const completo = n > 0 && ok === n, actual = foco && foco.b === p.k;
+    const cls = [p === paso ? "on" : "", completo ? "ok" : "", actual ? "ahora" : ""].join(" ");
+    return `<button type="button" class="mdpaso-b ${cls}" data-paso-k="${p.k}" aria-pressed="${p === paso}">
+      <span class="mdpaso-top"><i>${completo ? "✓" : p.num}</i><em>${n ? `${ok}/${n}` : "—"}</em></span>
+      <span class="mdpaso-n">${p.n}</span>
+      <span class="mdbar"><i style="width:${n ? Math.round(ok / n * 100) : 0}%"></i></span>
+    </button>`;
   }).join("");
 
+  const filaHTML = x => {
+    const e = etiqueta(x), abre = x === abierta, u = urgente(x, ahora) || (x.nuevo && !x.hecho);
+    const cls = [x.hecho ? "hecho" : "", abre ? "abierta" : "", u ? "urg" : "", x.espera ? "espera" : ""].join(" ");
+    let cuerpo = "";
+    if (abre) {
+      const falta = urgente(x, ahora) ? Math.max(0, Math.round((x.at - ahora) / 60000)) : null;
+      const pre = falta == null ? "" : falta > 0 ? `Faltan ${falta} min: por eso subió al frente. ` : "Ya es la hora. ";
+      cuerpo = `<div class="mdit-c">
+        ${x.why ? `<p class="mdwhy">${pre}${x.why}</p>` : ""}
+        ${x.posp ? `<div class="mdacts"><button class="lbtn mdbtn" data-md="retomar" data-id="${x.id}">Atender ahora</button></div>` : accionesHTML(x)}
+      </div>`;
+    }
+    return `<div class="mdit ${cls}" data-paso="${x.id}">
+      <button type="button" class="mdit-h" data-fila="${x.id}" aria-expanded="${abre}">
+        <span class="mdit-t">
+          <span class="mdit-n"><b>${esc(x.t)}</b>${x === foco ? `<span class="mdya">Ahora</span>` : ""}</span>
+          <span class="mdit-s">${e.tag ? `<span class="mdtag ${e.tono}">${e.tag}</span>` : ""}<span>${esc(e.det || "")}</span></span>
+        </span>
+        ${x.at != null && !x.hecho ? `<span class="mdhora">${horaTxt(x.at)}</span>` : ""}
+        ${ICO_CHEV}
+      </button>${cuerpo}</div>`;
+  };
+
+  let lista = "";
+  if (paso) {
+    const vacioHl = paso.k === "hl" && !paso.ls.length
+      ? `<div class="mdvacio">${!extra ? "Cargando…" : state.crm?.length || extra.token ? "Sin leads de HighLevel para hoy." : "Todavía no conectas HighLevel."}</div>` : "";
+    const nota = paso.k === "hl"
+      ? `<button class="mdlink" data-con="abrir">${extra?.token ? "Enlace del webhook" : "Conectar HighLevel"}</button>`
+      : `<span>${NOTA[paso.k] || ""}</span>`;
+    const sig = pasos.slice(pasos.indexOf(paso) + 1).find(p => p.ls.some(x => !x.hecho));
+    const pend = sig ? sig.ls.filter(x => !x.hecho).length : 0;
+    lista = `<section class="mdlista">
+      ${foco && foco.b !== paso.k ? `<button type="button" class="mdvolver" data-md="ahora">
+        <span><em>Ahora</em> ${esc(foco.t)} · ${BLOQUES[idxBloque(foco)].n}</span>${ICO_SIG}</button>` : ""}
+      <div class="mdlista-h"><h2>${paso.n}</h2>${nota}</div>
+      ${paso.k === "hl" ? conexionHTML() : ""}${vacioHl}
+      ${paso.ls.length ? `<div class="mdits">${porHacer(paso.ls).map(filaHTML).join("")}</div>`
+        : paso.k === "hl" ? "" : `<div class="mdvacio">Cargando…</div>`}
+      ${sig ? `<button type="button" class="mdluego" data-paso-k="${sig.k}">
+        <span><small>Después</small>Paso ${sig.num} · ${sig.n} · ${pend} pendiente${pend === 1 ? "" : "s"}</span>${ICO_SIG}</button>` : ""}
+    </section>`;
+  }
+
   cont.innerHTML = `
-    <div id="mdMeta"></div>
-    <div class="mdruta" aria-hidden="true">${items.map(x => `<i class="${x.hecho ? "on" : ""}"></i>`).join("")}</div>
-    <div class="mdruta-t">${listos} de ${items.length} listos</div>
     ${top}
-    <div class="mdgrid"><div class="mdcol">${bloques}</div><div class="mdcol">${sistemaHTML()}</div></div>
+    ${metaHTML(meta)}
+    <div class="mdpasos-h"><span>Tus ${pasos.length} pasos de hoy</span><span><b>${listos}</b> de ${items.length} tareas hechas</span></div>
+    <div class="mdpasos" style="--n:${pasos.length}">${pasosHTML}</div>
+    <div class="mdgrid"><div class="mdcol">${lista}</div>
+      <div class="mdcol mdlado">${corteHTML(meta)}${sistemaHTML()}</div></div>
     ${extra?.error ? `<p class="mderr">Parte de la guía no cargó: ${esc(extra.error.message || String(extra.error))}</p>` : ""}`;
 
-  renderMetaHoy(cont.querySelector("#mdMeta"), render, 0);
-
   detectarBajadas(render);
+  cont.querySelectorAll("[data-paso-k]").forEach(b => b.onclick = () => {
+    pasoSel = b.dataset.pasoK; filaSel = null; render();
+    cont.querySelector(".mdlista")?.scrollIntoView({ block: "nearest" });
+  });
+  cont.querySelectorAll("[data-fila]").forEach(b => b.onclick = () => {
+    const it = paso.ls.find(x => x.id === b.dataset.fila);
+    // Tocar la fila abierta la cierra; tocar otra la abre en su lugar.
+    filaSel = it === abierta ? { id: it.id, hecho: it.hecho, cerrada: true } : { id: it.id, hecho: it.hecho };
+    if (paso.k !== auto) pasoSel = paso.k;
+    render();
+  });
   cont.querySelectorAll("[data-crm]").forEach(b => b.onclick = () => {
-    accionCrm(foco.l, b.dataset.crm, render, cont);
+    accionCrm(abierta.l, b.dataset.crm, render, cont);
   });
   cont.querySelectorAll("[data-con]").forEach(b => b.onclick = () => {
     const a = b.dataset.con;
@@ -461,9 +592,10 @@ export function renderMiDia(cont, render) {
   });
   cont.querySelectorAll("[data-md]").forEach(b => b.onclick = async () => {
     const a = b.dataset.md;
+    if (a === "ahora") { pasoSel = null; filaSel = null; render(); return; }
     if (a === "despues") {
       const hasta = Date.now() + POSPONER_MS;
-      posponer(b.dataset.id, hasta); toast(`Vuelve a las ${horaTxt(hasta)}`); render(); return;
+      posponer(b.dataset.id, hasta); filaSel = null; toast(`Vuelve a las ${horaTxt(hasta)}`); render(); return;
     }
     if (a === "retomar") { posponer(b.dataset.id, null); render(); return; }
     if (a === "venta") { state.vista = "ventas"; render(); return; }

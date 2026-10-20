@@ -6,8 +6,25 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
 
 ## Alcance actual (fases 1 y 2)
 - Solo para los usuarios de `MI_DIA_USUARIOS` (`midia.js`); para ellos es la pantalla de inicio.
-- Una tarjeta «Ahora» y bloques en el orden del usuario: leads de WhatsApp →
-  leads de HighLevel → posibles ventas (cobros) → clase de hoy. Bloque fijo «Lo que Nexus hizo por ti hoy».
+- Bloques («pasos») en el orden del usuario: leads de WhatsApp →
+  leads de HighLevel → posibles ventas (cobros) → clase de hoy. «Lo que Nexus hizo por ti hoy» siempre visible (total + detalle plegado).
+
+## Diseño «paso a paso» (20/10/2026, alternativa B elegida por el usuario)
+- Reemplazó la barra de puntos («16 de 41 listos», un punto por tarea sin decir de
+  qué bloque era: el usuario no la entendía) y la tarjeta «Ahora» con cinco botones.
+- Arriba: meta de hoy en una línea (`metaHoyDatos`, `ftd.js`) y los pasos visibles
+  como pestañas con `hechos/total` y barra; numerados 1..N en el orden en que se ven.
+  En escritorio caben todos en una fila; en el teléfono se desplazan.
+- Abajo: solo la lista del paso elegido. Cada fila = nombre + etiqueta de color +
+  dato corto (`razonCorta`, `leads.js`, mismas reglas que `razon`). Orden en la
+  lista: pendientes → en espera → hechos. Una fila abierta a la vez con sus acciones;
+  por defecto la de «Ahora» (`cola`). Lead de WhatsApp: «Abrir chat» y «Seguimiento»
+  a la vista; embudo, «Ver en Leads» y «Pasar» en una fila secundaria.
+- Estado de vista solo en memoria (`pasoSel`, `filaSel`): tocar otro paso se queda
+  ahí; un aviso «Ahora …» devuelve al foco. La fila elegida a mano se suelta cuando
+  cambia de pendiente a hecha, para que la guía avance sola.
+- Corte de la semana y «Nexus hizo» van en dos tarjetas pequeñas (abajo en el
+  teléfono, columna derecha en escritorio).
 - Urgencias: lo que tiene hora (promesa de hoy con hora, clase de hoy sin invitados)
   sube al frente 1 hora antes. Cierre del día a las 21:00.
 - **Lead de HighLevel recién llegado** (asignado hoy, sin intentos, resultado ni
@@ -92,9 +109,9 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
 - La tarjeta de un lead de WhatsApp trae el paso del embudo que toca (Depositó/Reagendar,
   Prometió depositar o Creó cuenta) con el mismo formulario y lógica de `leads.js`
   (`form`, `manejarLead`), como el panel «Hoy».
-- Toda tarjeta de «Ahora» tiene «Pasar al siguiente · vuelve en 30 min»: el ítem queda
+- Toda fila abierta tiene «Pasar» (vuelve en 30 min): el ítem queda
   en espera (no hecho) y vuelve solo. Se guarda en `localStorage`
-  (`nexus:midia:pospuestos:<usuario>` = {id: ms}); «Atender ahora» en la fila lo trae de vuelta.
+  (`nexus:midia:pospuestos:<usuario>` = {id: ms}); «Atender ahora» dentro de la fila lo trae de vuelta.
 - El repintado de cada minuto se salta si hay un campo con foco, para no borrar un formulario a medio llenar.
 
 ## «Bajado a WA» (16/10/2026)
