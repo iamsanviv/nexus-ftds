@@ -158,6 +158,13 @@ export function renderBloqueFtd() {
 // semana como barra abajo. Mismos números que `ritmoHtml`: solo cambia la forma.
 // `prometieron` = promesas de depósito para hoy, el dato que conecta la meta con
 // los leads de abajo.
+// Las cifras de la meta de hoy sin su tarjeta, para vistas que las pintan a su
+// manera («Mi día»). null mientras cargan las ventas o si no hay meta del mes.
+export function metaHoyDatos(alCargar) {
+  if (!state.ventasOk) { asegurarDatos(alCargar); return null; }
+  return ritmoMeta(mesActual(), yo());
+}
+
 export function renderMetaHoy(cont, alCargar, prometieron = 0) {
   if (!cont) return;
   if (!state.ventasOk) { cont.innerHTML = ""; asegurarDatos(alCargar); return; }

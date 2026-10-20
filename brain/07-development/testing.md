@@ -21,6 +21,23 @@ Referencias históricas de entorno usadas por Claude Code:
 - `npx http-server public` o servidor equivalente;
 - Playwright para captura/inspección.
 
+### Capturas de página completa en móvil
+
+`page.screenshot({ fullPage: true })` deja la barra inferior fija (`.tabbar`,
+`position:fixed; bottom:0`) a la altura de la ventana (p. ej. 844 px), así que en
+la imagen sale **a mitad de la página**, encima del contenido. No es un defecto de
+la app (en el teléfono la barra queda al pie: verificado 20/10/2026, `top 774 /
+bottom 844` con ventana de 844), pero el usuario lo vio repetido en capturas y lo
+reportó como bug varias veces. Para una captura de página completa:
+
+1. medir `document.documentElement.scrollHeight`;
+2. `page.setViewportSize({ width: 390, height: alto })`;
+3. capturar sin `fullPage`.
+
+Así la barra queda al pie, como se ve al llegar al final en el teléfono. Para
+mostrar la pantalla real, capturar además la ventana de 390×844 arriba y al final
+del scroll.
+
 ### Contexto completo
 
 No aislar un componente de forma que desaparezcan elementos que realmente compiten por ancho o posición. Si vive dentro de `#app`, incluir el encabezado y controles relevantes de `#app`.

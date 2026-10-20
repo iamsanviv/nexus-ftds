@@ -1991,50 +1991,124 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .notifh .rule{flex:1;height:1px;background:var(--border)}
 .notifacc .tbtn{width:auto;flex:0 0 auto;padding:10px 14px}
 
-/* ================= MI DÍA (guía del agente · midia.js) ================= */
-#vistaMiDia{display:flex;flex-direction:column}
-.mdruta{display:flex;gap:3px;margin:2px 0 4px}
-.mdruta i{flex:1;height:6px;border-radius:3px;background:var(--track)}
-.mdruta i.on{background:var(--ok)}
-.mdruta-t{font-size:.75rem;color:var(--muted);margin-bottom:12px}
+/* ================= MI DÍA (guía del agente · midia.js) =================
+   «Paso a paso» (20/10/2026, alternativa B elegida por el usuario): arriba los
+   pasos del día como pestañas con su avance; abajo solo la lista del paso
+   elegido, con la fila de «Ahora» abierta. Se pasó de una pila de texto a
+   tarjetas separadas: cada fila es un nombre + una etiqueta de color + un dato. */
+#vistaMiDia{display:flex;flex-direction:column;gap:14px}
 .mdeb{display:flex;justify-content:space-between;gap:8px;font-family:'Archivo';font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
-.mdahora{background:var(--surface);border:1px solid var(--gold);border-radius:var(--r);padding:14px;box-shadow:0 0 0 4px var(--gold-soft);margin-bottom:6px}
-.mdahora.urg{border-color:var(--bad);box-shadow:0 0 0 4px color-mix(in srgb,var(--bad) 16%,transparent)}
-.mdahora.urg .mdeb{color:var(--bad)}
-.mdahora h3{font-size:1.08rem;margin:6px 0 3px;overflow-wrap:anywhere}
-.mdahora p{font-size:.85rem;color:var(--muted)}
-.mdwhy{font-size:.78rem;margin-top:9px;background:var(--surface2);border-radius:8px;padding:7px 10px}
-.mdacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.mdbtn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;align-self:auto}
-/* «Enviar seguimiento» con el estilo del de Leads, pero en fila con los demás botones. */
-.mdacts .hsegenv{margin-left:0;padding:9px 14px}
-.mdgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:0 24px;margin-top:6px}
-.mdcol{min-width:0}
-.mdblq{margin-top:14px}
-.mdblq-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
-.mdblq-h span{font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
-.mdblq-h i{font-style:normal;display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--surface2);color:var(--text);font-size:.68rem;margin-right:7px}
-.mdblq-h em{font-style:normal;font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
-.mdpaso{display:flex;gap:10px;align-items:flex-start;padding:9px 2px;border-bottom:1px solid var(--border)}
-.mdpaso:last-child{border-bottom:0}
-.mddot{flex:0 0 20px;height:20px;border-radius:50%;border:2px solid var(--border);display:grid;place-items:center;margin-top:1px}
-.mdpaso.hecho .mddot{background:var(--ok);border-color:var(--ok)}
-.mdpaso.hecho .mddot::after{content:"";width:8px;height:4px;border-left:2px solid var(--on-ok);border-bottom:2px solid var(--on-ok);transform:rotate(-45deg) translate(1px,-1px)}
-.mdpaso.foco .mddot{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
-.mdpaso.urg .mddot{border-color:var(--bad)}
-.mdpaso-t{flex:1;min-width:0}
-.mdpaso-t>b{display:block;font-weight:600;font-size:.88rem;overflow-wrap:anywhere}
-.mdpaso.hecho .mdpaso-t>b{color:var(--muted)}
-.mdpaso-t small{display:block;font-size:.76rem;color:var(--muted)}
+
+/* Meta de hoy en una línea */
+.mdmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;border-radius:12px;
+  background:color-mix(in srgb,var(--gold) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--gold) 32%,transparent);font-size:.84rem}
+.mdmeta svg{width:16px;height:16px;color:var(--gold);flex:0 0 auto}
+.mdmeta-l{font-family:'Archivo';font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+.mdmeta b{font-family:'Archivo';font-weight:800;font-variant-numeric:tabular-nums}
+.mdmeta-s{color:var(--muted)}
+.mdmeta.ok .mdmeta-s{color:var(--ok);font-weight:600}
+/* El globo de la «i» se ancla a la franja entera (como en .segtoggle): centrado
+   sobre la «i», pegada al borde derecho, se salía y metía scroll horizontal. */
+.mdmeta{position:relative}
+.mdmeta .infoi{margin-left:auto;position:static}
+.mdmeta .infoi::after{left:0;right:0;transform:none;width:auto;max-width:none}
+
+/* Pasos: reemplazan la barra de puntos. Cada uno dice qué es y cuánto lleva. */
+.mdpasos-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:.76rem;color:var(--muted);margin-bottom:-6px}
+.mdpasos-h span:first-child{font-family:'Archivo';font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.mdpasos-h b{color:var(--text);font-variant-numeric:tabular-nums}
+.mdpasos{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;margin:0 -12px;padding:2px 12px 4px;scrollbar-width:none}
+.mdpasos::-webkit-scrollbar{display:none}
+.mdpaso-b{flex:1 0 116px;min-height:96px;scroll-snap-align:start;display:flex;flex-direction:column;justify-content:space-between;gap:6px;
+  padding:10px;border-radius:14px;background:var(--surface);border:1px solid var(--border);text-align:left;color:var(--text)}
+.mdpaso-b:hover{background:var(--hover)}
+.mdpaso-b.on{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 9%,var(--surface));box-shadow:0 0 0 1px var(--gold)}
+.mdpaso-top{display:flex;align-items:center;justify-content:space-between}
+.mdpaso-top i{font-style:normal;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:.72rem;font-weight:800;background:var(--surface2)}
+.mdpaso-b.ahora .mdpaso-top i{background:var(--gold-fill);color:var(--on-gold)}
+.mdpaso-b.ok .mdpaso-top i{background:var(--ok);color:var(--on-ok)}
+.mdpaso-top em{font-style:normal;font-size:.74rem;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.mdpaso-n{font-size:.8rem;font-weight:600;line-height:1.25}
+.mdbar{display:block;height:3px;border-radius:2px;background:var(--track);overflow:hidden}
+.mdbar i{display:block;height:100%;background:var(--ok);border-radius:2px}
+.mdbar.oro i{background:var(--gold-fill)}
+
+/* Lista del paso elegido */
+.mdgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px 24px;align-items:start}
+.mdcol{min-width:0;display:flex;flex-direction:column;gap:10px}
+.mdlista{display:flex;flex-direction:column;gap:10px}
+.mdlista-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.mdlista-h h2{font-size:1.15rem;font-weight:800}
+.mdlista-h>span{font-size:.76rem;color:var(--muted)}
+.mdvolver{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;padding:0 14px;border-radius:12px;
+  background:color-mix(in srgb,var(--gold) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--gold) 40%,transparent);color:var(--text);font-size:.84rem;text-align:left}
+.mdvolver span{min-width:0;overflow-wrap:anywhere}
+.mdvolver em{font-style:normal;font-family:'Archivo';font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-right:6px}
+.mdvolver svg{color:var(--gold);flex:0 0 auto}
+.mdits{display:flex;flex-direction:column;gap:8px}
+.mdit{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.mdit.abierta{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
+.mdit.abierta.urg{border-color:var(--bad);box-shadow:0 0 0 3px color-mix(in srgb,var(--bad) 16%,transparent)}
+.mdit.espera{opacity:.7}
+.mdit-h{width:100%;min-height:58px;display:flex;align-items:center;gap:10px;padding:11px 14px;text-align:left;color:var(--text)}
+.mdit-h:hover{background:var(--hover)}
+.mdit-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.mdit-n{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.mdit-n b{font-weight:600;font-size:.92rem;overflow-wrap:anywhere}
+.mdit.hecho .mdit-n b{color:var(--muted)}
+.mdya{font-family:'Archivo';font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--on-gold);background:var(--gold-fill);padding:2px 6px;border-radius:6px}
+.mdit.urg .mdya{background:var(--bad);color:#fff}
+.mdit-s{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:.76rem;color:var(--muted)}
+.mdit-s>span:last-child{min-width:0;overflow-wrap:anywhere}
+.mdtag{font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap;background:var(--surface2);color:var(--muted)}
+.mdtag.ok{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+.mdtag.bad{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.mdtag.oro{background:color-mix(in srgb,var(--gold) 16%,transparent);color:var(--gold)}
 .mdhora{font-size:.74rem;font-weight:600;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
-.mdpaso.urg .mdhora{color:var(--bad)}
-.mdcarga{font-size:.8rem;color:var(--muted);padding:8px 2px}
-.mdsis{margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px}
-.mdsis b{font-family:'Archivo';font-size:.9rem}
-.mdsis ul{list-style:none;margin-top:6px;display:flex;flex-direction:column;gap:4px;font-size:.82rem;color:var(--muted)}
-.mdsis li span{color:var(--text);font-weight:700;font-variant-numeric:tabular-nums}
-.mdsis p{font-size:.8rem;color:var(--muted);margin-top:4px}
-.mdcierre{background:var(--surface);border:1px solid var(--vip);border-radius:var(--r);padding:14px;margin-bottom:12px}
+.mdit.urg .mdhora{color:var(--bad)}
+.mdchev{flex:0 0 auto;color:var(--muted);transition:transform .15s ease}
+.mdit.abierta .mdchev{transform:rotate(180deg)}
+.mdit-c{padding:0 14px 14px;display:flex;flex-direction:column}
+.mdwhy{font-size:.8rem;color:var(--muted);background:var(--surface2);border-radius:10px;padding:8px 11px}
+.mdacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.mdbtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;align-self:auto}
+/* Las dos acciones principales, mitad y mitad. */
+.mdprim{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+.mdprim .mdbtn{min-height:46px;border-radius:12px;font-size:.88rem}
+.mdprim .hsegenv{margin-left:0;font-family:'Archivo';font-weight:800}
+/* Embudo + Ver en Leads + Pasar: una fila secundaria, separada por una línea. */
+.mdsec{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.mdsec .mdbtn{min-height:40px}
+.mdpasar{margin-left:auto;color:var(--muted)}
+.mdsig .mdpasar{margin-left:0}
+.mdemb .lform{width:100%}
+.mdluego{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px;padding:0 14px;border-radius:14px;
+  background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:.88rem;font-weight:600;text-align:left}
+.mdluego:hover{background:var(--hover)}
+.mdluego small{display:block;font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.mdluego svg{color:var(--muted);flex:0 0 auto}
+.mdvacio{font-size:.82rem;color:var(--muted);padding:18px 14px;text-align:center;border:1px dashed var(--border);border-radius:14px}
+
+/* Corte y «Nexus hizo»: datos de apoyo, en dos tarjetas pequeñas lado a lado. */
+.mdlado{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start}
+.mdtile{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.mdtile-l{font-size:.66rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.mdtile>b,.mdsis summary>b{font-family:'Archivo';font-weight:800;font-size:1.25rem;font-variant-numeric:tabular-nums;line-height:1.1}
+.mdtile b em{font-style:normal;font-size:.85rem;color:var(--muted)}
+.mdtile-s{font-size:.75rem;color:var(--muted)}
+.mdsis summary{list-style:none;display:flex;flex-direction:column;gap:6px;cursor:pointer}
+.mdsis summary::-webkit-details-marker{display:none}
+.mdsis[open] .mdlink{display:none}
+.mdsis ul{list-style:none;display:flex;flex-direction:column;margin-top:4px;font-size:.78rem;color:var(--muted)}
+.mdsis li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--border)}
+.mdsis li b{color:var(--text);font-variant-numeric:tabular-nums}
+/* Abierto, el detalle necesita el ancho completo. */
+.mdsis[open]{grid-column:1/-1}
+
+.mdalday{display:flex;flex-direction:column;gap:3px;padding:14px;border-radius:var(--r);background:var(--surface);border:1px solid var(--ok)}
+.mdalday b{font-family:'Archivo';font-size:1rem;color:var(--ok)}
+.mdalday span{font-size:.84rem;color:var(--muted)}
+.mdcierre{background:var(--surface);border:1px solid var(--vip);border-radius:var(--r);padding:14px}
 .mdcierre .mdeb{color:var(--vip)}
 .mdcierre h3{font-size:1.05rem;margin:6px 0}
 .mdnums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:8px 0}
@@ -2042,21 +2116,26 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .mdnums b{font-family:'Archivo';font-size:1.1rem;display:block;font-variant-numeric:tabular-nums}
 .mdnums small{font-size:.7rem;color:var(--muted)}
 .mdsubl{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-top:6px}
+.mdit-c .mdsubl{margin-top:12px}
 .mdcierre ul{padding-left:1.1em;font-size:.82rem;color:var(--muted)}
 .mdcierre p{font-size:.82rem;color:var(--muted)}
-.mderr{font-size:.78rem;color:var(--bad);margin-top:12px}
+.mderr{font-size:.78rem;color:var(--bad)}
 @media (min-width:1040px){
-  #vistaMiDia{max-width:1000px}
-  .mdgrid{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
+  /* Escritorio: los pasos caben todos en una fila (sin desplazar) y la lista
+     ocupa la columna ancha; corte y «Nexus hizo» van a la derecha, apilados. */
+  #vistaMiDia{max-width:none}
+  .mdpasos{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));overflow:visible;margin:0;padding:2px 0 4px}
+  .mdpaso-b{min-height:88px}
+  .mdgrid{grid-template-columns:minmax(0,1fr) 300px}
+  .mdlado{grid-template-columns:minmax(0,1fr);position:sticky;top:16px}
 }
 /* Mi día · HighLevel (fase 2) */
-.mdpaso.espera{opacity:.6}
 .mdlink{color:var(--gold);font-size:.72rem;font-weight:600;text-decoration:underline;text-underline-offset:2px}
 .mdbtn.mdon{border-color:var(--ok);color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent)}
 .mdfila{flex-wrap:nowrap;align-items:center}
 .mdfila input{flex:1;min-width:0;width:auto;padding:8px 10px;font-size:.84rem}
 .mdfila .mdbtn{flex:0 0 auto}
-.mdahora .mdsubl a{color:var(--gold)}
+.mdit .mdsubl a{color:var(--gold)}
 .mdcon{background:var(--surface);border:1px solid var(--gold);border-radius:var(--r);padding:12px 14px;margin:6px 0 8px;font-size:.84rem}
 .mdcon b{font-family:'Archivo'}
 .mdcon ol{padding-left:1.2em;margin:6px 0;display:flex;flex-direction:column;gap:4px}
