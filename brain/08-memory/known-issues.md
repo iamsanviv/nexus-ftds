@@ -201,3 +201,18 @@ tienen «te escribió», «respondió» automático ni subida de temperatura.
 
 Se cierra cuando las dos VMs publiquen `primer_entrante_dia` (verificar con
 `select count(*) from chats_recientes where primer_entrante_dia is not null` y por host en `canales_wa`).
+
+---
+
+## KI-015 — Un lote de más de 40 de un agente retrasa la hora exacta de todos
+
+Medido en Supabase el 19/10/2026 (hora Colombia). Jose Angarita tenía 63 invitaciones a las 19:55. El ciclo que las tomó envió 40 (`LOTE_MAX`) entre las 19:56:43 y las 20:01:47. Los enlaces de las 20:00 de Santiago, Laura y Evelin **no arrancaron hasta las 20:04:11**, todos juntos con el mensaje 41 de Jose.
+
+Dos hechos, verificados en `mensajes_programados.enviado_en`:
+
+- **El worker no vuelve a leer la cola hasta que terminan los hilos de TODOS los agentes del ciclo.** Un agente con 40 mensajes (~5 min a 4–8 s) bloquea el arranque de los demás, aunque el paralelo por agente exista dentro del ciclo.
+- **Entre el mensaje 40 y el 41 de un agente siempre hay ~130–170 s**, no los ~20 s de `CICLO_SEG` más el desfase de `ARRANQUE_MAX`. Se repitió el 19/10 en seis lotes de Evelin y en el de Jose.
+
+No verificado: la causa de los ~2 min extra entre ciclos. `worker.py` no está en el repo y no hay acceso a sus logs desde aquí.
+
+Arreglo posible (no aplicado): que el ciclo no espere a los hilos que siguen vivos, sino que relance la lectura cada `CICLO_SEG` saltando los `owner_id` que ya tienen hilo en curso. Así se conserva un solo consumidor por agente y no se duplican envíos.
