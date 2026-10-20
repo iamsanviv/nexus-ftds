@@ -412,9 +412,6 @@ function renderForm() {
 // director, «no es mía» incluía las de sus propios agentes.
 const esMia = a => !a.owner_id || a.owner_id === state.me.id;
 const deMiDirector = a => !!state.me.directorId && a.owner_id === state.me.directorId;
-// La puso el admin para todos los equipos. Va antes que «de tu director» al
-// etiquetar: el admin puede tener director y no por eso es «de tu director».
-const deAdmin = a => !!a.para_todos && !esMia(a);
 
 // Alterna entre «del catálogo» y «puntual»: cambia qué campo se pide y el
 // texto de ayuda de la imagen, porque una puntual no tiene servicio del que
@@ -897,9 +894,10 @@ async function cargarActividades() {
         <div class="ameta">
           <span class="atime">${fechaHoraCO(a.inicio)}</span>
           ${esLibre(a) ? `<span class="achip suelta" title="No está en el catálogo">✦ Puntual</span>` : ""}
-          ${deAdmin(a) ? `<span class="achip equipo" title="La compartió el administrador con todos los equipos: puedes programar, no editar">🌐 De administración</span>`
+          ${a.para_todos ? `<span class="achip equipo" title="${esMia(a)
+              ? "La ven y la pueden usar todos los equipos"
+              : "La compartió el administrador con todos los equipos: puedes programar, no editar"}">🌐 Global</span>`
             : deMiDirector(a) ? `<span class="achip equipo" title="La creó tu director: puedes programar, no editar">👥 De tu director</span>` : ""}
-          ${a.para_todos && esMia(a) ? `<span class="achip equipo" title="La ven y la pueden usar todos los equipos">🌐 Todos los equipos</span>` : ""}
           ${enl === "congelado" ? `<span class="achip" title="El enlace y la confirmación están retenidos: no salen hasta que des «Enviar enlace»">❄ Enlace congelado</span>` : ""}
           ${a.enlace
             ? `<span class="achip ok">Enlace listo</span>`
