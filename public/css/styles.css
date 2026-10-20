@@ -535,6 +535,19 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
   transform:translateZ(0);-webkit-transform:translateZ(0);
   padding:7px 6px calc(12px + env(safe-area-inset-bottom))}
 .tabinner{display:flex;max-width:760px;margin:0 auto}
+/* Móvil y tablet: el documento NO se desplaza; se desplaza el body. Aun con
+   fondo sólido y capa propia, en el iPhone la barra seguía quedando a media
+   pantalla tras un cambio brusco de contenido (la página se acorta o se
+   reemplaza mientras hay scroll): Safari recoloca mal lo fijo cuando se
+   desplaza el documento. Con la raíz quieta, lo fijo no tiene contra qué
+   desfasarse (20/10/2026). El JS desplaza con `state.raizScroll()`. */
+@media (max-width:1039.98px){
+  html{height:100%;overflow:hidden}
+  body{height:100%;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}
+  /* El body ocupa todo el ancho para que también se deslice tocando los
+     márgenes en tablet; la columna de 760 px se centra con el relleno. */
+  body,body.segwide{max-width:none;margin:0;padding-left:max(12px,calc(50% - 368px));padding-right:max(12px,calc(50% - 368px))}
+}
 .tabbar .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;
   border:0;color:var(--dim);font:inherit;font-size:.62rem;font-weight:600;letter-spacing:.01em;padding:5px 0;cursor:pointer}
 .tabbar .tab svg{width:23px;height:23px}

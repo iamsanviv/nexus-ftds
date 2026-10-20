@@ -7,6 +7,7 @@ import {
   OPCIONES_TZ, etiquetaOffset, horaDeCliente,
   MOTIVOS_INACTIVO, esInactivo, nombreMotivo, motivoCorto, BROKERS, nombreBroker,
   insigniasBroker, telColombia, ICO_TEL,
+  raizScroll,
 } from "./state.js";
 import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio, cargarChatsRecientes } from "./data.js";
 import { asegurarEntrantes } from "./entrantes.js";
@@ -585,7 +586,7 @@ function renderKeepingCard(cardId) {
   render();
   if (antes == null) return;
   const el = document.querySelector(sel);
-  if (el) window.scrollBy(0, el.getBoundingClientRect().top - antes);
+  if (el) raizScroll().scrollTop += el.getBoundingClientRect().top - antes;
 }
 
 function wireCards() {

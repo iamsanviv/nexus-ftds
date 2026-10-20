@@ -25,12 +25,12 @@ Referencias históricas de entorno usadas por Claude Code:
 
 `page.screenshot({ fullPage: true })` deja la barra inferior fija (`.tabbar`,
 `position:fixed; bottom:0`) a la altura de la ventana (p. ej. 844 px), así que en
-la imagen sale **a mitad de la página**, encima del contenido. No es un defecto de
-la app (en el teléfono la barra queda al pie: verificado 20/10/2026, `top 774 /
-bottom 844` con ventana de 844), pero el usuario lo vio repetido en capturas y lo
-reportó como bug varias veces. Para una captura de página completa:
+la imagen sale **a mitad de la página**, encima del contenido. Eso es un artefacto
+de la captura; ojo: en el iPhone real la barra **también** llegó a quedar a media
+pantalla (ver `08-memory/ui-css-traps.md`), así que no descartar un reporte del
+usuario solo porque Chromium la muestre bien. Para una captura de página completa:
 
-1. medir `document.documentElement.scrollHeight`;
+1. medir `document.body.scrollHeight` (en móvil se desplaza el body, no el documento);
 2. `page.setViewportSize({ width: 390, height: alto })`;
 3. capturar sin `fullPage`.
 

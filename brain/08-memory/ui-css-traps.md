@@ -178,3 +178,14 @@ estaba bien; se aisló ocultando un candidato a la vez.
 Lo mismo se puede leer al revés: **si un ancestro lejano aparece más ancho que
 la ventana, casi siempre el problema es un descendiente que no puede encoger, no
 el ancestro.**
+
+## Barra inferior a media pantalla en iPhone
+
+En Safari de iOS la `.tabbar` (`position:fixed; bottom:0`) quedaba flotando a media pantalla tras un
+cambio brusco de contenido mientras había scroll (la página se acorta o se reemplaza). Quitar
+`backdrop-filter` y darle `translateZ(0)` no bastó (Sanviv lo reportó varias veces, último 20/10/2026).
+
+Arreglo vigente: por debajo de 1040 px el documento NO se desplaza (`html{overflow:hidden}`); se
+desplaza el `body`. El JS que lee o mueve el scroll usa `state.raizScroll()`, nunca `window.scrollY`,
+`window.scrollTo` ni `window.scrollBy` (en móvil no hacen nada). Chromium no reproduce el defecto:
+confirmar en un iPhone real.

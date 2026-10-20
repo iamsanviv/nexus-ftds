@@ -97,12 +97,16 @@ export const telColombia = tel => {
 // 20/10/2026). Si la lista nueva es más corta, el navegador sube la página para
 // no pasarse del final: se deja como alto mínimo el que había antes del cambio.
 export function sinSalto(cont, render) {
-  const y = window.scrollY;
+  const r = raizScroll(), y = r.scrollTop;
   cont.style.minHeight = "";
   cont.style.minHeight = cont.offsetHeight + "px";
   render();
-  window.scrollTo(0, y);
+  r.scrollTop = y;
 }
+// Lo que se desplaza: en móvil es el body (ver «tab bar inferior» en
+// styles.css); en escritorio, el documento.
+export const raizScroll = () =>
+  getComputedStyle(document.body).overflowY === "auto" ? document.body : document.scrollingElement;
 export const ICO_TEL = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>';
 // Para búsquedas: minúsculas y sin acentos ("César" → "cesar").
 export const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
