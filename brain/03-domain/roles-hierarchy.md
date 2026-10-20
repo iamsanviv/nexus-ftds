@@ -12,7 +12,7 @@ Ve sus propios datos y los de los agentes cuyo `director_id` apunta a él. Esa v
 
 ### `admin`
 
-Administra usuarios y funciones especiales. Sobre clientes ajenos no obtiene permiso general de operación por el mero hecho de ser admin; existe una vista de directorio específica para exposición limitada cuando corresponde.
+Administra usuarios y funciones especiales. Es el único que ve el módulo «Administración» y el único que escribe el catálogo de productos (`productos_wr` exige `es_admin()` desde 2026-10-20; antes también podían los directores). Sobre clientes ajenos no obtiene permiso general de operación por el mero hecho de ser admin; existe una vista de directorio específica para exposición limitada cuando corresponde.
 
 ## Regla única de alcance
 

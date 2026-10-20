@@ -176,6 +176,8 @@ async function entrar() {
   const mando = admin || dir;                 // ve el panel de equipo
   $("btnCat").classList.toggle("hidden", !mando);
   $("btnAgentes").classList.toggle("hidden", !mando);
+  $("tabAdmin").classList.toggle("hidden", !admin);
+  $("btnAdmin").classList.toggle("hidden", !admin);
   if (mando) refrescarIndicadorAgentes();
   $("appSub").textContent = admin
     ? "Administrador · tus clientes son tuyos; de los demás solo ves el nombre"

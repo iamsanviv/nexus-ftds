@@ -82,11 +82,19 @@ export function render() {
   // mismo que el de repaso.js: ventas.js importa render() de aquí, y hacerlo
   // estático en los dos sentidos crearía un ciclo.
   // «Mi día» (guía del agente) tiene su propia vista y no usa buscador ni «+ Cliente».
+  $("vistaAdmin").classList.toggle("hidden", state.vista !== "admin");
   $("vistaMiDia").classList.toggle("hidden", state.vista !== "midia");
   if (state.vista === "midia") {
     ["vistaCliente", "vistaSeguimiento", "vistaMas", "vistaVentas", "abrirModal", "buscar", "abrirVenta"]
       .forEach(id => $(id).classList.add("hidden"));
     renderMiDia($("vistaMiDia"), render);
+    return;
+  }
+
+  if (state.vista === "admin") {
+    ["vistaCliente", "vistaSeguimiento", "vistaMas", "vistaVentas", "abrirModal", "buscar", "abrirVenta"]
+      .forEach(id => $(id).classList.add("hidden"));
+    import("./admin.js").then(m => m.renderAdmin());
     return;
   }
 
@@ -621,7 +629,7 @@ export const iniciales = n => (n || "?").trim().split(/\s+/).slice(0, 2).map(w =
 function renderShell() {
   const V = state.vista;
   const isLead = state.modulo === "leads";
-  const titulos = { cliente: isLead ? "Leads" : "Comunidad", seguimiento: "Seguimiento", ventas: "Ventas", mas: "Más", midia: "Mi día" };
+  const titulos = { cliente: isLead ? "Leads" : "Comunidad", seguimiento: "Seguimiento", ventas: "Ventas", mas: "Más", midia: "Mi día", admin: "Administración" };
   $("viewTitle").textContent = titulos[V] || "Seguimiento";
   let sub = "";
   if (V === "cliente") {
@@ -629,6 +637,7 @@ function renderShell() {
     sub = isLead ? `${n} lead${n === 1 ? "" : "s"}` : `${n} en la comunidad`;
   } else if (V === "seguimiento") sub = "Actividades y mensajes automáticos";
   else if (V === "ventas") sub = "Facturación y comisiones";
+  else if (V === "admin") sub = "Productos, comisiones y equipo";
   else if (V === "midia") sub = new Date().toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" });
   else sub = "Cuenta y herramientas";
   $("viewSub").textContent = sub;
@@ -679,6 +688,7 @@ $("tabComunidad").onclick = irModulo("comunidad");
 $("tabLeads").onclick = irModulo("leads");
 $("tabMas").onclick = () => { state.vista = "mas"; render(); };
 $("tabMiDia").onclick = () => { state.vista = "midia"; render(); };
+$("tabAdmin").onclick = $("btnAdmin").onclick = () => { state.vista = "admin"; render(); };
 
 /* ================= PERFIL (crear / editar persona) ================= */
 // Clase de color por nivel; la misma familia que usan las tarjetas de conteo.

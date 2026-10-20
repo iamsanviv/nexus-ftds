@@ -271,7 +271,10 @@ export async function cargarChatsRecientes() {
 export async function cargarVentas() {
   try {
     const [prod, par, met, ven, base, notas, mag] = await Promise.all([
-      SB.from("productos").select("*").eq("activo", true).order("orden"),
+      // TODOS, retirados incluidos: una venta vieja de un producto retirado
+      // necesita su categoría y nivel (subida de nivel, upgrade). Ofrecer solo
+      // los activos es cosa del buscador de ventas.js.
+      SB.from("productos").select("*").order("orden"),
       SB.from("parametros").select("clave,valor"),
       SB.from("metas_ftd").select("*").order("ftd"),
       SB.from("ventas").select("*, abonos(*)").order("creado_en", { ascending: false }),
