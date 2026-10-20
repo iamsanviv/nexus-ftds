@@ -17,11 +17,11 @@
 //
 // Solo ve lo PROPIO: es una lista de trabajo. Un director no recibe aquí a los
 // leads de sus agentes aunque pueda verlos.
-import { state, esc, hoyISO, esLead, esInactivo, usd, saldo, estaSaldada, toast } from "./state.js";
+import { state, esc, hoyISO, esLead, esInactivo, usd, saldo, estaSaldada, toast, telColombia, ICO_TEL } from "./state.js";
 import { SB } from "./supabase.js";
 import { SUPABASE_URL } from "./config.js";
 import { cargarCrm } from "./data.js";
-import { NOMBRE_RES, esHoy, accionCrm, accionesCrm, detectarBajadas, porBajar } from "./crm.js";
+import { NOMBRE_RES, esHoy, accionCrm, accionesCrm, manejarNotas, detectarBajadas, porBajar } from "./crm.js";
 import { asegurarEntrantes, entranteDe, claveTel } from "./entrantes.js";
 import { categoria, razon, razonCorta, temperatura, contactosDe, esMio, sinHora, horaTxt, dias, form, abiertoAqui, manejarLead } from "./leads.js";
 import { irAEtapa } from "./hoy.js";
@@ -327,11 +327,13 @@ const ICO_WA = '<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="tru
 function accionesHTML(it) {
   if (it.acc === "crm") return accionesCrm(it.l) + siguienteHTML(it);
   if (it.acc === "lead") {
-    const tel = digitos(it.c.tel);
-    // Dos acciones a la vista (las que más se usan); el resto, en la fila de abajo.
-    return `${tel ? `<div class="mdprim">
+    const tel = digitos(it.c.tel), co = telColombia(it.c.tel);
+    // Dos acciones a la vista (las que más se usan); el resto, en la fila de
+    // abajo. Llamar, solo con número de Colombia, va de ícono para no quitarles ancho.
+    return `${tel ? `<div class="mdprim${co ? " contel" : ""}">
         <a class="btn-oro mdbtn" href="https://wa.me/${tel}" target="_blank" rel="noopener">${ICO_WA}Abrir chat</a>
-        <button type="button" class="hsegenv mdbtn" data-md="seglead" data-id="${it.c.id}">${ICO_ENV}Seguimiento</button></div>` : ""}
+        <button type="button" class="hsegenv mdbtn" data-md="seglead" data-id="${it.c.id}">${ICO_ENV}Seguimiento</button>
+        ${co ? `<a class="lbtn mdbtn mdtel" href="tel:+${co}" title="Llamar al +${co}" aria-label="Llamar al +${co}">${ICO_TEL}</a>` : ""}</div>` : ""}
       ${embudoHTML(it)}`;
   }
   const L = { venta: "Ir a Ventas", seg: it.id === "cla-crear" ? "Crear en Seguimiento" : "Programar invitados" };
@@ -577,6 +579,7 @@ export function renderMiDia(cont, render) {
   cont.querySelectorAll("[data-crm]").forEach(b => b.onclick = () => {
     accionCrm(abierta.l, b.dataset.crm, render, cont);
   });
+  manejarNotas(cont);
   cont.querySelectorAll("[data-con]").forEach(b => b.onclick = () => {
     const a = b.dataset.con;
     if (a === "abrir") { verConexion = true; render(); asegurarToken(render); return; }

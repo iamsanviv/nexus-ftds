@@ -2171,6 +2171,29 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
   background:color-mix(in srgb,#E8833A 14%,transparent);color:var(--text);border:1px solid color-mix(in srgb,#E8833A 45%,transparent)}
 .hcrm .mdsubl a{color:var(--gold)}
 
+/* Tarjeta del lead de HighLevel (Leads «Hoy» y «Mi día»): cuatro grupos
+   separados por una línea, para que la llamada, el chat en HighLevel, el avance
+   y la nota no se lean como una sola pila de botones. */
+.crmg{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.hcrm .crmg:first-child{margin-top:10px}
+.mdwhy + .crmg{border-top:0;padding-top:0}
+.crmg-h{display:flex;align-items:center;gap:8px;min-height:24px;margin-bottom:8px}
+.crmg .crmg-h .mdsubl{margin:0}
+.crmnum{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crmtel{margin-left:auto;flex:0 0 auto;min-height:38px;padding:0 16px;border-radius:11px;font-size:.84rem}
+.crmb{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}
+.crmb.crm3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.crmb .mdbtn{min-height:42px;padding:0 8px;text-align:center}
+/* Los dos resultados que sacan al lead de la guía: más discretos. */
+.crmfuera{margin-top:8px}
+.crmb.crmfuera .mdbtn{min-height:36px;font-size:.76rem;color:var(--muted);border-style:dashed}
+.crmnota{display:block;resize:vertical;min-height:58px;font-size:.85rem;padding:8px 10px;line-height:1.4}
+/* En escritorio la tarjeta es ancha: los botones no se estiran a todo lo ancho. */
+@media (min-width:1040px){.crmg > *{max-width:620px}}
+/* «Mi día», lead de WhatsApp con número de Colombia: Llamar va de ícono. */
+.mdprim.contel{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 46px}
+.mdprim .mdtel{padding:0}
+
 /* «Bajado a WA»: el lead de HighLevel pasa a WhatsApp (ícono de descargar). */
 .hbajar{display:inline-flex;align-items:center;justify-content:center;gap:6px;color:#25D366;border-color:rgba(37,211,102,.45)}
 .lbajar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px}

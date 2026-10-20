@@ -21,7 +21,7 @@ import {
   respondioAuto, horaTxt, entranteDe,
 } from "./leads.js";
 import { primeroHoy } from "./entrantes.js";
-import { crmDe, porBajarCrm, vinoDeHL, accionesCrm, accionCrm, estadoCrm, esHoy, detectarBajadas } from "./crm.js";
+import { crmDe, porBajarCrm, vinoDeHL, accionesCrm, accionCrm, manejarNotas, estadoCrm, esHoy, detectarBajadas } from "./crm.js";
 import { renderMetaHoy } from "./ftd.js";
 
 const ORDEN_T = { caliente: 0, tibio: 1, frio: 2 };
@@ -253,6 +253,7 @@ export function renderHoy(cont, render) {
       e.stopPropagation();
       accionCrm(l, b.dataset.crm, () => mantener(c.id), el);
     });
+    manejarNotas(el);
     // El nombre lleva a su tarjeta completa (historial de contactos y embudo).
     el.querySelector("[data-ver]").onclick = e => {
       e.stopPropagation();

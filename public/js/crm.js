@@ -11,9 +11,9 @@
 //  · Número equivocado / No le interesa: sale;
 //  · Contestó: el agente elige qué sigue (bajará, seguir en el CRM, llamada);
 //  · bajó a WhatsApp: solo (su número te escribió) o a mano.
-import { state, toast, hoyISO } from "./state.js";
+import { state, toast, hoyISO, esc, telColombia, ICO_TEL } from "./state.js";
 import { SB } from "./supabase.js";
-import { dbInsert } from "./data.js";
+import { dbInsert, dbPatch } from "./data.js";
 import { entranteDe, claveTel } from "./entrantes.js";
 import { dias } from "./leads.js";
 
@@ -113,8 +113,10 @@ export async function accionCrm(l, a, render, raiz) {
   }
 }
 
-// Botones del lead de HighLevel. `extra`: botones propios de la pantalla que
-// los muestra (en «Hoy», registro y promesa).
+// Botones del lead de HighLevel, en grupos separados (pedido del usuario,
+// 20/10/2026: «demasiadas opciones acumuladas»): la llamada y su resultado,
+// el chat en HighLevel, el avance del lead y una nota. `extra`: botones del
+// embudo que agrega la pantalla que los muestra (en «Hoy», registro y promesa).
 export function accionesCrm(l, extra = "") {
   if (abierto === l.id) {
     const manana = new Date(mananaInicio().getTime() + 5 * HORA_MS);
@@ -124,14 +126,49 @@ export function accionesCrm(l, extra = "") {
       <div class="mdacts mdfila"><input type="datetime-local" data-crm-hora value="${fechaCOlocal(manana)}" aria-label="Fecha y hora de la llamada"><button class="lbtn mdbtn" data-crm="llamada">Agendar llamada</button></div>
       <div class="mdacts"><button class="lbtn mdbtn" data-crm="cancelar">Volver</button></div>`;
   }
-  const tel = digitos(l.telefono);
-  return `<div class="mdsubl">Resultado de la llamada${tel ? ` · <a href="tel:+${tel}">+${tel}</a>` : ""}</div>
-    <div class="mdacts">${Object.entries(NOMBRE_RES).map(([k, n]) =>
-      `<button class="${k === "contesto" ? "btn-oro" : "lbtn"} mdbtn" data-crm="${k}">${n}</button>`).join("")}</div>
-    <div class="mdacts">
-      <button class="lbtn mdbtn ${esHoy(l.escribi_en) ? "mdon" : ""}" data-crm="escribi">${esHoy(l.escribi_en) ? "✓ Le escribí" : "Le escribí en HighLevel"}</button>
-      <button class="lbtn mdbtn ${esHoy(l.respondio_en) ? "mdon" : ""}" data-crm="respondio">${esHoy(l.respondio_en) ? "✓ Me respondió en el CRM" : "Me respondió en el CRM"}</button>
-      <button class="lbtn mdbtn hbajar" data-crm="bajo">${ICO_BAJAR}Bajado a WA</button>${extra}</div>`;
+  const tel = digitos(l.telefono), co = telColombia(l.telefono);
+  const res = k => `<button class="lbtn mdbtn" data-crm="${k}">${NOMBRE_RES[k]}</button>`;
+  const tog = (k, campo, txt) => `<button class="lbtn mdbtn ${esHoy(l[campo]) ? "mdon" : ""}" data-crm="${k}" aria-pressed="${esHoy(l[campo])}">${esHoy(l[campo]) ? "✓ " : ""}${txt}</button>`;
+  const c = l.cliente_id ? state.clientes.find(x => x.id === l.cliente_id) : null;
+  return `<div class="crmg">
+      <div class="crmg-h"><span class="mdsubl">Llamada</span>${tel ? `<span class="crmnum">+${tel}</span>` : ""}
+        ${co ? `<a class="btn-oro mdbtn crmtel" href="tel:+${co}" aria-label="Llamar al +${co}">${ICO_TEL}Llamar</a>` : ""}</div>
+      <div class="crmb crm3">${res("contesto")}${res("no_contesto")}${res("buzon")}</div>
+      <div class="crmb crmfuera">${res("numero_malo")}${res("no_interesa")}</div>
+    </div>
+    <div class="crmg">
+      <div class="crmg-h"><span class="mdsubl">Chat en HighLevel</span></div>
+      <div class="crmb">${tog("escribi", "escribi_en", "Le escribí")}${tog("respondio", "respondio_en", "Me respondió")}</div>
+    </div>
+    <div class="crmg">
+      <div class="crmg-h"><span class="mdsubl">Avance</span></div>
+      <div class="crmb"><button class="lbtn mdbtn hbajar" data-crm="bajo">${ICO_BAJAR}Bajado a WA</button>${extra}</div>
+    </div>
+    ${c ? `<div class="crmg">
+      <label class="crmg-h" for="nota-${c.id}"><span class="mdsubl">Nota</span></label>
+      <textarea id="nota-${c.id}" class="crmnota" data-nota="${c.id}" rows="2" maxlength="2000" placeholder="Algo que quieras recordar de este lead">${esc(borrador[c.id] ?? c.nota ?? "")}</textarea>
+    </div>` : ""}`;
+}
+
+// Nota del lead: es la misma `clientes.nota` que muestra su ficha (un solo
+// texto, no el historial de `notas_cliente`). Se guarda al salir del campo; lo
+// escrito y aún no guardado sobrevive a los re-pintados de la pantalla.
+const borrador = {};
+export function manejarNotas(raiz) {
+  raiz.querySelectorAll("textarea[data-nota]").forEach(el => {
+    const c = state.clientes.find(x => x.id === el.dataset.nota);
+    if (!c) return;
+    el.onclick = e => e.stopPropagation();
+    el.oninput = () => { borrador[c.id] = el.value; };
+    el.onchange = async () => {
+      const v = el.value.trim();
+      if (v === (c.nota || "")) { delete borrador[c.id]; return; }
+      if (!(await dbPatch(c, { nota: v || null }))) return;
+      c.nota = v;
+      if (borrador[c.id] === el.value) delete borrador[c.id];
+      toast("Nota guardada");
+    };
+  });
 }
 
 // Último resultado anotado, en una línea (para la fila del lead).

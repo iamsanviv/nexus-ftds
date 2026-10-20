@@ -98,6 +98,14 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
   (`vuelve_en`/`siguiente_en`) o el día que sale (`fuera`). Sigue en «Todos los leads».
 - «Te escribieron» para un lead HL: automático si escribe por WhatsApp (y entonces ya bajó) o
   manual «Me respondió en el CRM» (`crm_leads.respondio_en`, lo lee `leads.categoria`).
+- Tarjeta (`crm.accionesCrm`, 20/10/2026, pedido del usuario): cuatro grupos separados por línea:
+  **Llamada** (número + botón «Llamar» solo si `telColombia`; resultados, con «Número equivocado» y
+  «No le interesa» discretos), **Chat en HighLevel** (Le escribí / Me respondió), **Avance**
+  (Bajado a WA + embudo de la pantalla) y **Nota**. La nota es `clientes.nota` de la persona
+  enlazada (la misma de su ficha, no `notas_cliente`); se guarda al salir del campo
+  (`crm.manejarNotas`) y sin `cliente_id` no aparece.
+- Botón de llamar (`tel:`) solo para +57 de 10 dígitos (`state.telColombia`): también en las
+  filas de leads de WhatsApp de Mi día, como ícono junto a «Abrir chat» y «Seguimiento».
 - En Mi día los por bajar NO salen en el bloque WhatsApp (van en su bloque HighLevel).
 
 ## Pendiente (fase 3, definida con el usuario)
