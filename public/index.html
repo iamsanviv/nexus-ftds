@@ -489,7 +489,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       reclamar un pago.</b></p>
   </div>
 
-  <!-- vista administración (solo admin): productos/comisiones y equipo -->
+  <!-- vista administración (solo admin): productos/comisiones, equipo y avisos -->
   <div id="vistaAdmin" class="hidden">
     <div class="filtros" id="admSecciones"></div>
     <div id="admBody"></div>
@@ -848,6 +848,15 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <h2>💬 Mi WhatsApp</h2>
     <div id="canalBody"></div>
     <div class="mfoot"><button class="tbtn" id="canalCerrar">Cerrar</button></div>
+  </div>
+</div>
+
+<!-- ventana de avisos del administrador (la maneja avisos.js) -->
+<div class="overlay" id="avisoOverlay">
+  <div class="modal">
+    <h2>📣 Aviso del equipo</h2>
+    <div id="avisoBody"></div>
+    <div class="mbtns"><button class="guardar" id="avisoOk">Entendido</button></div>
   </div>
 </div>
 

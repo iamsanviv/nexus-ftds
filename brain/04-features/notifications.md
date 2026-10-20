@@ -30,8 +30,18 @@ cron «notificaciones» (pg_cron, cada minuto) → generar_notificaciones() + re
 | `canal` | cron: ≥3 errores en 30 min y ≥ enviados | por día (Bogotá) |
 | `lead_hl` | trigger `crm_leads` AFTER INSERT (lead nuevo de HighLevel; reasignar es UPDATE y no avisa). SQL: `sql/2026-10-19_41_notificar_lead_hl.sql` | id del lead |
 | `respondio` / `temperatura` / `escribio_hoy` | trigger `chats_recientes` al cambiar `entrante_en` | cliente + `entrante_en` |
+| `aviso` | admin: Administración › Avisos. `enviar_avisos()` lo llama el trigger de inserción en `avisos` («Ahora») y el cron (programados). A todas las cuentas aprobadas; no se puede apagar | id del aviso |
 
 WhatsApp entrante: **un aviso por mensaje**, combinando los hechos nuevos (respondió a tu último envío de ≤3 días, subió de temperatura, primer mensaje del día). El tipo es el más importante encendido: respondió > temperatura > escribió hoy. Solo clientes propios (`owner_id` del chat). Escribió hoy y temperatura solo para leads y pendientes de depósito (lo que lista «Hoy»). Hereda la demora de ~5 min y los huecos de `chats_sync` (ver [[../05-integrations/whatsapp-worker]]: un bridge que no sincroniza no genera avisos).
+
+## Avisos del administrador
+
+`sql/2026-10-20_44_avisos_administrador.sql`. El admin escribe título y mensaje, los envía ya o a una fecha/hora, y guarda plantillas (`aviso_plantillas`, solo admin). Cada aviso sale por dos caminos porque el push solo llega a quien lo activó (3 de 20 cuentas el 20/10/2026):
+
+- push tipo `aviso` (no está en `notif_apagadas`, así que no se apaga);
+- ventana «Aviso del equipo» al abrir el panel o volver a la pestaña (`public/js/avisos.js`), hasta que la cuenta la cierra (`aviso_vistos`, por cuenta). Solo avisos de los últimos 7 días; quien lo escribió no lo ve.
+
+`enviado_en` lo marca solo la base (grants por columna); un aviso enviado no se edita ni se cancela (política `avisos_upd`). Nadie borra avisos: cancelar deja la historia.
 
 ## Regla de temperatura duplicada
 
