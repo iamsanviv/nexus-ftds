@@ -231,6 +231,14 @@ servicio y sacaría a quien fue a una clase anterior aunque a esta no conteste.
 - La regla está duplicada en SQL (`sin_respuesta_de`) para el aviso push de 15 min antes
   del recordatorio de 1 h (ver [[../04-features/notifications]]). Cambiar las dos juntas.
 
+## Los leads no aparecen de primeras (21/10/2026)
+
+Pedido de Sanviv: al programar una actividad la lista arranca **sin leads**; la casilla
+«Incluir leads · N» los suma para esa tanda (se apaga al elegir otra actividad). Solo en este
+selector: Leads, Comunidad, Masivo y el resto los muestran igual. El filtro vive en `mios()`
+(cuello del envío), como las inactivas, para que un segmento guardado no los marque sin
+verse; al apagar la casilla, los leads marcados salen de la selección con aviso (DP-001).
+
 ## Rastreo
 
 Cada seguimiento rastreado tiene su propio `clic_token`. El token identifica a esa persona dentro de esa actividad y debe sobrevivir a reprogramaciones de mensajes.
