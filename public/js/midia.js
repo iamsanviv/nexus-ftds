@@ -21,7 +21,7 @@ import { state, esc, hoyISO, esLead, esInactivo, usd, saldo, estaSaldada, toast,
 import { SB } from "./supabase.js";
 import { SUPABASE_URL } from "./config.js";
 import { cargarCrm } from "./data.js";
-import { NOMBRE_RES, esHoy, accionCrm, accionesCrm, manejarNotas, detectarBajadas, porBajar } from "./crm.js";
+import { NOMBRE_RES, esHoy, accionCrm, accionesCrm, manejarNotas, detectarBajadas, porBajar, porBajarCrm } from "./crm.js";
 import { asegurarEntrantes, entranteDe, claveTel } from "./entrantes.js";
 import { categoria, razon, razonCorta, temperatura, contactosDe, esMio, sinHora, horaTxt, dias, form, abiertoAqui, manejarLead } from "./leads.js";
 import { irAEtapa } from "./hoy.js";
@@ -326,7 +326,12 @@ const ICO_ENV = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" str
 const ICO_WA = '<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .3-3.4-.7-2.9-1.2-4.7-4.1-4.9-4.3-.1-.2-1.2-1.6-1.2-3s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .6l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.3.1.2.1.7-.1 1.2z"/></svg>';
 
 function accionesHTML(it) {
-  if (it.acc === "crm") return accionesCrm(it.l) + siguienteHTML(it);
+  if (it.acc === "crm") {
+    if (porBajarCrm(it.l)) return accionesCrm(it.l) + siguienteHTML(it);
+    // Ya bajó: se sigue como lead de WhatsApp, desde su etapa en Leads «Hoy».
+    const c = state.clientes.find(x => x.id === it.l.cliente_id);
+    return accionesCrm(it.l, c ? verLeadsHTML({ c, cat: categoria(c) }) : "");
+  }
   if (it.acc === "lead") {
     const tel = digitos(it.c.tel), co = telColombia(it.c.tel);
     // Dos acciones a la vista (las que más se usan); el resto, en la fila de

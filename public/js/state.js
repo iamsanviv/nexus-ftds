@@ -42,6 +42,7 @@ export const state = {
   // Filtro por broker del FTD. Es un TERCER eje, independiente de los dos
   // anteriores: se combina con ellos en vez de reemplazarlos. null = sin filtro.
   filtroBrk: null,
+  filtroLleg: null,  // { modo, desde, hasta } — rango de fecha de llegada (solo leads)
   filtroDep: null,   // { modo, desde, hasta } — rango de fecha de depósito
   // Paginación de Comunidad. El tamaño se recuerda en este navegador; la página
   // vuelve a 1 cada vez que cambia lo que se está mirando (filtros, orden, búsqueda).
