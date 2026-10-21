@@ -39,10 +39,32 @@ $$;
 revoke all on function public.autores_plantillas_publicas() from public, anon;
 grant execute on function public.autores_plantillas_publicas() to authenticated;
 
+-- Uso de cada plantilla, para ordenar la pestaña «Plantillas» por las más
+-- usadas. Hace falta security definer porque las campañas de los demás no se
+-- leen (RLS): se devuelven solo CONTEOS, nunca a quién se le escribió, y solo
+-- de plantillas que quien pregunta puede ver (propias o públicas).
+-- Cuenta lo que SALIÓ (mensaje 1 `enviado`): lo programado o cancelado no
+-- dice que la plantilla se usó de verdad.
+create or replace function public.uso_plantillas_lead()
+returns table (plantilla_id uuid, agentes int, leads int)
+language sql stable security definer set search_path = '' as $$
+  select c.plantilla_id, count(distinct c.owner_id)::int, count(distinct m.cliente_id)::int
+    from public.campanas c
+    join public.plantillas_lead p on p.id = c.plantilla_id
+    join public.mensajes_programados m on m.campana_id = c.id
+   where public.aprobado()
+     and (p.owner_id = auth.uid() or p.publica)
+     and m.tipo = 'masivo' and m.estado = 'enviado'
+   group by c.plantilla_id;
+$$;
+revoke all on function public.uso_plantillas_lead() from public, anon;
+grant execute on function public.uso_plantillas_lead() to authenticated;
+
 -- ---------- Pruebas (begin … rollback) ----------
 -- Con A = autor, B = otro agente aprobado de OTRO equipo:
 --   · B no ve la plantilla privada de A; la ve al marcarla pública.
 --   · B no puede update/delete la pública de A (0 filas afectadas).
 --   · B no puede insertar con owner_id = A.
 --   · B puede crear una campaña con plantilla_id = la pública de A.
---   · Cuenta no aprobada: no ve públicas y la RPC devuelve vacío.
+--   · Cuenta no aprobada: no ve públicas y las RPC devuelven vacío.
+--   · `uso_plantillas_lead` a B: incluye la pública de A, no las privadas.

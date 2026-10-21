@@ -399,7 +399,8 @@ async function enviarSinCandado() {
 // `soloId`: se abre desde la tarjeta de UNA persona («Hacer seguimiento» en Mi
 // día). Esa persona va marcada porque el agente la eligió con el clic, no por un
 // filtro; si no está en el universo (sin teléfono, no es suya) no se marca nada.
-export async function abrirEnvioLeads(render, { soloId } = {}) {
+// `plantillaId`: «Usar» desde la pestaña Plantillas abre con esa plantilla cargada.
+export async function abrirEnvioLeads(render, { soloId, plantillaId } = {}) {
   alTerminar = render;
   const solo = soloId && universo().find(c => c.id === soloId);
   sel = new Set(solo ? [solo.id] : []); fEtapa = "todas"; fTemp = "todas"; cuando = "ahora";
@@ -414,6 +415,7 @@ export async function abrirEnvioLeads(render, { soloId } = {}) {
   // pasa a «Ya la recibió» sin recargar la página.
   cargarPlantillasEnviadas().then(pintarLista).catch(() => {});
   await cargarPlantillas();
+  if (plantillaId && plantillas.some(p => p.id === plantillaId)) usarPlantilla(plantillaId);
 }
 
 $("ldCerrar").onclick = () => $("ldOverlay").classList.remove("open");

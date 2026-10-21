@@ -128,6 +128,13 @@ temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`),
   `autores_plantillas_publicas()` (un agente no lee perfiles ajenos) y solo de quien publicó algo.
   Usar una ajena deja `campanas.plantilla_id` = la del autor: el historial por lead funciona igual;
   si el autor la borra, el FK la pone en null en las campañas de todos.
+- Pestaña «Plantillas» en Leads (`plantillas.js`, `state.leadsVista = "plant"`; decisiones de Sanviv
+  21/10/2026): «Mis plantillas» y «Públicas de otros», más usadas primero, chips por tipo y
+  buscador. Desde ahí solo se ve, se usa («Usar» abre el modal con la plantilla cargada,
+  `abrirEnvioLeads(..., { plantillaId })`), se copia y se publica: escribir sigue siendo solo en el
+  modal, para no mantener dos editores. El uso sale de `uso_plantillas_lead()` (security definer,
+  solo conteos: usuarios distintos y leads con el mensaje 1 `enviado`), porque las campañas ajenas
+  no se leen.
 - Campaña con `campanas.lead_tipo` (los mismos tipos de `lead_contactos`); cada fila con `cliente_id`.
 - Tipos (`TIPOS` en leads.js): objeción, prueba social, valor, fidelización, novedad, urgencia
   (cupos que se agotan), depósito (pedir el depósito directo) y otro. La lista cerrada vive en TRES
