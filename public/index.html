@@ -410,6 +410,8 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <!-- Las inactivas no aparecen por defecto. Se incluyen a propósito para
            esta tanda, y cada fila dice por qué lo está. -->
       <label class="segtoggle"><input type="checkbox" id="segIncInact"> 😴 Incluir inactivas<span class="segtoggle-n"></span></label>
+      <!-- Los leads tampoco aparecen de primeras (solo en esta lista). -->
+      <label class="segtoggle"><input type="checkbox" id="segIncLeads"> Incluir leads<span class="segtoggle-n"></span></label>
       <div class="masbuscarwrap"><input type="search" id="segBuscar" placeholder="🔎 Buscar por nombre…" autocomplete="off"><button id="segBuscarX" class="masbuscarx hidden" title="Limpiar">✕</button></div>
       <div id="segFiltros" class="segfiltros"></div>
       <!-- Mismo criterio que en masivo: el broker es otro eje, no otra píldora. -->

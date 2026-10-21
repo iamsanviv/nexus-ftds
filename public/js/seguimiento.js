@@ -6,7 +6,7 @@
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
   horaDeCliente, etiquetaZona, etiquetaDia, componerMensaje,
-  esInactivo, nombreMotivo, motivoCorto,
+  esInactivo, esLead, nombreMotivo, motivoCorto,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas,
   normBusqueda, BROKERS, insigniasBroker, mesCorto, cuandoParte } from "./state.js";
 import { render } from "./ui.js";
@@ -187,6 +187,10 @@ let segIncAsis = false;       // incluir a quienes ya asistieron (para reinvitar
 // es una decisión de ESTA tanda. Un seguimiento son cinco mensajes durante
 // horas, así que aquí pesa más que en un masivo suelto.
 let segIncInact = false;
+// Incluir a los leads. Apagado por defecto (pedido de Sanviv, 21/10/2026): a una
+// clase se invita sobre todo a la comunidad, y los leads llenaban la lista de
+// primeras. Solo aquí: en el resto del sistema los leads se ven igual.
+let segIncLeads = false;
 let segInvitarTarde = null;   // Date para diferir la invitación, o null = ahora
 // Programar el seguimiento SIN mandar la invitación: para gente que ya se
 // invitó por llamada o por otro mensaje. Los recordatorios, el enlace y la
@@ -1023,8 +1027,11 @@ async function cargarActividades() {
 // puede traer gente que se marcó inactiva después: por eso el filtro tiene que
 // estar en el envío y no solo en la lista.
 // Tampoco salen invitaciones a un lead de HighLevel que no ha bajado a WhatsApp.
+// Los leads, igual que las inactivas, salen aquí y no solo de la lista: un
+// segmento guardado puede traerlos y quedarían marcados sin verse.
 const mios = () => state.clientes.filter(c =>
-  c.tel && c.owner_id === state.me.id && (segIncInact || !esInactivo(c)) && !porBajar(c));
+  c.tel && c.owner_id === state.me.id && (segIncInact || !esInactivo(c))
+  && (segIncLeads || !esLead(c)) && !porBajar(c));
 
 // Universo elegible para programar: los que faltan, y —si el toggle está
 // activo— también quienes ya asistieron (para reinvitarlos).
@@ -1131,6 +1138,33 @@ function alternarIncInact(marcada) {
     if (fuera.length) toast(`${fuera.length} inactiva(s) salieron de la selección`);
   }
   pintarIncInact();
+  pintarIncLeads();
+  if (actSel) renderFaltan();
+}
+
+// Mismo trato que las inactivas: el número al lado y, al apagarla, los leads
+// marcados salen de la selección avisando.
+function pintarIncLeads() {
+  const el = $("segIncLeads");
+  if (!el) return;
+  const n = state.clientes.filter(c =>
+    c.tel && c.owner_id === state.me.id && esLead(c) && !porBajar(c)
+    && (segIncInact || !esInactivo(c))).length;
+  el.checked = segIncLeads;
+  el.disabled = n === 0 && !segIncLeads;
+  const txt = el.parentElement.querySelector(".segtoggle-n");
+  if (txt) txt.textContent = n ? ` · ${n}` : "";
+}
+
+function alternarIncLeads(marcada) {
+  segIncLeads = marcada;
+  if (!segIncLeads && actSel) {
+    const visibles = new Set(elegibles(actSel.servicio_id).map(c => c.id));
+    const fuera = [...segSel].filter(id => !visibles.has(id));
+    fuera.forEach(id => segSel.delete(id));
+    if (fuera.length) toast(`${fuera.length} lead(s) salieron de la selección`);
+  }
+  pintarIncLeads();
   if (actSel) renderFaltan();
 }
 
@@ -1143,6 +1177,7 @@ async function seleccionarActividad(a) {
   segBuscarTxt = "";
   segIncAsis = false;
   segIncInact = false;
+  segIncLeads = false;
   segInvitarTarde = null;
   segSinInvitacion = false;
   // Todos en sí otra vez: heredar el apagado de la tanda anterior haría
@@ -1152,7 +1187,9 @@ async function seleccionarActividad(a) {
   const bx = $("segBuscarX"); if (bx) bx.classList.add("hidden");
   const ia = $("segIncAsis"); if (ia) ia.checked = false;
   const ii = $("segIncInact"); if (ii) ii.checked = false;
+  const il = $("segIncLeads"); if (il) il.checked = false;
   pintarIncInact();
+  pintarIncLeads();
   // Sin servicio no hay asistencia, así que «incluir a quienes ya asistieron»
   // no significa nada: se esconde en vez de dejar un control muerto.
   const iaRow = $("segIncAsis").closest("label");
@@ -1227,6 +1264,7 @@ function renderFaltan() {
   // el `!esInactivo` diría «faltan 3 sin teléfono» de gente que ya no aparece.
   const sinTel = state.clientes.filter(c =>
     c.owner_id === state.me.id && (segIncInact || !esInactivo(c))
+    && (segIncLeads || !esLead(c))
     && (!sid || !c.acc[sid] || segIncAsis) && !c.tel).length;
 
   // Chips de filtro: "Todos" + solo las membresías presentes en la lista.
@@ -2993,6 +3031,7 @@ $("segTardeCuando").onchange = e => {
 // Toggle "incluir a quienes ya asistieron" (Req 2).
 $("segIncAsis").onchange = e => { segIncAsis = e.target.checked; if (actSel) renderFaltan(); };
 $("segIncInact").onchange = e => alternarIncInact(e.target.checked);
+$("segIncLeads").onchange = e => alternarIncLeads(e.target.checked);
 
 // Toggle "sin invitación": si no se manda invitación, diferirla no significa
 // nada, así que se esconde ese botón y se descarta la hora elegida.
