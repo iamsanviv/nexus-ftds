@@ -94,6 +94,13 @@ temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`),
 «cerca» de leads ordena por temperatura (`TEMP_ORD`). `cardHTML` omite `grupos` y la línea
 `.pct` cuando es lead.
 
+## «Todos los leads»: origen y llegada (21/10/2026, pedido del usuario)
+- Insignia de origen junto a «Lead» en cada tarjeta: **HighLevel** (por bajar, `crm.porBajar`),
+  **Bajado a WA** (vino de HighLevel y ya bajó, `crm.vinoDeHL`) o **WhatsApp** (llegó directo).
+- Filtro «Llegó» dentro de «Más filtros» (`state.filtroLleg`): Hoy, Ayer, Últimos 7 días, Este
+  mes o entre fechas. Usa `leads.llegada` (`creado` o `created_at`), la misma fecha de las
+  etapas «Llegaron hoy/ayer». Solo existe en Leads; al pasar a Comunidad se limpia.
+
 ## Envío de seguimiento a leads (`public/js/envioleads.js`, 06/10/2026)
 - Botón «Enviar seguimiento» en Leads (Hoy y Todos los leads). Es un MASIVO a leads: los
   destinatarios salen de `destinatariosMasivo()` (el cuello del masivo, exportado de masivo.js)

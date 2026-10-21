@@ -88,6 +88,9 @@ export function detectarBajadas(render) {
 export async function accionCrm(l, a, render, raiz) {
   const ahora = new Date(), iso = ahora.toISOString();
   if (a === "cancelar") { abierto = null; render(); return; }
+  // Ya bajó: las acciones del CRM no aplican. Sin esto, «Contestó → Bajará a
+  // WhatsApp» lo devolvía a `pendiente` (por bajar) aunque ya te escribiera.
+  if (!porBajarCrm(l)) { abierto = null; render(); return; }
   if (a === "escribi") return patch(l, { escribi_en: esHoy(l.escribi_en) ? null : iso }, render);
   // «Me respondió en el CRM»: Nexus no ve ese chat; lo sube a «Te escribieron».
   if (a === "respondio") return patch(l, { respondio_en: esHoy(l.respondio_en) ? null : iso }, render);
@@ -118,6 +121,16 @@ export async function accionCrm(l, a, render, raiz) {
 // el chat en HighLevel, el avance del lead y una nota. `extra`: botones del
 // embudo que agrega la pantalla que los muestra (en «Hoy», registro y promesa).
 export function accionesCrm(l, extra = "") {
+  // Ya bajó a WhatsApp: nada de llamada ni «¿Qué sigue?» del CRM (ofrecían
+  // «Bajará a WhatsApp» a quien ya bajó). Su seguimiento sigue por WhatsApp.
+  if (!porBajarCrm(l)) {
+    const tel = digitos(l.telefono), co = telColombia(l.telefono);
+    return `<div class="crmg">
+      <div class="crmg-h"><span class="mdsubl">Ya está en WhatsApp</span></div>
+      <p class="crmya">Bajó a WhatsApp: síguelo desde ahí, ya no desde el CRM.</p>
+      <div class="crmb">${tel ? `<a class="btn-oro mdbtn" href="https://wa.me/${tel}" target="_blank" rel="noopener">Abrir chat</a>` : ""}${co ? `<a class="lbtn mdbtn" href="tel:+${co}" aria-label="Llamar al +${co}">${ICO_TEL}Llamar</a>` : ""}${extra}</div>
+    </div>`;
+  }
   if (abierto === l.id) {
     const manana = new Date(mananaInicio().getTime() + 5 * HORA_MS);
     return `<div class="mdsubl">¿Qué sigue?</div>
