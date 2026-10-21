@@ -152,9 +152,10 @@ export function render() {
 
   // Leads abre en «Hoy». La lista sigue a un toque en el mismo selector.
   const enHoy = isLead && state.leadsVista === "hoy";
+  const enPlant = isLead && state.leadsVista === "plant";
   $("hoySeg").classList.toggle("hidden", !isLead);
   if (isLead) {
-    $("hoySeg").innerHTML = `<div class="hoysegsel">${[["hoy", "Hoy"], ["lista", "Todos los leads"]].map(([v, l]) =>
+    $("hoySeg").innerHTML = `<div class="hoysegsel">${[["hoy", "Hoy"], ["lista", 'Todos<span class="lg"> los leads</span>'], ["plant", "Plantillas"]].map(([v, l]) =>
       `<button class="vbtn ${state.leadsVista === v ? "on" : ""}" data-lv="${v}">${l}</button>`).join("")}</div>
       <button type="button" class="hsegenv" id="btnLeadSeg" aria-label="Enviar seguimiento a leads">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
@@ -163,8 +164,17 @@ export function render() {
     // Import a demanda: el compositor solo se carga si alguien lo abre.
     $("btnLeadSeg").onclick = () => import("./envioleads.js").then(m => m.abrirEnvioLeads(render));
   }
-  $("vistaCliente").classList.toggle("modohoy", enHoy);
+  // «Plantillas» aparta la lista igual que «Hoy»: no es una vista de leads.
+  $("vistaCliente").classList.toggle("modohoy", enHoy || enPlant);
   $("vistaHoy").classList.toggle("hidden", !enHoy);
+  $("vistaPlant").classList.toggle("hidden", !enPlant);
+  if (enPlant) {
+    $("paginador").classList.add("hidden");
+    $("buscar").classList.add("hidden");
+    $("ftdPanel").innerHTML = "";
+    import("./plantillas.js").then(m => m.renderPlantillas($("vistaPlant"), render));
+    return;
+  }
   if (enHoy) {
     $("paginador").classList.add("hidden");
     $("buscar").classList.add("hidden");

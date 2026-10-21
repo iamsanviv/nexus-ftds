@@ -33,7 +33,7 @@ export const state = {
   equipo: [],
   me: null,
   modulo: "comunidad",   // "comunidad" | "leads"
-  leadsVista: "hoy",     // "hoy" | "lista" — Leads abre en el panel «Hoy»
+  leadsVista: "hoy",     // "hoy" | "lista" | "plant" — Leads abre en el panel «Hoy»
   filtro: "todos",
   // Filtro por membresía (Beca/VIP/Platino/Oro) que se COMBINA con `filtro`
   // (todos/incompletos/completos). Lo ponen las tarjetas de conteo, que son
