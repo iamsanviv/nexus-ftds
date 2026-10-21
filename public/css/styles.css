@@ -311,8 +311,11 @@
   /* ---- Lead + módulos + invitaciones (v6) ---- */
   :root{ --lead:#46C28A; }
   .b-hl{background:color-mix(in srgb,#E8833A 16%,transparent);color:#E8833A;box-shadow:inset 0 0 0 1px color-mix(in srgb,#E8833A 40%,transparent)}
-  .b-wa{background:color-mix(in srgb,#25D366 14%,transparent);color:var(--lead);box-shadow:inset 0 0 0 1px color-mix(in srgb,#25D366 35%,transparent)}
-  .b-Lead{background:rgba(70,194,138,.16);color:var(--lead);box-shadow:inset 0 0 0 1px rgba(70,194,138,.3)}
+  /* «Lead» claro y «Bajado a WA» oscuro y relleno (pedido del usuario, 21/10/2026):
+     van juntos en la tarjeta y con el mismo verde se leían como una sola etiqueta. */
+  .b-wa{background:#0F6B4A;color:#fff;box-shadow:inset 0 0 0 1px #0F6B4A}
+  .b-Lead{background:rgba(70,194,138,.10);color:#9BE8C3;box-shadow:inset 0 0 0 1px rgba(70,194,138,.25)}
+  html[data-tema="claro"] .b-Lead{background:rgba(70,194,138,.12);color:#2E8A5F;box-shadow:inset 0 0 0 1px rgba(70,194,138,.35)}
   .stat.lead b{color:var(--lead)} .stat.ok b{color:var(--ok)} .stat.mut b{color:var(--muted)}
   .stag.adic{background:rgba(232,184,75,.12);color:var(--gold)}
   .srv.adic .check{border-style:dashed;border-color:var(--gold-dim)}
