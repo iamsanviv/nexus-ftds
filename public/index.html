@@ -423,6 +423,19 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
            otra forma de lo mismo —acotar a quién— y arriba del todo quedaba
            lejos de la lista sobre la que actúa. -->
       <div id="segSegmentos" class="segsegmentos"></div>
+      <!-- Orden de la lista. Va pegado a ella, como el resto de lo que actúa
+           sobre las personas. La dirección dice en palabras qué queda arriba. -->
+      <div class="brkfila segordfila">
+        <span class="ejelbl">Ordenar</span>
+        <select class="brksel" id="segOrd" aria-label="Ordenar la lista">
+          <option value="recientes">Recientes</option>
+          <option value="temp">Temperatura</option>
+          <option value="az">A–Z</option>
+          <option value="mem">Membresía</option>
+        </select>
+        <button type="button" class="pill" id="segOrdDir">↓ Descendente</button>
+        <span class="segordhint" id="segOrdHint"></span>
+      </div>
       <div class="segselbar">
         <span id="segSelCount" class="segselcount"></span>
         <button class="pill" id="segMarcarVis">✓ Marcar visibles</button>

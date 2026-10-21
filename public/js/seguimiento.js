@@ -8,14 +8,14 @@ import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
   horaDeCliente, etiquetaZona, etiquetaDia, componerMensaje,
   esInactivo, esLead, nombreMotivo, motivoCorto,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas,
-  normBusqueda, BROKERS, insigniasBroker, mesCorto, cuandoParte } from "./state.js";
+  normBusqueda, BROKERS, insigniasBroker, mesCorto, cuandoParte, fechaCO } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { porBajar } from "./crm.js";
 import { asegurarEntrantes, entranteDe, escribioTras } from "./entrantes.js";
 import { avisarSiCanalCaido } from "./salud.js";
 import { subirImagenMensaje, guardarHistorialSegmento } from "./data.js";
-import { BASE_URL } from "./config.js";
+import { BASE_URL, NIVEL } from "./config.js";
 
 /* ---------- plantillas ---------- */
 // Tipos de mensaje programado (5 por persona). NO incluye invitacion_extra:
@@ -216,6 +216,10 @@ let logFiltro = "todos";      // filtro del registro de envíos
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
 let segFiltroBrk = "todos";   // broker del FTD: eje aparte de la membresía
+// Orden de la lista de invitados (pedido de Sanviv, 21/10/2026). Por defecto,
+// los que entraron a la comunidad más recientemente arriba.
+let segOrden = "recientes";
+let segOrdenDesc = true;
 const esLeadMem = m => m === "Lead";
 
 /* ================= PLANTILLAS (editor) ================= */
@@ -1174,6 +1178,8 @@ async function seleccionarActividad(a) {
   // Igual que los hitos: heredar el filtro de broker de la tanda anterior
   // escondería gente en ESTA sin que nadie lo haya pedido.
   segFiltroBrk = "todos";
+  segOrden = "recientes";
+  segOrdenDesc = true;
   segBuscarTxt = "";
   segIncAsis = false;
   segIncInact = false;
@@ -1209,7 +1215,9 @@ async function seleccionarActividad(a) {
   $("segFaltan").innerHTML = `<div class="naplica">Cargando…</div>`;
   renderSegmentos();
 
-  await cargarYaProgramados(a.id);
+  // Los mensajes entrantes alimentan la temperatura: se esperan junto con lo
+  // ya programado para no pintar la lista dos veces.
+  await Promise.all([cargarYaProgramados(a.id), asegurarEntrantes()]);
   // NADIE marcado por defecto. Antes se pre-marcaban todos los que faltaban, y
   // eso —combinado con que el buscador oculta pero no desmarca— hacía que
   // buscar un nombre y darle «Programar» encolara a TODA la selección oculta,
@@ -1256,6 +1264,88 @@ function pintarBrokersSeg(lista) {
   sel.onchange = () => { segFiltroBrk = sel.value; renderFaltan(); };
 }
 
+/* ---------- temperatura del invitado ---------- */
+// Qué tan probable es que responda, por dos señales: el último mensaje que te
+// escribió por WhatsApp (`entranteDe`, solo personas propias: los chats son los
+// de tu WhatsApp) y su última asistencia a una actividad. Gana la más reciente.
+// No se guarda: se deriva de datos que ya existen y cambiaría con cada mensaje.
+const TEMP_CALIENTE_D = 7;   // hasta 7 días desde la última señal
+const TEMP_TIBIO_D = 21;     // de 8 a 21; después (o sin señal), frío
+const TEMP_NOM = { caliente: "Caliente", tibio: "Tibio", frio: "Frío" };
+const TEMP_ORD = { caliente: 2, tibio: 1, frio: 0 };
+
+// Días de calendario en Colombia: «ayer» a las 11 p. m. es ayer, no «hoy».
+const diasDesde = f => {
+  const dia = f.length <= 10 ? f : fechaCO(new Date(f));
+  return Math.max(0, Math.round((Date.parse(hoyISO()) - Date.parse(dia.slice(0, 10))) / 864e5));
+};
+const haceDias = d => d === 0 ? "hoy" : d === 1 ? "ayer" : `hace ${d} d`;
+
+// La asistencia vive en dos sitios: `acc` por servicio y `pun` por actividad
+// puntual. Ambos guardan la fecha (YYYY-MM-DD) de la última vez.
+function ultimaAsistencia(c) {
+  let max = null;
+  const ver = v => { if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v) && (!max || v > max)) max = v.slice(0, 10); };
+  Object.values(c.acc || {}).forEach(ver);
+  Object.values(c.pun || {}).forEach(p => ver(p && p.acc));
+  return max;
+}
+
+function temperaturaInvitado(c) {
+  const asis = ultimaAsistencia(c), ent = entranteDe(c);
+  const dA = asis ? diasDesde(asis) : null, dE = ent ? diasDesde(ent) : null;
+  const ds = [dA, dE].filter(d => d != null);
+  const d = ds.length ? Math.min(...ds) : null;
+  const t = d == null || d > TEMP_TIBIO_D ? "frio" : d > TEMP_CALIENTE_D ? "tibio" : "caliente";
+  const partes = [];
+  if (dE != null) partes.push(`te escribió ${haceDias(dE)}`);
+  if (dA != null) partes.push(`asistió ${haceDias(dA)}`);
+  return { t, d, motivo: partes.join(" · ") || "sin mensajes ni asistencia" };
+}
+
+// Qué dice cada dirección en cada orden: «ascendente» a secas no le dice al
+// agente si arriba queda el caliente o el frío.
+const ORDENES = {
+  recientes: { n: "Recientes", desc: "Más nuevos en la comunidad primero", asc: "Más antiguos en la comunidad primero" },
+  temp: { n: "Temperatura", desc: "Caliente primero", asc: "Frío primero" },
+  az: { n: "A–Z", desc: "Z a A", asc: "A a Z" },
+  mem: { n: "Membresía", desc: "Oro primero", asc: "Beca primero" },
+};
+// La dirección con la que arranca cada orden al elegirlo.
+const ORDEN_DESC_DEF = { recientes: true, temp: true, az: false, mem: true };
+
+function ordenarInvitados(lista) {
+  const tp = new Map(lista.map(c => [c.id, temperaturaInvitado(c)]));
+  const nom = (a, b) => a.nombre.localeCompare(b.nombre, "es");
+  const sg = segOrdenDesc ? -1 : 1;
+  // «Recientes» = cuándo entró a la comunidad (`comunidadDesde`, su primer FTD),
+  // elegido por Sanviv. Quien no tiene esa fecha (un lead) va al final en las
+  // dos direcciones: no es «el más antiguo», es que no hay dato.
+  const porLlegada = (a, b) => {
+    const x = a.comunidadDesde || "", y = b.comunidadDesde || "";
+    if (!x || !y) return !x - !y;
+    return sg * x.localeCompare(y);
+  };
+  const cmp = {
+    recientes: (a, b) => porLlegada(a, b) || nom(a, b),
+    temp: (a, b) => sg * (TEMP_ORD[tp.get(a.id).t] - TEMP_ORD[tp.get(b.id).t])
+      || ((tp.get(a.id).d ?? 1e9) - (tp.get(b.id).d ?? 1e9)) || nom(a, b),
+    az: (a, b) => sg * nom(a, b),
+    mem: (a, b) => sg * ((NIVEL[a.mem] ?? 0) - (NIVEL[b.mem] ?? 0)) || nom(a, b),
+  }[segOrden];
+  return { lista: lista.slice().sort(cmp), tp };
+}
+
+function pintarOrden() {
+  const sel = $("segOrd"), dir = $("segOrdDir");
+  if (!sel || !dir) return;
+  sel.value = segOrden;
+  const o = segOrden === "mem" && segIncLeads ? { ...ORDENES.mem, asc: "Lead primero" } : ORDENES[segOrden];
+  dir.textContent = segOrdenDesc ? "↓ Descendente" : "↑ Ascendente";
+  dir.title = segOrdenDesc ? o.desc : o.asc;
+  $("segOrdHint").textContent = segOrdenDesc ? o.desc : o.asc;
+}
+
 function renderFaltan() {
   if (!actSel) return;
   const sid = actSel.servicio_id;          // null si es una actividad puntual
@@ -1282,10 +1372,11 @@ function renderFaltan() {
   // `normBusqueda` y no `toLowerCase`: buscar «jose» tiene que encontrar a
   // «José», que es como está escrito en la lista.
   const q = normBusqueda(segBuscarTxt);
-  const visibles = lista.filter(c =>
+  const { lista: visibles, tp } = ordenarInvitados(lista.filter(c =>
     (segFiltroMem === "todos" || c.mem === segFiltroMem) &&
     (segFiltroBrk === "todos" || !!c.ftds?.[segFiltroBrk]) &&
-    (!q || normBusqueda(c.nombre).includes(q)));
+    (!q || normBusqueda(c.nombre).includes(q))));
+  pintarOrden();
 
   $("segFaltan").innerHTML = visibles.length
     ? visibles.map(c => {
@@ -1294,7 +1385,7 @@ function renderFaltan() {
         <label class="seg-row${prog ? " yaprogfila" : ""}${esInactivo(c) ? " inact" : ""}">
           <input type="checkbox" data-cid="${c.id}" ${segSel.has(c.id) ? "checked" : ""}>
           <span class="badge b-${c.mem}">${c.mem}</span>${insigniasBroker(c)}
-          <span class="nm">${esc(c.nombre)}</span>
+          <span class="nmtemp"><span class="nm">${esc(c.nombre)}</span><span class="segtemp ${tp.get(c.id).t}" title="${esc(tp.get(c.id).motivo)}"><b>${TEMP_NOM[tp.get(c.id).t]}</b> · ${esc(tp.get(c.id).motivo)}</span></span>
           ${c.comunidadDesde ? `<span class="segmes" title="Entró a la comunidad">${esc(mesCorto(c.comunidadDesde))}</span>` : ""}
           ${esInactivo(c) ? `<span class="badge b-inact" title="${esc(nombreMotivo(c.inactivoMotivo))}">😴 ${esc(motivoCorto(c.inactivoMotivo))}</span>` : ""}
           ${prog ? `<span class="yaprog" title="Ya tiene los mensajes programados para esta actividad">✓ ya programado</span>` : ""}
@@ -3032,6 +3123,8 @@ $("segTardeCuando").onchange = e => {
 $("segIncAsis").onchange = e => { segIncAsis = e.target.checked; if (actSel) renderFaltan(); };
 $("segIncInact").onchange = e => alternarIncInact(e.target.checked);
 $("segIncLeads").onchange = e => alternarIncLeads(e.target.checked);
+$("segOrd").onchange = e => { segOrden = e.target.value; segOrdenDesc = ORDEN_DESC_DEF[segOrden]; renderFaltan(); };
+$("segOrdDir").onclick = () => { segOrdenDesc = !segOrdenDesc; renderFaltan(); };
 
 // Toggle "sin invitación": si no se manda invitación, diferirla no significa
 // nada, así que se esconde ese botón y se descarta la hora elegida.

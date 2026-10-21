@@ -239,6 +239,22 @@ selector: Leads, Comunidad, Masivo y el resto los muestran igual. El filtro vive
 (cuello del envío), como las inactivas, para que un segmento guardado no los marque sin
 verse; al apagar la casilla, los leads marcados salen de la selección con aviso (DP-001).
 
+## Temperatura y orden de la lista de invitados (21/10/2026)
+
+Cada fila dice, bajo el nombre, **Caliente / Tibio / Frío** y el motivo («te escribió hace
+2 d · asistió ayer»), diseño B elegido por Sanviv. Se deriva al pintar (`temperaturaInvitado`,
+`seguimiento.js`), no se guarda: la última señal entre el último mensaje entrante a tu WhatsApp
+(`entranteDe`, solo personas propias) y la última asistencia (`acc` por servicio y `pun[].acc`,
+fechas). Cortes: hasta `TEMP_CALIENTE_D` (7) días caliente, hasta `TEMP_TIBIO_D` (21) tibio,
+después o sin señal frío.
+
+Orden (selector «Ordenar» + botón de dirección, que dice en palabras qué queda arriba):
+Recientes, Temperatura, A–Z, Membresía. Por defecto **Recientes descendente**, y se reinicia al
+elegir otra actividad. «Recientes» = entró a la comunidad (`comunidadDesde`, primer FTD),
+elegido por Sanviv; quien no la tiene (leads) va al final en las dos direcciones. Al cambiar de
+criterio, la dirección vuelve a la natural de ese criterio (A–Z ascendente, el resto descendente).
+Ordenar no toca la selección: solo cambia el orden de lo visible.
+
 ## Rastreo
 
 Cada seguimiento rastreado tiene su propio `clic_token`. El token identifica a esa persona dentro de esa actividad y debe sobrevivir a reprogramaciones de mensajes.
