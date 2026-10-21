@@ -1269,8 +1269,8 @@ function pintarBrokersSeg(lista) {
 // escribió por WhatsApp (`entranteDe`, solo personas propias: los chats son los
 // de tu WhatsApp) y su última asistencia a una actividad. Gana la más reciente.
 // No se guarda: se deriva de datos que ya existen y cambiaría con cada mensaje.
-const TEMP_CALIENTE_D = 7;   // hasta 7 días desde la última señal
-const TEMP_TIBIO_D = 21;     // de 8 a 21; después (o sin señal), frío
+const TEMP_CALIENTE_D = 5;   // hasta 5 días desde la última señal (Sanviv)
+const TEMP_TIBIO_D = 21;     // de 6 a 21; después (o sin señal), frío
 const TEMP_NOM = { caliente: "Caliente", tibio: "Tibio", frio: "Frío" };
 const TEMP_ORD = { caliente: 2, tibio: 1, frio: 0 };
 

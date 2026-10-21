@@ -245,7 +245,7 @@ Cada fila dice, bajo el nombre, **Caliente / Tibio / Frío** y el motivo («te e
 2 d · asistió ayer»), diseño B elegido por Sanviv. Se deriva al pintar (`temperaturaInvitado`,
 `seguimiento.js`), no se guarda: la última señal entre el último mensaje entrante a tu WhatsApp
 (`entranteDe`, solo personas propias) y la última asistencia (`acc` por servicio y `pun[].acc`,
-fechas). Cortes: hasta `TEMP_CALIENTE_D` (7) días caliente, hasta `TEMP_TIBIO_D` (21) tibio,
+fechas). Cortes (Sanviv): hasta `TEMP_CALIENTE_D` (5) días caliente, hasta `TEMP_TIBIO_D` (21) tibio,
 después o sin señal frío.
 
 Orden (selector «Ordenar» + botón de dirección, que dice en palabras qué queda arriba):
