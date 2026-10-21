@@ -255,6 +255,12 @@ elegido por Sanviv; quien no la tiene (leads) va al final en las dos direcciones
 criterio, la dirección vuelve a la natural de ese criterio (A–Z ascendente, el resto descendente).
 Ordenar no toca la selección: solo cambia el orden de lo visible.
 
+Límites conocidos: el mensaje entrante solo cuenta en personas propias (los chats son los de
+TU WhatsApp) y depende de que el worker publique `chats_recientes` (~5 min de demora; un canal
+sin `chats_sync` deja la temperatura solo con asistencia). `acc` guarda una fecha por servicio
+(la última marcada), así que la «última asistencia» es la más reciente entre servicios y
+actividades puntuales. Ver [[../05-integrations/whatsapp-worker]].
+
 ## Rastreo
 
 Cada seguimiento rastreado tiene su propio `clic_token`. El token identifica a esa persona dentro de esa actividad y debe sobrevivir a reprogramaciones de mensajes.
