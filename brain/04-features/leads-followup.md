@@ -95,8 +95,9 @@ temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`),
 `.pct` cuando es lead.
 
 ## «Todos los leads»: origen y llegada (21/10/2026, pedido del usuario)
-- Insignia de origen junto a «Lead» en cada tarjeta: **HighLevel** (por bajar, `crm.porBajar`),
-  **Bajado a WA** (vino de HighLevel y ya bajó, `crm.vinoDeHL`) o **WhatsApp** (llegó directo).
+- Insignia de origen junto a «Lead» en cada tarjeta: **HighLevel** (por bajar, `crm.porBajar`) o
+  **Bajado a WA** (todos los demás). Sin etiqueta «directo a WhatsApp»: según el usuario casi
+  todos pasaron por HighLevel; los leads sin `crm_leads` son anteriores a la integración.
 - Filtro «Llegó» dentro de «Más filtros» (`state.filtroLleg`): Hoy, Ayer, Últimos 7 días, Este
   mes o entre fechas. Usa `leads.llegada` (`creado` o `created_at`), la misma fecha de las
   etapas «Llegaron hoy/ayer». Solo existe en Leads; al pasar a Comunidad se limpia.

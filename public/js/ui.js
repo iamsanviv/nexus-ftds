@@ -17,7 +17,7 @@ import { repasoPendientes } from "./repaso.js";
 import { refrescarCanal } from "./canal.js";
 import { chipTemp, razon, seguimientoHTML, wireSeguimiento, temperatura, llegada } from "./leads.js";
 import { renderHoy } from "./hoy.js";
-import { porBajar, crmDe, vinoDeHL, marcarBajo, ICO_BAJAR } from "./crm.js";
+import { porBajar, crmDe, marcarBajo, ICO_BAJAR } from "./crm.js";
 import { renderMiDia, tieneMiDia } from "./midia.js";
 
 const NIVELES = ["Lead", "Beca", "VIP", "Platino", "Oro"];
@@ -571,13 +571,12 @@ function cardHTML(c, p, rank, isLead, dir) {
   // membresía, bandera, estado y dueño, y «IQ Option» completo le cuesta un
   // renglón en móvil sin decir más de lo que dice «IQ».
   const brkTags = insigniasBroker(c);
-  // Origen del lead (pedido del usuario, 21/10/2026): sigue en HighLevel (por
-  // bajar), vino de HighLevel y ya bajó a WhatsApp, o llegó directo a WhatsApp.
+  // Origen del lead (pedido del usuario, 21/10/2026): sigue en HighLevel o ya
+  // bajó a WhatsApp. Sin tercera etiqueta «directo a WhatsApp»: casi todos
+  // pasaron por HighLevel; los antiguos solo son anteriores a la integración.
   const origenTag = !isLead ? "" : porBajar(c)
     ? ` <span class="badge b-hl" title="Lead de HighLevel: todavía no te escribe por WhatsApp">HighLevel</span>`
-    : vinoDeHL(c)
-      ? ` <span class="badge b-wa" title="Vino de HighLevel y ya bajó a WhatsApp">Bajado a WA</span>`
-      : ` <span class="badge b-wa" title="Llegó directo a WhatsApp">WhatsApp</span>`;
+    : ` <span class="badge b-wa" title="Ya bajó a WhatsApp">Bajado a WA</span>`;
   const extraTag = p.extra ? ` · <span class="extra">+${p.extra} ✦</span>` : "";
 
   // En Leads la línea de estado es la temperatura (va en `.lhead`); el conteo de
