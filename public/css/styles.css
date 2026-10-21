@@ -2317,6 +2317,7 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .plmeta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.78rem;color:var(--muted)}
 .plmeta b{color:var(--text);font-weight:600}
 .plpub{color:var(--ok);font-weight:700}
+.plvar{color:var(--gold);font-weight:700;border:1px dashed var(--gold-dim);border-radius:999px;padding:0 8px}
 .plmsgs{margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:6px;font-size:.83rem}
 .plmsgs li::marker{color:var(--muted)}
 /* Tres líneas por mensaje: la tarjeta es para reconocerla, no para leerla entera. */

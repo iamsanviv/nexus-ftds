@@ -135,6 +135,9 @@ temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`),
   modal, para no mantener dos editores. El uso sale de `uso_plantillas_lead()` (security definer,
   solo conteos: usuarios distintos y leads con el mensaje 1 `enviado`), porque las campañas ajenas
   no se leen.
+- Las tarjetas muestran cada mensaje como le llegaría a alguien (`{nombre}` = «Ana» y la PRIMERA
+  variante de cada `{a|b}`, no una al azar, para que no cambie al re-pintar) y la etiqueta «Con
+  variaciones» si hay alguna. Pedido por Sanviv el 21/10/2026: la sintaxis no se muestra ahí.
 - Campaña con `campanas.lead_tipo` (los mismos tipos de `lead_contactos`); cada fila con `cliente_id`.
 - Tipos (`TIPOS` en leads.js): objeción, prueba social, valor, fidelización, novedad, urgencia
   (cupos que se agotan), depósito (pedir el depósito directo) y otro. La lista cerrada vive en TRES

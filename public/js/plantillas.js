@@ -9,7 +9,7 @@
 // El uso sale de `uso_plantillas_lead()` (solo conteos: las campañas de otros
 // no se leen) y el autor de `autores_plantillas_publicas()`.
 import { SB } from "./supabase.js";
-import { state, esc, toast, normBusqueda } from "./state.js";
+import { state, esc, toast, normBusqueda, rellenarEtiquetas } from "./state.js";
 import { TIPOS, nombreTipo } from "./leads.js";
 
 let datos = null;            // { plantillas, uso, autores } o null mientras carga
@@ -44,6 +44,14 @@ function usoTxt(p) {
   return `Usada por ${u.agentes} usuario${u.agentes === 1 ? "" : "s"} · ${u.leads} lead${u.leads === 1 ? "" : "s"}`;
 }
 const esVideo = u => /\.(mp4|mov)(\?|$)/i.test(u || "");
+// Mismo patrón de variantes `{a|b}` que `resolverSnippets` (state.js).
+const VARIANTE = /\{([^{}]*\|[^{}]*)\}/g;
+const conVariaciones = p => (p.mensajes || []).some(m => new RegExp(VARIANTE.source).test(m.texto || ""));
+// La tarjeta muestra el mensaje como le llegaría a alguien, no la sintaxis. Se
+// toma la PRIMERA variante y no una al azar: al re-pintar (cada tecla del
+// buscador) el texto no debe cambiar solo. Que hay más versiones lo dice la
+// etiqueta «Con variaciones».
+const previa = t => rellenarEtiquetas(t, { nombre: "Ana" }).replace(VARIANTE, (m, g) => g.split("|")[0].trim());
 
 function tarjeta(p) {
   const mia = esMia(p);
@@ -59,9 +67,10 @@ function tarjeta(p) {
             : `<span>de <b>${esc(datos.autores[p.owner_id] || "otro usuario")}</b></span>`}
       <span class="pluso">${usoTxt(p)}</span>
       ${msgs.length > 1 ? `<span>${msgs.length} mensajes</span>` : ""}
+      ${conVariaciones(p) ? `<span class="plvar" title="Cada lead recibe una versión al azar; aquí ves una de ellas">Con variaciones</span>` : ""}
     </div>
     <ol class="plmsgs">${msgs.map(m => `
-      <li>${m.texto ? `<span class="pltxt">${esc(m.texto)}</span>` : ""}${
+      <li>${m.texto ? `<span class="pltxt">${esc(previa(m.texto))}</span>` : ""}${
         m.media ? `<span class="pladj">${esVideo(m.media) ? "🎬 Video" : "🖼 Imagen"}</span>` : ""}</li>`).join("")}
     </ol>
     <div class="placc">
