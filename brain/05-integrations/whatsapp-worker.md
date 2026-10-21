@@ -177,7 +177,9 @@ Decisiones que conviene no deshacer:
 ### `entrante_en`: último mensaje entrante (Leads F4, 2026-10-05)
 
 `chats_recientes.entrante_en` guarda el último mensaje que la persona NOS escribió
-(`is_from_me=0`), para «bajaron hoy a tu WhatsApp» y la temperatura en Leads. `ultimo_en`
+(`is_from_me=0`), para «bajaron hoy a tu WhatsApp», la temperatura en Leads y, desde el
+21/10/2026, la temperatura de los invitados al programar una actividad (`seguimiento.js`).
+Si un bridge no publica `chats_recientes`, esa temperatura queda solo con la asistencia. `ultimo_en`
 (= `chats.last_message_time`) no sirve para eso: es el último mensaje del chat en cualquier
 dirección, así que se mueve también cuando el agente escribe.
 

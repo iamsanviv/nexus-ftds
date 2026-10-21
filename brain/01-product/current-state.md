@@ -60,6 +60,10 @@ La lógica está condicionada por ancho cuando corresponde; no asumir que un cam
 
 El sistema soporta actividades de catálogo y puntuales, programación de mensajes, seguimientos, rastreo de enlaces, revisión de asistencia y cancelación/reprogramación con reglas de seguridad contra destinatarios invisibles y duplicados.
 
+Desde el 21/10/2026 la lista de invitados al programar arranca sin leads (casilla «Incluir
+leads»), muestra la temperatura de cada persona (Caliente/Tibio/Frío con su motivo) y se puede
+ordenar por Recientes, Temperatura, A–Z o Membresía. Ver [[../03-domain/activities-followups]].
+
 ## Ventas y FTD
 
 El producto incluye:
