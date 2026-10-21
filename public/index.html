@@ -892,6 +892,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         <select id="ldPlant" aria-label="Plantilla de seguimiento"></select>
         <button type="button" class="tbtn" id="ldPlantBorrar" style="color:var(--bad)">Borrar</button>
       </div>
+      <div class="msgshelp hidden" id="ldPlantAutor"></div>
     </div>
     <div class="frow">
       <label for="ldNombre">Nombre del seguimiento</label>
@@ -943,6 +944,10 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       </div>
     </div>
     <div class="frow"><button type="button" class="tbtn" id="ldPlantGuardar">Guardar como plantilla</button></div>
+    <div class="frow" id="ldPublicaRow">
+      <label class="segtoggle"><input type="checkbox" id="ldPublica"> Pública: cualquier usuario puede usarla</label>
+      <div class="msgshelp" id="ldPublicaAyuda">Los demás la usan con sus propios leads; solo tú puedes editarla o borrarla.</div>
+    </div>
     </div><!-- /pane mensajes -->
 
     <div class="pane aud">

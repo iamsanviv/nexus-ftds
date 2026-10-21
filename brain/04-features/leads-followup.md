@@ -120,7 +120,14 @@ temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`),
   la tanda entera tarde más. Solo aplica en por usuario con minutos; se ignora en el resto. En
   `cuandoParte`: `base + (i+k)*espera + i` (el `+i` solo desempata el instante). Cada lead sigue
   recibiendo SU serie separada por N min; el amontonamiento que el agente veía era solo en su salida.
-- `plantillas_lead` guarda flujos reutilizables (nombre, tipo, mensajes, modo, espera, escalona), privadas.
+- `plantillas_lead` guarda flujos reutilizables (nombre, tipo, mensajes, modo, espera, escalona).
+  Privadas por defecto; el autor puede marcarlas `publica` (SQL `2026-10-21_45`, 21/10/2026) y
+  cualquier usuario aprobado las ve y las usa con SUS leads, o las guarda como copia propia (nace
+  privada). Editar, borrar y publicar/retirar solo el autor: lo sostiene el RLS (update/delete con
+  `owner_id = auth.uid()`), el panel solo lo refleja. El nombre del autor llega por la RPC
+  `autores_plantillas_publicas()` (un agente no lee perfiles ajenos) y solo de quien publicó algo.
+  Usar una ajena deja `campanas.plantilla_id` = la del autor: el historial por lead funciona igual;
+  si el autor la borra, el FK la pone en null en las campañas de todos.
 - Campaña con `campanas.lead_tipo` (los mismos tipos de `lead_contactos`); cada fila con `cliente_id`.
 - Tipos (`TIPOS` en leads.js): objeción, prueba social, valor, fidelización, novedad, urgencia
   (cupos que se agotan), depósito (pedir el depósito directo) y otro. La lista cerrada vive en TRES

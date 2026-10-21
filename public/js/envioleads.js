@@ -21,9 +21,10 @@ import { TIPOS, TEMP, CATEGORIAS, categoria, temperatura, plantillaPara } from "
 
 const MAX_MSGS = 4;
 const nuevoBorrador = () => ({ id: null, nombre: "", tipo: null, modo: "usuario", espera_min: 0,
-  escalona: false, mensajes: [{ texto: "", media: null }] });
+  escalona: false, publica: false, ajena: false, mensajes: [{ texto: "", media: null }] });
 
 let plantillas = [];
+let autores = {};   // id → nombre de quien publicó alguna plantilla
 let bor = nuevoBorrador();      // lo que se está editando
 let sel = new Set();            // leads elegidos: SIEMPRE arranca vacía
 let fEtapa = "todas", fTemp = "todas";
@@ -50,22 +51,44 @@ const visibles = () => {
 };
 
 /* ---------- plantillas ---------- */
+// El RLS devuelve las propias y las públicas de los demás. Las ajenas se usan
+// tal cual (o se guardan como copia propia); editarlas o borrarlas solo puede
+// su autor, y la base lo sostiene aunque el panel lo esconda.
 async function cargarPlantillas() {
   const { data, error } = await SB.from("plantillas_lead")
-    .select("id, nombre, tipo, mensajes, modo, espera_min, escalona").order("actualizado_en", { ascending: false });
+    .select("id, owner_id, publica, nombre, tipo, mensajes, modo, espera_min, escalona").order("actualizado_en", { ascending: false });
   plantillas = error ? [] : (data || []);
+  // Un agente no lee el perfil de otro: el nombre del autor llega por RPC.
+  if (plantillas.some(esAjena)) {
+    const { data: au } = await SB.rpc("autores_plantillas_publicas");
+    autores = Object.fromEntries((au || []).map(a => [a.id, a.nombre]));
+  }
   pintarPlantillas();
 }
+const esAjena = p => p.owner_id !== state.me.id;
 function pintarPlantillas() {
+  const opt = p => `<option value="${p.id}" ${p.id === bor.id ? "selected" : ""}>${esc(p.nombre)} · ${esc(nombreTipo(p.tipo))}${
+    esAjena(p) ? ` · de ${esc(autores[p.owner_id] || "otro usuario")}` : p.publica ? " · pública" : ""}</option>`;
+  const mias = plantillas.filter(p => !esAjena(p)), otras = plantillas.filter(esAjena);
   $("ldPlant").innerHTML = `<option value="">＋ Nueva (sin guardar)</option>`
-    + plantillas.map(p => `<option value="${p.id}" ${p.id === bor.id ? "selected" : ""}>${esc(p.nombre)} · ${esc(nombreTipo(p.tipo))}</option>`).join("");
-  $("ldPlantBorrar").classList.toggle("hidden", !bor.id);
-  $("ldPlantGuardar").textContent = bor.id ? "Guardar cambios en la plantilla" : "Guardar como plantilla";
+    + (otras.length
+      ? `<optgroup label="Mis plantillas">${mias.map(opt).join("")}</optgroup><optgroup label="Públicas de otros">${otras.map(opt).join("")}</optgroup>`
+      : mias.map(opt).join(""));
+  $("ldPlantBorrar").classList.toggle("hidden", !bor.id || bor.ajena);
+  $("ldPlantGuardar").textContent = bor.ajena ? "Guardar como copia mía"
+    : bor.id ? "Guardar cambios en la plantilla" : "Guardar como plantilla";
+  // El select recorta nombres largos en móvil: el autor se repite debajo.
+  const p = bor.ajena && plantillas.find(x => x.id === bor.id);
+  $("ldPlantAutor").textContent = p ? `Plantilla pública de ${autores[p.owner_id] || "otro usuario"}: la usas con tus leads, pero solo su autor la edita.` : "";
+  $("ldPlantAutor").classList.toggle("hidden", !p);
+  // Publicar es del autor: en una ajena no hay nada que marcar.
+  $("ldPublicaRow").classList.toggle("hidden", bor.ajena);
+  $("ldPublica").checked = !!bor.publica;
 }
 function usarPlantilla(id) {
   const p = plantillas.find(x => x.id === id);
   bor = p ? { id: p.id, nombre: p.nombre, tipo: p.tipo, modo: p.modo, espera_min: p.espera_min || 0,
-              escalona: !!p.escalona,
+              escalona: !!p.escalona, publica: !!p.publica, ajena: esAjena(p),
               mensajes: p.mensajes.map(m => ({ texto: m.texto || "", media: m.media || null })) }
           : nuevoBorrador();
   $("ldNombre").value = bor.nombre;
@@ -91,18 +114,32 @@ function leerBorrador({ paraEnviar } = {}) {
 
 async function guardarPlantilla() {
   const d = leerBorrador(); if (!d) return;
-  const campos = { ...d, actualizado_en: new Date().toISOString() };
-  const q = bor.id
+  // La copia de una ajena nace privada: publicarla es decisión de su nuevo dueño.
+  const campos = { ...d, publica: bor.ajena ? false : !!bor.publica, actualizado_en: new Date().toISOString() };
+  const q = bor.id && !bor.ajena
     ? SB.from("plantillas_lead").update(campos).eq("id", bor.id).select("id").single()
     : SB.from("plantillas_lead").insert(campos).select("id").single();
   const { data, error } = await q;
   if (error) { toast("⚠ " + error.message); return; }
-  bor.id = data?.id || bor.id;
-  toast(`✓ Plantilla «${d.nombre}» guardada`);
+  const copia = bor.ajena;
+  bor.id = data?.id || bor.id; bor.ajena = false; bor.publica = campos.publica;
+  toast(copia ? `✓ Copia «${d.nombre}» guardada en tus plantillas` : `✓ Plantilla «${d.nombre}» guardada`);
+  await cargarPlantillas();
+}
+// En una plantilla ya guardada, publicar o retirarla se aplica al momento: no
+// obliga a «Guardar cambios» (que además guardaría ediciones a medio hacer).
+// En un borrador sin guardar se aplica al guardarlo.
+async function cambiarPublica() {
+  const v = $("ldPublica").checked;
+  if (!bor.id) { bor.publica = v; return; }
+  const { error } = await SB.from("plantillas_lead").update({ publica: v }).eq("id", bor.id);
+  if (error) { $("ldPublica").checked = !v; toast("⚠ " + error.message); return; }
+  bor.publica = v;
+  toast(v ? `✓ «${bor.nombre}» ahora es pública` : `✓ «${bor.nombre}» vuelve a ser solo tuya`);
   await cargarPlantillas();
 }
 async function borrarPlantilla() {
-  if (!bor.id || !confirm(`¿Borrar la plantilla «${bor.nombre}»? Los envíos ya programados no cambian.`)) return;
+  if (!bor.id || bor.ajena || !confirm(`¿Borrar la plantilla «${bor.nombre}»? Los envíos ya programados no cambian.`)) return;
   const { error } = await SB.from("plantillas_lead").delete().eq("id", bor.id);
   if (error) { toast("⚠ " + error.message); return; }
   usarPlantilla(""); await cargarPlantillas();
@@ -384,6 +421,7 @@ $("ldOverlay").onclick = e => { if (e.target.id === "ldOverlay") $("ldOverlay").
 $("ldPlant").onchange = e => usarPlantilla(e.target.value);
 $("ldPlantGuardar").onclick = guardarPlantilla;
 $("ldPlantBorrar").onclick = borrarPlantilla;
+$("ldPublica").onchange = cambiarPublica;
 $("ldMsgAdd").onclick = () => {
   if (bor.mensajes.length >= MAX_MSGS) return;
   bor.mensajes.push({ texto: "", media: null }); pintarMsgs();
