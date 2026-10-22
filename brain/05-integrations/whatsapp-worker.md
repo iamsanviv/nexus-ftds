@@ -420,8 +420,18 @@ Ahí viven `provisionar.sh` y los bridges; no hace falta saltar a VM2.
      líneas `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` copiadas con `grep` del `env` de otro
      bridge (sin imprimirlas); `chmod 600`. Todo sin `sudo`;
   4. `sudo systemctl enable --now nexus-bridge@<slug>`.
-- Firewall de VM2: acepta desde VM1 (`10.0.0.74`) solo `8092:8094` y `8095:8100`. Un puerto
-  fuera de ese rango necesita su regla `iptables` (y persistirla), o el worker no llega.
+- Firewall de VM2: acepta desde VM1 (`10.0.0.74`) solo `8092:8094`, `8095:8100` y, desde el
+  22/10/2026, `8102:8110` (abierto para Sebastián Ceballos, 8102). Un puerto fuera de esos
+  rangos necesita **dos** reglas, o el worker no llega:
+  1. `iptables` en VM2, antes del REJECT, y persistirla con `sudo netfilter-persistent save`;
+  2. una **Ingress Rule en Oracle** (Security List/NSG de la subred): origen `10.0.0.74/32`,
+     TCP, destino el rango. Con solo la de `iptables` el paquete se pierde en la red de
+     Oracle (curl `000` por timeout).
+  Para probar el camino antes de emparejar, levantar en VM2 un `python3 -m http.server
+  <puerto> --bind 0.0.0.0` temporal y hacer curl desde VM1. Si la respuesta es
+  `Connection refused` en 0 ms, el paquete ya llegó a la VM. No uses `pkill -f
+  "http.server <puerto>"` dentro de un `ssh '…'` que también lance el server: el patrón
+  coincide con la propia orden remota y la mata (ssh sale con 255).
 - VM2 no corre `chats_sync` (KI-014): el agente no tiene «Te escribió», «respondió»
   automático ni subida de temperatura, ni los avisos push que dependen de eso.
   Enviar sí funciona. Para un agente que trabaja leads, VM1 es mejor mientras siga así.
