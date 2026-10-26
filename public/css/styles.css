@@ -1044,6 +1044,10 @@ body.segwide .tabinner{max-width:1180px}
 .alerta.mal .at{color:var(--bad)}
 .alerta.ojo .at{color:var(--gold)}
 .alerta .ax{font-size:.83rem;color:var(--text);line-height:1.5}
+.envaviso ul.ax{margin:0;padding-left:18px}
+.envaviso ul.ax li+li{margin-top:4px}
+.envaviso .envok{margin-top:10px;background:none;border:1px solid var(--border);color:var(--text);
+  border-radius:8px;padding:6px 12px;font:inherit;font-size:.8rem;cursor:pointer}
 /* Aviso de novedad: verde en vez de rojo/dorado, porque no hay nada que
    atender. Si compartiera el color con «canal caído», una buena noticia
    estaría gritando igual que un problema. */

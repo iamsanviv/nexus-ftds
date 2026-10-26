@@ -11,7 +11,7 @@
 // (invitación marcada a mano), se usa la regla de "día anterior".
 import { state, $, esc, fmtF, toast, todos, hoyISO, syncZoom, componerMensaje, esInactivo, motivoCorto } from "./state.js";
 import { SB } from "./supabase.js";
-import { dbPatch, cuotaDiaria } from "./data.js";
+import { dbPatch, cargarCola, simularCupo } from "./data.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { destinatariosMasivo } from "./masivo.js";
@@ -161,7 +161,7 @@ const enlaceWa = c =>
   `https://wa.me/${c.tel.replace(/\D/g, "")}?text=${encodeURIComponent(textoSeguimiento(c))}`;
 
 // El botón se bloquea ANTES del primer `await` (DP-010): antes se hacía tras
-// `canalVinculado()` y `cuotaDiaria()`, y un doble toque encolaba dos veces.
+// `canalVinculado()` y `cargarCola()`, y un doble toque encolaba dos veces.
 async function escribirle(c, btn) {
   if (btn.disabled) return;
   btn.disabled = true;
@@ -187,10 +187,12 @@ async function escribirleSinCandado(c, btn) {
     return;
   }
   const texto = textoSeguimiento(c);
-  const cuota = await cuotaDiaria();
+  // Sale después de todo lo que ya está en cola hoy: si eso agota el cupo,
+  // este también se cancela aunque lo enviado no llegue al tope.
+  const sim = simularCupo(await cargarCola(), [{ t: Date.now(), tipo: "masivo", serie: "n:0" }]);
   const avisos = [
     esInactivo(c) ? `😴 Está marcada como inactiva (${motivoCorto(c.inactivoMotivo)}).` : "",
-    cuota.restan === 0 ? `⚠ Ya alcanzaste el límite diario de envíos (${cuota.enviados}/${cuota.tope}): este mensaje se cancelará.` : "",
+    sim.fueraNuevas.size ? `⚠ Este mensaje NO saldrá: el límite diario de ${sim.tope} envíos ya está ocupado (${sim.enviados} enviados y ${sim.enColaHoy} en cola). Se reinicia a medianoche.` : "",
   ].filter(Boolean).join("\n");
   if (!confirm(`Vas a enviarle a ${c.nombre} desde tu WhatsApp:\n\n«${texto}»${avisos ? "\n\n" + avisos : ""}\n\n¿Enviar?`)) return;
 

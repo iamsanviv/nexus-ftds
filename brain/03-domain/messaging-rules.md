@@ -105,6 +105,17 @@ Los recordatorios se cuelgan del inicio de la actividad; la invitación, de cuá
 - lo que quede por debajo del piso se omite o se cancela, nunca se adelanta;
 - la omisión se informa al agente con el nombre del mensaje.
 
+## Tope diario: avisar antes y al momento
+
+El worker cancela el primer mensaje de cada persona (`masivo` / `invitacion`) cuando el agente ya lleva `TOPE_DIARIO` (220) enviados en el día de Colombia, y con él cae la serie. Todo lo que sale gasta cupo. Comprobado en la base desde el 17/10/2026; antes los casos cuadran con día UTC, así que el worker cambió de criterio (worker.py no está en el repo).
+
+**Contar solo lo enviado no sirve.** «Operativa 8pm» (25/10/2026) se creó con 210/220 enviados; el aviso dijo «quedan 10», pero había 70 confirmaciones en cola por delante y se canceló entera sin que el agente se enterara. Por eso:
+
+- **antes** (`cargarCola()` + `simularCupo()` en `data.js`): se simula la cola real en el orden del worker con lo nuevo en su lugar, en Masivo, Seguimiento a leads, Repaso y al programar una actividad, también si se programa para más tarde. Dice cuántos de la tanda no saldrían y cuántos ya programados perderían el cupo por culpa de esta tanda;
+- **al momento**: push `envio` (trigger `mensajes_notifica_fallo`, uno por causa, envío y día) y aviso en Mi día y Seguimiento (`envios.js`) con lo que no salió hoy y lo programado que no va a salir.
+
+Si la invitación de un seguimiento no sale (tope, bridge, canal), la base cancela el resto del seguimiento (`mensajes_cancela_seguimiento`). Antes los recordatorios, el enlace y la confirmación salían igual a quien nunca recibió la invitación. SQL: `sql/2026-10-26_46_avisos_envio.sql`.
+
 ## Eliminación de actividad
 
 Cancelar seguimientos y mensajes activos **antes** de borrar la actividad. Si se borra primero, quedan dependencias sin un punto fiable desde el cual cancelarlas.

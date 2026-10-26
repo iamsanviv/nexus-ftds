@@ -26,6 +26,7 @@ import { asegurarEntrantes, entranteDe, claveTel } from "./entrantes.js";
 import { categoria, razon, razonCorta, temperatura, contactosDe, esMio, sinHora, horaTxt, dias, form, abiertoAqui, manejarLead } from "./leads.js";
 import { irAEtapa } from "./hoy.js";
 import { metaHoyDatos } from "./ftd.js";
+import { cargarAvisoEnvios, avisoEnviosHTML } from "./envios.js";
 
 const HORA_MS = 60 * 60 * 1000;
 // Lo que tiene hora sube al frente una hora antes (respuesta del usuario).
@@ -467,6 +468,7 @@ export function renderMiDia(cont, render) {
     if (nuevo && !(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) render();
   });
   if (!extra || Date.now() - extraEn > VIGENCIA_MS) cargarExtra(render);
+  cargarAvisoEnvios(render);
   // La urgencia depende de la hora: se repinta cada minuto mientras la vista
   // está abierta, para que lo que entra en su última hora suba solo.
   if (!reloj) reloj = setInterval(() => {
@@ -500,7 +502,7 @@ export function renderMiDia(cont, render) {
   const abierta = filaSel ? (filaSel.cerrada ? null : elegida)
     : paso?.ls.includes(foco) ? foco : paso?.ls.find(x => !x.hecho && !x.espera) || null;
 
-  let top = "";
+  let top = avisoEnviosHTML();
   if (hora >= HORA_CIERRE) top += cierreHTML(items);
   if (!foco && hora < HORA_CIERRE) {
     top += `<div class="mdalday"><b>Estás al día</b><span>No tienes nada pendiente ahora. A las 9 pm verás el cierre del día.</span></div>`;

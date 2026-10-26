@@ -14,7 +14,8 @@ import { canalVinculado } from "./canal.js";
 import { porBajar } from "./crm.js";
 import { asegurarEntrantes, entranteDe, escribioTras } from "./entrantes.js";
 import { avisarSiCanalCaido } from "./salud.js";
-import { subirImagenMensaje, guardarHistorialSegmento } from "./data.js";
+import { cargarAvisoEnvios, avisoEnviosHTML } from "./envios.js";
+import { subirImagenMensaje, guardarHistorialSegmento, cargarCola, simularCupo, avisoCupo } from "./data.js";
 import { BASE_URL, NIVEL } from "./config.js";
 
 /* ---------- plantillas ---------- */
@@ -1713,7 +1714,22 @@ async function programar() {
   const n = seleccion.length;
   const primeros = seleccion.slice(0, 8).map(c => c.nombre.split(" ")[0]).join(", ");
   const mas = n > 8 ? ` y ${n - 8} más` : "";
-  const aviso = `Vas a programar los mensajes de «${actSel.nombre}» para ${n} persona${n === 1 ? "" : "s"}:\n${primeros}${mas}.${omitidos}${avisoInact}${avisoOmitidos}${avisoSerie}${avisoDia}`;
+  // El tope diario también corta invitaciones, y sin invitación la base
+  // cancela el resto del seguimiento. Se simula con los mismos tiempos que
+  // se encolan abajo, sobre la cola real del agente.
+  const nuevas = [];
+  seleccion.forEach((c, i) => {
+    const s = `n:${i}`;
+    if (!segSinInvitacion) for (let k = 0; k < nPartes; k++)
+      nuevas.push({ t: tParte(i, k), tipo: k ? "invitacion_parte" : "invitacion", serie: s });
+    for (const [tipo, cuando] of HITOS(inicio))
+      if (segHitos[tipo] && cuando.getTime() > pisoDe(i)) nuevas.push({ t: cuando.getTime(), tipo, serie: s });
+  });
+  let avisoTope = "";
+  try { avisoTope = avisoCupo(simularCupo(await cargarCola(), nuevas), n); }
+  catch { avisoTope = "\n\n(No se pudo revisar el límite diario de envíos.)"; }
+
+  const aviso = `Vas a programar los mensajes de «${actSel.nombre}» para ${n} persona${n === 1 ? "" : "s"}:\n${primeros}${mas}.${omitidos}${avisoInact}${avisoOmitidos}${avisoSerie}${avisoDia}${avisoTope}`;
   if (!confirm(aviso + `\n\n¿Programar?`)) return;
 
   const btn = $("segProgramar");
@@ -3065,8 +3081,16 @@ $("btnSeg").onclick = async () => {
   // Si el canal está caído o los mensajes vienen fallando, avisarlo arriba
   // en vez de dejar que el agente lo descubra días después.
   avisarSiCanalCaido();
+  pintarAvisoEnvios(); cargarAvisoEnvios(pintarAvisoEnvios);
   revisarCanal();
 };
+
+// Lo que no salió hoy o no va a salir (envios.js), arriba de todo.
+function pintarAvisoEnvios() {
+  const html = avisoEnviosHTML();
+  $("segEnvios").innerHTML = html;
+  $("segEnvios").classList.toggle("hidden", !html);
+}
 
 // Búsqueda por nombre (Req 2): filtra en vivo la lista de selección.
 $("segBuscar").oninput = e => {

@@ -6,7 +6,7 @@ import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
   esInactivo, nombreMotivo, motivoCorto, BROKERS, insigniasBroker, mesCorto,
   MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto,
   componerMensaje, horaDeCliente, etiquetaZona, todos, cuandoParte } from "./state.js";
-import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento, cuotaDiaria } from "./data.js";
+import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento, cargarCola, simularCupo, avisoCupo } from "./data.js";
 import { canalVinculado } from "./canal.js";
 import { porBajar } from "./crm.js";
 
@@ -25,7 +25,7 @@ let masCuando = "ahora";    // ahora | prog
 // que se queda pegada de la vez pasada.
 let masIncInact = false;
 let segmentos = [];         // segmentos guardados
-let masCuota = null;        // { enviados, tope, restan } del día
+let masCola = null;         // cola del agente para prever el cupo; null mientras carga
 let enviando = false;       // un envío en curso: ver enviar()
 
 // Mensajes 2..4. Mismo contrato de serie que el seguimiento a leads
@@ -281,14 +281,38 @@ function renderCount() {
   $("masEnviar").disabled = enviando || masSel.size === 0;
   const cu = $("masFootCuota");
   if (cu) {
-    const n = masSel.size, falta = masCuota && n > masCuota.restan ? n - masCuota.restan : 0;
-    cu.textContent = !masCuota ? "" : masCuota.restan === 0
-      ? `límite diario alcanzado (${masCuota.enviados}/${masCuota.tope})`
-      : falta ? `hoy te quedan ${masCuota.restan} de ${masCuota.tope} · ${falta} no saldrían`
-      : `hoy llevas ${masCuota.enviados} de ${masCuota.tope}`;
-    cu.classList.toggle("alerta", !!masCuota && (masCuota.restan === 0 || falta > 0));
-    cu.classList.toggle("hidden", !masCuota);
+    const sim = simCupo();
+    const nf = sim ? sim.fueraNuevas.size : 0, np = sim ? sim.fueraPrevias.length : 0;
+    cu.textContent = !sim ? ""
+      : nf ? `${nf} no saldrían: límite diario de ${sim.tope}` + (np ? ` · y ${np} ya programados tampoco` : "")
+      : np ? `${np} ya programados dejarían de salir por el límite diario`
+      : `hoy: ${sim.enviados} enviados + ${sim.enColaHoy} en cola, de ${sim.tope}`;
+    cu.classList.toggle("alerta", nf > 0 || np > 0);
+    cu.classList.toggle("hidden", !sim);
   }
+}
+
+// Momento de salida elegido; null si la fecha/hora programada aún no es válida.
+function baseEnvio() {
+  if (masCuando !== "prog") return Date.now();
+  const f = $("masFecha").value, h = $("masHora").value;
+  const t = f && h ? new Date(`${f}T${h}:00`).getTime() : NaN;
+  return isNaN(t) ? null : t;
+}
+
+// Simula la tanda tal como se encolaría (mismos tiempos que `enviarSinCandado`)
+// sobre la cola real del agente. Así el aviso vale también al programar para
+// más tarde y cuenta lo que ya está en cola por delante.
+function simCupo(sel = pool().filter(c => masSel.has(c.id))) {
+  const base = baseEnvio();
+  if (!masCola || base == null) return null;
+  const partes = partesUtiles();
+  const serie = partes.length ? { ...masSerie, partes } : null;
+  const n = sel.length, nuevas = [];
+  sel.forEach((c, i) => { for (let k = 0; k <= partes.length; k++) nuevas.push({
+    t: cuandoParte(serie, base, i, k, n), tipo: k === 0 ? "masivo" : "masivo_parte", serie: `n:${i}`,
+  }); });
+  return simularCupo(masCola, nuevas);
 }
 
 // Resumen de "cuándo" en la barra de acción, para no tener que subir a mirar.
@@ -297,6 +321,7 @@ function renderCuando() {
   $("masFootCuando").textContent = masCuando === "prog"
     ? (f && h ? `Programado para el ${f.slice(8, 10)}/${f.slice(5, 7)} a las ${h}` : "Elige fecha y hora")
     : "Se envía ahora mismo";
+  renderCount();
 }
 
 /* ---------- nota de voz ---------- */
@@ -472,10 +497,10 @@ async function abrir() {
   renderPartes();
   $("masProgRow").classList.add("hidden");
   $("masCuandoSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.cuando === "ahora"));
-  masCuota = null;
+  masCola = null;
   pintarIncInact(); renderFiltros(); renderLista(); renderCuando();
   $("masOverlay").classList.add("open");
-  cuotaDiaria().then(c => { masCuota = c; renderCount(); }).catch(() => {});
+  cargarCola().then(c => { masCola = c; renderCount(); }).catch(() => {});
   await cargarSegs();
 }
 
@@ -531,21 +556,6 @@ async function enviarSinCandado(btn) {
   const sel = pool().filter(c => masSel.has(c.id));
   if (!sel.length) { toast("No hay destinatarios seleccionados"); return; }
 
-  // El masivo no pide confirmación de rutina, pero el tope diario sí la merece:
-  // sin aviso, los que no caben se cancelan en silencio (lo que pasó con el
-  // seguimiento de leads). Solo al enviar AHORA: programado, el día puede ser otro.
-  if (masCuando === "ahora" && masCuota && sel.length > masCuota.restan) {
-    const falta = sel.length - masCuota.restan;
-    const msg = masCuota.restan === 0
-      ? `Ya alcanzaste el límite diario de envíos (${masCuota.enviados}/${masCuota.tope}). Si envías ahora, estos ${sel.length} se cancelarán. El límite se reinicia a medianoche.
-
-¿Enviar de todos modos?`
-      : `Hoy te quedan ${masCuota.restan} envíos de ${masCuota.tope}. De estos ${sel.length}, ${falta} se cancelarán por el límite diario.
-
-¿Enviar de todos modos?`;
-    if (!confirm(msg)) return;
-  }
-
   // Si el texto menciona la hora, tiene que haber una hora. Sin esto el mensaje
   // saldría con un hueco donde debía ir, y a nadie se le ocurriría revisarlo.
   if (serieUsaHora() && !$("masHoraRef").value) {
@@ -561,6 +571,13 @@ async function enviarSinCandado(btn) {
     enviarEn = new Date(`${f}T${h}:00`);
     if (isNaN(enviarEn) || enviarEn <= new Date()) { toast("Programa una fecha futura"); return; }
   }
+
+  // El masivo no pide confirmación de rutina, pero el tope diario sí la merece:
+  // sin aviso, los que no caben se cancelan en silencio. Se relee la cola: lo
+  // cargado al abrir puede tener minutos y otra pestaña pudo encolar algo.
+  try { masCola = await cargarCola(); } catch { /* sin cola fresca, se usa la de la apertura */ }
+  const avisoTope = masCola ? avisoCupo(simCupo(sel), sel.length) : "";
+  if (avisoTope && !confirm(avisoTope.trim() + "\n\n¿Enviar de todos modos?")) return;
 
   // Un solo instante para toda la tanda: lo que cambia por persona es su
   // desfase, no la hora del evento.

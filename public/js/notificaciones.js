@@ -18,6 +18,7 @@ const TIPOS = [
   ["zoom",         "Tu zoom empieza pronto",  "Una hora antes de una actividad tuya o con invitados tuyos."],
   ["sin_respuesta", "Invitados sin contestar", "15 min antes del recordatorio de 1 h, si hay invitados tuyos que no te contestaron (para cancelarles el seguimiento)."],
   ["canal",        "Problemas con tu WhatsApp", "Se desconectó, dejó de dar señales o los envíos están fallando."],
+  ["envio",        "Mensajes que no salieron", "Cuando un envío tuyo se cancela (por ejemplo, por el límite diario) o falla, con el nombre del envío y el motivo."],
 ];
 
 const soporta = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
