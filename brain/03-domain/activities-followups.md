@@ -8,6 +8,20 @@ Una actividad `compartida` pertenece al director y puede ser utilizada por sus a
 
 Una actividad `para_todos` (20/10/2026) es lo mismo un nivel más arriba: la crea el admin y la ven todos los usuarios aprobados de todos los equipos (RLS `actividades_sel`: `para_todos and aprobado()`). Solo un admin puede marcarla (`actividades_ins`/`actividades_upd` exigen `not para_todos or es_admin()`). Nadie más la edita, la borra ni puede ocultarla. El interruptor nace **apagado** (al revés que el del director): el admin también arma clases para sus propios clientes. Etiqueta «🌐 Global» para todos (pedido de Sanviv), y tiene prioridad sobre «De tu director»: el admin puede tener director. SQL: `sql/2026-10-20_43_actividades_para_todos.sql`.
 
+## Nombre para las personas (26/10/2026)
+
+`actividades.nombre` es el nombre del panel, pensado para los agentes (puede llevar notas
+internas). `actividades.nombre_publico` (opcional, pedido de Sanviv) es el que llena
+`{actividad}` en invitación, recordatorios y serie; nulo = `nombre`. Todo lo que se le manda a
+una persona pasa por `nombreParaPersonas(a)` (`seguimiento.js`); lo interno (tarjetas, registro,
+`puntuales[].n`, segmentos, avisos push) sigue con `nombre`. CHECK: vacío no vale, se guarda nulo.
+SQL: `sql/2026-10-26_46_actividades_nombre_publico.sql`.
+
+Si cambia al editar, `renombrarPendientes` reemplaza el nombre viejo por el nuevo en los
+mensajes **pendientes** visibles (reemplazo, no regeneración: no re-sortea el texto ni pisa
+invitaciones propias). Otros equipos de una `para_todos` (fuera del RLS del admin) quedan con el
+nombre anterior; el trigger `actividades_ajenos_upd` no reescribe textos.
+
 ## Lista visible
 
 La operación normal muestra:

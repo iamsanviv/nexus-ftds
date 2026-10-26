@@ -328,6 +328,10 @@ const pad = n => String(n).padStart(2, "0");
 // marca asistencia ni cuenta para el progreso de nadie.
 const esLibre = a => !a || !a.servicio_id;
 
+// Cómo se llama la actividad EN LOS MENSAJES ({actividad}). `nombre` es el del
+// panel, pensado para los agentes; `nombre_publico` nulo = el mismo.
+const nombreParaPersonas = a => (a?.nombre_publico || "").trim() || a?.nombre || "";
+
 let segTipoAct = "cat";   // "cat" (del catálogo) | "libre" (puntual)
 let segImg = null;
 // Mensajes 2..4 de la invitación de la actividad en el formulario. `partes` vacío
@@ -397,6 +401,7 @@ function renderForm() {
   $("segHora").value = "";
   $("segLink").value = "";
   $("segLibre").value = "";
+  setNombrePublico(null);
   setImgActividad(null);
   setMsgInvitacion(null);
   setSerie(null);
@@ -443,6 +448,30 @@ function setTipoActividad(tipo) {
     heredada + " Video en MP4 o MOV, hasta 16 MB.";
 }
 
+// En catálogo el nombre viene del servicio elegido; en puntual, del campo libre.
+const nombreInternoForm = () => (segTipoAct === "libre"
+  ? $("segLibre").value.trim()
+  : (todos().find(x => x.id === $("segSrv").value) || {}).n) || "";
+const nombrePublicoForm = () => $("segNomPub").value.trim() || nombreInternoForm();
+
+// Nombre para las personas. Plegado salvo que tenga algo: el botón dice cuál
+// está vigente, así no hace falta abrirlo para saber cómo les llega.
+function setNombrePublico(texto) {
+  $("segNomPub").value = texto || "";
+  $("segNomPubBox").classList.toggle("hidden", !(texto && texto.trim()));
+  pintarNombrePublico();
+}
+function pintarNombrePublico() {
+  const pub = $("segNomPub").value.trim();
+  const interno = nombreInternoForm();
+  $("segNomPubBtn").textContent = pub
+    ? `✎ Las personas lo ven como «${pub}»`
+    : "✎ Otro nombre para las personas";
+  $("segNomPubBtn").classList.toggle("on", !!pub);
+  $("segNomPubAyuda").textContent = "Es el que sale en la invitación, los recordatorios y la serie. "
+    + (interno ? `Vacío = «${interno}».` : "Vacío = el nombre de la actividad.");
+}
+
 // Invitación propia de la actividad. `null` = usar la plantilla del agente.
 // El editor arranca plegado y solo se despliega al tocarlo: la mayoría de las
 // veces no se toca, y desplegado se come el formulario.
@@ -462,10 +491,7 @@ function renderPrevInvitacion() {
   const prev = $("segMsgInvPrev");
   if (!prev) return;
   const txt = ($("segMsgInv").value || "").trim();
-  // En catálogo el nombre viene del servicio elegido; en puntual, del campo libre.
-  const nombreAct = (segTipoAct === "libre"
-    ? $("segLibre").value.trim()
-    : (todos().find(x => x.id === $("segSrv").value) || {}).n) || "la actividad";
+  const nombreAct = nombrePublicoForm() || "la actividad";
   const hora = $("segHora").value
     ? horaCO(new Date(`2026-01-01T${$("segHora").value}:00`).toISOString())
     : "7:00 p. m.";
@@ -584,8 +610,7 @@ function renderSerie() {
 
 // Vista previa con datos de ejemplo, igual que la de la invitación.
 function previewTexto(txt) {
-  const nombreAct = (segTipoAct === "libre" ? $("segLibre").value.trim()
-    : (todos().find(x => x.id === $("segSrv").value) || {}).n) || "la actividad";
+  const nombreAct = nombrePublicoForm() || "la actividad";
   const hora = $("segHora").value
     ? horaCO(new Date(`2026-01-01T${$("segHora").value}:00`).toISOString()) : "7:00 p. m.";
   return aplicar(txt, { nombre: "Ana", actividad: nombreAct, hora, dia: diaDelForm(),
@@ -609,6 +634,7 @@ function entrarEdicion(a) {
     $("segZoom").value = "";
     if ([...$("segSrv").options].some(o => o.value === a.servicio_id)) $("segSrv").value = a.servicio_id;
   }
+  setNombrePublico(a.nombre_publico);
   setImgActividad(a.imagen);
   setMsgInvitacion(a.msg_invitacion);
   setSerie(a.serie_invitacion);
@@ -673,6 +699,7 @@ async function guardarActividad() {
     const datos = {
       servicio_id: libre ? null : sel,
       nombre: nombreAct,
+      nombre_publico: $("segNomPub").value.trim() || null,
       inicio: inicio.toISOString(), enlace,
       imagen: segImg,
       // Invitación propia de ESTA actividad (catálogo o puntual). Vacío = usar
@@ -701,11 +728,17 @@ async function guardarActividad() {
         }
       }
       const cambioHora = new Date(actEdit.inicio).getTime() !== inicio.getTime();
+      const pubAntes = nombreParaPersonas(actEdit);
+      const pubAhora = nombreParaPersonas(datos);
       const { error } = await SB.from("actividades").update(datos).eq("id", actEdit.id);
       if (error) throw error;
+      // Va antes que reprogramar: el cambio de hora regenera solo los textos
+      // propios, y este reemplazo cubre también los de los agentes.
+      const renombrados = pubAntes !== pubAhora
+        ? await renombrarPendientes(actEdit.id, pubAntes, pubAhora) : 0;
       let reprog = null;
       if (cambioHora) {
-        reprog = await reprogramarPorHora(actEdit.id, inicio.toISOString(), nombreAct, enlace, datos.msg_invitacion, datos.serie_invitacion);
+        reprog = await reprogramarPorHora(actEdit.id, inicio.toISOString(), pubAhora, enlace, datos.msg_invitacion, datos.serie_invitacion);
       }
       // Propaga el enlace nuevo a los mensajes de "enlace" aún pendientes de los
       // seguimientos activos de esta actividad (por eso el link no se congela).
@@ -732,6 +765,7 @@ async function guardarActividad() {
       if (enlace && sinTok.length) notas.push("enlace aplicado a los pendientes");
       if (enlace && conTok.length)
         notas.push(`${conTok.length} enlace(s) rastreado(s) ya apuntan al nuevo`);
+      if (renombrados) notas.push(`${renombrados} mensaje(s) pendiente(s) con el nombre nuevo`);
       if (reprog && reprog.movidos) notas.push(`${reprog.movidos} mensaje(s) reprogramado(s)`);
       if (reprog && reprog.cancelados) notas.push(`${reprog.cancelados} ya no alcanzaban y se cancelaron`);
       toast("✓ Actividad actualizada" + (notas.length ? " · " + notas.join(" · ") : ""));
@@ -857,7 +891,7 @@ async function renderPasadas() {
 
 async function cargarActividades() {
   const { data, error } = await SB.from("actividades")
-    .select("id, servicio_id, nombre, inicio, enlace, estado, imagen, compartida, para_todos, msg_invitacion, serie_invitacion, zoom_tipo, owner_id")
+    .select("id, servicio_id, nombre, nombre_publico, inicio, enlace, estado, imagen, compartida, para_todos, msg_invitacion, serie_invitacion, zoom_tipo, owner_id")
     .eq("estado", "activa")
     .order("inicio", { ascending: true });
   if (error) {
@@ -1091,7 +1125,7 @@ function renderPrevMiInvitacion() {
   if (!prev || !actSel) return;
   const txt = ($("segMiInv").value || "").trim();
   prev.textContent = txt
-    ? aplicar(txt, { nombre: "Ana", actividad: actSel.nombre, hora: horaCO(actSel.inicio),
+    ? aplicar(txt, { nombre: "Ana", actividad: nombreParaPersonas(actSel), hora: horaCO(actSel.inicio),
         dia: etiquetaDia(actSel.inicio, new Date().toISOString(), null),
         zona: etiquetaZona(null), enlace: "" })
     : "";
@@ -1773,7 +1807,7 @@ async function programar() {
       const c = seleccion.find(x => x.id === seg.cliente_id);
       const i = idx.get(c.id);
       const tInv = new Date(tParte(i, 0));
-      const tpl = plantillas(c.nombre, actSel.nombre, actSel.inicio, actSel.enlace,
+      const tpl = plantillas(c.nombre, nombreParaPersonas(actSel), actSel.inicio, actSel.enlace,
         yaInvitados.has(c.tel), invEfectiva, c.tzOff, tInv.toISOString());
       const piso = pisoDe(i);
       for (const [tipo, cuandoBase] of tiempos()) {
@@ -1815,7 +1849,7 @@ async function programar() {
             const parte = {
               seguimiento_id: seg.id, tipo: "invitacion_parte", parte: j + 2,
               enviar_en: t.toISOString(), telefono: c.tel,
-              texto: textoParte(pt.texto, c.nombre, actSel.nombre, actSel.inicio, actSel.enlace, c.tzOff, t.toISOString()),
+              texto: textoParte(pt.texto, c.nombre, nombreParaPersonas(actSel), actSel.inicio, actSel.enlace, c.tzOff, t.toISOString()),
             };
             if (pt.media) parte.media_url = pt.media;
             msgs.push(parte);
@@ -2112,6 +2146,30 @@ async function estadoEnlace(actIds) {
 // El texto solo se regenera en los seguimientos PROPIOS: los de un agente se
 // escribieron con SUS plantillas, y sobreescribirlos con las del director le
 // cambiaría la redacción a alguien más. A esos solo se les corrige la hora.
+// Cambió el nombre que ven las personas: los mensajes que aún no salen se
+// corrigen reemplazando el nombre viejo por el nuevo. Reemplazo y no
+// regeneración: así no se vuelve a sortear el texto ni se pisa la invitación
+// que cada agente escribió. Alcanza lo que el RLS deja ver (como el cambio
+// de hora); otros equipos de una `para_todos` quedan con el nombre anterior.
+async function renombrarPendientes(actividadId, antes, ahora) {
+  if (!antes || !ahora) return 0;
+  const { data: segs } = await SB.from("seguimientos")
+    .select("id").eq("actividad_id", actividadId).eq("estado", "activo");
+  if (!segs || !segs.length) return 0;
+  const { data: msgs } = await SB.from("mensajes_programados")
+    .select("id, texto").in("seguimiento_id", segs.map(s => s.id)).eq("estado", "pendiente");
+  const cambiar = (msgs || []).filter(m => m.texto && m.texto.includes(antes));
+  let n = 0;
+  await Promise.all(cambiar.map(async m => {
+    // `estado = pendiente` en el filtro: si el worker lo mandó entretanto, no se toca.
+    const { data } = await SB.from("mensajes_programados")
+      .update({ texto: m.texto.split(antes).join(ahora) })
+      .eq("id", m.id).eq("estado", "pendiente").select("id");
+    if (data && data.length) n++;
+  }));
+  return n;
+}
+
 async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace, msgInv, serie) {
   const { data: segs } = await SB.from("seguimientos")
     .select("id, owner_id, clientes(nombre, tz_offset_min)")
@@ -3210,6 +3268,15 @@ $("segMiInvQuitar").onclick = () => {
 $("segHora").addEventListener("change", renderPrevInvitacion);
 $("segLibre").addEventListener("input", renderPrevInvitacion);
 $("segSrv").addEventListener("change", renderPrevInvitacion);
+$("segLibre").addEventListener("input", pintarNombrePublico);
+$("segSrv").addEventListener("change", pintarNombrePublico);
+$("segNomPubBtn").onclick = () => {
+  const box = $("segNomPubBox");
+  const abrir = box.classList.contains("hidden");
+  box.classList.toggle("hidden", !abrir);
+  if (abrir) $("segNomPub").focus();
+};
+$("segNomPub").addEventListener("input", () => { pintarNombrePublico(); renderPrevInvitacion(); });
 $("segMsgInvQuitar").onclick = () => setMsgInvitacion(null);
 $("segSerieAdd").onclick = () => {
   if (segSerie.partes.length >= MAX_PARTES) return;
