@@ -202,6 +202,11 @@ VM es exactamente la versión anterior conocida (hash), con respaldo y validaci�
 luego `sudo systemctl restart nexus-worker`. **Pendiente de instalar en VM1** al 14/10/2026, y
 VM2 sigue sin `chats_sync` (ver KI-014 en `08-memory/known-issues.md`).
 
+**VM2 lo corre aparte** (`vm/chats-sync/correr.py` + `nexus-chats-sync.timer`, cada 5 min):
+`chats_sync` solo ve los bridges del disco local y el worker vive en VM1. No leer VM2 por red
+desde VM1 (`nolock=1` solo es seguro en disco local) ni levantar un worker en VM2 (duplica
+envíos). En VM1 no se instala el timer: ya lo hace el worker.
+
 **Punto de enganche para eventos** (p. ej. notificaciones): una fila de `chats_recientes` cuyo
 `entrante_en` cambia ES «esta persona te escribió» (`owner_id` + `telefono`). «Primer mensaje del
 día» = `primer_entrante_dia` pasa a una fecha de hoy. «Respondió» = ese `entrante_en` es posterior
@@ -432,7 +437,7 @@ Ahí viven `provisionar.sh` y los bridges; no hace falta saltar a VM2.
   `Connection refused` en 0 ms, el paquete ya llegó a la VM. No uses `pkill -f
   "http.server <puerto>"` dentro de un `ssh '…'` que también lance el server: el patrón
   coincide con la propia orden remota y la mata (ssh sale con 255).
-- VM2 no corre `chats_sync` (KI-014): el agente no tiene «Te escribió», «respondió»
+- Sin el timer `nexus-chats-sync` de VM2 (KI-014, `vm/chats-sync/README.md`) el agente no tiene «Te escribió», «respondió»
   automático ni subida de temperatura, ni los avisos push que dependen de eso.
   Enviar sí funciona. Para un agente que trabaja leads, VM1 es mejor mientras siga así.
 
