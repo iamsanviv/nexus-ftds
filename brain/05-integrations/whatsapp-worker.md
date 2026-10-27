@@ -177,7 +177,9 @@ Decisiones que conviene no deshacer:
 ### `entrante_en`: último mensaje entrante (Leads F4, 2026-10-05)
 
 `chats_recientes.entrante_en` guarda el último mensaje que la persona NOS escribió
-(`is_from_me=0`), para «bajaron hoy a tu WhatsApp» y la temperatura en Leads. `ultimo_en`
+(`is_from_me=0`), para «bajaron hoy a tu WhatsApp», la temperatura en Leads y, desde el
+21/10/2026, la temperatura de los invitados al programar una actividad (`seguimiento.js`).
+Si un bridge no publica `chats_recientes`, esa temperatura queda solo con la asistencia. `ultimo_en`
 (= `chats.last_message_time`) no sirve para eso: es el último mensaje del chat en cualquier
 dirección, así que se mueve también cuando el agente escribe.
 
@@ -418,8 +420,18 @@ Ahí viven `provisionar.sh` y los bridges; no hace falta saltar a VM2.
      líneas `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` copiadas con `grep` del `env` de otro
      bridge (sin imprimirlas); `chmod 600`. Todo sin `sudo`;
   4. `sudo systemctl enable --now nexus-bridge@<slug>`.
-- Firewall de VM2: acepta desde VM1 (`10.0.0.74`) solo `8092:8094` y `8095:8100`. Un puerto
-  fuera de ese rango necesita su regla `iptables` (y persistirla), o el worker no llega.
+- Firewall de VM2: acepta desde VM1 (`10.0.0.74`) solo `8092:8094`, `8095:8100` y, desde el
+  22/10/2026, `8102:8110` (abierto para Sebastián Ceballos, 8102). Un puerto fuera de esos
+  rangos necesita **dos** reglas, o el worker no llega:
+  1. `iptables` en VM2, antes del REJECT, y persistirla con `sudo netfilter-persistent save`;
+  2. una **Ingress Rule en Oracle** (Security List/NSG de la subred): origen `10.0.0.74/32`,
+     TCP, destino el rango. Con solo la de `iptables` el paquete se pierde en la red de
+     Oracle (curl `000` por timeout).
+  Para probar el camino antes de emparejar, levantar en VM2 un `python3 -m http.server
+  <puerto> --bind 0.0.0.0` temporal y hacer curl desde VM1. Si la respuesta es
+  `Connection refused` en 0 ms, el paquete ya llegó a la VM. No uses `pkill -f
+  "http.server <puerto>"` dentro de un `ssh '…'` que también lance el server: el patrón
+  coincide con la propia orden remota y la mata (ssh sale con 255).
 - VM2 no corre `chats_sync` (KI-014): el agente no tiene «Te escribió», «respondió»
   automático ni subida de temperatura, ni los avisos push que dependen de eso.
   Enviar sí funciona. Para un agente que trabaja leads, VM1 es mejor mientras siga así.

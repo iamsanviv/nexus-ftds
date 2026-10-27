@@ -99,7 +99,33 @@ export async function cargarCrm() {
   else state.crm = data || [];
   state.crmPor = {};
   state.crm.forEach(l => { if (l.cliente_id) state.crmPor[l.cliente_id] = l; });
+  // La Edge Function crea la persona cuando el lead llega, pero las personas se
+  // cargan una sola vez al entrar: un lead asignado después salía en «Mi día»
+  // (que sí recarga crm_leads) y no en Leads. Se traen las que falten.
+  if (state.clientes) {
+    const hay = new Set(state.clientes.map(c => c.id));
+    const faltan = [...new Set(state.crm.map(l => l.cliente_id).filter(id => id && !hay.has(id)))];
+    if (faltan.length) {
+      const { data: cl, error: e } = await SB.from("clientes").select("*").in("id", faltan);
+      if (e) console.warn("clientes nuevos de HighLevel:", e.message);
+      else (cl || []).forEach(r => { if (!state.clientes.some(c => c.id === r.id)) state.clientes.push(mapDesdeDB(r)); });
+    }
+  }
   return state.crm;
+}
+
+// Leads «Hoy» y «Todos los leads» también recargan crm_leads (y las personas
+// nuevas que traiga) cada 2 min: un lead de HighLevel puede llegar con la
+// pantalla abierta. Resuelve true si cambió algo, para re-pintar.
+const CRM_FRESCO = 2 * 60e3;
+let crmEn = Date.now(), crmCurso = null;
+export function asegurarCrm() {
+  if (crmCurso) return crmCurso;
+  if (Date.now() - crmEn < CRM_FRESCO) return Promise.resolve(false);
+  const antes = JSON.stringify(state.crm) + state.clientes.length;
+  crmCurso = cargarCrm().then(() => JSON.stringify(state.crm) + state.clientes.length !== antes)
+    .catch(() => false).finally(() => { crmEn = Date.now(); crmCurso = null; });
+  return crmCurso;
 }
 
 // Qué plantilla de seguimiento recibió (o tiene programada) cada lead, para no

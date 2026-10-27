@@ -37,7 +37,7 @@ export const cuandoTxt = v => {
 export const sinHora = ts => { const d = new Date(ts); return !isNaN(d) && d.getUTCSeconds() === 1; };
 const cuandoHora = ts => sinHora(ts) ? cuandoTxt(ts) : `${cuandoTxt(ts)} ${horaTxt(ts)}`;
 // Fecha de llegada: la que puso el agente o, si no la puso, cuándo se creó.
-const llegada = c => c.creado || (c.createdAt ? fechaCO(new Date(c.createdAt)) : null);
+export const llegada = c => c.creado || (c.createdAt ? fechaCO(new Date(c.createdAt)) : null);
 
 /* ------------------------------------------------------------- contactos */
 export const contactosDe = c => state.contactos?.[c.id] || [];   // más reciente primero

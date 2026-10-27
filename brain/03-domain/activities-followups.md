@@ -231,6 +231,36 @@ servicio y sacaría a quien fue a una clase anterior aunque a esta no conteste.
 - La regla está duplicada en SQL (`sin_respuesta_de`) para el aviso push de 15 min antes
   del recordatorio de 1 h (ver [[../04-features/notifications]]). Cambiar las dos juntas.
 
+## Los leads no aparecen de primeras (21/10/2026)
+
+Pedido de Sanviv: al programar una actividad la lista arranca **sin leads**; la casilla
+«Incluir leads · N» los suma para esa tanda (se apaga al elegir otra actividad). Solo en este
+selector: Leads, Comunidad, Masivo y el resto los muestran igual. El filtro vive en `mios()`
+(cuello del envío), como las inactivas, para que un segmento guardado no los marque sin
+verse; al apagar la casilla, los leads marcados salen de la selección con aviso (DP-001).
+
+## Temperatura y orden de la lista de invitados (21/10/2026)
+
+Cada fila dice, bajo el nombre, **Caliente / Tibio / Frío** y el motivo («te escribió hace
+2 d · asistió ayer»), diseño B elegido por Sanviv. Se deriva al pintar (`temperaturaInvitado`,
+`seguimiento.js`), no se guarda: la última señal entre el último mensaje entrante a tu WhatsApp
+(`entranteDe`, solo personas propias) y la última asistencia (`acc` por servicio y `pun[].acc`,
+fechas). Cortes (Sanviv): hasta `TEMP_CALIENTE_D` (5) días caliente, hasta `TEMP_TIBIO_D` (21) tibio,
+después o sin señal frío.
+
+Orden (selector «Ordenar» + botón de dirección, que dice en palabras qué queda arriba):
+Recientes, Temperatura, A–Z, Membresía. Por defecto **Recientes descendente**, y se reinicia al
+elegir otra actividad. «Recientes» = entró a la comunidad (`comunidadDesde`, primer FTD),
+elegido por Sanviv; quien no la tiene (leads) va al final en las dos direcciones. Al cambiar de
+criterio, la dirección vuelve a la natural de ese criterio (A–Z ascendente, el resto descendente).
+Ordenar no toca la selección: solo cambia el orden de lo visible.
+
+Límites conocidos: el mensaje entrante solo cuenta en personas propias (los chats son los de
+TU WhatsApp) y depende de que el worker publique `chats_recientes` (~5 min de demora; un canal
+sin `chats_sync` deja la temperatura solo con asistencia). `acc` guarda una fecha por servicio
+(la última marcada), así que la «última asistencia» es la más reciente entre servicios y
+actividades puntuales. Ver [[../05-integrations/whatsapp-worker]].
+
 ## Rastreo
 
 Cada seguimiento rastreado tiene su propio `clic_token`. El token identifica a esa persona dentro de esa actividad y debe sobrevivir a reprogramaciones de mensajes.

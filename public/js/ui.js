@@ -7,15 +7,15 @@ import {
   OPCIONES_TZ, etiquetaOffset, horaDeCliente,
   MOTIVOS_INACTIVO, esInactivo, nombreMotivo, motivoCorto, BROKERS, nombreBroker,
   insigniasBroker, telColombia, ICO_TEL,
-  raizScroll,
+  raizScroll, fechaCO,
 } from "./state.js";
-import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio, cargarChatsRecientes } from "./data.js";
+import { dbInsert, dbPatch, dbDelete, guardarCatalogo, mapAEditar, subirImagenServicio, borrarImagenServicio, cargarChatsRecientes, asegurarCrm } from "./data.js";
 import { asegurarEntrantes } from "./entrantes.js";
 // repaso.js importa a ui.js: para no crear un ciclo, aquí solo se usa el
 // contador (función pura sobre `state`) y el modo manual se carga a demanda.
 import { repasoPendientes } from "./repaso.js";
 import { refrescarCanal } from "./canal.js";
-import { chipTemp, razon, seguimientoHTML, wireSeguimiento, temperatura } from "./leads.js";
+import { chipTemp, razon, seguimientoHTML, wireSeguimiento, temperatura, llegada } from "./leads.js";
 import { renderHoy } from "./hoy.js";
 import { porBajar, crmDe, marcarBajo, ICO_BAJAR } from "./crm.js";
 import { renderMiDia, tieneMiDia } from "./midia.js";
@@ -141,17 +141,21 @@ export function render() {
   // pide. Al llegar datos nuevos se re-pinta, salvo que estés escribiendo en un
   // campo: re-pintar te borraría lo tecleado, y el dato entra en el siguiente.
   if (isLead) {
-    asegurarEntrantes().then(nuevo => {
+    const repintar = nuevo => {
       const ae = document.activeElement;
       if (nuevo && !(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) render();
-    });
+    };
+    asegurarEntrantes().then(repintar);
+    // Un lead de HighLevel puede llegar con la pantalla abierta (ver data.js).
+    asegurarCrm().then(repintar);
   }
 
   // Leads abre en «Hoy». La lista sigue a un toque en el mismo selector.
   const enHoy = isLead && state.leadsVista === "hoy";
+  const enPlant = isLead && state.leadsVista === "plant";
   $("hoySeg").classList.toggle("hidden", !isLead);
   if (isLead) {
-    $("hoySeg").innerHTML = `<div class="hoysegsel">${[["hoy", "Hoy"], ["lista", "Todos los leads"]].map(([v, l]) =>
+    $("hoySeg").innerHTML = `<div class="hoysegsel">${[["hoy", "Hoy"], ["lista", 'Todos<span class="lg"> los leads</span>'], ["plant", "Plantillas"]].map(([v, l]) =>
       `<button class="vbtn ${state.leadsVista === v ? "on" : ""}" data-lv="${v}">${l}</button>`).join("")}</div>
       <button type="button" class="hsegenv" id="btnLeadSeg" aria-label="Enviar seguimiento a leads">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
@@ -160,8 +164,17 @@ export function render() {
     // Import a demanda: el compositor solo se carga si alguien lo abre.
     $("btnLeadSeg").onclick = () => import("./envioleads.js").then(m => m.abrirEnvioLeads(render));
   }
-  $("vistaCliente").classList.toggle("modohoy", enHoy);
+  // «Plantillas» aparta la lista igual que «Hoy»: no es una vista de leads.
+  $("vistaCliente").classList.toggle("modohoy", enHoy || enPlant);
   $("vistaHoy").classList.toggle("hidden", !enHoy);
+  $("vistaPlant").classList.toggle("hidden", !enPlant);
+  if (enPlant) {
+    $("paginador").classList.add("hidden");
+    $("buscar").classList.add("hidden");
+    $("ftdPanel").innerHTML = "";
+    import("./plantillas.js").then(m => m.renderPlantillas($("vistaPlant"), render));
+    return;
+  }
   if (enHoy) {
     $("paginador").classList.add("hidden");
     $("buscar").classList.add("hidden");
@@ -311,6 +324,44 @@ export function render() {
     }
   }
 
+  // Llegada (solo leads): cuándo entró el lead (`llegada`, la misma fecha que
+  // usan las etapas «Llegaron hoy/ayer»). Mismo patrón que la fila de depósito.
+  const llegFila = $("filtrosLleg");
+  if (llegFila) {
+    llegFila.classList.toggle("hidden", !isLead);
+    if (!isLead) { state.filtroLleg = null; llegFila.innerHTML = ""; }
+    else {
+      const hoy = hoyISO(), menos = n => fechaCO(new Date(Date.now() - n * 864e5));
+      const ATAJOS = {
+        hoy:  { desde: hoy, hasta: hoy },
+        ayer: { desde: menos(1), hasta: menos(1) },
+        sem:  { desde: menos(6), hasta: hoy },
+        mes:  { desde: hoy.slice(0, 7) + "-01", hasta: hoy },
+      };
+      const r = state.filtroLleg, modo = r?.modo || "";
+      const op = (v, t) => `<option value="${v}" ${modo === v ? "selected" : ""}>${t}</option>`;
+      llegFila.innerHTML = `<span class="ejelbl">Llegó</span>
+        <select class="brksel" id="llegSel" aria-label="Filtrar por fecha de llegada">
+          <option value="">Cualquier fecha</option>
+          ${op("hoy", "Hoy")}${op("ayer", "Ayer")}${op("sem", "Últimos 7 días")}${op("mes", "Este mes")}${op("rango", "Entre fechas…")}
+        </select>
+        ${modo === "rango" ? `<input type="date" class="depfecha" id="llegDesde" value="${r.desde || ""}" aria-label="Llegó desde">
+          <span class="ejelbl">a</span>
+          <input type="date" class="depfecha" id="llegHasta" value="${r.hasta || ""}" aria-label="Llegó hasta">` : ""}`;
+      $("llegSel").onchange = e => {
+        const v = e.target.value;
+        state.filtroLleg = !v ? null : v === "rango" ? { modo: "rango", desde: menos(6), hasta: hoy } : { modo: v, ...ATAJOS[v] };
+        render();
+      };
+      const cambio = () => {
+        let d = $("llegDesde").value || null, h = $("llegHasta").value || null;
+        if (d && h && d > h) [d, h] = [h, d];
+        state.filtroLleg = { modo: "rango", desde: d, hasta: h }; render();
+      };
+      if ($("llegDesde")) { $("llegDesde").onchange = cambio; $("llegHasta").onchange = cambio; }
+    }
+  }
+
   // Servicio: quién asistió o no a un servicio del catálogo. Heredó el único uso
   // vivo de la vieja pestaña «Servicios»; la asistencia la marca Seguimiento.
   const srvFila = $("filtrosSrv");
@@ -344,8 +395,8 @@ export function render() {
   // están activos para que un filtro escondido nunca recorte la lista en
   // silencio (la tira de estado también lo nombra). Va PRIMERO en la fila: en
   // celular las píldoras se desplazan de lado y al final quedaría fuera de vista.
-  const nMas = [state.filtroBrk, state.filtroDep, state.filtroSrv].filter(Boolean).length;
-  const hayMas = ["filtrosBrk", "filtrosDep", "filtrosSrv"].some(id => $(id) && !$(id).classList.contains("hidden"));
+  const nMas = [state.filtroLleg, state.filtroBrk, state.filtroDep, state.filtroSrv].filter(Boolean).length;
+  const hayMas = ["filtrosLleg", "filtrosBrk", "filtrosDep", "filtrosSrv"].some(id => $(id) && !$(id).classList.contains("hidden"));
   $("filtrosMas").classList.toggle("hidden", !hayMas || !state.filtrosMas);
   if (hayMas) {
     $("filtros").insertAdjacentHTML("afterbegin",
@@ -379,6 +430,8 @@ export function render() {
     if (state.filtroMem && c.mem !== state.filtroMem) return false;
     if (state.filtroBrk && !c.ftds?.[state.filtroBrk]) return false;
     if (state.filtroDep && !enRango(c)) return false;
+    if (state.filtroLleg) { const r = state.filtroLleg, f = llegada(c);
+      if (!f || (r.desde && f < r.desde) || (r.hasta && f > r.hasta)) return false; }
     if (state.filtroSrv && !!c.acc[state.filtroSrv.id] !== (state.filtroSrv.modo === "si")) return false;
     if (isLead && state.filtroTemp && temperatura(c) !== state.filtroTemp) return false;
     if (state.filtro === "todos" || state.filtro === "inactivas") return true;
@@ -528,6 +581,12 @@ function cardHTML(c, p, rank, isLead, dir) {
   // membresía, bandera, estado y dueño, y «IQ Option» completo le cuesta un
   // renglón en móvil sin decir más de lo que dice «IQ».
   const brkTags = insigniasBroker(c);
+  // Origen del lead (pedido del usuario, 21/10/2026): sigue en HighLevel o ya
+  // bajó a WhatsApp. Sin tercera etiqueta «directo a WhatsApp»: casi todos
+  // pasaron por HighLevel; los antiguos solo son anteriores a la integración.
+  const origenTag = !isLead ? "" : porBajar(c)
+    ? ` <span class="badge b-hl" title="Lead de HighLevel: todavía no te escribe por WhatsApp">HighLevel</span>`
+    : ` <span class="badge b-wa" title="Ya bajó a WhatsApp">Bajado a WA</span>`;
   const extraTag = p.extra ? ` · <span class="extra">+${p.extra} ✦</span>` : "";
 
   // En Leads la línea de estado es la temperatura (va en `.lhead`); el conteo de
@@ -558,7 +617,7 @@ function cardHTML(c, p, rank, isLead, dir) {
       <div class="chead">
         ${rankChip || `<div class="cav">${esc(iniciales(c.nombre))}</div>`}
         <div class="cinfo">
-          <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span>${brkTags}${paisTag}${inactTag} ${ownerBadge}</div>
+          <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span>${origenTag}${brkTags}${paisTag}${inactTag} ${ownerBadge}</div>
           ${isLead || !c.tel ? '' : `<span class="cheadtel" title="${esc(c.tel)}">${esc(c.tel)}</span>`}
           ${isLead ? `<div class="lhead">${chipTemp(c)}<span class="lwhy">${razon(c)}</span></div>` : `<div class="barra"><i style="width:${p.pct}%"></i></div>`}
           ${metric ? `<div class="pct">${metric}</div>` : ""}

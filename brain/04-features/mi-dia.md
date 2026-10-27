@@ -133,3 +133,14 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
 El antiguo «Bajó a WhatsApp» se llama **«Bajado a WA»** con ícono de descargar (`ICO_BAJAR`, `crm.js`).
 Aparece en la tarjeta de un lead de HighLevel por bajar en «Mi día», en Leads «Hoy» y,
 desde esta fecha, también en su tarjeta de «Todos los leads» (`ui.js`, `marcarBajo`).
+
+## Lead de HighLevel que ya bajó (21/10/2026)
+
+- `crm.accionesCrm` y `crm.accionCrm` no ofrecen ni aplican acciones del CRM a un lead que ya
+  bajó (`!porBajarCrm`): antes «Contestó → ¿Qué sigue? → Bajará a WhatsApp» seguía a la vista
+  en Mi día y lo devolvía a `estado='pendiente'`. Ahora la fila dice «Ya está en WhatsApp» con
+  «Abrir chat», «Llamar» (+57) y «Ver en Leads» (su etapa en Leads «Hoy»).
+- Personas creadas tras cargar la página: `state.clientes` se carga una sola vez al entrar,
+  pero la Edge Function crea la persona cuando el lead llega. `data.cargarCrm` trae las
+  personas enlazadas (`cliente_id`) que falten, y Leads (Hoy y Todos) recarga `crm_leads`
+  cada 2 min (`data.asegurarCrm`). Sin esto el lead salía en Mi día y no en «Llegaron hoy».
