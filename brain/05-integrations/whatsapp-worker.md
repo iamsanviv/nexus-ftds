@@ -197,10 +197,19 @@ mezcla LID/número no dependan del desfase con que se guardó (comparar el texto
 desfases distintos da el orden equivocado; probado). Es del día de la ÚLTIMA sincronización: el
 panel compara la fecha con hoy. SQL: `sql/2026-10-14_33_primer_entrante_dia.sql` (aplicado).
 
-Instalación: `vm/chats-sync/instalar_primer_entrante.py` reemplaza el archivo SOLO si el de la
-VM es exactamente la versión anterior conocida (hash), con respaldo y validación de sintaxis;
-luego `sudo systemctl restart nexus-worker`. Instalado en VM1 y VM2 el 28/10/2026 (versión con
+Instalación: `vm/chats-sync/instalar_chats_sync.py <ruta>` reemplaza el archivo SOLO si el de la
+VM es una versión anterior conocida (hash), con respaldo y validación de sintaxis; en VM1 luego
+`sudo systemctl restart nexus-worker`. Instalado en VM1 y VM2 el 28/10/2026 (versión con
 consulta de una pasada, sha256 `da2c6979…`).
+
+### `entrantes_txt`: texto de lo que te escribieron (28/10/2026)
+
+Para la pregunta antes del link (ver [[../03-domain/activities-followups]]): `[{en, t}]` con los
+mensajes recibidos en las últimas 12 h (máx. 15 por chat, 200 caracteres), de la columna `content`
+de `messages`. `NULL` = el bridge no tiene esa columna o la VM corre una versión vieja; la base
+entonces no pregunta. **Orden de instalación:** primero la migración
+`sql/2026-10-28_48_pregunta_link.sql`; un `chats_sync` nuevo contra una tabla sin la columna haría
+fallar el upsert de cada agente de esa VM.
 
 **VM2 lo corre aparte** (`vm/chats-sync/correr.py` + `nexus-chats-sync.timer`, cada 5 min):
 `chats_sync` solo ve los bridges del disco local y el worker vive en VM1. No leer VM2 por red
