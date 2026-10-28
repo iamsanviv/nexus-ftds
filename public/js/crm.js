@@ -11,7 +11,7 @@
 //  · Número equivocado / No le interesa: sale;
 //  · Contestó: el agente elige qué sigue (bajará, seguir en el CRM, llamada);
 //  · bajó a WhatsApp: solo (su número te escribió) o a mano.
-import { state, toast, hoyISO, esc, telColombia, ICO_TEL } from "./state.js";
+import { state, toast, hoyISO, esc, telColombia, ICO_TEL, esLead } from "./state.js";
 import { SB } from "./supabase.js";
 import { dbInsert, dbPatch } from "./data.js";
 import { entranteDe, claveTel } from "./entrantes.js";
@@ -41,9 +41,17 @@ const bajoSolo = l => {
   return !!ent && new Date(ent) >= new Date(l.asignado_en);
 };
 
+// Ya no es Lead (hizo FTD, es becado…): pasó por WhatsApp aunque nadie marcara
+// «Bajado a WA», y la pantalla de Leads ya no lo muestra para marcarlo. Sin
+// esto quedaba fuera de la lista para agendar sin forma de destrabarlo.
+const dejoDeSerLead = l => {
+  const c = l.cliente_id && state.clientes.find(x => x.id === l.cliente_id);
+  return !!c && !esLead(c);
+};
+
 // Lead de HighLevel que todavía no baja a WhatsApp. Incluye «fuera» (número
 // malo, sin interés): nunca llegó a WhatsApp, así que tampoco se le escribe.
-export const porBajarCrm = l => !!l && l.estado !== "bajo" && !bajoSolo(l);
+export const porBajarCrm = l => !!l && l.estado !== "bajo" && !dejoDeSerLead(l) && !bajoSolo(l);
 export const porBajar = c => porBajarCrm(crmDe(c));
 // Vino de HighLevel y ya bajó: se nota en el grupo de WhatsApp.
 export const vinoDeHL = c => { const l = crmDe(c); return !!l && !porBajarCrm(l); };

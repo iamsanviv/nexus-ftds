@@ -88,6 +88,10 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
   `estado='bajo'` (ya era de WhatsApp). Leads anteriores: backfill en `sql/2026-10-14_36`.
 - «Por bajar» NO es columna: `crm.js porBajar(c)` = tiene `crm_leads` con estado ≠ `bajo` y sin
   entrante posterior a `asignado_en`. `fuera` cuenta como por bajar (nunca llegó a WhatsApp).
+  Excepción (28/10/2026): si la persona enlazada ya NO es Lead (FTD → Beca, etc.) deja de estar
+  por bajar aunque nadie marcara «Bajado a WA». Leads solo muestra membresía Lead, así que al
+  becarse se perdía el botón y quedaba fuera de la lista para agendar sin salida (caso real:
+  Salvador Valdez, sin seguimiento posible).
 - Por bajar ⇒ SIN envíos automáticos: excluido en `destinatariosMasivo` (masivo y envioleads) y
   en `seguimiento.js mios()` (invitaciones). Su seguimiento es desde el CRM. `state.crm` se carga
   con las personas (`data.cargarCrm`) para que esos filtros nunca lo vean vacío por timing.
