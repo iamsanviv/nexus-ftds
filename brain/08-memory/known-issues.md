@@ -186,26 +186,3 @@ Se cierra cuando las dos plantillas guardadas usen `{dia}`.
 Desplegado el 2026-10-03 como timer `nexus-bajas` (cada 2 min) en **ambas VMs** (`vm/bajas/`, `WorkingDirectory=/home/ubuntu/nexus-bajas` con su propio `.env`). Dry-run (`--simulacro`) limpio y las 20 pruebas unitarias en verde en las dos máquinas; credenciales y conexión verificadas.
 
 **Lo único sin observar** es una baja real ejecutada por el timer (stop + disable + archivar `.baja-…` + liberar puerto): las 5 bajas del 2026-10-03 se hicieron a mano antes de instalarlo, así que no quedaban pendientes para que las tomara. Se cierra cuando la próxima baja real corra sola y limpia.
-
-
----
-
-## KI-014 — Mensajes entrantes: VM1 sin `primer_entrante_dia`, VM2 sin `chats_sync`
-
-Al 14/10/2026 la columna `chats_recientes.primer_entrante_dia` existe y el panel la usa, pero el
-worker de VM1 todavía corre la versión anterior: hasta instalar `vm/chats-sync/instalar_primer_entrante.py`
-y reiniciar `nexus-worker`, el panel «Hoy» dice «Te escribió hoy» sin la hora del primer mensaje.
-
-VM2 (`10.0.0.23`) no corre `chats_sync` en absoluto: sus agentes no tienen «te escribió»,
-«respondió» automático ni subida de temperatura. Causa: `chats_sync` lee los SQLite de los
-bridges en disco LOCAL y solo lo llama el worker, que vive en VM1.
-
-Verificado 27/10/2026 en Supabase: los 10 canales de VM2 tienen **0** filas en
-`chats_recientes`; los de VM1 se actualizan cada ~5 min. Y `primer_entrante_dia` sigue en 0
-filas de 1.311 (176 con entrante de hoy): VM1 tampoco tiene instalado el parche.
-
-Arreglo preparado: `vm/chats-sync/correr.py` + `nexus-chats-sync.timer` (solo VM2), pasos en
-`vm/chats-sync/README.md`. Falta instalarlo en la VM.
-
-Se cierra cuando las dos VMs publiquen `primer_entrante_dia` (verificar con
-`select count(*) from chats_recientes where primer_entrante_dia is not null` y por host en `canales_wa`).
