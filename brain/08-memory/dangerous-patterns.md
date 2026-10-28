@@ -405,3 +405,12 @@ Cómo trabajar:
 ## Sobrescribir un archivo en la misma URL detrás de una caché por URL
 
 Hasta el 20/10/2026 la imagen de un servicio se reemplazaba con `upsert` en la misma ruta. Con la caché de multimedia del worker (clave por URL) y el CDN de Storage, el panel mostraba la imagen nueva y WhatsApp seguía recibiendo la vieja. Regla: cualquier archivo que el worker vaya a enviar debe cambiar de URL cuando cambia su contenido. Ver `04-features/media-attachments.md`.
+
+## Insert en lote con columnas distintas por fila (28/10/2026)
+
+`SB.from(t).insert([...])` manda la **unión** de columnas de todas las filas, y a la fila que no
+trae una columna le llega **NULL**, no el default de la base. Al agregar `estado: 'retenido'` solo a
+la fila `pregunta_link`, el resto de la tanda iba con estado NULL, la base la rechazó entera y
+quedaron 37 seguimientos `activo` sin ningún mensaje (no salió ni la invitación). Regla: si una
+fila del lote lleva una columna con default en la base, ponla explícita en todas. Y si el insert de
+mensajes falla, `programar()` cancela los seguimientos recién creados.

@@ -2103,8 +2103,18 @@ async function programar() {
         }
       }
     }
+    // El insert en lote manda la UNIÓN de columnas de todas las filas, y a la
+    // fila que no trae una le llega NULL, no el default de la base. La pregunta
+    // trae `estado` ('retenido'); sin esto las demás iban con estado NULL, la
+    // base las rechazaba y la tanda quedaba sin mensajes (28/10/2026).
+    for (const m of msgs) m.estado ??= "pendiente";
     const { error: e2 } = await SB.from("mensajes_programados").insert(msgs);
-    if (e2) throw e2;
+    if (e2) {
+      // Sin mensajes, esos seguimientos serían filas «activas» que nadie recibe
+      // y que bloquean volver a programar a esas personas para esta actividad.
+      await SB.from("seguimientos").update({ estado: "cancelado" }).in("id", segs.map(x => x.id));
+      throw e2;
+    }
 
     // Marca a los seleccionados como "invitados" al servicio, así pasan de
     // «por invitar» a «invitados» en la vista por servicio.
