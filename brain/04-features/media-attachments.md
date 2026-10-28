@@ -32,6 +32,8 @@ Las imágenes del servicio se resuelven al enviar para que un cambio de catálog
 
 Esto contrasta deliberadamente con valores financieros como la comisión de una venta, que sí se congelan históricamente.
 
+**Cada imagen nueva necesita URL nueva (20/10/2026).** La subida pisaba `servicios/<id>.<ext>` con `upsert`, así que la URL nunca cambiaba. La resolución tardía sí entregaba la URL vigente, pero la caché en disco del worker (clave por URL, ver [[../05-integrations/whatsapp-worker]]) y el CDN de Storage (`max-age=3600`) seguían sirviendo el archivo viejo: el panel mostraba la imagen nueva y WhatsApp recibía la anterior (caso «Nivel 0 a Avanzado», resubida el 20/10 16:45 UTC y aún enviada vieja 5 h después). Ahora `subirImagenServicio` sube a `<id>_<timestamp>.<ext>` sin `upsert` y `ui.js` borra la anterior solo después de que el catálogo guardó la nueva. El sufijo va en el nombre, no como `?v=`, porque el bridge decide el tipo por la extensión de la URL. Las imágenes subidas antes del arreglo conservan la URL fija: para que cambien hay que volver a subirlas una vez.
+
 ## Audio
 
 La nota de voz ha estado oculta porque existieron casos en los que el archivo subía y el worker lo enviaba, pero WhatsApp no lo reproducía correctamente.

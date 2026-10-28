@@ -302,7 +302,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
             </div>
           </div>
           <!-- Estado inicial: seguimiento.js lo reescribe según el tipo de actividad. -->
-          <div class="msgshelp" id="segImgAyuda">Si no subes nada, se usa la imagen del servicio del catálogo. Video en MP4 o MOV, hasta 16 MB.</div>
+          <div class="msgshelp" id="segImgAyuda">Si no subes nada, se usa la imagen del servicio del catálogo. Video en MP4, hasta 16 MB.</div>
         </div>
         <!-- Invitación en serie: hasta 3 mensajes más después de la invitación,
              cada uno con su texto y su adjunto. Vale en catálogo y en puntual:
@@ -398,6 +398,24 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
            Va acá y no en el formulario de la actividad porque esa actividad no
            es suya y no la puede abrir. El texto es SUYO: solo cambia lo que él
            programa, y su director no lo ve — igual que sus plantillas. -->
+      <!-- Con qué imagen sale la invitación. Se ve en TODAS las actividades,
+           tuyas o ajenas: es lo que le llega a la gente y antes había que
+           abrir la actividad para saberlo. En una ajena se puede cambiar
+           solo para tus envíos. -->
+      <div id="segMiImgRow" class="miimgrow hidden">
+        <img id="segMiImgPrev" class="miimgthumb hidden" alt="Imagen de la invitación" title="Ver más grande">
+        <video id="segMiVidPrev" class="miimgthumb hidden" muted controls></video>
+        <span id="segMiImgSin" class="miimgthumb sinadj hidden" aria-hidden="true">🖼</span>
+        <div class="miimgtxt">
+          <span id="segMiImgFuente"></span>
+          <span id="segMiImgEstado" class="imgestado"></span>
+        </div>
+        <input type="file" id="segMiImgFile" class="hidden">
+        <div class="miimgbtns">
+          <button type="button" class="tbtn" id="segMiImgPick">Cambiar</button>
+          <button type="button" class="tbtn hidden" id="segMiImgDel" style="color:var(--bad)" title="Quitar la tuya y volver a la de la actividad">Quitar</button>
+        </div>
+      </div>
       <div id="segMiInvRow" class="miinvrow hidden">
         <button type="button" class="tbtn" id="segMiInvBtn">✎ Personalizar mi invitación</button>
         <div id="segMiInvBox" class="hidden">
@@ -407,6 +425,31 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
             Solo cambia <b>tu</b> invitación para esta actividad; los recordatorios,
             el enlace y la confirmación no cambian.</div>
           <div class="prevmsg" id="segMiInvPrev"></div>
+          <!-- Mensajes 2..4 propios: arranca con los de la actividad. -->
+          <div class="miserie" id="segMiSerieRow">
+            <label>Más mensajes de tu invitación <span class="opt">(opcional, hasta 3)</span></label>
+            <div id="segMiSerieLista" class="serielista"></div>
+            <button type="button" class="tbtn" id="segMiSerieAdd">＋ Agregar mensajes a la invitación</button>
+            <div id="segMiSerieOpts" class="serieopts hidden">
+              <div class="serieopt">
+                <span class="serielbl">Enviar</span>
+                <div class="tipoact" id="segMiSerieModo" role="group" aria-label="Orden de envío">
+                  <button type="button" class="on" data-modo="usuario">Por usuario</button>
+                  <button type="button" data-modo="mensaje">Por mensaje</button>
+                </div>
+                <button type="button" class="infoi" aria-label="Qué significa cada orden"
+                  data-info="Por usuario: cada persona recibe todos sus mensajes y luego sigue la siguiente. Por mensaje: primero sale el mensaje 1 a todos, después el 2 a todos, y así."></button>
+              </div>
+              <div class="serieopt">
+                <span class="serielbl">Entre mensajes</span>
+                <div class="tipoact" id="segMiSerieEsp" role="group" aria-label="Espera entre mensajes">
+                  <button type="button" class="on" data-esp="0">Pausa natural</button>
+                  <button type="button" data-esp="min">Minutos</button>
+                </div>
+                <label class="seriemin hidden" id="segMiSerieMinWrap"><input type="number" id="segMiSerieMin" min="1" max="120" step="1" value="5" inputmode="numeric"> min</label>
+              </div>
+            </div>
+          </div>
           <button type="button" class="tbtn" id="segMiInvQuitar" style="color:var(--bad)">Quitar y usar la de la actividad</button>
         </div>
       </div>
@@ -692,6 +735,11 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
+
+    <!-- «Bajado a WA» de un lead de HighLevel. También vive en la tarjeta de la
+         lista, pero ahí queda debajo de las actividades: en el perfil es lo
+         primero que se ve (pedido de Sanviv, 28/10/2026). Lo pinta ui.js. -->
+    <div class="lbajar perfbajar hidden" id="fBajarRow"></div>
 
     <!-- El NIVEL va primero porque decide qué se pregunta después: un lead se
          registra, alguien de Beca en adelante entra a la comunidad. Nunca las

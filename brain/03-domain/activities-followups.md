@@ -19,8 +19,9 @@ SQL: `sql/2026-10-26_46_actividades_nombre_publico.sql`.
 
 Si cambia al editar, `renombrarPendientes` reemplaza el nombre viejo por el nuevo en los
 mensajes **pendientes** visibles (reemplazo, no regeneración: no re-sortea el texto ni pisa
-invitaciones propias). Otros equipos de una `para_todos` (fuera del RLS del admin) quedan con el
-nombre anterior; el trigger `actividades_ajenos_upd` no reescribe textos.
+invitaciones propias). Los que el editor no ve (otros equipos de una `para_todos`) los corrige el
+trigger `actividades_ajenos_upd` con el mismo reemplazo (dispara también por `nombre` y
+`nombre_publico`). SQL: `sql/2026-10-28_47_nombre_publico_ajenos.sql`.
 
 ## Lista visible
 
@@ -274,6 +275,15 @@ TU WhatsApp) y depende de que el worker publique `chats_recientes` (~5 min de de
 sin `chats_sync` deja la temperatura solo con asistencia). `acc` guarda una fecha por servicio
 (la última marcada), así que la «última asistencia» es la más reciente entre servicios y
 actividades puntuales. Ver [[../05-integrations/whatsapp-worker]].
+
+## «Sin imagen» en la tarjeta y ayuda de la imagen (28/10/2026)
+
+La tarjeta de «Actividades del día» lleva la etiqueta roja **«Sin imagen»** cuando la invitación saldría
+solo con texto (ni imagen ni video): sin adjunto propio del agente (en ajenas), sin `actividades.imagen`
+y sin imagen del servicio en el catálogo. Misma precedencia que `programar()` (`adjuntoInvitacion`).
+
+En el formulario, el texto de ayuda de la imagen dice si el servicio elegido **tiene o no** imagen en
+el catálogo (`pintarAyudaImg`), para saber antes de guardar si la invitación saldrá con imagen.
 
 ## Rastreo
 

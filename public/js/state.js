@@ -628,16 +628,19 @@ export const insigniasBroker = c => BROKERS
 
 const MES3 = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-// Mes de una fecha, corto, para las listas donde el día no aporta nada.
+// Día y mes de una fecha, cortos («17/oct»), para las listas donde se elige a
+// quién programar: con el mes solo no se distingue quién entró esta semana.
 //
 // El año solo aparece cuando NO es el actual: en estas listas casi todos son de
-// este año y repetirlo en cada fila es ruido, pero «sep» a secas sería ambiguo
+// este año y repetirlo en cada fila es ruido, pero «17/sep» a secas sería ambiguo
 // para alguien que entró el año pasado.
-export const mesCorto = iso => {
+export const diaMesCorto = iso => {
   const p = (iso || "").split("-");
-  const m = p.length >= 2 ? MES3[Number(p[1]) - 1] : null;
-  if (!m) return "";
-  return Number(p[0]) === new Date().getFullYear() ? m : `${m} ${p[0]}`;
+  const m = p.length >= 3 ? MES3[Number(p[1]) - 1] : null;
+  const d = parseInt(p[2], 10);
+  if (!m || !d) return "";
+  const dm = `${d}/${m}`;
+  return Number(p[0]) === new Date().getFullYear() ? dm : `${dm} ${p[0]}`;
 };
 
 // FTD del mes. Cuenta DEPÓSITOS, no personas: alguien que depositó en ExOption

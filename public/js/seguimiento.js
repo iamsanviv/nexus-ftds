@@ -8,7 +8,7 @@ import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
   horaDeCliente, etiquetaZona, etiquetaDia, componerMensaje,
   esInactivo, esLead, nombreMotivo, motivoCorto,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas,
-  normBusqueda, BROKERS, insigniasBroker, mesCorto, cuandoParte, fechaCO } from "./state.js";
+  normBusqueda, BROKERS, insigniasBroker, diaMesCorto, cuandoParte, fechaCO } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { porBajar } from "./crm.js";
@@ -208,6 +208,12 @@ let segHitos = { rec_60: true, rec_15: true, enlace: true, confirmacion: true };
 // mensaje. `miInvOrig` recuerda lo que había al abrir, para saber si cambió.
 let miInvitacion = "";
 let miInvOrig = "";
+// Lo mismo para el adjunto (imagen o video) y los mensajes 2..4: el agente
+// los cambia para SUS envíos de una actividad ajena. `miMedia` null = el de la
+// actividad. `miGuardado` es la firma de lo que hay en la base, para no
+// escribir si nada cambió.
+let miMedia = null;
+let miGuardado = "";
 // Quiénes YA tienen seguimiento para la actividad elegida. Sin esto, al volver
 // a programar la misma actividad aparecían igual que el resto y era fácil
 // duplicarles los mensajes sin darse cuenta.
@@ -334,9 +340,7 @@ const nombreParaPersonas = a => (a?.nombre_publico || "").trim() || a?.nombre ||
 
 let segTipoAct = "cat";   // "cat" (del catálogo) | "libre" (puntual)
 let segImg = null;
-// Mensajes 2..4 de la invitación de la actividad en el formulario. `partes` vacío
-// = invitación de un solo mensaje, como siempre.
-let segSerie = { modo: "usuario", espera_min: 0, partes: [] };        // URL del adjunto subido para esta actividad (imagen o video)
+// URL del adjunto subido para esta actividad (imagen o video)
 let segImgTipo = null;    // "imagen" | "video" — solo decide qué previsualización se ve
 
 /* ---------- enlace rastreado ("trigger link") ---------- */
@@ -404,7 +408,7 @@ function renderForm() {
   setNombrePublico(null);
   setImgActividad(null);
   setMsgInvitacion(null);
-  setSerie(null);
+  serieForm.set(null);
   $("segImgEstado").textContent = "";
   // Compartir solo aplica si hay a quién: es cosa de directores.
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
@@ -441,11 +445,27 @@ function setTipoActividad(tipo) {
   // El embudo de venta le pasa a la persona una sola vez; una actividad del
   // catálogo es recurrente, así que marcarla como zoom no tendría sentido.
   $("segZoomRow").classList.toggle("hidden", tipo !== "libre");
-  const heredada = tipo === "libre"
-    ? "Una actividad puntual no tiene servicio del cual heredar imagen: si no subes nada, la invitación va sin adjunto."
-    : "Si no subes nada, se usa la imagen del servicio del catálogo.";
-  $("segImgAyuda").textContent =
-    heredada + " Video en MP4 o MOV, hasta 16 MB.";
+  pintarAyudaImg();
+}
+
+// Texto de ayuda de la imagen. En catálogo dice si el servicio elegido TIENE
+// imagen, para saber antes de guardar si la invitación va a salir con ella o
+// sin nada; antes solo decía «se usa la del catálogo», existiera o no.
+function pintarAyudaImg() {
+  const el = $("segImgAyuda");
+  if (!el) return;
+  let txt;
+  if (segImg) txt = `Se envía ${segImgTipo === "video" ? "el video" : "la imagen"} que subiste.`;
+  else if (segTipoAct === "libre") txt = "Una actividad puntual no tiene servicio del cual heredar imagen: si no subes nada, la invitación va sin adjunto.";
+  else {
+    const srv = todos().find(x => x.id === $("segSrv").value);
+    txt = !srv ? "Si no subes nada, se usa la imagen del servicio del catálogo."
+      : srv.img ? `✓ Hay una imagen del catálogo para «${srv.n}»: si no subes nada, se envía esa.`
+      : `⚠ «${srv.n}» no tiene imagen en el catálogo: si no subes nada, la invitación sale sin imagen.`;
+  }
+  el.textContent = txt + " Video en MP4, hasta 16 MB.";
+  el.classList.toggle("sinimg", !segImg && segTipoAct !== "libre" && !!$("segSrv").value
+    && !todos().find(x => x.id === $("segSrv").value)?.img);
 }
 
 // En catálogo el nombre viene del servicio elegido; en puntual, del campo libre.
@@ -524,89 +544,128 @@ function setImgActividad(url, tipo) {
   if (url && segImgTipo === "video") { vid.src = url; vid.classList.remove("hidden"); del.classList.remove("hidden"); }
   else if (url) { img.src = url; img.classList.remove("hidden"); del.classList.remove("hidden"); }
   else { del.classList.add("hidden"); }
+  pintarAyudaImg();
 }
 
 // --- invitación en serie: editor del formulario ---
 const MAX_PARTES = 3;   // + la invitación = 4 mensajes
 const esVideoUrl = u => /\.(mp4|mov)(\?|$)/i.test(u || "");
 
-function setSerie(sr) {
-  segSerie = sr && Array.isArray(sr.partes)
-    ? { modo: sr.modo === "mensaje" ? "mensaje" : "usuario", espera_min: sr.espera_min || 0,
-        partes: sr.partes.map(x => ({ texto: x.texto || "", media: x.media || null })) }
-    : { modo: "usuario", espera_min: 0, partes: [] };
-  renderSerie();
-}
+// El editor de la serie existe dos veces: en el formulario de la actividad
+// (la serie de la actividad) y en el panel de programación (la serie propia
+// del agente para una actividad ajena). Mismo comportamiento, distinto estado y
+// distintos ids: `p` es el prefijo de los ids del HTML.
+function crearEditorSerie(p, preview) {
+  const ed = { st: { modo: "usuario", espera_min: 0, partes: [] } };
 
-// Lo que se guarda. null = sin serie. false = hay algo incompleto (ya se avisó).
-// Una parte del todo vacía (ni texto ni adjunto) se descarta en silencio: es la
-// que se agregó y no se llenó, no un mensaje en blanco que enviar.
-function leerSerie() {
-  const partes = segSerie.partes
+  ed.set = sr => {
+    ed.st = sr && Array.isArray(sr.partes)
+      ? { modo: sr.modo === "mensaje" ? "mensaje" : "usuario", espera_min: sr.espera_min || 0,
+          partes: sr.partes.map(x => ({ texto: x.texto || "", media: x.media || null })) }
+      : { modo: "usuario", espera_min: 0, partes: [] };
+    ed.render();
+  };
+
+  // Lo que se guarda. null = sin serie. false = hay algo incompleto (ya se avisó).
+  // Una parte del todo vacía (ni texto ni adjunto) se descarta en silencio: es la
+  // que se agregó y no se llenó, no un mensaje en blanco que enviar.
+  const partesLlenas = () => ed.st.partes
     .map(x => ({ texto: (x.texto || "").trim(), media: x.media || null }))
     .filter(x => x.texto || x.media);
-  if (!partes.length) return null;
-  if (partes.some(x => x.texto.length > 4000)) { toast("Un mensaje de la invitación es demasiado largo"); return false; }
-  const espera = segSerie.espera_min || 0;
-  if (espera && (espera < 1 || espera > 120)) { toast("La espera entre mensajes va de 1 a 120 minutos"); return false; }
-  return { modo: segSerie.modo, espera_min: espera, partes };
-}
+  // Para pintar estados (¿cambió?), sin validar ni avisar.
+  ed.leerSilencioso = () => {
+    const partes = partesLlenas();
+    return partes.length ? { modo: ed.st.modo, espera_min: ed.st.espera_min || 0, partes } : null;
+  };
+  ed.leer = () => {
+    const partes = partesLlenas();
+    if (!partes.length) return null;
+    if (partes.some(x => x.texto.length > 4000)) { toast("Un mensaje de la invitación es demasiado largo"); return false; }
+    const espera = ed.st.espera_min || 0;
+    if (espera && (espera < 1 || espera > 120)) { toast("La espera entre mensajes va de 1 a 120 minutos"); return false; }
+    return { modo: ed.st.modo, espera_min: espera, partes };
+  };
 
-function renderSerie() {
-  const cont = $("segSerieLista");
-  if (!cont) return;
-  cont.innerHTML = segSerie.partes.map((x, i) => {
-    const vid = esVideoUrl(x.media);
-    return `<div class="seriep" data-i="${i}">
-      <div class="seriehd"><b>Mensaje ${i + 2}</b>
-        <button type="button" class="tbtn" data-quitar style="color:var(--bad)">Quitar</button></div>
-      <textarea rows="3" data-txt maxlength="4000" placeholder="Texto del mensaje ${i + 2}…">${esc(x.texto)}</textarea>
-      <div class="imgfield">
-        ${x.media ? (vid ? `<video class="imgprev" src="${esc(x.media)}" muted controls></video>`
-                         : `<img class="imgprev" src="${esc(x.media)}" alt="">`) : ""}
-        <div class="imgbtns">
-          <input type="file" data-file accept="${ACCEPT_ADJUNTO}" class="hidden">
-          <button type="button" class="tbtn" data-pick>${x.media ? "Cambiar adjunto" : "Adjuntar imagen o video"}</button>
-          ${x.media ? `<button type="button" class="tbtn" data-delmedia style="color:var(--bad)">Quitar adjunto</button>` : ""}
-          <span class="imgestado" data-est></span>
+  ed.render = () => {
+    const cont = $(p + "Lista");
+    if (!cont) return;
+    const st = ed.st;
+    cont.innerHTML = st.partes.map((x, i) => {
+      const vid = esVideoUrl(x.media);
+      return `<div class="seriep" data-i="${i}">
+        <div class="seriehd"><b>Mensaje ${i + 2}</b>
+          <button type="button" class="tbtn" data-quitar style="color:var(--bad)">Quitar</button></div>
+        <textarea rows="3" data-txt maxlength="4000" placeholder="Texto del mensaje ${i + 2}…">${esc(x.texto)}</textarea>
+        <div class="imgfield">
+          ${x.media ? (vid ? `<video class="imgprev" src="${esc(x.media)}" muted controls></video>`
+                           : `<img class="imgprev" src="${esc(x.media)}" alt="">`) : ""}
+          <div class="imgbtns">
+            <input type="file" data-file accept="${ACCEPT_ADJUNTO}" class="hidden">
+            <button type="button" class="tbtn" data-pick>${x.media ? "Cambiar adjunto" : "Adjuntar imagen o video"}</button>
+            ${x.media ? `<button type="button" class="tbtn" data-delmedia style="color:var(--bad)">Quitar adjunto</button>` : ""}
+            <span class="imgestado" data-est></span>
+          </div>
         </div>
-      </div>
-      <div class="prevmsg" data-prev></div>
-    </div>`;
-  }).join("");
+        <div class="prevmsg" data-prev></div>
+      </div>`;
+    }).join("");
 
-  const hay = segSerie.partes.length > 0;
-  $("segSerieAdd").classList.toggle("hidden", segSerie.partes.length >= MAX_PARTES);
-  $("segSerieAdd").textContent = hay ? "＋ Agregar otro mensaje" : "＋ Agregar mensajes a la invitación";
-  $("segSerieOpts").classList.toggle("hidden", !hay);
-  $("segSerieModo").querySelectorAll("[data-modo]").forEach(b => b.classList.toggle("on", b.dataset.modo === segSerie.modo));
-  const conMin = (segSerie.espera_min || 0) > 0;
-  $("segSerieEsp").querySelectorAll("[data-esp]").forEach(b => b.classList.toggle("on", (b.dataset.esp === "min") === conMin));
-  $("segSerieMinWrap").classList.toggle("hidden", !conMin);
-  if (conMin) $("segSerieMin").value = segSerie.espera_min;
+    const hay = st.partes.length > 0;
+    $(p + "Add").classList.toggle("hidden", st.partes.length >= MAX_PARTES);
+    $(p + "Add").textContent = hay ? "＋ Agregar otro mensaje" : "＋ Agregar mensajes a la invitación";
+    $(p + "Opts").classList.toggle("hidden", !hay);
+    $(p + "Modo").querySelectorAll("[data-modo]").forEach(b => b.classList.toggle("on", b.dataset.modo === st.modo));
+    const conMin = (st.espera_min || 0) > 0;
+    $(p + "Esp").querySelectorAll("[data-esp]").forEach(b => b.classList.toggle("on", (b.dataset.esp === "min") === conMin));
+    $(p + "MinWrap").classList.toggle("hidden", !conMin);
+    if (conMin) $(p + "Min").value = st.espera_min;
 
-  cont.querySelectorAll(".seriep").forEach(el => {
-    const i = +el.dataset.i, x = segSerie.partes[i];
-    const txt = el.querySelector("[data-txt]"), prev = el.querySelector("[data-prev]");
-    const pintarPrev = () => { prev.textContent = x.texto.trim() ? previewTexto(x.texto) : ""; };
-    pintarPrev();
-    // Escribir no re-pinta la lista: perdería el foco y el cursor.
-    txt.oninput = () => { x.texto = txt.value; pintarPrev(); };
-    el.querySelector("[data-quitar]").onclick = () => { segSerie.partes.splice(i, 1); renderSerie(); };
-    const file = el.querySelector("[data-file]"), est = el.querySelector("[data-est]");
-    el.querySelector("[data-pick]").onclick = () => file.click();
-    const del = el.querySelector("[data-delmedia]");
-    if (del) del.onclick = () => { x.media = null; renderSerie(); };
-    file.onchange = async () => {
-      const f = file.files[0]; if (!f) return;
-      const v = validarAdjunto(f);
-      if (!v.ok) { est.textContent = "⚠ " + v.error; file.value = ""; return; }
-      est.textContent = v.esVideo ? "Subiendo video…" : "Subiendo…";
-      try { x.media = await subirImagenMensaje(f); renderSerie(); }
-      catch (err) { est.textContent = "⚠ " + mensajeErrorAdjunto(err); file.value = ""; }
-    };
+    cont.querySelectorAll(".seriep").forEach(el => {
+      const i = +el.dataset.i, x = st.partes[i];
+      const txt = el.querySelector("[data-txt]"), prev = el.querySelector("[data-prev]");
+      const pintarPrev = () => { prev.textContent = x.texto.trim() ? preview(x.texto) : ""; };
+      pintarPrev();
+      // Escribir no re-pinta la lista: perdería el foco y el cursor.
+      txt.oninput = () => { x.texto = txt.value; pintarPrev(); };
+      el.querySelector("[data-quitar]").onclick = () => { st.partes.splice(i, 1); ed.render(); };
+      const file = el.querySelector("[data-file]"), est = el.querySelector("[data-est]");
+      el.querySelector("[data-pick]").onclick = () => file.click();
+      const del = el.querySelector("[data-delmedia]");
+      if (del) del.onclick = () => { x.media = null; ed.render(); };
+      file.onchange = async () => {
+        const f = file.files[0]; if (!f) return;
+        const v = validarAdjunto(f);
+        if (!v.ok) { est.textContent = "⚠ " + v.error; file.value = ""; return; }
+        est.textContent = v.esVideo ? "Subiendo video…" : "Subiendo…";
+        try { x.media = await subirImagenMensaje(f); ed.render(); }
+        catch (err) { est.textContent = "⚠ " + mensajeErrorAdjunto(err); file.value = ""; }
+      };
+    });
+  };
+
+  $(p + "Add").onclick = () => {
+    if (ed.st.partes.length >= MAX_PARTES) return;
+    ed.st.partes.push({ texto: "", media: null });
+    ed.render();
+    $(p + "Lista").querySelector(".seriep:last-child [data-txt]")?.focus();
+  };
+  $(p + "Modo").querySelectorAll("[data-modo]").forEach(b => b.onclick = () => { ed.st.modo = b.dataset.modo; ed.render(); });
+  $(p + "Esp").querySelectorAll("[data-esp]").forEach(b => b.onclick = () => {
+    ed.st.espera_min = b.dataset.esp === "min" ? (ed.st.espera_min || 5) : 0;
+    ed.render();
   });
+  $(p + "Min").onchange = ed.render;
+  $(p + "Min").oninput = () => {
+    const v = parseInt($(p + "Min").value, 10);
+    if (v >= 1 && v <= 120) ed.st.espera_min = v;
+  };
+  return ed;
 }
+
+// Mensajes 2..4: los de la actividad en el formulario, y los propios del agente
+// en el panel de programación de una actividad ajena.
+const serieForm = crearEditorSerie("segSerie", txt => previewTexto(txt));
+const serieMia = crearEditorSerie("segMiSerie", txt => previewMiTexto(txt));
 
 // Vista previa con datos de ejemplo, igual que la de la invitación.
 function previewTexto(txt) {
@@ -635,9 +694,10 @@ function entrarEdicion(a) {
     if ([...$("segSrv").options].some(o => o.value === a.servicio_id)) $("segSrv").value = a.servicio_id;
   }
   setNombrePublico(a.nombre_publico);
+  pintarAyudaImg();
   setImgActividad(a.imagen);
   setMsgInvitacion(a.msg_invitacion);
-  setSerie(a.serie_invitacion);
+  serieForm.set(a.serie_invitacion);
   $("segImgEstado").textContent = "";
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
   $("segCompartir").checked = !!a.compartida;
@@ -683,8 +743,8 @@ async function guardarActividad() {
   if (libre && !nombreLibre) { toast("Escribe el nombre de la actividad"); return; }
   if (!libre && !srv) { toast("Elige una actividad"); return; }
   if (!fecha || !hora) { toast("Falta la fecha o la hora"); return; }
-  const serie = leerSerie();
-  if (serie === false) return;   // leerSerie ya dijo qué falta
+  const serie = serieForm.leer();
+  if (serie === false) return;   // leer() ya dijo qué falta
   // El enlace es OPCIONAL: se puede agregar/editar después, antes de que salga
   // el mensaje del enlace.
 
@@ -924,6 +984,12 @@ async function cargarActividades() {
   // el denominador diría «0 de 30 entraron» de algo que nunca se midió.
   const entradas = await contarEntradas(actividades.map(a => a.id));
   const { enlace: estadoEnl, conMios } = await estadoEnlace(actividades.map(a => a.id));
+  // Imagen propia que puse en actividades ajenas: con ella, para mí, la
+  // invitación ya no sale sin imagen. Si la consulta falla, la etiqueta se
+  // calcula solo con la actividad y el catálogo.
+  const { data: misMedias } = await SB.from("invitaciones_agente")
+    .select("actividad_id, media").eq("owner_id", state.me.id).not("media", "is", null);
+  const miMediaDe = new Map((misMedias || []).map(r => [r.actividad_id, r.media]));
 
   $("segActividades").innerHTML = actividades.map(a => {
     const mia = esMia(a);
@@ -940,6 +1006,8 @@ async function cargarActividades() {
               ? "La ven y la pueden usar todos los equipos"
               : "La compartió el administrador con todos los equipos: puedes programar, no editar"}">🌐 Global</span>`
             : deMiDirector(a) ? `<span class="achip equipo" title="La creó tu director: puedes programar, no editar">👥 De tu director</span>` : ""}
+          ${adjuntoInvitacion(a, mia ? null : miMediaDe.get(a.id)).url ? ""
+            : `<span class="achip miss" title="La invitación sale solo con texto: ni la actividad ni su servicio del catálogo tienen imagen o video">Sin imagen</span>`}
           ${enl === "congelado" ? `<span class="achip" title="El enlace y la confirmación están retenidos: no salen hasta que des «Enviar enlace»">❄ Enlace congelado</span>` : ""}
           ${a.enlace
             ? `<span class="achip ok">Enlace listo</span>`
@@ -1097,57 +1165,142 @@ const puedoPersonalizarInvitacion = a => !!a && !!state.me && a.owner_id !== sta
 async function cargarMiInvitacion(a) {
   miInvitacion = "";
   miInvOrig = "";
+  miMedia = null;
   const row = $("segMiInvRow");
   if (!row) return;
   row.classList.toggle("hidden", !puedoPersonalizarInvitacion(a));
   $("segMiInvBox").classList.add("hidden");
-  if (!puedoPersonalizarInvitacion(a)) return;
+  $("segMiImgEstado").textContent = "";
+  if (!puedoPersonalizarInvitacion(a)) { serieMia.set(null); pintarMiImagen(); return; }
 
   const { data } = await SB.from("invitaciones_agente")
-    .select("texto").eq("actividad_id", a.id).eq("owner_id", state.me.id).maybeSingle();
+    .select("texto, media, serie").eq("actividad_id", a.id).eq("owner_id", state.me.id).maybeSingle();
   miInvitacion = (data?.texto || "").trim();
   miInvOrig = miInvitacion;
+  miMedia = data?.media || null;
+  // El editor arranca con la serie que HOY saldría: la propia si la hay, si no
+  // la de la actividad. Así lo que se ve es lo que se manda, y agregar un
+  // mensaje parte de los que puso el dueño en vez de borrarlos sin avisar.
+  serieMia.set(data?.serie || a.serie_invitacion);
+  miGuardado = firmaMiInv(miInvitacion, miMedia, data?.serie || null);
   pintarMiInvitacion();
+  pintarMiImagen();
 }
 
+// Firma comparable de una serie: el jsonb vuelve de la base con las claves en
+// otro orden, así que no sirve comparar el JSON tal cual.
+const firmaSerie = sr => !sr ? "null"
+  : JSON.stringify([sr.modo || "usuario", sr.espera_min || 0,
+      (sr.partes || []).map(x => [(x.texto || "").trim(), x.media || null])]);
+const firmaMiInv = (txt, media, serie) => JSON.stringify([txt.trim(), media || null, firmaSerie(serie)]);
+
+// ¿El agente cambió la serie respecto de la de la actividad? `leida` es lo que
+// devuelve el editor (null = ningún mensaje extra).
+const serieDistinta = (leida, a) =>
+  firmaSerie(leida?.partes?.length ? leida : null)
+  !== firmaSerie(a?.serie_invitacion?.partes?.length ? a.serie_invitacion : null);
+
 function pintarMiInvitacion() {
-  const hay = !!miInvitacion.trim();
   $("segMiInv").value = miInvitacion;
+  pintarBtnMiInv();
+  renderPrevMiInvitacion();
+}
+
+// «Editando» si el texto o la serie ya no son los de la actividad.
+function pintarBtnMiInv() {
+  const hay = !!miInvitacion.trim() || (!!actSel && serieDistinta(serieMia.leerSilencioso(), actSel));
   $("segMiInvBtn").textContent = hay ? "✎ Editando mi invitación" : "✎ Personalizar mi invitación";
   $("segMiInvBtn").classList.toggle("on", hay);
-  renderPrevMiInvitacion();
+}
+
+// Imagen del servicio del catálogo, la que el worker resuelve al enviar cuando
+// la actividad no trae una propia.
+const imgServicio = a => (a?.servicio_id && todos().find(s => s.id === a.servicio_id)?.img) || null;
+
+// Con qué adjunto sale la invitación de `a`, por la misma precedencia que usa
+// `programar()`: el mío (solo en ajenas) → el de la actividad → el del servicio.
+function adjuntoInvitacion(a, propio) {
+  if (propio) return { url: propio, de: "tuyo" };
+  if (a?.imagen) return { url: a.imagen, de: "actividad" };
+  const srv = imgServicio(a);
+  return srv ? { url: srv, de: "catalogo" } : { url: null, de: null };
+}
+
+// La imagen se ve SIEMPRE al programar (sea o no tuya la actividad): es lo que
+// le llega a la gente y antes no había forma de saberlo sin abrir la actividad.
+// Cambiarla solo se ofrece en las ajenas; las tuyas se cambian en ✎.
+function pintarMiImagen() {
+  const row = $("segMiImgRow");
+  if (!row) return;
+  const mostrar = !!actSel && !segSinInvitacion;
+  row.classList.toggle("hidden", !mostrar);
+  if (!mostrar) return;
+  const ajena = puedoPersonalizarInvitacion(actSel);
+  const { url, de } = adjuntoInvitacion(actSel, ajena ? miMedia : null);
+  const vid = esVideoUrl(url);
+  const img = $("segMiImgPrev"), video = $("segMiVidPrev");
+  img.classList.toggle("hidden", !url || vid);
+  video.classList.toggle("hidden", !url || !vid);
+  img.src = url && !vid ? url : "";
+  video.src = url && vid ? url : "";
+  $("segMiImgSin").classList.toggle("hidden", !!url);
+  const que = vid ? "Video" : "Imagen";
+  $("segMiImgFuente").textContent = {
+    tuyo: `${que} tuya · solo en tus envíos`,
+    actividad: `${que} de la actividad`,
+    catalogo: `${que} del catálogo`,
+  }[de] || "Sin imagen: la invitación sale solo con texto";
+  $("segMiImgFuente").classList.toggle("sinimg", !url);
+  $("segMiImgPick").classList.toggle("hidden", !ajena);
+  $("segMiImgPick").textContent = url ? "Cambiar" : "Agregar";
+  $("segMiImgDel").classList.toggle("hidden", !(ajena && miMedia));
 }
 
 // Vista previa con datos de ejemplo, con el nombre y la hora REALES de la
 // actividad elegida (no los del formulario, que acá no existe).
+function previewMiTexto(txt) {
+  if (!actSel) return "";
+  return aplicar(txt, { nombre: "Ana", actividad: nombreParaPersonas(actSel), hora: horaCO(actSel.inicio),
+    dia: etiquetaDia(actSel.inicio, new Date().toISOString(), null),
+    zona: etiquetaZona(null), enlace: "" });
+}
+
 function renderPrevMiInvitacion() {
   const prev = $("segMiInvPrev");
   if (!prev || !actSel) return;
   const txt = ($("segMiInv").value || "").trim();
-  prev.textContent = txt
-    ? aplicar(txt, { nombre: "Ana", actividad: nombreParaPersonas(actSel), hora: horaCO(actSel.inicio),
-        dia: etiquetaDia(actSel.inicio, new Date().toISOString(), null),
-        zona: etiquetaZona(null), enlace: "" })
-    : "";
+  prev.textContent = txt ? previewMiTexto(txt) : "";
 }
 
 // Se guarda al PROGRAMAR, no al escribir: así lo que queda guardado es
-// exactamente el texto con el que salieron los mensajes. Vaciarlo borra la fila
-// —volver a la invitación de la actividad— en vez de dejar un texto vacío que
-// no significa nada.
-async function guardarMiInvitacion(actividadId) {
+// exactamente con lo que salieron los mensajes. Sin nada propio —texto vacío,
+// adjunto y serie iguales a los de la actividad— se borra la fila en vez de
+// dejar una que no significa nada.
+// La serie solo se guarda si difiere de la de la actividad: copiarla igual la
+// congelaría, y un cambio posterior del dueño ya no le llegaría a este agente.
+// Quitarle todos los mensajes a una actividad que los trae se guarda como
+// `partes: []` («ninguno»), que es distinto de null («los de la actividad»).
+async function guardarMiInvitacion(actividadId, serieLeida) {
   const txt = miInvitacion.trim();
-  if (txt === miInvOrig.trim()) return;          // no cambió: no se toca la base
-  if (!txt) {
-    await SB.from("invitaciones_agente").delete()
-      .eq("actividad_id", actividadId).eq("owner_id", state.me.id);
+  const serie = !serieDistinta(serieLeida, actSel) ? null
+    : (serieLeida?.partes?.length ? serieLeida : { modo: "usuario", espera_min: 0, partes: [] });
+  const firma = firmaMiInv(txt, miMedia, serie);
+  if (firma === miGuardado) return;          // no cambió: no se toca la base
+  let error;
+  if (!txt && !miMedia && !serie) {
+    ({ error } = await SB.from("invitaciones_agente").delete()
+      .eq("actividad_id", actividadId).eq("owner_id", state.me.id));
   } else {
-    await SB.from("invitaciones_agente")
-      .upsert({ actividad_id: actividadId, owner_id: state.me.id, texto: txt,
-                actualizado: new Date().toISOString() },
-              { onConflict: "actividad_id,owner_id" });
+    ({ error } = await SB.from("invitaciones_agente")
+      .upsert({ actividad_id: actividadId, owner_id: state.me.id, texto: txt || null,
+                media: miMedia, serie, actualizado: new Date().toISOString() },
+              { onConflict: "actividad_id,owner_id" }));
   }
+  // Los mensajes ya salieron con lo correcto; lo único que se pierde es
+  // recordarlo para la próxima tanda, y eso hay que decirlo.
+  if (error) { toast("⚠ No se pudo guardar tu invitación para la próxima vez: " + error.message); return; }
   miInvOrig = txt;
+  miGuardado = firma;
 }
 
 // La casilla de inactivas lleva el número al lado: si dice 0 no hay nada que
@@ -1420,7 +1573,7 @@ function renderFaltan() {
           <input type="checkbox" data-cid="${c.id}" ${segSel.has(c.id) ? "checked" : ""}>
           <span class="badge b-${c.mem}">${c.mem}</span>${insigniasBroker(c)}
           <span class="nmtemp"><span class="nm">${esc(c.nombre)}</span><span class="segtemp ${tp.get(c.id).t}" title="${esc(tp.get(c.id).motivo)}"><b>${TEMP_NOM[tp.get(c.id).t]}</b> · ${esc(tp.get(c.id).motivo)}</span></span>
-          ${c.comunidadDesde ? `<span class="segmes" title="Entró a la comunidad">${esc(mesCorto(c.comunidadDesde))}</span>` : ""}
+          ${c.comunidadDesde ? `<span class="segmes" title="Entró a la comunidad">${esc(diaMesCorto(c.comunidadDesde))}</span>` : ""}
           ${esInactivo(c) ? `<span class="badge b-inact" title="${esc(nombreMotivo(c.inactivoMotivo))}">😴 ${esc(motivoCorto(c.inactivoMotivo))}</span>` : ""}
           ${prog ? `<span class="yaprog" title="Ya tiene los mensajes programados para esta actividad">✓ ya programado</span>` : ""}
           ${sid && c.acc[sid] ? `<span class="yaasis">ya asistió</span>` : ""}
@@ -1491,6 +1644,7 @@ function alternarInvitacion(sinInvitacion) {
   const mostrarMiInv = !segSinInvitacion && puedoPersonalizarInvitacion(actSel);
   $("segMiInvRow").classList.toggle("hidden", !mostrarMiInv);
   if (!mostrarMiInv) $("segMiInvBox").classList.add("hidden");
+  pintarMiImagen();
   // Sin invitación la frontera pasa a ser «ahora», así que cambian las horas
   // y puede volver a caber algo que antes no.
   renderHitos();
@@ -1514,6 +1668,8 @@ function renderHitos() {
   if (!cont || !actSel) return;
   const inicio = new Date(actSel.inicio);
   const { ahora, cuandoInv, primerContacto } = primerContactoAhora();
+  // En una ajena, la serie que va a salir es la del editor propio.
+  const serieVista = puedoPersonalizarInvitacion(actSel) ? serieMia.leerSilencioso() : actSel.serie_invitacion;
 
   // La invitación es una casilla más, no una fila fija: tenía su propio
   // «No enviar invitación» en otro sitio de la pantalla, y dos controles para
@@ -1531,8 +1687,8 @@ function renderHitos() {
       ${segSinInvitacion
         ? `<div class="hitonota">No se programa: das por hecho que ya los invitaste
              por llamada o por otro mensaje.</div>`
-        : (actSel.serie_invitacion?.partes?.length
-          ? `<div class="hitonota serie">Invitación en serie: ${esc(resumenSerie(actSel.serie_invitacion))}.</div>` : "")}`;
+        : (serieVista?.partes?.length
+          ? `<div class="hitonota serie">Invitación en serie: ${esc(resumenSerie(serieVista))}.</div>` : "")}`;
 
   cont.innerHTML = filaInv + HITOS(inicio).map(([tipo, cuando]) => {
     // La regla manda sobre la preferencia: lo que saldría antes que la
@@ -1648,7 +1804,14 @@ async function programar() {
   const primerContacto = segSinInvitacion ? ahora : cuandoInv;
 
   // Invitación en serie: sin invitación no hay serie que mandar.
-  const serie = (!segSinInvitacion && actSel.serie_invitacion?.partes?.length) ? actSel.serie_invitacion : null;
+  // En una ajena manda lo que el agente ve en su editor (arranca con la de la
+  // actividad, así que sin tocarlo es la misma).
+  let serieElegida = actSel.serie_invitacion;
+  if (puedoPersonalizarInvitacion(actSel)) {
+    serieElegida = serieMia.leer();
+    if (serieElegida === false) return;   // leer() ya dijo qué falta
+  }
+  const serie = (!segSinInvitacion && serieElegida?.partes?.length) ? serieElegida : null;
   const nPartes = 1 + (serie ? serie.partes.length : 0);
   const idx = new Map(seleccion.map((c, i) => [c.id, i]));
   const tParte = (i, k) => cuandoParte(serie, cuandoInv.getTime(), i, k, seleccion.length);
@@ -1802,6 +1965,7 @@ async function programar() {
     const invEfectiva = (puedoPersonalizarInvitacion(actSel) && miInvitacion.trim())
       ? miInvitacion.trim()
       : actSel.msg_invitacion;
+    const miMediaEf = puedoPersonalizarInvitacion(actSel) ? miMedia : null;
 
     for (const seg of segs) {
       const c = seleccion.find(x => x.id === seg.cliente_id);
@@ -1820,14 +1984,16 @@ async function programar() {
           telefono: c.tel, texto: tpl[tipo],
         };
         // Imagen de la invitación, por orden de precedencia:
+        //   0. la que el agente puso para SUS envíos de una actividad ajena.
         //   1. la subida para ESTA actividad → media_url (vía ya probada: hay
         //      invitaciones enviadas con media_url y sin servicio_id).
         //   2. si no hay, y la actividad es de un servicio, se manda el
         //      servicio_id y el worker resuelve la imagen vigente al enviar,
         //      así no se congela si se cambia después.
-        // Se manda UNA sola de las dos, para que no haya ambigüedad.
+        // Se manda UNA sola, para que no haya ambigüedad.
         if (tipo === "invitacion") {
-          if (actSel.imagen) fila.media_url = actSel.imagen;
+          if (miMediaEf) fila.media_url = miMediaEf;
+          else if (actSel.imagen) fila.media_url = actSel.imagen;
           else if (actSel.servicio_id) fila.servicio_id = actSel.servicio_id;
         }
         // El enlace se resuelve al enviar (el texto conserva el token {enlace}).
@@ -1906,7 +2072,7 @@ async function programar() {
     // El texto se guarda DESPUÉS de encolar, y solo si se encoló: lo que queda
     // guardado es exactamente el que salió. Si falla, no se pierde nada —
     // los mensajes ya llevan el texto resuelto adentro.
-    if (puedoPersonalizarInvitacion(actSel)) await guardarMiInvitacion(actSel.id);
+    if (puedoPersonalizarInvitacion(actSel)) await guardarMiInvitacion(actSel.id, serieElegida);
 
     const nota = segSinInvitacion
       ? " · sin invitación (empieza en los recordatorios)"
@@ -3262,9 +3428,44 @@ $("segMiInv").oninput = () => {
 };
 $("segMiInvQuitar").onclick = () => {
   miInvitacion = "";
+  serieMia.set(actSel?.serie_invitacion);
   pintarMiInvitacion();
+  renderHitos();
   $("segMiInvBox").classList.add("hidden");
 };
+// El estado del botón («Editando…») también depende de la serie: se repinta al
+// tocar cualquier cosa del editor, que vive dentro de la caja.
+// El setTimeout deja que el editor aplique el clic (quitar, modo…) antes de mirar.
+// La nota «Invitación en serie» de los hitos también la refleja.
+const alCambiarMiSerie = () => { pintarBtnMiInv(); renderHitos(); };
+$("segMiSerieRow").addEventListener("click", () => setTimeout(alCambiarMiSerie));
+$("segMiSerieRow").addEventListener("change", alCambiarMiSerie);
+$("segMiSerieRow").addEventListener("input", pintarBtnMiInv);
+
+// --- imagen propia del agente para una actividad ajena ---
+// Mismo validador, tipos y bucket que la imagen de la actividad: es el mismo
+// adjunto, solo que de quien programa.
+$("segMiImgFile").accept = ACCEPT_ADJUNTO;
+$("segMiImgPick").onclick = () => $("segMiImgFile").click();
+$("segMiImgFile").onchange = async () => {
+  const file = $("segMiImgFile").files[0];
+  if (!file) return;
+  const est = $("segMiImgEstado");
+  const v = validarAdjunto(file);
+  if (!v.ok) { est.textContent = "⚠ " + v.error; $("segMiImgFile").value = ""; return; }
+  est.textContent = v.esVideo ? "Subiendo video…" : "Subiendo…";
+  try {
+    miMedia = await subirImagenMensaje(file);
+    est.textContent = "";
+    pintarMiImagen();
+  } catch (err) {
+    est.textContent = "⚠ " + mensajeErrorAdjunto(err);
+  } finally { $("segMiImgFile").value = ""; }
+};
+$("segMiImgDel").onclick = () => { miMedia = null; $("segMiImgEstado").textContent = ""; pintarMiImagen(); };
+// Ver la imagen en grande sin salir: la miniatura alcanza para reconocerla,
+// no para leer lo que dice el flyer.
+$("segMiImgPrev").onclick = () => $("segMiImgPrev").classList.toggle("grande");
 $("segHora").addEventListener("change", renderPrevInvitacion);
 $("segLibre").addEventListener("input", renderPrevInvitacion);
 $("segSrv").addEventListener("change", renderPrevInvitacion);
@@ -3277,23 +3478,8 @@ $("segNomPubBtn").onclick = () => {
   if (abrir) $("segNomPub").focus();
 };
 $("segNomPub").addEventListener("input", () => { pintarNombrePublico(); renderPrevInvitacion(); });
+$("segSrv").addEventListener("change", pintarAyudaImg);
 $("segMsgInvQuitar").onclick = () => setMsgInvitacion(null);
-$("segSerieAdd").onclick = () => {
-  if (segSerie.partes.length >= MAX_PARTES) return;
-  segSerie.partes.push({ texto: "", media: null });
-  renderSerie();
-  $("segSerieLista").querySelector(".seriep:last-child [data-txt]")?.focus();
-};
-$("segSerieModo").querySelectorAll("[data-modo]").forEach(b => b.onclick = () => { segSerie.modo = b.dataset.modo; renderSerie(); });
-$("segSerieEsp").querySelectorAll("[data-esp]").forEach(b => b.onclick = () => {
-  segSerie.espera_min = b.dataset.esp === "min" ? (segSerie.espera_min || 5) : 0;
-  renderSerie();
-});
-$("segSerieMin").onchange = renderSerie;
-$("segSerieMin").oninput = () => {
-  const v = parseInt($("segSerieMin").value, 10);
-  if (v >= 1 && v <= 120) segSerie.espera_min = v;
-};
 // ＋ Nueva actividad: abre el formulario plegado (o lo cierra si ya estaba).
 $("segNuevaAct").onclick = () => {
   if (!$("segFormPanel").classList.contains("hidden")) { salirEdicion(); return; }

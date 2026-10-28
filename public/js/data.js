@@ -175,17 +175,23 @@ export async function guardarCatalogo() {
     .update({ data: state.catalogo, updated_at: new Date().toISOString() })
     .eq("id", "catalogo");
   if (error) toast("⚠ No se pudo guardar el catálogo: " + error.message);
+  return !error;
 }
 
 const BUCKET_SRV = "servicios";
 
 // Sube la imagen de un servicio al Storage y devuelve su URL pública.
-// El archivo se nombra por el id del servicio, así reemplaza la anterior.
+// Cada subida lleva nombre NUEVO en vez de pisar `<id>.<ext>`: el worker
+// guarda en disco la multimedia por URL (y el CDN de Storage la cachea), así
+// que con la URL fija seguía mandando la imagen vieja aunque el panel ya
+// mostrara la nueva. Quien llama borra la anterior tras guardar el catálogo.
+// El sufijo va en el nombre y no como `?v=`: el bridge decide el tipo por la
+// extensión de la URL y un query string podría ensuciarla.
 export async function subirImagenServicio(file, serviceId) {
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-  const path = `${serviceId}.${ext}`;
+  const path = `${serviceId}_${Date.now()}.${ext}`;
   const { error } = await SB.storage.from(BUCKET_SRV)
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, file, { contentType: file.type });
   if (error) throw error;
   return SB.storage.from(BUCKET_SRV).getPublicUrl(path).data.publicUrl;
 }

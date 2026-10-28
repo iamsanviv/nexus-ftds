@@ -388,6 +388,7 @@
 #vistaSeguimiento .seg-lista{max-height:300px}
 .msgspanel{border:1px solid var(--gold-dim);border-radius:12px;padding:10px 12px;margin-bottom:14px;background:var(--surface)}
 .msgshelp{font-size:.76rem;color:var(--muted);margin-bottom:10px}
+.msgshelp.sinimg{color:var(--bad)}
 .msgshelp code{background:var(--surface2);border-radius:5px;padding:1px 5px;color:var(--gold);font-size:.9em}
 .msgspanel textarea{width:100%;resize:vertical}
 .imgfield{display:flex;gap:12px;align-items:flex-start}
@@ -508,6 +509,22 @@
    veces; el botón es un `<button>`, no una etiqueta. */
 .miinvrow{margin:2px 0 10px}
 .miinvrow textarea{width:100%;margin-top:6px}
+/* Mensajes 2..4 propios, dentro de la caja de «Personalizar mi invitación». */
+.miserie{margin:12px 0 10px;padding-top:10px;border-top:1px dashed var(--border)}
+.miserie > label{display:block;font-size:.8rem;font-weight:700;margin-bottom:8px}
+.miserie .opt{font-weight:400;color:var(--muted)}
+/* Con qué imagen sale la invitación (panel de programación). Una fila: miniatura,
+   de dónde sale y, en ajenas, cambiarla. */
+.miimgrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 10px;
+  padding:8px 10px;border:1px solid var(--border);border-radius:12px;background:var(--surface2)}
+.miimgthumb{width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--border);
+  flex:0 0 auto;cursor:zoom-in;background:var(--surface)}
+.miimgthumb.grande{width:min(260px,100%);height:auto;cursor:zoom-out}
+.miimgthumb.sinadj{display:grid;place-items:center;font-size:1.3rem;opacity:.45;cursor:default}
+.miimgtxt{flex:1 1 140px;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:.82rem}
+.miimgtxt .sinimg{color:var(--bad);font-weight:600}
+.miimgbtns{display:flex;gap:6px;flex:0 0 auto}
+.miimgrow .tbtn{flex:0 0 auto;width:auto;margin:0}
 .segselbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .segselcount{font-size:.78rem;color:var(--muted);margin-right:auto}
 .opt{font-weight:400;color:var(--muted);font-size:.85em}
@@ -2231,6 +2248,7 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .lbajar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px}
 .lbajar .hbajar{min-height:40px;padding:0 14px;border-radius:12px}
 .lbajar span{font-size:.74rem;color:var(--muted)}
+.perfbajar{margin:0 0 16px}
 
 /* ================= Administración (solo admin) ================= */
 /* En escritorio se entra por la barra lateral; en el móvil, por «Más». */
