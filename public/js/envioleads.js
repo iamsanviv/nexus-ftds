@@ -17,7 +17,7 @@ import { state, $, esc, toast, normBusqueda, esLead, componerMensaje,
 import { subirImagenMensaje, guardarHistorialSegmento, cuotaDiaria, cargarPlantillasEnviadas } from "./data.js";
 import { canalVinculado } from "./canal.js";
 import { destinatariosMasivo } from "./masivo.js";
-import { TIPOS, TEMP, CATEGORIAS, categoria, temperatura, plantillaPara } from "./leads.js";
+import { TIPOS, TEMP, CATEGORIAS, categoria, temperatura, plantillaPara, llegadaFila } from "./leads.js";
 
 const MAX_MSGS = 4;
 const nuevoBorrador = () => ({ id: null, nombre: "", tipo: null, modo: "usuario", espera_min: 0,
@@ -257,6 +257,7 @@ function pintarLista() {
           ${ya ? `<span class="ldya ${ya.recibida ? "" : "prog"}">${ya.recibida ? "Ya la recibió" : "Programada"}</span>` : ""}
           <span class="ldetq">${ETQ[categoria(c)]}</span>
           <span class="ltemp ${t}"><i></i>${TEMP[t]}</span>
+          ${llegadaFila(c)}
         </label>`; }).join("")
     : `<div class="naplica">${universo().length ? "Ningún lead en este filtro." : "No tienes leads con teléfono para escribirles."}</div>`;
   $("ldLista").querySelectorAll("input[data-cid]").forEach(inp => inp.onchange = () => {
