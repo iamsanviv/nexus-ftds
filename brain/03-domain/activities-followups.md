@@ -20,8 +20,8 @@ SQL: `sql/2026-10-26_46_actividades_nombre_publico.sql`.
 Si cambia al editar, `renombrarPendientes` reemplaza el nombre viejo por el nuevo en los
 mensajes **pendientes** visibles (reemplazo, no regeneración: no re-sortea el texto ni pisa
 invitaciones propias). Los que el editor no ve (otros equipos de una `para_todos`) los corrige el
-trigger `actividades_ajenos_upd` con el mismo reemplazo (dispara también por `nombre` y
-`nombre_publico`). SQL: `sql/2026-10-28_47_nombre_publico_ajenos.sql`.
+trigger `actividades_ajenos_nombre` (AFTER UPDATE OF nombre, nombre_publico) con el mismo
+reemplazo. SQL: `sql/2026-10-28_47_nombre_publico_ajenos.sql`.
 
 ## Lista visible
 
