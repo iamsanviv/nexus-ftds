@@ -246,6 +246,31 @@ servicio y sacaría a quien fue a una clase anterior aunque a esta no conteste.
 - La regla está duplicada en SQL (`sin_respuesta_de`) para el aviso push de 15 min antes
   del recordatorio de 1 h (ver [[../04-features/notifications]]). Cambiar las dos juntas.
 
+## Pregunta antes del link (28/10/2026)
+
+Pedido de Sanviv. Casilla «Si no respondió, preguntar» bajo el recordatorio de 1 h en el selector
+de hitos (`segPreguntar`, **encendida** por defecto y por tanda; requiere rec_60 y enlace). Al
+programar se encola una fila `pregunta_link` en estado **`retenido`** (el worker solo toma
+`pendiente`) con una de cuatro variaciones al azar por persona (`PREGUNTA_LINK`, no editable).
+
+La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
+`sql/2026-10-28_48_pregunta_link.sql`):
+
+- **2 min antes del rec_60**: si te escribió después del primer mensaje enviado (misma regla que
+  «🔕 Sin respuesta»), sale el recordatorio normal y la pregunta se cancela. Si no: la pregunta
+  pasa a `pendiente` a la hora del rec_60, el rec_60 y el rec_15 se cancelan, y el enlace y la
+  confirmación pasan a `retenido`.
+- **Después**: lee lo que escribió desde la pregunta (`chats_recientes.entrantes_txt`, clasificado
+  por `respuesta_link`): cualquier «no» gana → se cancela el enlace; «sí» → el enlace sale a la
+  hora de inicio (o ya, si pasó) y la confirmación 10 min después; dudoso (audio, pregunta) → sigue
+  esperando. Cuenta la hora en que el sistema **lo ve**, no en que lo escribió (Sanviv): pasado
+  `inicio + 10 min` lo retenido se cancela.
+- Si la VM del agente aún no publica `entrantes_txt` (NULL), no se pregunta: recordatorio normal.
+  Si el cron no corre, sale el rec_60 y el enlace como antes. La falla nunca deja sin link.
+- Todo lo que cancela lleva `error` `omitido: …` (no dispara el push de envío fallido) y en
+  «✎ Mensajes» se muestra el motivo sin botón de reactivar. Lo `retenido` no se toca a mano.
+- No usa el centinela de «❄ Congelar enlace»: «▶ Enviar enlace» lo liberaría para todos.
+
 ## Los leads no aparecen de primeras (21/10/2026)
 
 Pedido de Sanviv: al programar una actividad la lista arranca **sin leads**; la casilla

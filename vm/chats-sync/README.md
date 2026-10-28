@@ -8,7 +8,8 @@ Código **del lado de la VM**, no servido por Cloudflare. Despliegue manual.
 - `correr.py` + `nexus-chats-sync.{service,timer}`: lo mismo como timer
   independiente, **solo para VM2**, donde no corre el worker. Sin esto los agentes
   de VM2 no tienen «te escribió hoy» ni temperatura por mensajes (KI-014).
-- `instalar_primer_entrante.py`: actualiza el `chats_sync.py` del worker de VM1.
+- `instalar_chats_sync.py`: actualiza el `chats_sync.py` en uso (VM1 dentro del worker, VM2
+  junto al timer) si es una versión anterior conocida. Uso y orden en su cabecera.
 
 ## Instalar en VM2 (`10.0.0.23`, desde VM1 con `ssh -i ~/.ssh/vm2.key ubuntu@10.0.0.23`)
 

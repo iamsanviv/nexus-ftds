@@ -104,6 +104,17 @@ const PLANTILLAS_DEF = {
 
 let plantillasUsuario = { ...PLANTILLAS_DEF };  // se sobreescribe al cargar
 
+// Pregunta antes del link (28/10/2026, pedido de Sanviv): reemplaza al
+// recordatorio de 1 h para quien no respondió desde la invitación. Las cuatro
+// variaciones las eligió Sanviv; salen al azar por persona. No es plantilla
+// editable: de su respuesta depende que reciba el link, y la base lee esa
+// respuesta esperando que haya preguntado justo esto.
+// Nace `retenido` (el worker no lo ve); la base decide 2 min antes del
+// recordatorio cuál de los dos sale. Ver sql/2026-10-28_48_pregunta_link.sql.
+const PREGUNTA_LINK = `{nombre}, {¿deseas que te envíe el link?|¿deseas asistir?|confírmame para enviarte el link.|¿me confirmas para poderte enviar el link?}`;
+// Hasta cuándo cuenta una respuesta, desde el inicio (igual en la base).
+const PREGUNTA_PLAZO_MIN = 10;
+
 const horaCO = iso => new Date(iso).toLocaleTimeString("es-CO",
   { hour: "numeric", minute: "2-digit", hour12: true });
 
@@ -202,6 +213,9 @@ let segSinInvitacion = false;
 // es el comportamiento de siempre, y apagar algo por nuestra cuenta sería la
 // misma falta que mandarlo de más, solo que en silencio.
 let segHitos = { rec_60: true, rec_15: true, enlace: true, confirmacion: true };
+// Preguntar por el link a quien no respondió (en lugar del recordatorio de 1 h).
+// Encendido por defecto, por tanda (Sanviv).
+let segPreguntar = true;
 // Invitación propia del agente para la actividad elegida (tabla
 // `invitaciones_agente`). Solo aplica a actividades que NO son suyas: las que
 // le comparte su director y por tanto no puede editar. Se guarda por actividad
@@ -1378,6 +1392,7 @@ async function seleccionarActividad(a) {
   // Todos en sí otra vez: heredar el apagado de la tanda anterior haría
   // desaparecer un recordatorio sin que nadie lo pidiera en ESTA.
   segHitos = { rec_60: true, rec_15: true, enlace: true, confirmacion: true };
+  segPreguntar = true;
   const bs = $("segBuscar"); if (bs) bs.value = "";
   const bx = $("segBuscarX"); if (bx) bx.classList.add("hidden");
   const ia = $("segIncAsis"); if (ia) ia.checked = false;
@@ -1708,15 +1723,37 @@ function renderHitos() {
           : `<span class="hitohora">${esc(fechaHoraCO(cuando.toISOString()))}</span>`
             + (pegado ? `<b class="hitocerca">${mins} min después</b>` : "")}</span>
       </label>
-      ${!marcado && !fuera ? `<div class="hitonota">No se programa: ${CONSECUENCIA_HITO[tipo]}.</div>` : ""}`;
+      ${!marcado && !fuera ? `<div class="hitonota">No se programa: ${CONSECUENCIA_HITO[tipo]}.</div>` : ""}
+      ${tipo === "rec_60" ? filaPregunta(marcado, inicio) : ""}`;
   }).join("");
 
   cont.querySelectorAll("[data-hito]").forEach(ch => ch.onchange = e => {
     segHitos[e.target.dataset.hito] = e.target.checked;
     renderHitos();
   });
+  const preg = cont.querySelector("[data-preg]");
+  if (preg) preg.onchange = e => { segPreguntar = e.target.checked; renderHitos(); };
   const inv = cont.querySelector("[data-inv]");
   if (inv) inv.onchange = e => alternarInvitacion(!e.target.checked);
+}
+
+// La pregunta cuelga del recordatorio de 1 h (lo reemplaza) y existe para
+// decidir si sale el enlace: sin alguno de los dos no hay nada que preguntar.
+const preguntaPosible = rec60 => rec60 && segHitos.enlace;
+function filaPregunta(rec60, inicio) {
+  const posible = preguntaPosible(rec60);
+  const on = posible && segPreguntar;
+  const plazo = horaCO(new Date(inicio.getTime() + PREGUNTA_PLAZO_MIN * 60000).toISOString());
+  return `
+      <label class="hito sub${posible ? "" : " nula"}${on ? "" : " off"}">
+        <input type="checkbox" data-preg ${on ? "checked" : ""} ${posible ? "" : "disabled"}>
+        <span class="hitolbl">Si no respondió, preguntar</span>
+        <span class="hitoq"><span class="hitohora">${posible ? "en lugar del de 1 h"
+          : (rec60 ? "sin enlace no aplica" : "sin recordatorio de 1 h")}</span></span>
+      </label>
+      ${on ? `<div class="hitonota sub">A quien no te escribió desde la invitación le llega
+        «Nombre, ¿deseas que te envíe el link?» (o una variación) en vez del recordatorio. No recibe
+        el de 15 min, y el link solo si contesta que sí hasta las ${esc(plazo)} (10 min después de empezar)</div>` : ""}`;
 }
 
 // El botón dice lo que va a pasar: es el último punto donde el agente puede
@@ -1858,6 +1895,10 @@ async function programar() {
       + `\nCámbialo por {dia} en «✎ Mensajes» y saldrá solo.`
     : "";
 
+  // Se pregunta solo si el recordatorio de 1 h llega a programarse (con la
+  // invitación muy encima no sale, y entonces tampoco hay a qué reemplazar).
+  const rec60Sale = HITOS(inicio).some(([tipo, cuando]) => tipo === "rec_60" && segHitos.rec_60 && cuando > primerContacto);
+  const preguntar = segPreguntar && preguntaPosible(rec60Sale);
   const avisoOmitidos = (seOmiten.length
     ? `\n\nNo se programa${seOmiten.length === 1 ? "" : "n"} ${seOmiten.join(" ni ")}: ${porQue}.`
     : "")
@@ -1867,7 +1908,9 @@ async function programar() {
     // Quedarse sin enlace es la única omisión que deja a la persona sin poder
     // entrar. Se dice aparte y en mayúsculas porque es fácil desmarcarlo
     // pensando que es un recordatorio más.
-    + (!segHitos.enlace ? `\n\n⚠ NADIE va a recibir el enlace de la sala.` : "");
+    + (!segHitos.enlace ? `\n\n⚠ NADIE va a recibir el enlace de la sala.` : "")
+    + (preguntar ? `\n\nA quien no te haya escrito desde la invitación se le pregunta si quiere el link `
+      + `en vez del recordatorio de 1 h, y solo lo recibe si contesta que sí.` : "");
 
   // Las inactivas se dicen en el confirm con nombre propio: es la última
   // pantalla antes de encolar cinco mensajes por persona.
@@ -2023,6 +2066,15 @@ async function programar() {
             : (actSel.enlace || null);
         }
         msgs.push(fila);
+        // La pregunta va como fila aparte, a la misma hora y `retenido`: la base
+        // la activa (y cancela el recordatorio) solo si no respondió.
+        if (tipo === "rec_60" && preguntar) {
+          msgs.push({
+            seguimiento_id: seg.id, tipo: "pregunta_link", estado: "retenido",
+            enviar_en: cuando.toISOString(), telefono: c.tel,
+            texto: aplicar(PREGUNTA_LINK, { nombre: c.nombre.trim().split(/\s+/)[0] }),
+          });
+        }
         // Las partes 2..4 van justo detrás de la invitación. Tipo propio
         // (`invitacion_parte`): el tope diario decide en el mensaje 1 y, si ese
         // salió, la serie llega entera; si no sale, la base cancela las demás.
@@ -2956,8 +3008,8 @@ function pintarActivos() {
 // (estado → cancelado) y cada uno cancelado se puede volver a activar, sin
 // cancelar el seguimiento entero. Lo ya enviado no se puede recoger; un
 // cancelado cuya hora ya pasó no se puede reactivar (el worker no lo mandaría).
-const LBL_HITO = { invitacion: "Invitación", ...HITO_CORTO };
-const ORDEN_HITO = ["invitacion", "rec_60", "rec_15", "enlace", "confirmacion"];
+const LBL_HITO = { invitacion: "Invitación", ...HITO_CORTO, pregunta_link: "Pregunta del link" };
+const ORDEN_HITO = ["invitacion", "rec_60", "pregunta_link", "rec_15", "enlace", "confirmacion"];
 async function abrirEditarMensajes(s) {
   const nombre = s.clientes?.nombre || "esta persona";
   $("repTit").textContent = "Mensajes del seguimiento";
@@ -2969,7 +3021,7 @@ async function abrirEditarMensajes(s) {
   $("repOverlay").onclick = e => { if (e.target.id === "repOverlay") cerrar(); };
 
   const { data: msgs, error } = await SB.from("mensajes_programados")
-    .select("tipo, estado, enviar_en").eq("seguimiento_id", s.id);
+    .select("tipo, estado, enviar_en, error").eq("seguimiento_id", s.id);
   if (error) { $("repBody").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
   const porTipo = new Map();
   for (const m of msgs || []) porTipo.set(m.tipo, m);   // un mensaje por tipo
@@ -2982,10 +3034,21 @@ async function abrirEditarMensajes(s) {
       let acc;
       if (m.estado === "enviado")        acc = `<span class="sfecha" style="color:var(--ok)">✓ enviado</span>`;
       else if (m.estado === "error")     acc = `<span class="sfecha" style="color:var(--bad)">falló</span>`;
+      // Lo retenido lo maneja la base según la respuesta: tocarlo a mano
+      // rompería esa decisión (p. ej. mandar el link a quien dijo que no).
+      else if (m.estado === "retenido")  acc = `<span class="sfecha">${t === "pregunta_link"
+        ? "solo si no responde" : "si confirma"}</span>`;
       else if (m.estado === "pendiente") acc = `<button class="pmark off" data-ht="${t}" data-acc="silenciar" title="${esc(CONSECUENCIA_HITO[t] || "")}">🔕 No enviar</button>`;
+      // Lo cancelado por la pregunta del link dice por qué y no se reactiva: el
+      // recordatorio volvería a salir junto a la pregunta, o el link a quien
+      // dijo que no.
+      else if (m.estado === "cancelado" && (m.error || "").startsWith("omitido:"))
+        acc = `<span class="sfecha">${esc(m.error.slice(8).trim())}</span>`;
       else if (m.estado === "cancelado" && !paso) acc = `<button class="pmark" data-ht="${t}" data-acc="activar">🔔 Volver a enviar</button>`;
       else /* cancelado y ya pasó */     acc = `<span class="sfecha">silenciado · ya pasó su hora</span>`;
-      const cuando = esCongelado(m.enviar_en) ? "❄ congelado (se libera desde la actividad)" : esc(fechaHoraCO(m.enviar_en));
+      const cuando = esCongelado(m.enviar_en) ? "❄ congelado (se libera desde la actividad)"
+        : (m.estado === "retenido" && t !== "pregunta_link") ? "esperando que confirme"
+        : esc(fechaHoraCO(m.enviar_en));
       return `<div class="prow">
         <div class="pl"><span class="pn">${esc(LBL_HITO[t] || t)}</span>
           <span class="sfecha">${cuando}${m.estado === "cancelado" ? " · silenciado" : ""}</span></div>
@@ -3219,13 +3282,14 @@ const LOG_TIPO = {
   // Las etiquetas deben coincidir con los tiempos reales de `tiempos()`:
   // rec_15 sale 15 min ANTES; confirmacion, 10 min DESPUÉS del inicio.
   invitacion: "Invitación", invitacion_parte: "Invitación (cont.)", masivo: "Masivo", masivo_parte: "Seguimiento (cont.)", rec_60: "Recordatorio 1 h", rec_15: "Recordatorio 15 min",
-  enlace: "Enlace", confirmacion: "Confirmación",
+  enlace: "Enlace", confirmacion: "Confirmación", pregunta_link: "Pregunta del link",
 };
 const LOG_BADGE = {
   enviado:   ["ok",   "✓ Enviado"],
   error:     ["err",  "⚠ Error"],
   pendiente: ["pend", "⏳ Pendiente"],
   cancelado: ["can",  "✕ Cancelado"],
+  retenido:  ["pend", "⏸ Según responda"],
 };
 
 async function renderLogs() {

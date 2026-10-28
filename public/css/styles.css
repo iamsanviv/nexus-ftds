@@ -2365,3 +2365,7 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .segordfila{flex-wrap:wrap}
 .segordfila .pill{flex:0 0 auto}
 .segordhint{font-size:.72rem;color:var(--muted)}
+/* «Si no respondió, preguntar» depende del recordatorio de 1 h: va sangrada
+   debajo de él para que se lea como una opción suya, no como otro mensaje. */
+.hito.sub{margin-left:22px}
+.hitonota.sub{margin-left:32px}
