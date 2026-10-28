@@ -44,6 +44,25 @@ No cambiar este orden sin una decisión explícita.
 - Se guarda al programar, porque el valor persistido debe representar el texto con el que realmente salió esa tanda.
 - Vaciar el texto elimina la personalización del agente y vuelve a la capa siguiente de precedencia.
 
+### Imagen y mensajes extra propios (28/10/2026)
+
+Pedido de Sanviv: en una actividad ajena el agente también ve y cambia la **imagen/video** y los
+**mensajes 2..4** de su invitación. Viven en la misma fila (`invitaciones_agente.media`, `.serie`;
+`texto` pasó a ser opcional). SQL: `sql/2026-10-28_46_invitacion_agente_media_serie.sql`.
+
+- Adjunto: `invitaciones_agente.media` → `actividades.imagen` → imagen del servicio (`servicio_id`,
+  resuelta por el worker al enviar). Se manda UNO solo, como siempre.
+- Serie: `invitaciones_agente.serie` → `actividades.serie_invitacion`. `null` = la de la actividad;
+  `partes: []` = ninguna aunque la actividad traiga. El editor del panel arranca con la serie que hoy
+  saldría; solo se guarda si difiere de la de la actividad, para no congelar una copia que dejaría de
+  seguir los cambios del dueño.
+- La fila se guarda al programar y se borra si no queda nada propio (constraint `inv_agente_algo`).
+- En el panel de programación, la fila «Imagen de la invitación» (`pintarMiImagen`) se ve en TODAS las
+  actividades: miniatura + de dónde sale (tuya / de la actividad / del catálogo / «Sin imagen»). Cambiar
+  solo en ajenas; las propias se cambian en ✎.
+- Límite heredado: el cambio de hora del dueño no reescribe los textos del agente (ni la serie propia),
+  igual que con su texto propio.
+
 ## Invitación en serie (hasta 4 mensajes) — en producción desde 06/10/2026
 
 `actividades.serie_invitacion` (jsonb, `null` = un solo mensaje) guarda los mensajes 2..4:
