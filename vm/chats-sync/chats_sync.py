@@ -120,21 +120,28 @@ def _chats_de(dirbase):
     # el bridge (con su desfase), así que ni el filtro ni el MIN ni la mezcla de
     # dos chats dependen del huso en que se escribió. Si no lo pudiera leer daría
     # NULL: «no escribió hoy».
+    #
+    # UNA sola pasada agrupada sobre `messages`, no subconsultas por chat:
+    # `messages` no tiene índice que empiece por `chat_jid` (su PK es
+    # `id, chat_jid`) y la base es de solo lectura, así que cada subconsulta
+    # correlacionada recorría la tabla entera por cada chat. En VM2 eso costaba
+    # ~3 min de CPU por vuelta (28/10/2026). El JOIN conserva la regla del
+    # antiguo EXISTS: solo chats con al menos un entrante.
     cm = _abrir_ro(mdb)
     try:
         filas = cm.execute(
             """
-            SELECT c.jid, c.last_message_time,
-                   (SELECT MAX(m2.timestamp) FROM messages m2
-                     WHERE m2.chat_jid = c.jid AND m2.is_from_me = 0) AS entrante,
-                   (SELECT MIN(datetime(m3.timestamp)) FROM messages m3
-                     WHERE m3.chat_jid = c.jid AND m3.is_from_me = 0
-                       AND datetime(m3.timestamp) >= ?) AS primero_dia
+            SELECT c.jid, c.last_message_time, e.entrante, e.primero_dia
               FROM chats c
+              JOIN (SELECT chat_jid,
+                           MAX(timestamp) AS entrante,
+                           MIN(CASE WHEN datetime(timestamp) >= ?
+                                    THEN datetime(timestamp) END) AS primero_dia
+                      FROM messages
+                     WHERE is_from_me = 0
+                     GROUP BY chat_jid) e ON e.chat_jid = c.jid
              WHERE c.last_message_time >= datetime('now', ?)
                AND (c.jid LIKE '%@lid' OR c.jid LIKE '%@s.whatsapp.net')
-               AND EXISTS (SELECT 1 FROM messages m
-                            WHERE m.chat_jid = c.jid AND m.is_from_me = 0)
              ORDER BY c.last_message_time DESC
              LIMIT ?
             """,

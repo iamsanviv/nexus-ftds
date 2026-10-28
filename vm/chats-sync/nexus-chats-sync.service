@@ -1,0 +1,12 @@
+[Unit]
+Description=Nexus — publica los chats recientes de los bridges de esta VM (solo VM2)
+Documentation=https://github.com/iamsanviv/nexus-ftds
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/nexus-chats-sync
+ExecStart=/usr/bin/python3 /home/ubuntu/nexus-chats-sync/correr.py
+TimeoutStartSec=180

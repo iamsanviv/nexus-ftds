@@ -199,8 +199,21 @@ panel compara la fecha con hoy. SQL: `sql/2026-10-14_33_primer_entrante_dia.sql`
 
 Instalación: `vm/chats-sync/instalar_primer_entrante.py` reemplaza el archivo SOLO si el de la
 VM es exactamente la versión anterior conocida (hash), con respaldo y validación de sintaxis;
-luego `sudo systemctl restart nexus-worker`. **Pendiente de instalar en VM1** al 14/10/2026, y
-VM2 sigue sin `chats_sync` (ver KI-014 en `08-memory/known-issues.md`).
+luego `sudo systemctl restart nexus-worker`. Instalado en VM1 y VM2 el 28/10/2026 (versión con
+consulta de una pasada, sha256 `da2c6979…`).
+
+**VM2 lo corre aparte** (`vm/chats-sync/correr.py` + `nexus-chats-sync.timer`, cada 5 min):
+`chats_sync` solo ve los bridges del disco local y el worker vive en VM1. No leer VM2 por red
+desde VM1 (`nolock=1` solo es seguro en disco local) ni levantar un worker en VM2 (duplica
+envíos). En VM1 no se instala el timer: ya lo hace el worker.
+
+**Costo de la lectura (28/10/2026).** La consulta original usaba tres subconsultas correlacionadas
+por chat sobre `messages`, que no tiene índice por `chat_jid` (PK `id, chat_jid`) y no se le
+puede crear uno (solo lectura): en VM2 tomaba ~3 min de CPU por vuelta. Se reescribió como UNA
+pasada agrupada (`GROUP BY chat_jid` + `JOIN`): mismo resultado, ~1000× más rápida en una base
+sintética de 150.000 mensajes. El timer usa `OnUnitInactiveSec` para contar los 5 min desde que
+termina la vuelta. En VM1 la consulta corre DENTRO del worker: medida el 28/10/2026, la versión vieja tardaba
+1 min 43 s cada 5 min, y en ese lapso el worker no envía. Instalada la versión rápida ese día.
 
 **Punto de enganche para eventos** (p. ej. notificaciones): una fila de `chats_recientes` cuyo
 `entrante_en` cambia ES «esta persona te escribió» (`owner_id` + `telefono`). «Primer mensaje del
@@ -432,9 +445,9 @@ Ahí viven `provisionar.sh` y los bridges; no hace falta saltar a VM2.
   `Connection refused` en 0 ms, el paquete ya llegó a la VM. No uses `pkill -f
   "http.server <puerto>"` dentro de un `ssh '…'` que también lance el server: el patrón
   coincide con la propia orden remota y la mata (ssh sale con 255).
-- VM2 no corre `chats_sync` (KI-014): el agente no tiene «Te escribió», «respondió»
+- VM2 corre `chats_sync` con el timer `nexus-chats-sync` (`vm/chats-sync/README.md`, desde el
+  28/10/2026). Sin él, el agente no tiene «Te escribió», «respondió»
   automático ni subida de temperatura, ni los avisos push que dependen de eso.
-  Enviar sí funciona. Para un agente que trabaja leads, VM1 es mejor mientras siga así.
 
 Si algo sale mal ANTES de vincular: `sudo systemctl disable --now nexus-bridge@<slug>` y
 `mv ~/nexus-bridges/<slug> ~/nexus-bridges/.<slug>-descartado` (el punto delante libera
