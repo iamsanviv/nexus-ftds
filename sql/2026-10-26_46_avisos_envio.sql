@@ -1,6 +1,7 @@
 -- =====================================================================
 --  Avisar cuando un envío no sale, y no mandar recordatorios sin invitación
---  PENDIENTE de aplicar (se aplica al fusionar, con el MCP de Supabase).
+--  Aplicado el 2026-10-28 con el MCP de Supabase (execute_sql, en dos lotes:
+--  el MCP cuelga con DROP TRIGGER, así que los triggers se crearon sin él).
 --
 --  Caso real (25/10/2026): «Operativa 8pm» se canceló entera por el tope
 --  diario (220) y el agente no se enteró. El worker deja el motivo en
