@@ -114,6 +114,11 @@ let plantillasUsuario = { ...PLANTILLAS_DEF };  // se sobreescribe al cargar
 const PREGUNTA_LINK = `{nombre}, {¿deseas que te envíe el link?|¿deseas asistir?|confírmame para enviarte el link.|¿me confirmas para poderte enviar el link?}`;
 // Hasta cuándo cuenta una respuesta, desde el inicio (igual en la base).
 const PREGUNTA_PLAZO_MIN = 10;
+// En prueba (28/10/2026): Sanviv la valida con sus propios envíos antes de
+// abrirla a todos. Solo el admin ve la casilla; al resto nunca se le encola
+// una pregunta, así que su secuencia no cambia. Para lanzarla: `false`.
+const PREGUNTA_SOLO_ADMIN = true;
+const preguntaHabilitada = () => !PREGUNTA_SOLO_ADMIN || state.me?.role === "admin";
 
 const horaCO = iso => new Date(iso).toLocaleTimeString("es-CO",
   { hour: "numeric", minute: "2-digit", hour12: true });
@@ -1730,7 +1735,7 @@ function renderHitos() {
             + (pegado ? `<b class="hitocerca">${mins} min después</b>` : "")}</span>
       </label>
       ${!marcado && !fuera ? `<div class="hitonota">No se programa: ${CONSECUENCIA_HITO[tipo]}.</div>` : ""}
-      ${tipo === "rec_60" ? filaPregunta(marcado, inicio) : ""}`;
+      ${tipo === "rec_60" && preguntaHabilitada() ? filaPregunta(marcado, inicio) : ""}`;
   }).join("");
 
   cont.querySelectorAll("[data-hito]").forEach(ch => ch.onchange = e => {
@@ -1904,7 +1909,7 @@ async function programar() {
   // Se pregunta solo si el recordatorio de 1 h llega a programarse (con la
   // invitación muy encima no sale, y entonces tampoco hay a qué reemplazar).
   const rec60Sale = HITOS(inicio).some(([tipo, cuando]) => tipo === "rec_60" && segHitos.rec_60 && cuando > primerContacto);
-  const preguntar = segPreguntar && preguntaPosible(rec60Sale);
+  const preguntar = preguntaHabilitada() && segPreguntar && preguntaPosible(rec60Sale);
   const avisoOmitidos = (seOmiten.length
     ? `\n\nNo se programa${seOmiten.length === 1 ? "" : "n"} ${seOmiten.join(" ni ")}: ${porQue}.`
     : "")

@@ -248,6 +248,10 @@ servicio y sacaría a quien fue a una clase anterior aunque a esta no conteste.
 
 ## Pregunta antes del link (28/10/2026)
 
+**En prueba:** solo el admin (Sanviv) ve la casilla (`PREGUNTA_SOLO_ADMIN` en `seguimiento.js`);
+para lanzarla a todos se pone en `false`. La base no distingue: actúa sobre cualquier fila
+`pregunta_link`, y solo el panel las crea.
+
 Pedido de Sanviv. Casilla «Si no respondió, preguntar» bajo el recordatorio de 1 h en el selector
 de hitos (`segPreguntar`, **encendida** por defecto y por tanda; requiere rec_60 y enlace). Al
 programar se encola una fila `pregunta_link` en estado **`retenido`** (el worker solo toma
