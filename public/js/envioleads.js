@@ -14,7 +14,7 @@ import { SB } from "./supabase.js";
 import { state, $, esc, toast, normBusqueda, esLead, componerMensaje,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, cuandoParte,
   horaDeCliente, etiquetaZona } from "./state.js";
-import { subirImagenMensaje, guardarHistorialSegmento, cuotaDiaria, cargarPlantillasEnviadas } from "./data.js";
+import { subirImagenMensaje, guardarHistorialSegmento, cargarCola, simularCupo, avisoCupo, cargarPlantillasEnviadas } from "./data.js";
 import { canalVinculado } from "./canal.js";
 import { destinatariosMasivo } from "./masivo.js";
 import { TIPOS, TEMP, CATEGORIAS, categoria, temperatura, plantillaPara, llegadaFila } from "./leads.js";
@@ -30,7 +30,7 @@ let sel = new Set();            // leads elegidos: SIEMPRE arranca vacía
 let fEtapa = "todas", fTemp = "todas";
 let cuando = "ahora";
 let alTerminar = null;
-let cuota = null;   // { enviados, tope, restan } del día; null mientras carga
+let cola = null;    // cola del agente para prever el cupo; null mientras carga
 let enviando = false;   // un envío en curso: ver enviar()
 
 const primerNombre = n => (n || "").trim().split(/\s+/)[0];
@@ -275,24 +275,44 @@ function pintarConteo() {
   $("ldCount").textContent = n ? `${n} de ${universo().length}` : "";
   $("ldFootN").textContent = n;
   $("ldEnviar").disabled = enviando || n === 0;
-  pintarCuota(n);
+  pintarCuota();
 }
 
-// Aviso de cuota diaria: cuántos envíos te quedan hoy y, si esta tanda no cabe,
-// cuántos leads se quedarían sin el seguimiento. Solo el mensaje 1 de cada lead
-// gasta cuota (las partes 2..4 no las frena el tope), así que se compara contra
-// el número de leads.
-function pintarCuota(n) {
+// Aviso de cupo diario en la barra: si esta tanda no cabe, cuántos leads se
+// quedarían sin el seguimiento (el tope cancela el mensaje 1 y con él la
+// serie). Se simula sobre la cola real, contando lo que ya está por delante.
+function pintarCuota() {
   const el = $("ldFootCuota"); if (!el) return;
-  if (!cuota) { el.classList.add("hidden"); return; }
-  const falta = n > cuota.restan ? n - cuota.restan : 0;
-  el.textContent = cuota.restan === 0
-    ? `límite diario alcanzado (${cuota.enviados}/${cuota.tope}) · se reinicia a medianoche`
-    : falta
-      ? `hoy te quedan ${cuota.restan} de ${cuota.tope} · ${falta} no saldrían`
-      : `hoy llevas ${cuota.enviados} de ${cuota.tope}`;
-  el.classList.toggle("alerta", cuota.restan === 0 || falta > 0);
+  const sim = simCupo();
+  if (!sim) { el.classList.add("hidden"); return; }
+  const nf = sim.fueraNuevas.size, np = sim.fueraPrevias.length;
+  el.textContent = nf ? `${nf} no saldrían: límite diario de ${sim.tope}` + (np ? ` · y ${np} ya programados tampoco` : "")
+    : np ? `${np} ya programados dejarían de salir por el límite diario`
+    : `hoy: ${sim.enviados} enviados + ${sim.enColaHoy} en cola, de ${sim.tope}`;
+  el.classList.toggle("alerta", nf > 0 || np > 0);
   el.classList.remove("hidden");
+}
+
+// Momento de salida elegido; null si la fecha/hora programada aún no es válida.
+function baseEnvio() {
+  if (cuando !== "prog") return Date.now();
+  const f = $("ldFecha").value, h = $("ldHora").value;
+  const t = f && h ? new Date(`${f}T${h}:00`).getTime() : NaN;
+  return isNaN(t) ? null : t;
+}
+
+// La tanda con los mismos tiempos con que se encolaría. Los mensajes vacíos
+// del borrador no cuentan: `leerBorrador` los descarta al enviar.
+function simCupo(lista = elegidos(), base = baseEnvio()) {
+  if (!cola || base == null) return null;
+  const msgs = bor.mensajes.filter(m => (m.texto || "").trim() || m.media);
+  const P = Math.max(1, msgs.length), n = lista.length;
+  const serie = P > 1 ? { modo: bor.modo, espera_min: bor.espera_min || 0, escalona: !!bor.escalona, partes: msgs.slice(1) } : null;
+  const nuevas = [];
+  lista.forEach((c, i) => { for (let k = 0; k < P; k++) nuevas.push({
+    t: cuandoParte(serie, base, i, k, n), tipo: k === 0 ? "masivo" : "masivo_parte", serie: `n:${i}`,
+  }); });
+  return simularCupo(cola, nuevas);
 }
 function pintarCuando() {
   $("ldProgRow").classList.toggle("hidden", cuando !== "prog");
@@ -302,6 +322,7 @@ function pintarCuando() {
     ? (f && h ? `Programado para el ${f.slice(8, 10)}/${f.slice(5, 7)} a las ${h}` : "Elige fecha y hora")
     : "Se envía ahora mismo";
   $("ldEnviar").textContent = cuando === "prog" ? "Programar seguimiento" : "Enviar seguimiento";
+  pintarCuota();
 }
 
 /* ---------- enviar ---------- */
@@ -344,15 +365,10 @@ async function enviarSinCandado() {
   const como = d.mensajes.length > 1
     ? `\n${d.mensajes.length} mensajes por lead, ${d.modo === "mensaje" ? "por mensaje" : "por usuario"}, ${d.espera_min ? `${d.espera_min} min entre cada uno` : "con pausa natural"}${escalonado ? `, escalonados ${d.espera_min} min entre leads` : ""}.`
     : "";
-  // Aviso del tope diario: si esta tanda no cabe en lo que queda del día, hay
-  // leads que no recibirán nada (el tope cancela el mensaje 1 y con él la serie).
-  let avisoCuota = "";
-  if (cuando !== "prog" && cuota) {
-    if (cuota.restan === 0)
-      avisoCuota = `\n\n⚠ Ya alcanzaste el límite diario de envíos (${cuota.enviados}/${cuota.tope}). Si envías ahora, estos se cancelarán. El límite se reinicia a medianoche.`;
-    else if (n > cuota.restan)
-      avisoCuota = `\n\n⚠ Hoy te quedan ${cuota.restan} envíos de ${cuota.tope}. De estos ${n} leads, ${n - cuota.restan} se cancelarán por el límite diario.`;
-  }
+  // Aviso del tope diario: si esta tanda no cabe, hay leads que no recibirán
+  // nada. Se relee la cola: la cargada al abrir puede tener minutos.
+  try { cola = await cargarCola(); } catch { /* se usa la de la apertura */ }
+  const avisoCuota = cola ? avisoCupo(simCupo(lista, base.getTime()), n, "leads") : "";
   // Plantilla repetida: se avisa con nombres, no se quita sola de la selección
   // (a veces repetir es a propósito, y la selección es del agente).
   const repetidos = lista.filter(c => plantillaPara(c, bor.id));
@@ -410,8 +426,8 @@ export async function abrirEnvioLeads(render, { soloId, plantillaId } = {}) {
   $("ldFecha").value = ""; $("ldHora").value = ""; $("ldHoraRef").value = "";
   pintarTipos(); pintarMsgs(); pintarFiltros(); pintarLista(); pintarCuando(); pintarPlantillas();
   $("ldOverlay").classList.add("open");
-  cuota = null;
-  cuotaDiaria().then(c => { cuota = c; pintarConteo(); }).catch(() => {});
+  cola = null;
+  cargarCola().then(c => { cola = c; pintarConteo(); }).catch(() => {});
   // Lo programado pudo salir desde que se cargó el panel: la marca «Programada»
   // pasa a «Ya la recibió» sin recargar la página.
   cargarPlantillasEnviadas().then(pintarLista).catch(() => {});

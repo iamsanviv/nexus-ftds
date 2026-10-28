@@ -447,19 +447,96 @@ export async function borrarContacto(id) {
 // porque más atrás ya es «frío» y no cambia nada: así la consulta es mínima y
 // no hay sondeo. El RLS de la tabla es `owner_id = auth.uid()`, así que solo
 // trae tus propios chats (un director no ve la agenda de su equipo).
-// Cuota diaria de envíos del agente. El worker frena los envíos NUEVOS cuando
-// un agente pasa de TOPE por día (contado en hora de Colombia). Se cuentan
-// TODOS los enviados del día: los recordatorios y enlaces también gastan cuota
-// aunque el tope no los corte. 220 refleja `TOPE_DIARIO` del worker; si allá
-// cambia, acá también.
+// Cupo diario de envíos del agente. El worker cancela el PRIMER mensaje de cada
+// persona (`masivo` / `invitacion`) cuando el agente ya lleva TOPE enviados en
+// el día de Colombia; con él se cae el resto de su serie. Todo lo que sale
+// gasta cupo, aunque el tope solo corte a los primeros. 220 refleja
+// `TOPE_DIARIO` del worker; si allá cambia, acá también.
+//
+// Contar solo lo ya enviado no alcanza: «Operativa 8pm» (25/10/2026) se creó
+// con 210 de 220 y el aviso dijo que quedaban 10, pero había 70 confirmaciones
+// en cola por delante y la campaña entera se canceló sin que nadie se enterara.
+// Por eso se simula la cola completa: lo enviado, lo pendiente en el orden en
+// que va a salir y, si se está programando algo, lo nuevo en su lugar.
 export const TOPE_DIARIO = 220;
-export async function cuotaDiaria() {
-  const desde = `${fechaCO()}T00:00:00-05:00`;   // medianoche de hoy en Colombia
-  const { count, error } = await SB.from("mensajes_programados")
-    .select("id", { count: "exact", head: true })
-    .eq("owner_id", state.me.id).eq("estado", "enviado").gte("enviado_en", desde);
-  const enviados = error ? 0 : (count || 0);
-  return { enviados, tope: TOPE_DIARIO, restan: Math.max(0, TOPE_DIARIO - enviados) };
+const CON_TOPE = new Set(["masivo", "invitacion"]);
+
+// La serie de un mensaje: si su primer mensaje no sale, la base cancela el
+// resto (triggers `mensajes_cancela_*`), así que la simulación tampoco los
+// cuenta.
+const serieDe = m => m.seguimiento_id ? `seg:${m.seguimiento_id}`
+  : m.campana_id ? `camp:${m.campana_id}:${m.cliente_id || m.telefono}`
+  : `msg:${m.id}`;
+
+export async function cargarCola() {
+  const hoy = fechaCO();
+  const me = state.me.id;
+  const [env, pend] = await Promise.all([
+    SB.from("mensajes_programados").select("id", { count: "exact", head: true })
+      .eq("owner_id", me).eq("estado", "enviado").gte("enviado_en", `${hoy}T00:00:00-05:00`),
+    SB.from("mensajes_programados")
+      .select("id,tipo,enviar_en,seguimiento_id,campana_id,cliente_id,telefono")
+      .eq("owner_id", me).eq("estado", "pendiente").order("enviar_en"),
+  ]);
+  if (env.error || pend.error) throw env.error || pend.error;
+  return {
+    hoy, tope: TOPE_DIARIO, enviados: env.count || 0,
+    pendientes: (pend.data || []).map(m => ({ t: Date.parse(m.enviar_en), tipo: m.tipo, serie: serieDe(m) })),
+  };
+}
+
+// Recorre la cola en el orden del worker (hora programada; a igual hora, lo
+// que ya estaba va primero). `nuevas`: [{ t, tipo, serie }] de lo que se está
+// por programar, con una serie distinta por persona. Devuelve qué series
+// nuevas no saldrían, qué primeros mensajes YA programados dejarían de salir
+// (lo nuevo puede quitarles el cupo si va antes) y cuánto se gasta hoy.
+export function simularCupo(cola, nuevas = []) {
+  const ahora = Date.now();
+  const todos = [
+    ...cola.pendientes.map(m => ({ ...m, nueva: false })),
+    ...nuevas.map(m => ({ ...m, nueva: true })),
+  ].sort((a, b) => a.t - b.t || a.nueva - b.nueva);
+  const usados = new Map([[cola.hoy, cola.enviados]]);
+  const caidas = new Set(), fueraNuevas = new Set();
+  let fueraPrevias = [];
+  let enColaHoy = 0;
+  for (const m of todos) {
+    // Lo atrasado sale apenas el worker lo tome: cuenta para hoy.
+    const dia = fechaCO(new Date(Math.max(m.t, ahora)));
+    if (!m.nueva && dia === cola.hoy) enColaHoy++;
+    if (caidas.has(m.serie)) continue;
+    const n = usados.get(dia) || 0;
+    if (CON_TOPE.has(m.tipo) && n >= cola.tope) {
+      caidas.add(m.serie);
+      if (m.nueva) fueraNuevas.add(m.serie); else fueraPrevias.push({ ...m, dia });
+      continue;
+    }
+    usados.set(dia, n + 1);
+  }
+  // Lo ya programado que no iba a salir de todos modos no es culpa de esta
+  // tanda: se separa para no decirle al agente que la tanda se lo quitó.
+  let yaFuera = fueraPrevias.length;
+  if (nuevas.length) {
+    const antes = new Set(simularCupo(cola).fueraPrevias.map(m => m.serie));
+    yaFuera = antes.size;
+    fueraPrevias = fueraPrevias.filter(m => !antes.has(m.serie));
+  }
+  return { fueraNuevas, fueraPrevias, yaFuera, enColaHoy, usadosHoy: usados.get(cola.hoy), enviados: cola.enviados, tope: cola.tope };
+}
+
+// Texto del aviso de cupo para un confirm. Vacío si todo sale. `unidad`
+// nombra a quién le escribe esa pantalla («personas», «leads»).
+export function avisoCupo(sim, total, unidad = "personas") {
+  const nf = sim.fueraNuevas.size, np = sim.fueraPrevias.length;
+  if (!nf && !np && !sim.yaFuera) return "";
+  const lineas = [];
+  if (nf) lineas.push(nf === total
+    ? `⚠ Esta tanda NO va a salir: nadie de ${total === 1 ? "esta persona" : `estas ${total} ${unidad}`} recibirá el mensaje, porque el límite diario de ${sim.tope} envíos ya está ocupado.`
+    : `⚠ De esta tanda de ${total} ${unidad}, ${nf} NO recibirán el mensaje: no caben en el límite diario de ${sim.tope} envíos.`);
+  if (np) lineas.push(`⚠ ${nf ? "Además, " : ""}${np} ${np === 1 ? "persona que ya tenías programada dejaría" : "personas que ya tenías programadas dejarían"} de recibir su mensaje: esta tanda les quita el cupo.`);
+  if (sim.yaFuera) lineas.push(`(Sin contar esta tanda, ${sim.yaFuera} ${sim.yaFuera === 1 ? "persona programada ya no iba" : "personas programadas ya no iban"} a recibir su mensaje por el límite.)`);
+  lineas.push(`Hoy llevas ${sim.enviados} enviados y ${sim.enColaHoy} más en cola. El límite se reinicia a medianoche (hora Colombia).`);
+  return "\n\n" + lineas.join("\n");
 }
 
 // Quién te escribió y cuándo, desde `chats_recientes` (lo publica el worker
