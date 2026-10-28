@@ -248,6 +248,16 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
           <input id="segLibre" placeholder="Ej: Lanzamiento de membresías" autocomplete="off">
           <div class="msgshelp">No entra al catálogo ni cuenta para el progreso de nadie. Úsalo para cosas de una sola vez.</div>
         </div>
+        <!-- Nombre que ven las personas en {actividad}. Plegado: casi siempre
+             coincide con el nombre del panel, y un segundo campo de nombre a la
+             vista confunde más de lo que ayuda. Vale en los dos tipos. -->
+        <div class="frow wide" id="segNomPubRow">
+          <button type="button" class="tbtn" id="segNomPubBtn">✎ Otro nombre para las personas</button>
+          <div id="segNomPubBox" class="hidden">
+            <input id="segNomPub" placeholder="Ej: Clase en vivo de trading" autocomplete="off" maxlength="120">
+            <div class="msgshelp" id="segNomPubAyuda"></div>
+          </div>
+        </div>
         <!-- Si la puntual ES uno de los tres zooms de venta, marcarle la
              asistencia a alguien marca de una vez su etapa del embudo: es el
              mismo hecho. Solo en las puntuales — una del catálogo es recurrente
