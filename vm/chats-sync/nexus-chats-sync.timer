@@ -1,9 +1,9 @@
 [Unit]
-Description=Nexus — chats recientes cada 5 minutos (misma cadencia que el worker de VM1)
+Description=Nexus — chats recientes 5 minutos después de terminar la vuelta anterior
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=5min
+OnUnitInactiveSec=5min
 AccuracySec=15s
 Unit=nexus-chats-sync.service
 

@@ -207,6 +207,14 @@ VM2 sigue sin `chats_sync` (ver KI-014 en `08-memory/known-issues.md`).
 desde VM1 (`nolock=1` solo es seguro en disco local) ni levantar un worker en VM2 (duplica
 envíos). En VM1 no se instala el timer: ya lo hace el worker.
 
+**Costo de la lectura (28/10/2026).** La consulta original usaba tres subconsultas correlacionadas
+por chat sobre `messages`, que no tiene índice por `chat_jid` (PK `id, chat_jid`) y no se le
+puede crear uno (solo lectura): en VM2 tomaba ~3 min de CPU por vuelta. Se reescribió como UNA
+pasada agrupada (`GROUP BY chat_jid` + `JOIN`): mismo resultado, ~1000× más rápida en una base
+sintética de 150.000 mensajes. El timer usa `OnUnitInactiveSec` para contar los 5 min desde que
+termina la vuelta. VM1 sigue con la consulta lenta DENTRO del worker hasta instalar el
+`chats_sync.py` nuevo con `instalar_primer_entrante.py` (sin verificar si bloquea envíos).
+
 **Punto de enganche para eventos** (p. ej. notificaciones): una fila de `chats_recientes` cuyo
 `entrante_en` cambia ES «esta persona te escribió» (`owner_id` + `telefono`). «Primer mensaje del
 día» = `primer_entrante_dia` pasa a una fecha de hoy. «Respondió» = ese `entrante_en` es posterior
