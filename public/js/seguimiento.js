@@ -12,6 +12,7 @@ import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { porBajar } from "./crm.js";
+import { llegadaFila } from "./leads.js";
 import { asegurarEntrantes, entranteDe, escribioTras } from "./entrantes.js";
 import { avisarSiCanalCaido } from "./salud.js";
 import { subirImagenMensaje, guardarHistorialSegmento } from "./data.js";
@@ -1539,7 +1540,7 @@ function renderFaltan() {
           <input type="checkbox" data-cid="${c.id}" ${segSel.has(c.id) ? "checked" : ""}>
           <span class="badge b-${c.mem}">${c.mem}</span>${insigniasBroker(c)}
           <span class="nmtemp"><span class="nm">${esc(c.nombre)}</span><span class="segtemp ${tp.get(c.id).t}" title="${esc(tp.get(c.id).motivo)}"><b>${TEMP_NOM[tp.get(c.id).t]}</b> · ${esc(tp.get(c.id).motivo)}</span></span>
-          ${c.comunidadDesde ? `<span class="segmes" title="Entró a la comunidad">${esc(diaMesCorto(c.comunidadDesde))}</span>` : ""}
+          ${c.comunidadDesde ? `<span class="segmes" title="Entró a la comunidad">${esc(diaMesCorto(c.comunidadDesde))}</span>` : llegadaFila(c)}
           ${esInactivo(c) ? `<span class="badge b-inact" title="${esc(nombreMotivo(c.inactivoMotivo))}">😴 ${esc(motivoCorto(c.inactivoMotivo))}</span>` : ""}
           ${prog ? `<span class="yaprog" title="Ya tiene los mensajes programados para esta actividad">✓ ya programado</span>` : ""}
           ${sid && c.acc[sid] ? `<span class="yaasis">ya asistió</span>` : ""}

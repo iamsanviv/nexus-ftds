@@ -9,6 +9,7 @@ import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
 import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento, cuotaDiaria } from "./data.js";
 import { canalVinculado } from "./canal.js";
 import { porBajar } from "./crm.js";
+import { llegadaFila } from "./leads.js";
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
 let masSel = new Set();     // ids seleccionados
@@ -225,7 +226,7 @@ function renderLista() {
           <input type="checkbox" data-cid="${c.id}" ${masSel.has(c.id) ? "checked" : ""}>
           <span class="badge b-${c.mem}">${c.mem}</span>${insigniasBroker(c)}
           <span class="nm">${esc(c.nombre)}</span>
-          ${c.comunidadDesde ? `<span class="segmes" title="Entró a la comunidad">${esc(diaMesCorto(c.comunidadDesde))}</span>` : ""}
+          ${c.comunidadDesde ? `<span class="segmes" title="Entró a la comunidad">${esc(diaMesCorto(c.comunidadDesde))}</span>` : llegadaFila(c)}
           ${esInactivo(c) ? `<span class="badge b-inact" title="${esc(nombreMotivo(c.inactivoMotivo))}">😴 ${esc(motivoCorto(c.inactivoMotivo))}</span>` : ""}
         </label>`).join("")
     : `<div class="naplica">Nadie en este filtro.</div>`;

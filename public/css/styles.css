@@ -1663,9 +1663,9 @@ body:has(.overlay.open){overflow:hidden}
    lista de personas, el masivo y las invitaciones. */
 .ejelbl{flex:0 0 auto;font-size:.66rem;font-weight:800;letter-spacing:.07em;
   text-transform:uppercase;color:var(--muted);margin-right:3px}
-/* Mes de ingreso a la comunidad en las listas de selección. El día no aporta
-   nada al elegir a quién escribirle; el mes sí dice qué tan nueva es la persona. */
-.seg-row .segmes{flex:0 0 auto;color:var(--muted);font-size:.72rem;white-space:nowrap}
+/* Fecha de ingreso (comunidad) o de llegada (lead) en las listas de selección:
+   dice qué tan nueva es la persona al elegir a quién escribirle. */
+.seg-row .segmes{flex:0 0 auto;color:var(--muted);font-size:.72rem;white-space:nowrap;font-variant-numeric:tabular-nums}
 
 /* ---------------- Tarjeta de FTD del mes (Comunidad) ----------------
    Una sola plantilla: móvil apila mes / ritmo / comisión y escritorio los pone
@@ -1980,6 +1980,9 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .ldplantrow .tbtn{flex:0 0 auto;width:auto}
 .ldetq{margin-left:auto;font-size:.72rem;color:var(--muted);white-space:nowrap}
 #ldLista .ltemp{margin-left:8px}
+/* La fecha de llegada va al final: pegada al borde y con cifras tabulares forma
+   columna sin depender de cuánto midan la etapa y la temperatura. */
+#ldLista .segmes{margin-left:10px}
 #ldEtapas,#ldTemps{margin-bottom:8px}
 .fs2.alerta{color:var(--gold)}
 

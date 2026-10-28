@@ -38,6 +38,20 @@ export const sinHora = ts => { const d = new Date(ts); return !isNaN(d) && d.get
 const cuandoHora = ts => sinHora(ts) ? cuandoTxt(ts) : `${cuandoTxt(ts)} ${horaTxt(ts)}`;
 // Fecha de llegada: la que puso el agente o, si no la puso, cuándo se creó.
 export const llegada = c => c.creado || (c.createdAt ? fechaCO(new Date(c.createdAt)) : null);
+// Fecha de llegada en las listas para elegir a quién escribir («28/10»). El año
+// solo aparece cuando no es el actual, para no confundir un lead viejo con uno
+// de esta semana.
+export const llegadaCorta = c => {
+  const p = (llegada(c) || "").split("-");
+  if (p.length < 3) return "";
+  const dm = `${p[2].slice(0, 2)}/${p[1]}`;
+  return Number(p[0]) === new Date().getFullYear() ? dm : `${dm}/${p[0].slice(2)}`;
+};
+// Etiqueta de llegada para una fila de selección; vacía si no es lead o no se sabe.
+export const llegadaFila = c => {
+  const f = c.mem === "Lead" ? llegadaCorta(c) : "";
+  return f ? `<span class="segmes" title="Llegó como lead">${esc(f)}</span>` : "";
+};
 
 /* ------------------------------------------------------------- contactos */
 export const contactosDe = c => state.contactos?.[c.id] || [];   // más reciente primero
