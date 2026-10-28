@@ -261,6 +261,15 @@ sin `chats_sync` deja la temperatura solo con asistencia). `acc` guarda una fech
 (la última marcada), así que la «última asistencia» es la más reciente entre servicios y
 actividades puntuales. Ver [[../05-integrations/whatsapp-worker]].
 
+## «Sin imagen» en la tarjeta y ayuda de la imagen (28/10/2026)
+
+La tarjeta de «Actividades del día» lleva la etiqueta roja **«Sin imagen»** cuando la invitación saldría
+solo con texto (ni imagen ni video): sin adjunto propio del agente (en ajenas), sin `actividades.imagen`
+y sin imagen del servicio en el catálogo. Misma precedencia que `programar()` (`adjuntoInvitacion`).
+
+En el formulario, el texto de ayuda de la imagen dice si el servicio elegido **tiene o no** imagen en
+el catálogo (`pintarAyudaImg`), para saber antes de guardar si la invitación saldrá con imagen.
+
 ## Rastreo
 
 Cada seguimiento rastreado tiene su propio `clic_token`. El token identifica a esa persona dentro de esa actividad y debe sobrevivir a reprogramaciones de mensajes.
