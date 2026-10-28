@@ -15,7 +15,7 @@ import { asegurarEntrantes } from "./entrantes.js";
 // contador (función pura sobre `state`) y el modo manual se carga a demanda.
 import { repasoPendientes } from "./repaso.js";
 import { refrescarCanal } from "./canal.js";
-import { chipTemp, razon, seguimientoHTML, wireSeguimiento, temperatura, llegada } from "./leads.js";
+import { chipTemp, razon, seguimientoHTML, wireSeguimiento, temperatura, llegada, filtroLlegada, enRangoLleg } from "./leads.js";
 import { renderHoy } from "./hoy.js";
 import { porBajar, crmDe, marcarBajo, ICO_BAJAR } from "./crm.js";
 import { renderMiDia, tieneMiDia } from "./midia.js";
@@ -330,36 +330,7 @@ export function render() {
   if (llegFila) {
     llegFila.classList.toggle("hidden", !isLead);
     if (!isLead) { state.filtroLleg = null; llegFila.innerHTML = ""; }
-    else {
-      const hoy = hoyISO(), menos = n => fechaCO(new Date(Date.now() - n * 864e5));
-      const ATAJOS = {
-        hoy:  { desde: hoy, hasta: hoy },
-        ayer: { desde: menos(1), hasta: menos(1) },
-        sem:  { desde: menos(6), hasta: hoy },
-        mes:  { desde: hoy.slice(0, 7) + "-01", hasta: hoy },
-      };
-      const r = state.filtroLleg, modo = r?.modo || "";
-      const op = (v, t) => `<option value="${v}" ${modo === v ? "selected" : ""}>${t}</option>`;
-      llegFila.innerHTML = `<span class="ejelbl">Llegó</span>
-        <select class="brksel" id="llegSel" aria-label="Filtrar por fecha de llegada">
-          <option value="">Cualquier fecha</option>
-          ${op("hoy", "Hoy")}${op("ayer", "Ayer")}${op("sem", "Últimos 7 días")}${op("mes", "Este mes")}${op("rango", "Entre fechas…")}
-        </select>
-        ${modo === "rango" ? `<input type="date" class="depfecha" id="llegDesde" value="${r.desde || ""}" aria-label="Llegó desde">
-          <span class="ejelbl">a</span>
-          <input type="date" class="depfecha" id="llegHasta" value="${r.hasta || ""}" aria-label="Llegó hasta">` : ""}`;
-      $("llegSel").onchange = e => {
-        const v = e.target.value;
-        state.filtroLleg = !v ? null : v === "rango" ? { modo: "rango", desde: menos(6), hasta: hoy } : { modo: v, ...ATAJOS[v] };
-        render();
-      };
-      const cambio = () => {
-        let d = $("llegDesde").value || null, h = $("llegHasta").value || null;
-        if (d && h && d > h) [d, h] = [h, d];
-        state.filtroLleg = { modo: "rango", desde: d, hasta: h }; render();
-      };
-      if ($("llegDesde")) { $("llegDesde").onchange = cambio; $("llegHasta").onchange = cambio; }
-    }
+    else filtroLlegada(llegFila, state.filtroLleg, r => { state.filtroLleg = r; render(); });
   }
 
   // Servicio: quién asistió o no a un servicio del catálogo. Heredó el único uso
@@ -430,8 +401,7 @@ export function render() {
     if (state.filtroMem && c.mem !== state.filtroMem) return false;
     if (state.filtroBrk && !c.ftds?.[state.filtroBrk]) return false;
     if (state.filtroDep && !enRango(c)) return false;
-    if (state.filtroLleg) { const r = state.filtroLleg, f = llegada(c);
-      if (!f || (r.desde && f < r.desde) || (r.hasta && f > r.hasta)) return false; }
+    if (!enRangoLleg(llegada(c), state.filtroLleg)) return false;
     if (state.filtroSrv && !!c.acc[state.filtroSrv.id] !== (state.filtroSrv.modo === "si")) return false;
     if (isLead && state.filtroTemp && temperatura(c) !== state.filtroTemp) return false;
     if (state.filtro === "todos" || state.filtro === "inactivas") return true;
