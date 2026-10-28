@@ -3,7 +3,7 @@
 // que no llegue idéntico (más seguro). Crea una "campaña" y N mensajes en cola.
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
-  esInactivo, nombreMotivo, motivoCorto, BROKERS, insigniasBroker, mesCorto,
+  esInactivo, nombreMotivo, motivoCorto, BROKERS, insigniasBroker, diaMesCorto,
   MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto,
   componerMensaje, horaDeCliente, etiquetaZona, todos, cuandoParte } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento, cuotaDiaria } from "./data.js";
@@ -225,7 +225,7 @@ function renderLista() {
           <input type="checkbox" data-cid="${c.id}" ${masSel.has(c.id) ? "checked" : ""}>
           <span class="badge b-${c.mem}">${c.mem}</span>${insigniasBroker(c)}
           <span class="nm">${esc(c.nombre)}</span>
-          ${c.comunidadDesde ? `<span class="segmes" title="Entró a la comunidad">${esc(mesCorto(c.comunidadDesde))}</span>` : ""}
+          ${c.comunidadDesde ? `<span class="segmes" title="Entró a la comunidad">${esc(diaMesCorto(c.comunidadDesde))}</span>` : ""}
           ${esInactivo(c) ? `<span class="badge b-inact" title="${esc(nombreMotivo(c.inactivoMotivo))}">😴 ${esc(motivoCorto(c.inactivoMotivo))}</span>` : ""}
         </label>`).join("")
     : `<div class="naplica">Nadie en este filtro.</div>`;

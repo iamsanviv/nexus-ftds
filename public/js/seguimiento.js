@@ -8,7 +8,7 @@ import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
   horaDeCliente, etiquetaZona, etiquetaDia, componerMensaje,
   esInactivo, esLead, nombreMotivo, motivoCorto,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas,
-  normBusqueda, BROKERS, insigniasBroker, mesCorto, cuandoParte, fechaCO } from "./state.js";
+  normBusqueda, BROKERS, insigniasBroker, diaMesCorto, cuandoParte, fechaCO } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { porBajar } from "./crm.js";
@@ -1386,7 +1386,7 @@ function renderFaltan() {
           <input type="checkbox" data-cid="${c.id}" ${segSel.has(c.id) ? "checked" : ""}>
           <span class="badge b-${c.mem}">${c.mem}</span>${insigniasBroker(c)}
           <span class="nmtemp"><span class="nm">${esc(c.nombre)}</span><span class="segtemp ${tp.get(c.id).t}" title="${esc(tp.get(c.id).motivo)}"><b>${TEMP_NOM[tp.get(c.id).t]}</b> · ${esc(tp.get(c.id).motivo)}</span></span>
-          ${c.comunidadDesde ? `<span class="segmes" title="Entró a la comunidad">${esc(mesCorto(c.comunidadDesde))}</span>` : ""}
+          ${c.comunidadDesde ? `<span class="segmes" title="Entró a la comunidad">${esc(diaMesCorto(c.comunidadDesde))}</span>` : ""}
           ${esInactivo(c) ? `<span class="badge b-inact" title="${esc(nombreMotivo(c.inactivoMotivo))}">😴 ${esc(motivoCorto(c.inactivoMotivo))}</span>` : ""}
           ${prog ? `<span class="yaprog" title="Ya tiene los mensajes programados para esta actividad">✓ ya programado</span>` : ""}
           ${sid && c.acc[sid] ? `<span class="yaasis">ya asistió</span>` : ""}
