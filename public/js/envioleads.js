@@ -17,7 +17,7 @@ import { state, $, esc, toast, normBusqueda, esLead, componerMensaje,
 import { subirImagenMensaje, guardarHistorialSegmento, cargarCola, simularCupo, avisoCupo, cargarPlantillasEnviadas } from "./data.js";
 import { canalVinculado } from "./canal.js";
 import { destinatariosMasivo } from "./masivo.js";
-import { TIPOS, TEMP, CATEGORIAS, categoria, temperatura, plantillaPara, llegadaFila } from "./leads.js";
+import { TIPOS, TEMP, CATEGORIAS, categoria, temperatura, plantillaPara, llegada, fechaFilaHTML, filtroLlegada, enRangoLleg } from "./leads.js";
 
 const MAX_MSGS = 4;
 const nuevoBorrador = () => ({ id: null, nombre: "", tipo: null, modo: "usuario", espera_min: 0,
@@ -27,7 +27,7 @@ let plantillas = [];
 let autores = {};   // id → nombre de quien publicó alguna plantilla
 let bor = nuevoBorrador();      // lo que se está editando
 let sel = new Set();            // leads elegidos: SIEMPRE arranca vacía
-let fEtapa = "todas", fTemp = "todas";
+let fEtapa = "todas", fTemp = "todas", fLleg = null;
 let cuando = "ahora";
 let alTerminar = null;
 let cola = null;    // cola del agente para prever el cupo; null mientras carga
@@ -47,6 +47,7 @@ const visibles = () => {
   return universo().filter(c =>
     (fEtapa === "todas" || categoria(c) === fEtapa) &&
     (fTemp === "todas" || temperatura(c) === fTemp) &&
+    enRangoLleg(llegada(c), fLleg) &&
     (!q || normBusqueda(c.nombre).includes(q)));
 };
 
@@ -245,6 +246,7 @@ function pintarFiltros() {
     + Object.entries(TEMP).map(([k, l]) => chip("data-te", k, l, fTemp === k, u.filter(c => temperatura(c) === k).length)).join("");
   $("ldEtapas").querySelectorAll("[data-et]").forEach(b => b.onclick = () => { fEtapa = b.dataset.et; pintarFiltros(); pintarLista(); });
   $("ldTemps").querySelectorAll("[data-te]").forEach(b => b.onclick = () => { fTemp = b.dataset.te; pintarFiltros(); pintarLista(); });
+  filtroLlegada($("ldLleg"), fLleg, r => { fLleg = r; pintarFiltros(); pintarLista(); });
 }
 
 function pintarLista() {
@@ -257,7 +259,7 @@ function pintarLista() {
           ${ya ? `<span class="ldya ${ya.recibida ? "" : "prog"}">${ya.recibida ? "Ya la recibió" : "Programada"}</span>` : ""}
           <span class="ldetq">${ETQ[categoria(c)]}</span>
           <span class="ltemp ${t}"><i></i>${TEMP[t]}</span>
-          ${llegadaFila(c)}
+          ${fechaFilaHTML(c)}
         </label>`; }).join("")
     : `<div class="naplica">${universo().length ? "Ningún lead en este filtro." : "No tienes leads con teléfono para escribirles."}</div>`;
   $("ldLista").querySelectorAll("input[data-cid]").forEach(inp => inp.onchange = () => {
@@ -420,7 +422,7 @@ async function enviarSinCandado() {
 export async function abrirEnvioLeads(render, { soloId, plantillaId } = {}) {
   alTerminar = render;
   const solo = soloId && universo().find(c => c.id === soloId);
-  sel = new Set(solo ? [solo.id] : []); fEtapa = "todas"; fTemp = "todas"; cuando = "ahora";
+  sel = new Set(solo ? [solo.id] : []); fEtapa = "todas"; fTemp = "todas"; fLleg = null; cuando = "ahora";
   bor = nuevoBorrador();
   $("ldNombre").value = ""; $("ldBuscar").value = solo ? solo.nombre : "";
   $("ldFecha").value = ""; $("ldHora").value = ""; $("ldHoraRef").value = "";

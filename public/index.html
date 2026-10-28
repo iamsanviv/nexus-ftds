@@ -474,6 +474,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         <span class="ejelbl">Broker</span>
         <select class="brksel" id="segBrk" aria-label="Filtrar por broker del FTD"></select>
       </div>
+      <div class="brkfila llegfila" id="segLlegFila"></div>
       <!-- Reutilizar una selección anterior. Va pegado a los filtros porque es
            otra forma de lo mismo —acotar a quién— y arriba del todo quedaba
            lejos de la lista sobre la que actúa. -->
@@ -1030,6 +1031,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <h3 class="paneh">Leads<span class="cnt" id="ldCount"></span><span class="rule"></span></h3>
     <div id="ldEtapas" class="chips"></div>
     <div id="ldTemps" class="chips"></div>
+    <div class="brkfila llegfila" id="ldLleg"></div>
     <div class="masbuscarwrap"><input id="ldBuscar" placeholder="Buscar lead…" autocomplete="off"></div>
     <div class="segselbar">
       <button class="pill" id="ldMarcar">✓ Marcar visibles</button>
@@ -1215,6 +1217,8 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         <option value="si">Ya asistió</option>
       </select>
     </div>
+    <!-- Llegó: fecha de llegada (leads) o de entrada a la comunidad. Lo pinta leads.js. -->
+    <div class="brkfila llegfila" id="masLlegFila"></div>
     <div class="masbuscarwrap"><input id="masBuscar" placeholder="🔎 Buscar persona…" autocomplete="off"><button id="masBuscarX" class="masbuscarx hidden" title="Limpiar">✕</button></div>
     <div class="segselbar">
       <button class="pill" id="masMarcar">✓ Marcar visibles</button>

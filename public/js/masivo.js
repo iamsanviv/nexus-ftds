@@ -3,13 +3,13 @@
 // que no llegue idéntico (más seguro). Crea una "campaña" y N mensajes en cola.
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
-  esInactivo, nombreMotivo, motivoCorto, BROKERS, insigniasBroker, diaMesCorto,
+  esInactivo, nombreMotivo, motivoCorto, BROKERS, insigniasBroker,
   MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto,
   componerMensaje, horaDeCliente, etiquetaZona, todos, cuandoParte } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento, cargarCola, simularCupo, avisoCupo } from "./data.js";
 import { canalVinculado } from "./canal.js";
 import { porBajar } from "./crm.js";
-import { llegadaFila } from "./leads.js";
+import { fechaFila, fechaFilaHTML, filtroLlegada, enRangoLleg } from "./leads.js";
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
 let masSel = new Set();     // ids seleccionados
@@ -17,6 +17,7 @@ let masFiltro = "todos";    // filtro de membresía
 let masBroker = "todos";    // filtro por broker del FTD (eje aparte del anterior)
 let masSrv = "";            // servicio del catálogo por el que se filtra ("" = ninguno)
 let masSrvModo = "no";      // "no" = aún no asistió · "si" = ya asistió
+let masLleg = null;         // rango del filtro «Llegó» (leads.js)
 let masImg = null;          // URL del adjunto subido (imagen o video), o null
 let masImgTipo = null;      // "imagen" | "video" — para la vista previa y el nombre de la campaña
 
@@ -124,6 +125,7 @@ function renderFiltros() {
   $("masFiltros").querySelectorAll("[data-fmem]").forEach(b => b.onclick = () => { masFiltro = b.dataset.fmem; renderLista(); });
   pintarBrokers(lista);
   pintarServicios();
+  filtroLlegada($("masLlegFila"), masLleg, r => { masLleg = r; renderFiltros(); renderLista(); });
 }
 
 // Servicio: reemplaza a la antigua pestaña «Servicios», cuyo único uso vivo era
@@ -199,7 +201,7 @@ function renderSegs() {
     const ids = idsDeSegmento(s);
     const enPool = new Set(pool().map(c => c.id));
     masSel = new Set(ids.filter(id => enPool.has(id)));
-    masFiltro = "todos"; masBroker = "todos"; masSrv = ""; masSrvModo = "no";
+    masFiltro = "todos"; masBroker = "todos"; masSrv = ""; masSrvModo = "no"; masLleg = null;
     renderFiltros(); renderLista();
     const omit = ids.length - masSel.size;
     toast(omit > 0
@@ -214,7 +216,7 @@ function visibles() {
     const okMem = masFiltro === "todos" || (masFiltro === "invitadas" ? yaInvitada(c) : c.mem === masFiltro);
     const okBrk = masBroker === "todos" || !!c.ftds?.[masBroker];
     const okSrv = !masSrv || (!!c.acc?.[masSrv] === (masSrvModo === "si"));
-    return okMem && okBrk && okSrv && (!q || normBusqueda(c.nombre).includes(q));
+    return okMem && okBrk && okSrv && enRangoLleg(fechaFila(c), masLleg) && (!q || normBusqueda(c.nombre).includes(q));
   });
 }
 
@@ -226,7 +228,7 @@ function renderLista() {
           <input type="checkbox" data-cid="${c.id}" ${masSel.has(c.id) ? "checked" : ""}>
           <span class="badge b-${c.mem}">${c.mem}</span>${insigniasBroker(c)}
           <span class="nm">${esc(c.nombre)}</span>
-          ${c.comunidadDesde ? `<span class="segmes" title="Entró a la comunidad">${esc(diaMesCorto(c.comunidadDesde))}</span>` : llegadaFila(c)}
+          ${fechaFilaHTML(c)}
           ${esInactivo(c) ? `<span class="badge b-inact" title="${esc(nombreMotivo(c.inactivoMotivo))}">😴 ${esc(motivoCorto(c.inactivoMotivo))}</span>` : ""}
         </label>`).join("")
     : `<div class="naplica">Nadie en este filtro.</div>`;
@@ -487,7 +489,7 @@ const partesUtiles = () => masSerie.partes
 
 /* ---------- abrir / enviar ---------- */
 async function abrir() {
-  masSel = new Set(); masFiltro = "todos"; masBroker = "todos"; masSrv = ""; masSrvModo = "no";
+  masSel = new Set(); masFiltro = "todos"; masBroker = "todos"; masSrv = ""; masSrvModo = "no"; masLleg = null;
   masCuando = "ahora"; masIncInact = false;
   masSerie = { modo: "usuario", espera_min: 0, escalona: false, partes: [] };
   $("masTexto").value = ""; $("masBuscar").value = ""; $("masBuscarX").classList.add("hidden");

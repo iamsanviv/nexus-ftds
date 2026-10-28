@@ -3,7 +3,7 @@
 //
 // Las reglas viven aquí y no en la vista porque el panel «Hoy» (F3) las usa
 // igual: la lista y el panel tienen que decir la misma temperatura.
-import { state, esc, fmtF, hoyISO, fechaCO, toast, BROKERS, nombreBroker } from "./state.js";
+import { state, esc, fmtF, hoyISO, fechaCO, toast, BROKERS, nombreBroker, diaMesCorto } from "./state.js";
 import { dbPatch, crearContacto, actualizarContacto, borrarContacto } from "./data.js";
 import { entranteDe } from "./entrantes.js";
 
@@ -38,20 +38,50 @@ export const sinHora = ts => { const d = new Date(ts); return !isNaN(d) && d.get
 const cuandoHora = ts => sinHora(ts) ? cuandoTxt(ts) : `${cuandoTxt(ts)} ${horaTxt(ts)}`;
 // Fecha de llegada: la que puso el agente o, si no la puso, cuándo se creó.
 export const llegada = c => c.creado || (c.createdAt ? fechaCO(new Date(c.createdAt)) : null);
-// Fecha de llegada en las listas para elegir a quién escribir («28/10»). El año
-// solo aparece cuando no es el actual, para no confundir un lead viejo con uno
-// de esta semana.
-export const llegadaCorta = c => {
-  const p = (llegada(c) || "").split("-");
-  if (p.length < 3) return "";
-  const dm = `${p[2].slice(0, 2)}/${p[1]}`;
-  return Number(p[0]) === new Date().getFullYear() ? dm : `${dm}/${p[0].slice(2)}`;
+// Fecha de una fila en las listas para elegir a quién escribir: la de llegada
+// si es lead; la de entrada a la comunidad si no. El filtro «Llegó» filtra por
+// esta misma fecha, para que lo que se ve y lo que se filtra no difieran.
+export const fechaFila = c => c.mem === "Lead" ? llegada(c) : (c.comunidadDesde || null);
+export const fechaFilaHTML = c => {
+  const t = diaMesCorto(fechaFila(c));
+  return t ? `<span class="segmes" title="${c.mem === "Lead" ? "Llegó como lead" : "Entró a la comunidad"}">${esc(t)}</span>` : "";
 };
-// Etiqueta de llegada para una fila de selección; vacía si no es lead o no se sabe.
-export const llegadaFila = c => {
-  const f = c.mem === "Lead" ? llegadaCorta(c) : "";
-  return f ? `<span class="segmes" title="Llegó como lead">${esc(f)}</span>` : "";
+
+// Filtro «Llegó»: hoy, ayer, esta semana (desde el lunes), este mes o entre
+// fechas. Lo comparten la lista de Leads y las de seguimiento (leads, masivo,
+// actividad); `r` = { modo, desde, hasta } o null.
+const menosDias = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+const rangoLleg = modo => {
+  const hoy = hoyISO();
+  if (modo === "hoy") return { desde: hoy, hasta: hoy };
+  if (modo === "ayer") { const a = menosDias(hoy, 1); return { desde: a, hasta: a }; }
+  if (modo === "sem") return { desde: menosDias(hoy, (new Date(hoy + "T12:00:00Z").getUTCDay() + 6) % 7), hasta: hoy };
+  if (modo === "mes") return { desde: hoy.slice(0, 7) + "-01", hasta: hoy };
+  return { desde: menosDias(hoy, 6), hasta: hoy };
 };
+export const enRangoLleg = (f, r) => !r || (!!f && (!r.desde || f >= r.desde) && (!r.hasta || f <= r.hasta));
+export function filtroLlegada(fila, r, cambio) {
+  const modo = r?.modo || "";
+  const op = (v, t) => `<option value="${v}" ${modo === v ? "selected" : ""}>${t}</option>`;
+  fila.innerHTML = `<span class="ejelbl">Llegó</span>
+    <select class="brksel" data-lleg aria-label="Filtrar por fecha de llegada">
+      <option value="">Cualquier fecha</option>
+      ${op("hoy", "Hoy")}${op("ayer", "Ayer")}${op("sem", "Esta semana")}${op("mes", "Este mes")}${op("rango", "Entre fechas…")}
+    </select>
+    ${modo === "rango" ? `<input type="date" class="depfecha" data-desde value="${r.desde || ""}" aria-label="Llegó desde">
+      <span class="ejelbl">a</span>
+      <input type="date" class="depfecha" data-hasta value="${r.hasta || ""}" aria-label="Llegó hasta">` : ""}`;
+  fila.querySelector("[data-lleg]").onchange = e => {
+    const v = e.target.value;
+    cambio(v ? { modo: v, ...rangoLleg(v) } : null);
+  };
+  const de = fila.querySelector("[data-desde]"), ha = fila.querySelector("[data-hasta]");
+  if (de) de.onchange = ha.onchange = () => {
+    let d = de.value || null, h = ha.value || null;
+    if (d && h && d > h) [d, h] = [h, d];
+    cambio({ modo: "rango", desde: d, hasta: h });
+  };
+}
 
 /* ------------------------------------------------------------- contactos */
 export const contactosDe = c => state.contactos?.[c.id] || [];   // más reciente primero

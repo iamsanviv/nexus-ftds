@@ -1762,9 +1762,9 @@ body:has(.overlay.open){overflow:hidden}
 #filtrosDep{flex-wrap:wrap;row-gap:7px}
 /* Llegada (leads): las fechas bajan de renglón antes que encogerse hasta cortar
    el texto en el teléfono. */
-#filtrosLleg{flex-wrap:wrap;row-gap:7px}
-#filtrosLleg .brksel{flex:0 0 auto}
-#filtrosLleg .depfecha{min-width:132px}
+#filtrosLleg,.llegfila{flex-wrap:wrap;row-gap:7px}
+#filtrosLleg .brksel,.llegfila .brksel{flex:0 0 auto}
+#filtrosLleg .depfecha,.llegfila .depfecha{min-width:132px}
 
 /* ---------------- Leads · seguimiento ---------------- */
 .lhead{display:flex;align-items:center;gap:7px;min-width:0;margin-top:5px;font-size:.74rem;color:var(--muted)}
@@ -1986,7 +1986,7 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 #ldLista .ltemp{margin-left:8px}
 /* La fecha de llegada va al final: pegada al borde y con cifras tabulares forma
    columna sin depender de cuánto midan la etapa y la temperatura. */
-#ldLista .segmes{margin-left:10px}
+#ldLista .segmes{margin-left:10px;min-width:3.4em;text-align:right}
 #ldEtapas,#ldTemps{margin-bottom:8px}
 .fs2.alerta{color:var(--gold)}
 

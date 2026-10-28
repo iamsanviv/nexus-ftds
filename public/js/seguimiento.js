@@ -8,11 +8,11 @@ import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
   horaDeCliente, etiquetaZona, etiquetaDia, componerMensaje,
   esInactivo, esLead, nombreMotivo, motivoCorto,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas,
-  normBusqueda, BROKERS, insigniasBroker, diaMesCorto, cuandoParte, fechaCO } from "./state.js";
+  normBusqueda, BROKERS, insigniasBroker, cuandoParte, fechaCO } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { porBajar } from "./crm.js";
-import { llegadaFila } from "./leads.js";
+import { fechaFila, fechaFilaHTML, filtroLlegada, enRangoLleg } from "./leads.js";
 import { asegurarEntrantes, entranteDe, escribioTras } from "./entrantes.js";
 import { avisarSiCanalCaido } from "./salud.js";
 import { cargarAvisoEnvios, avisoEnviosHTML } from "./envios.js";
@@ -238,6 +238,7 @@ let logFiltro = "todos";      // filtro del registro de envíos
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
 let segFiltroBrk = "todos";   // broker del FTD: eje aparte de la membresía
+let segLleg = null;           // rango del filtro «Llegó» (leads.js)
 // Orden de la lista de invitados (pedido de Sanviv, 21/10/2026). Por defecto,
 // los que entraron a la comunidad más recientemente arriba.
 let segOrden = "recientes";
@@ -1381,6 +1382,7 @@ async function seleccionarActividad(a) {
   // Igual que los hitos: heredar el filtro de broker de la tanda anterior
   // escondería gente en ESTA sin que nadie lo haya pedido.
   segFiltroBrk = "todos";
+  segLleg = null;
   segOrden = "recientes";
   segOrdenDesc = true;
   segBuscarTxt = "";
@@ -1440,6 +1442,8 @@ function ocultarProg() {
   $("segProgBloque").classList.add("hidden");
   $("segFaltan").innerHTML = "";
   $("segFiltros").innerHTML = "";
+  $("segLlegFila").innerHTML = "";
+  segLleg = null;
   segFiltroBrk = "todos";
   const bf = $("segBrkFila"); if (bf) bf.classList.add("hidden");
   $("segSelCount").textContent = "";
@@ -1571,6 +1575,7 @@ function renderFaltan() {
     segFiltroMem = b.dataset.fmem; renderFaltan();
   });
   pintarBrokersSeg(lista);
+  filtroLlegada($("segLlegFila"), segLleg, r => { segLleg = r; renderFaltan(); });
 
   // Filtro combinado: membresía + búsqueda por nombre.
   // `normBusqueda` y no `toLowerCase`: buscar «jose» tiene que encontrar a
@@ -1579,6 +1584,7 @@ function renderFaltan() {
   const { lista: visibles, tp } = ordenarInvitados(lista.filter(c =>
     (segFiltroMem === "todos" || c.mem === segFiltroMem) &&
     (segFiltroBrk === "todos" || !!c.ftds?.[segFiltroBrk]) &&
+    enRangoLleg(fechaFila(c), segLleg) &&
     (!q || normBusqueda(c.nombre).includes(q))));
   pintarOrden();
 
@@ -1590,7 +1596,7 @@ function renderFaltan() {
           <input type="checkbox" data-cid="${c.id}" ${segSel.has(c.id) ? "checked" : ""}>
           <span class="badge b-${c.mem}">${c.mem}</span>${insigniasBroker(c)}
           <span class="nmtemp"><span class="nm">${esc(c.nombre)}</span><span class="segtemp ${tp.get(c.id).t}" title="${esc(tp.get(c.id).motivo)}"><b>${TEMP_NOM[tp.get(c.id).t]}</b> · ${esc(tp.get(c.id).motivo)}</span></span>
-          ${c.comunidadDesde ? `<span class="segmes" title="Entró a la comunidad">${esc(diaMesCorto(c.comunidadDesde))}</span>` : llegadaFila(c)}
+          ${fechaFilaHTML(c)}
           ${esInactivo(c) ? `<span class="badge b-inact" title="${esc(nombreMotivo(c.inactivoMotivo))}">😴 ${esc(motivoCorto(c.inactivoMotivo))}</span>` : ""}
           ${prog ? `<span class="yaprog" title="Ya tiene los mensajes programados para esta actividad">✓ ya programado</span>` : ""}
           ${sid && c.acc[sid] ? `<span class="yaasis">ya asistió</span>` : ""}
