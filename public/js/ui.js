@@ -1040,7 +1040,18 @@ function abrirPerfil(c) {
   // reasignar un cliente a otro agente de su equipo.
   renderDueno(c.owner_id);
   construirActividades(c);
+  pintarBajarPerfil(c);
   $("overlay").classList.add("open");
+}
+
+function pintarBajarPerfil(c) {
+  const row = $("fBajarRow");
+  const ver = !!c && porBajar(c);
+  row.classList.toggle("hidden", !ver);
+  if (!ver) { row.innerHTML = ""; return; }
+  row.innerHTML = `<button type="button" class="lbtn hbajar">${ICO_BAJAR}Bajado a WA</button><span>Lead de HighLevel: márcalo cuando ya te escriba por WhatsApp.</span>`;
+  row.querySelector("button").onclick = () =>
+    marcarBajo(crmDe(c), () => { pintarBajarPerfil(c); render(); });
 }
 
 function construirActividades(c) {
@@ -1141,6 +1152,7 @@ function cerrarM() {
   pintarSelectorEstado(null);
   ponerNivel(state.modulo === "leads" ? "Lead" : "Beca");
   $("fActividades").innerHTML = "";
+  pintarBajarPerfil(null);
 }
 
 // Selector de dueño: solo tiene sentido para un director, que es el único que
@@ -1171,6 +1183,7 @@ $("abrirModal").onclick = () => {
   pintarSelectorEstado(null);
   ponerNivel(state.modulo === "leads" ? "Lead" : "Beca");
   $("fActividades").innerHTML = "";
+  pintarBajarPerfil(null);
   renderDueno(state.me.id);
   import("./ftd.js").then(m => m.pintarCasillaFtd());
   $("overlay").classList.add("open");

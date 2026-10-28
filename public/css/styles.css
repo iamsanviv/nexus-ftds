@@ -2231,6 +2231,7 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .lbajar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px}
 .lbajar .hbajar{min-height:40px;padding:0 14px;border-radius:12px}
 .lbajar span{font-size:.74rem;color:var(--muted)}
+.perfbajar{margin:0 0 16px}
 
 /* ================= Administración (solo admin) ================= */
 /* En escritorio se entra por la barra lateral; en el móvil, por «Más». */

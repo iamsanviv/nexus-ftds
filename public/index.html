@@ -683,6 +683,11 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       </button>
     </div>
 
+    <!-- «Bajado a WA» de un lead de HighLevel. También vive en la tarjeta de la
+         lista, pero ahí queda debajo de las actividades: en el perfil es lo
+         primero que se ve (pedido de Sanviv, 28/10/2026). Lo pinta ui.js. -->
+    <div class="lbajar perfbajar hidden" id="fBajarRow"></div>
+
     <!-- El NIVEL va primero porque decide qué se pregunta después: un lead se
          registra, alguien de Beca en adelante entra a la comunidad. Nunca las
          dos fechas a la vez. `fMem` es oculto para que el valor se lea igual
