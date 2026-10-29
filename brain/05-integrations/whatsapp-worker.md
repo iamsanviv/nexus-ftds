@@ -239,6 +239,10 @@ pasada agrupada (`GROUP BY chat_jid` + `JOIN`): mismo resultado, ~1000× más r�
 sintética de 150.000 mensajes. El timer usa `OnUnitInactiveSec` para contar los 5 min desde que
 termina la vuelta. En VM1 la consulta corre DENTRO del worker: medida el 28/10/2026, la versión vieja tardaba
 1 min 43 s cada 5 min, y en ese lapso el worker no envía. Instalada la versión rápida ese día.
+Medido después (15–28/10 contra 28/10 14:40 UTC–29/10, mensajes ya en cola): las pausas de
+100–300 s entre envíos de un mismo agente pasaron de 132 (11,8 por mil) a **0**; el ritmo normal
+sigue en 6,9 s/msg y las tandas de 50+ mensajes bajaron de 9,6 a 7,7 s/msg efectivos. Quedan
+pausas de 60–100 s (7 por mil), de otra causa aún no identificada.
 
 **Punto de enganche para eventos** (p. ej. notificaciones): una fila de `chats_recientes` cuyo
 `entrante_en` cambia ES «esta persona te escribió» (`owner_id` + `telefono`). «Primer mensaje del
