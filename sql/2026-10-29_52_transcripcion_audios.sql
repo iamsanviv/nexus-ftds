@@ -39,12 +39,13 @@ $$;
 revoke all on function public.transcripcion_pendiente() from public, anon, authenticated;
 grant execute on function public.transcripcion_pendiente() to service_role;
 
--- La IA de texto: los audios ya no son «dudosos» por ser audios.
+-- La IA de texto: los audios ya no son «dudosos» por ser audios, y la respuesta
+-- se lee también en formato OpenAI (`choices`).
 create or replace function public.respuesta_ia(p_sid uuid, p_owner uuid, p_tel text, p_desde timestamptz)
 returns text language plpgsql security definer set search_path = '' as $$
 declare
   txt text; f public.respuestas_ia; resp record; v text; tok text; acct text; rid bigint;
-  -- El modelo: buen español coloquial; ~11 neuronas por respuesta.
+  -- El modelo: buen español coloquial; ~5,5 neuronas por respuesta (medido).
   MODELO constant text := '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
   INSTR constant text :=
     'Un asesor invitó por WhatsApp a una persona a una clase en vivo por Zoom y le preguntó si quiere que le envíe el link. '
@@ -86,7 +87,10 @@ begin
       return null;
     end if;
     begin
-      v := (resp.content::jsonb)->'result'->>'response';
+      -- Hoy llega en los dos campos (probado el 29/10); si Cloudflare deja
+      -- solo el formato OpenAI, se sigue leyendo.
+      v := coalesce((resp.content::jsonb)->'result'->>'response',
+                    (resp.content::jsonb)->'result'->'choices'->0->'message'->>'content');
     exception when others then v := null;
     end;
     v := translate(upper(coalesce(v, '')), 'ÍÉ', 'IE');
