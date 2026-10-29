@@ -23,6 +23,7 @@ import ast, hashlib, os, shutil, sys, time
 # otras dos, la de `entrante_en` (la de VM1 sin el comentario de cabecera,
 # diff revisado), previas a `primer_entrante_dia`.
 ANTERIORES = {
+    "9aa59656d44a7f697cc79989ab2d25d9659cc3d332a8f740adf1ef9ee945340d",  # audios, sin recorte (VM1, 29/10/2026)
     "ad0489f3ae41ab8b9b4648a1a90ced26228fb37cbb8d186c2b1b6ba00a581b47",  # entrantes_txt (28/10/2026)
     "da2c697923043bbe3bc81294049ba3b96c5610c9d6adda48b45c30504341dcf2",  # una pasada (28/10/2026)
     "a446f8a13d3a3b7785b8c41d43bc8d779302171a1d11229b44ea5d27dabefe7b",
