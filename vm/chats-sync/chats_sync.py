@@ -27,6 +27,8 @@
 #  mismo usuario, así que puede leer sus bases en SOLO LECTURA sin tocarlos.
 # =====================================================================
 import base64
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -317,50 +319,83 @@ def _cache_guardar(cache):
     os.replace(tmp, TRANSCRIPCIONES)
 
 
+def _descifrar(enc, media_key, info=b"WhatsApp Audio Keys"):
+    """Descifra un adjunto de WhatsApp (el `.enc` de su CDN) con su `media_key`.
+
+    Es el esquema público de WhatsApp: HKDF-SHA256 de la clave → IV, clave AES y
+    clave del MAC; los últimos 10 bytes son el MAC (HMAC-SHA256 truncado) y el
+    resto, AES-256-CBC con relleno PKCS7. Se verifica el MAC antes de descifrar:
+    un archivo corrupto no debe convertirse en una transcripción inventada."""
+    prk = hmac.new(b"\0" * 32, media_key, hashlib.sha256).digest()
+    okm, t, i = b"", b"", 1
+    while len(okm) < 80:
+        t = hmac.new(prk, t + info + bytes([i]), hashlib.sha256).digest()
+        okm, i = okm + t, i + 1
+    iv, clave, clave_mac = okm[:16], okm[16:48], okm[48:80]
+    datos, mac = enc[:-10], enc[-10:]
+    if not hmac.compare_digest(hmac.new(clave_mac, iv + datos, hashlib.sha256).digest()[:10], mac):
+        raise RuntimeError("el MAC del audio no cuadra")
+    try:
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        d = Cipher(algorithms.AES(clave), modes.CBC(iv)).decryptor()
+        plano = d.update(datos) + d.finalize()
+        return plano[:-plano[-1]]
+    except ImportError:
+        # Sin la librería (no está garantizada en VM2), openssl hace lo mismo.
+        return subprocess.run(["openssl", "enc", "-d", "-aes-256-cbc", "-K", clave.hex(),
+                               "-iv", iv.hex()], input=datos, capture_output=True,
+                              check=True, timeout=60).stdout
+
+
 def _transcribir(base, mid, jid, ia):
-    """Descarga el audio con el bridge (/api/download) y lo transcribe.
+    """Baja el audio directo del CDN de WhatsApp, lo descifra y lo transcribe.
+
+    No se usa `/api/download` del bridge: con el bridge `-mt` devuelve 403
+    (probado en VM1 el 29/10/2026), mientras que la URL guardada en
+    `messages.url` responde 200. La base del bridge ya tiene la clave
+    (`media_key`) y el hash del cifrado, así que no hace falta el bridge.
 
     Se pasa a WAV 16 kHz mono con ffmpeg antes de enviarlo: las notas de voz
     de WhatsApp son OGG/Opus y la documentación de Whisper en Workers AI no
     dice qué formatos acepta; WAV no deja dudas. Sin ffmpeg se manda tal cual."""
-    puerto = _env_de(base, "WA_PORT")
-    if not puerto:
-        raise RuntimeError("el env del bridge no tiene WA_PORT")
-    r = requests.post(f"http://127.0.0.1:{puerto}/api/download",
-                      json={"message_id": mid, "chat_jid": jid}, timeout=60)
-    r.raise_for_status()
-    d = r.json()
-    ruta = d.get("path") or ""
-    if not d.get("success") or not ruta:
-        raise RuntimeError(f"el bridge no lo descargó: {d.get('message')}")
-    if not os.path.isabs(ruta):
-        ruta = os.path.join(base, ruta)
-    wav = None
+    cm = _abrir_ro(os.path.join(base, "store", "messages.db"))
     try:
-        fd, wav = tempfile.mkstemp(suffix=".wav")
-        os.close(fd)
-        ok = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", ruta, "-ar", "16000",
-                             "-ac", "1", wav], timeout=60).returncode == 0
+        fila = cm.execute("SELECT url, media_key, file_enc_sha256 FROM messages "
+                          "WHERE id = ? AND chat_jid = ?", (mid, jid)).fetchone()
+    finally:
+        cm.close()
+    if not fila or not fila[0] or not fila[1]:
+        raise RuntimeError("el mensaje no tiene URL o clave del audio")
+    url, media_key, enc_sha = fila
+    r = requests.get(url, timeout=60)
+    r.raise_for_status()
+    enc = r.content
+    if enc_sha and hashlib.sha256(enc).digest() != bytes(enc_sha):
+        raise RuntimeError("el archivo bajado no es el del mensaje (hash distinto)")
+    ogg = _descifrar(enc, bytes(media_key))
+    fd, ruta = tempfile.mkstemp(suffix=".ogg")
+    wav = ruta[:-4] + ".wav"
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(ogg)
+        try:
+            ok = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", ruta, "-ar", "16000",
+                                 "-ac", "1", wav], timeout=60).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            ok = False
         with open(wav if ok else ruta, "rb") as f:
             datos = f.read()
-    except (OSError, subprocess.SubprocessError):
-        with open(ruta, "rb") as f:
-            datos = f.read()
     finally:
-        if wav and os.path.exists(wav):
-            os.remove(wav)
-        # La copia que bajó el bridge ya no hace falta y no debe acumularse.
-        if os.path.realpath(ruta).startswith(os.path.realpath(base) + os.sep):
-            try:
-                os.remove(ruta)
-            except OSError:
-                pass
+        for x in (ruta, wav):
+            if os.path.exists(x):
+                os.remove(x)
     r = requests.post(
         f"https://api.cloudflare.com/client/v4/accounts/{ia['cuenta']}/ai/run/{WHISPER}",
         headers={"Authorization": f"Bearer {ia['token']}"},
         json={"audio": base64.b64encode(datos).decode(), "language": "es"},
         timeout=90)
-    r.raise_for_status()
+    if r.status_code != 200:
+        raise RuntimeError(f"Workers AI respondió {r.status_code}: {r.text[:300]}")
     return ((r.json().get("result") or {}).get("text") or "").strip()
 
 
