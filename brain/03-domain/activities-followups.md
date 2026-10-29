@@ -260,7 +260,10 @@ programar se encola una fila `pregunta_link` en estado **`retenido`** (el worker
 La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
 `sql/2026-10-28_48_pregunta_link.sql`):
 
-- **2 min antes del rec_60**: si te escribió después del primer mensaje enviado (misma regla que
+- **Qué recordatorio reemplaza** (29/10/2026): el rec_60 si el seguimiento lo tiene (en cualquier
+  estado); si la tanda no lo lleva (apagado o no cabe), el rec_15. El panel pone la casilla bajo ese
+  recordatorio y la fila de la pregunta a su hora. SQL: `sql/2026-10-29_49_pregunta_link_rec15.sql`.
+- **2 min antes de ese recordatorio**: si te escribió después del primer mensaje enviado (misma regla que
   «🔕 Sin respuesta»), sale el recordatorio normal y la pregunta se cancela. Si no: la pregunta
   pasa a `pendiente` a la hora del rec_60, el rec_60 y el rec_15 se cancelan, y el enlace y la
   confirmación pasan a `retenido`.
