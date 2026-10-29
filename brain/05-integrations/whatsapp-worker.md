@@ -222,7 +222,9 @@ retenido) y transcribe SOLO sus audios posteriores a la invitación: WAV 16 kHz 
 de Whisper no lista formatos) → `whisper-large-v3-turbo` (`language: es`). Quedan en
 `entrantes_txt` como «🎤 texto». Tope 8 por vuelta (en VM1 bloquea al worker), 3 intentos por
 audio, caché en `~/.nexus-transcripciones.json`; de un audio largo se guardan 500 caracteres
-(comienzo y final: lo que decide suele estar al final). Prueba sin instalar:
+(comienzo y final: lo que decide suele estar al final). Verificado en VM1 y VM2 el 29/10: Whisper
+acepta el OGG/Opus tal cual (VM2 no tiene ffmpeg y transcribió bien); la `url` de audios de hace
+semanas da 403 (WhatsApp los caduca), irrelevante porque solo se transcribe lo del día. Prueba sin instalar:
 `vm/chats-sync/probar_transcripcion.py <slug>`. SQL: `sql/2026-10-29_52_transcripcion_audios.sql`.
 
 **VM2 lo corre aparte** (`vm/chats-sync/correr.py` + `nexus-chats-sync.timer`, cada 5 min):
