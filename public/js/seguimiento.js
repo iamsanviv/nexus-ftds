@@ -1718,6 +1718,10 @@ function renderHitos() {
         : (serieVista?.partes?.length
           ? `<div class="hitonota serie">Invitación en serie: ${esc(resumenSerie(serieVista))}.</div>` : "")}`;
 
+  // La pregunta reemplaza al primer recordatorio que sale: el de 1 h y, si ese
+  // está apagado o no cabe, el de 15 min (Sanviv, 29/10/2026).
+  const destino = destinoPregunta(inicio, primerContacto);
+  const filaPregEn = destino || "rec_60";
   cont.innerHTML = filaInv + HITOS(inicio).map(([tipo, cuando]) => {
     // La regla manda sobre la preferencia: lo que saldría antes que la
     // invitación no se programa ni marcándolo, así que la casilla se apaga.
@@ -1735,7 +1739,7 @@ function renderHitos() {
             + (pegado ? `<b class="hitocerca">${mins} min después</b>` : "")}</span>
       </label>
       ${!marcado && !fuera ? `<div class="hitonota">No se programa: ${CONSECUENCIA_HITO[tipo]}.</div>` : ""}
-      ${tipo === "rec_60" && preguntaHabilitada() ? filaPregunta(marcado, inicio) : ""}`;
+      ${tipo === filaPregEn && preguntaHabilitada() ? filaPregunta(destino, inicio) : ""}`;
   }).join("");
 
   cont.querySelectorAll("[data-hito]").forEach(ch => ch.onchange = e => {
@@ -1748,23 +1752,29 @@ function renderHitos() {
   if (inv) inv.onchange = e => alternarInvitacion(!e.target.checked);
 }
 
-// La pregunta cuelga del recordatorio de 1 h (lo reemplaza) y existe para
-// decidir si sale el enlace: sin alguno de los dos no hay nada que preguntar.
-const preguntaPosible = rec60 => rec60 && segHitos.enlace;
-function filaPregunta(rec60, inicio) {
-  const posible = preguntaPosible(rec60);
+// La pregunta reemplaza a un recordatorio y existe para decidir si sale el
+// enlace: sin alguno de los dos no hay nada que preguntar. La base aplica la
+// misma regla: reemplaza al rec_60 si la tanda lo tiene, si no al rec_15.
+const destinoPregunta = (inicio, primerContacto) => {
+  const t = Object.fromEntries(HITOS(inicio));
+  return ["rec_60", "rec_15"].find(k => segHitos[k] && t[k] > primerContacto) || null;
+};
+const preguntaPosible = destino => !!destino && segHitos.enlace;
+function filaPregunta(destino, inicio) {
+  const posible = preguntaPosible(destino);
   const on = posible && segPreguntar;
   const plazo = horaCO(new Date(inicio.getTime() + PREGUNTA_PLAZO_MIN * 60000).toISOString());
   return `
       <label class="hito sub${posible ? "" : " nula"}${on ? "" : " off"}">
         <input type="checkbox" data-preg ${on ? "checked" : ""} ${posible ? "" : "disabled"}>
         <span class="hitolbl">Si no respondió, preguntar</span>
-        <span class="hitoq"><span class="hitohora">${posible ? "en lugar del de 1 h"
-          : (rec60 ? "sin enlace no aplica" : "sin recordatorio de 1 h")}</span></span>
+        <span class="hitoq"><span class="hitohora">${posible
+          ? (destino === "rec_60" ? "en lugar del de 1&nbsp;h" : "en lugar del de 15&nbsp;min")
+          : (destino ? "sin enlace no aplica" : "sin recordatorios")}</span></span>
       </label>
       ${on ? `<div class="hitonota sub">A quien no te escribió desde la invitación le llega
-        «Nombre, ¿deseas que te envíe el link?» (o una variación) en vez del recordatorio. No recibe
-        el de 15 min, y el link solo si contesta que sí hasta las ${esc(plazo)} (10 min después de empezar)</div>` : ""}`;
+        «Nombre, ¿deseas que te envíe el link?» (o una variación) en vez del recordatorio.${destino === "rec_60"
+        ? " No recibe el de 15 min," : ""} Recibe el link solo si contesta que sí hasta las ${esc(plazo)} (10 min después de empezar)</div>` : ""}`;
 }
 
 // El botón dice lo que va a pasar: es el último punto donde el agente puede
@@ -1908,8 +1918,7 @@ async function programar() {
 
   // Se pregunta solo si el recordatorio de 1 h llega a programarse (con la
   // invitación muy encima no sale, y entonces tampoco hay a qué reemplazar).
-  const rec60Sale = HITOS(inicio).some(([tipo, cuando]) => tipo === "rec_60" && segHitos.rec_60 && cuando > primerContacto);
-  const preguntar = preguntaHabilitada() && segPreguntar && preguntaPosible(rec60Sale);
+  const preguntar = preguntaHabilitada() && segPreguntar && preguntaPosible(destinoPregunta(inicio, primerContacto));
   const avisoOmitidos = (seOmiten.length
     ? `\n\nNo se programa${seOmiten.length === 1 ? "" : "n"} ${seOmiten.join(" ni ")}: ${porQue}.`
     : "")
@@ -1921,7 +1930,8 @@ async function programar() {
     // pensando que es un recordatorio más.
     + (!segHitos.enlace ? `\n\n⚠ NADIE va a recibir el enlace de la sala.` : "")
     + (preguntar ? `\n\nA quien no te haya escrito desde la invitación se le pregunta si quiere el link `
-      + `en vez del recordatorio de 1 h, y solo lo recibe si contesta que sí.` : "");
+      + `en vez del ${destinoPregunta(inicio, primerContacto) === "rec_60" ? "recordatorio de 1 h" : "recordatorio de 15 min"}, `
+      + `y solo lo recibe si contesta que sí.` : "");
 
   // Las inactivas se dicen en el confirm con nombre propio: es la última
   // pantalla antes de encolar cinco mensajes por persona.
@@ -2045,6 +2055,7 @@ async function programar() {
       const tpl = plantillas(c.nombre, nombreParaPersonas(actSel), actSel.inicio, actSel.enlace,
         yaInvitados.has(c.tel), invEfectiva, c.tzOff, tInv.toISOString());
       const piso = pisoDe(i);
+      let preguntaPuesta = false;
       for (const [tipo, cuandoBase] of tiempos()) {
         // La invitación de cada persona sale en SU turno de la serie (con una
         // sola parte, es exactamente `cuandoInv`, como siempre).
@@ -2077,9 +2088,12 @@ async function programar() {
             : (actSel.enlace || null);
         }
         msgs.push(fila);
-        // La pregunta va como fila aparte, a la misma hora y `retenido`: la base
-        // la activa (y cancela el recordatorio) solo si no respondió.
-        if (tipo === "rec_60" && preguntar) {
+        // La pregunta va como fila aparte, a la hora del PRIMER recordatorio de
+        // esa persona y `retenido`: la base la activa (y cancela el
+        // recordatorio) solo si no respondió. Por persona, porque con una
+        // serie larga a alguien se le puede caer el de 1 h y quedarle el de 15.
+        if ((tipo === "rec_60" || tipo === "rec_15") && preguntar && !preguntaPuesta) {
+          preguntaPuesta = true;
           msgs.push({
             seguimiento_id: seg.id, tipo: "pregunta_link", estado: "retenido",
             enviar_en: cuando.toISOString(), telefono: c.tel,

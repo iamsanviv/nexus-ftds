@@ -2369,3 +2369,5 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
    debajo de él para que se lea como una opción suya, no como otro mensaje. */
 .hito.sub{margin-left:22px}
 .hitonota.sub{margin-left:32px}
+/* «en lugar del de 15 min» no cabe en una línea a 390 px junto a la etiqueta. */
+.hito.sub .hitohora{white-space:normal}
