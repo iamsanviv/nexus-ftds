@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Prueba de punta a punta de la transcripción de audios, ANTES de instalar el
 # chats_sync.py nuevo: toma el último audio que le escribieron a un agente,
-# lo descarga con su bridge y lo transcribe con Workers AI. No escribe nada en
+# lo baja del CDN de WhatsApp, lo descifra y lo transcribe con Workers AI. No escribe nada en
 # la base; solo imprime el texto.
 #
 #   python3 vm/chats-sync/probar_transcripcion.py santiago_viveros
