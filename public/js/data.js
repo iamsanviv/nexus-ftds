@@ -450,7 +450,7 @@ export async function borrarContacto(id) {
 // Cupo diario de envíos del agente. El worker cancela el PRIMER mensaje de cada
 // persona (`masivo` / `invitacion`) cuando el agente ya lleva TOPE enviados en
 // el día de Colombia; con él se cae el resto de su serie. Todo lo que sale
-// gasta cupo, aunque el tope solo corte a los primeros. 220 refleja
+// gasta cupo, aunque el tope solo corte a los primeros. 500 refleja
 // `TOPE_DIARIO` del worker; si allá cambia, acá también.
 //
 // Contar solo lo ya enviado no alcanza: «Operativa 8pm» (25/10/2026) se creó
@@ -458,7 +458,7 @@ export async function borrarContacto(id) {
 // en cola por delante y la campaña entera se canceló sin que nadie se enterara.
 // Por eso se simula la cola completa: lo enviado, lo pendiente en el orden en
 // que va a salir y, si se está programando algo, lo nuevo en su lugar.
-export const TOPE_DIARIO = 220;
+export const TOPE_DIARIO = 500;
 const CON_TOPE = new Set(["masivo", "invitacion"]);
 
 // La serie de un mensaje: si su primer mensaje no sale, la base cancela el

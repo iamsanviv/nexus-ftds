@@ -107,7 +107,7 @@ Los recordatorios se cuelgan del inicio de la actividad; la invitación, de cuá
 
 ## Tope diario: avisar antes y al momento
 
-El worker cancela el primer mensaje de cada persona (`masivo` / `invitacion`) cuando el agente ya lleva `TOPE_DIARIO` (220) enviados en el día de Colombia, y con él cae la serie. Todo lo que sale gasta cupo. Comprobado en la base desde el 17/10/2026; antes los casos cuadran con día UTC, así que el worker cambió de criterio (worker.py no está en el repo).
+El worker cancela el primer mensaje de cada persona (`masivo` / `invitacion`) cuando el agente ya lleva `TOPE_DIARIO` (500 desde el 29/10/2026; antes 220) enviados en el día de Colombia, y con él cae la serie. Todo lo que sale gasta cupo. Comprobado en la base desde el 17/10/2026; antes los casos cuadran con día UTC, así que el worker cambió de criterio (worker.py no está en el repo).
 
 **Contar solo lo enviado no sirve.** «Operativa 8pm» (25/10/2026) se creó con 210/220 enviados; el aviso dijo «quedan 10», pero había 70 confirmaciones en cola por delante y se canceló entera sin que el agente se enterara. Por eso:
 
