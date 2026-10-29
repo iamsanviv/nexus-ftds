@@ -49,6 +49,7 @@ TEXTO_LARGO = 200          # caracteres por mensaje: basta para leer «sí» o �
 # Cloudflare Workers AI para leerlos como texto. Tope por vuelta porque en VM1
 # esto corre DENTRO del worker y mientras tanto no se envía nada.
 AUDIOS_MAX = 8
+AUDIO_LARGO = 500          # caracteres de una transcripción (comienzo + final)
 AUDIO_INTENTOS = 3         # un audio que falla 3 vueltas seguidas se deja
 WHISPER = "@cf/openai/whisper-large-v3-turbo"
 TRANSCRIPCIONES = os.environ.get(
@@ -422,8 +423,17 @@ def _audios(base, owner, chats, ia, cache, cupo, log):
                     e["intentos"] = e.get("intentos", 0) + 1
                     log(f"    ⚠ no pude transcribir un audio de {c['telefono']}: {str(ex)[:200]}")
             if e.get("t"):
-                m["t"] = ("🎤 " + e["t"])[:TEXTO_LARGO]
+                m["t"] = "🎤 " + _recorte_audio(e["t"])
     return hechos
+
+
+def _recorte_audio(t):
+    """Un audio largo dice lo que decide al final tan a menudo como al
+    principio («no alcancé… entonces hoy sí me conecto»): se guarda el
+    comienzo y el final, no solo los primeros TEXTO_LARGO caracteres."""
+    if len(t) <= AUDIO_LARGO:
+        return t
+    return t[:150] + " … " + t[-(AUDIO_LARGO - 153):]
 
 
 def _sin_marcas(chats):
