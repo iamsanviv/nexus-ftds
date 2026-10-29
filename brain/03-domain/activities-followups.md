@@ -276,6 +276,12 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   mensaje entero; «vale», «hágale» y pedir el link/enlace cuentan como sí
   (`sql/2026-10-29_50_pregunta_link_respuestas.sql`). Cuenta la hora en que el sistema **lo ve**, no en que lo escribió (Sanviv): pasado
   `inicio + 10 min` lo retenido se cancela.
+- **IA para lo dudoso** (29/10/2026, `sql/2026-10-29_51_pregunta_link_ia.sql`): si la lista de
+  palabras no da un sí limpio (dice «no» o nada), `respuesta_ia` le pregunta a Cloudflare Workers
+  AI (`llama-3.3-70b-instruct-fp8-fast`, ~11 neuronas; cuota gratis 10.000/día) vía pg_net y el
+  cron lee la respuesta en las vueltas siguientes; mientras, se espera. Su veredicto gana (vale lo
+  último que dijo). Sin token en Vault (`cloudflare_ai_token`, `cloudflare_account_id`), con
+  error, duda o 3 min sin respuesta, decide la lista de palabras. Registro en `respuestas_ia`.
 - Si la VM del agente aún no publica `entrantes_txt` (NULL), no se pregunta: recordatorio normal.
   Si el cron no corre, sale el rec_60 y el enlace como antes. La falla nunca deja sin link.
 - Todo lo que cancela lleva `error` `omitido: …` (no dispara el push de envío fallido) y en
