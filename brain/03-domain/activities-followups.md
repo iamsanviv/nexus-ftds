@@ -267,10 +267,14 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   «🔕 Sin respuesta»), sale el recordatorio normal y la pregunta se cancela. Si no: la pregunta
   pasa a `pendiente` a la hora del rec_60, el rec_60 y el rec_15 se cancelan, y el enlace y la
   confirmación pasan a `retenido`.
-- **Después**: lee lo que escribió desde la pregunta (`chats_recientes.entrantes_txt`, clasificado
-  por `respuesta_link`): cualquier «no» gana → se cancela el enlace; «sí» → el enlace sale a la
-  hora de inicio (o ya, si pasó) y la confirmación 10 min después; dudoso (audio, pregunta) → sigue
-  esperando. Cuenta la hora en que el sistema **lo ve**, no en que lo escribió (Sanviv): pasado
+- **Después**: lee lo que escribió desde el **primer mensaje enviado** del seguimiento, no desde
+  la pregunta (`chats_recientes.entrantes_txt`, clasificado por `respuesta_link`): cualquier «no»
+  gana → se cancela el enlace; «sí» → el enlace sale a la hora de inicio (o ya, si pasó) y la
+  confirmación 10 min después; dudoso (audio, pregunta) → sigue esperando. Desde la invitación y
+  no desde la pregunta porque `chats_sync` publica cada ~5 min: quien contesta justo antes de la
+  decisión recibe la pregunta sin que se viera su sí (Alvaro, 28/10). «va» cuenta solo como
+  mensaje entero; «vale», «hágale» y pedir el link/enlace cuentan como sí
+  (`sql/2026-10-29_50_pregunta_link_respuestas.sql`). Cuenta la hora en que el sistema **lo ve**, no en que lo escribió (Sanviv): pasado
   `inicio + 10 min` lo retenido se cancela.
 - Si la VM del agente aún no publica `entrantes_txt` (NULL), no se pregunta: recordatorio normal.
   Si el cron no corre, sale el rec_60 y el enlace como antes. La falla nunca deja sin link.
