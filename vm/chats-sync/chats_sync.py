@@ -26,8 +26,13 @@
 #  revincularla por QR. Este proceso ya corre en la misma máquina y como el
 #  mismo usuario, así que puede leer sus bases en SOLO LECTURA sin tocarlos.
 # =====================================================================
+import base64
+import json
 import os
+import re
 import sqlite3
+import subprocess
+import tempfile
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -38,21 +43,33 @@ MAX_POR_AGENTE = 300       # tope por bridge, del más reciente al más viejo
 TEXTOS_HORAS = 12          # ventana de `entrantes_txt` (pregunta antes del link)
 TEXTOS_MAX = 15            # mensajes por chat, los más recientes
 TEXTO_LARGO = 200          # caracteres por mensaje: basta para leer «sí» o «no puedo»
+# Audios de quien tiene la pregunta del link pendiente: se transcriben con
+# Cloudflare Workers AI para leerlos como texto. Tope por vuelta porque en VM1
+# esto corre DENTRO del worker y mientras tanto no se envía nada.
+AUDIOS_MAX = 8
+AUDIO_INTENTOS = 3         # un audio que falla 3 vueltas seguidas se deja
+WHISPER = "@cf/openai/whisper-large-v3-turbo"
+TRANSCRIPCIONES = os.environ.get(
+    "NEXUS_TRANSCRIPCIONES", os.path.expanduser("~/.nexus-transcripciones.json"))
 
 
-def _owner_de(dirbase):
-    """El uuid del agente dueño del bridge, desde su `env`.
-
-    Se lee SOLO esa línea a propósito: ese mismo archivo lleva la service
-    key, y no hay razón para cargarla en memoria aquí."""
+def _env_de(dirbase, clave):
+    """Un valor del `env` del bridge, leyendo SOLO esa línea a propósito: ese
+    mismo archivo lleva la service key, y no hay razón para cargarla en
+    memoria aquí."""
     try:
         with open(os.path.join(dirbase, "env")) as f:
             for linea in f:
-                if linea.startswith("WA_OWNER="):
+                if linea.startswith(clave + "="):
                     return linea.partition("=")[2].strip() or None
     except OSError:
         return None
     return None
+
+
+def _owner_de(dirbase):
+    """El uuid del agente dueño del bridge."""
+    return _env_de(dirbase, "WA_OWNER")
 
 
 def _inicio_dia_utc():
@@ -97,10 +114,15 @@ def _textos_de(cm):
         return None
     if "content" not in cols:
         return None
+    # Un audio llega con `content` vacío: se marca con `_audio` (id y chat) para
+    # poder transcribirlo si esa persona tiene la pregunta pendiente. La marca
+    # es interna y se quita antes de subir.
+    audio = "media_type" in cols
     por_jid = {}
-    for jid, ts, txt in cm.execute(
-        """
-        SELECT chat_jid, datetime(timestamp), content
+    for jid, ts, txt, mid, media in cm.execute(
+        f"""
+        SELECT chat_jid, datetime(timestamp), content, id,
+               {"media_type" if audio else "NULL"}
           FROM messages
          WHERE is_from_me = 0
            AND datetime(timestamp) >= datetime('now', ?)
@@ -112,7 +134,10 @@ def _textos_de(cm):
         if not ts:
             continue
         lst = por_jid.setdefault(jid, [])
-        lst.append({"en": f"{ts}+00:00", "t": (txt or "")[:TEXTO_LARGO]})
+        m = {"en": f"{ts}+00:00", "t": (txt or "")[:TEXTO_LARGO]}
+        if media == "audio" and not txt:
+            m["_audio"] = [mid, jid]
+        lst.append(m)
         if len(lst) > TEXTOS_MAX:
             lst.pop(0)
     return por_jid
@@ -241,11 +266,146 @@ def _chats_de(dirbase):
     return list(por_tel.values())
 
 
+def _clave_tel(t):
+    """La misma normalización que `public.clave_tel` en la base: WhatsApp guarda
+    México como 521… y Argentina como 549…; la ficha no."""
+    d = re.sub(r"\D", "", t or "")
+    return re.sub(r"^549(\d{10})$", r"54\1", re.sub(r"^521(\d{10})$", r"52\1", d))
+
+
+def _pendientes_audio(rest, headers, log):
+    """Credenciales de Workers AI y a quién hay que transcribirle los audios:
+    las personas con la pregunta del link enviada y el link aún retenido, con
+    la hora desde la que cuenta su respuesta. None si no hay IA configurada."""
+    try:
+        r = requests.post(f"{rest}/rpc/transcripcion_pendiente", headers=headers,
+                          json={}, timeout=20)
+        r.raise_for_status()
+        d = r.json()
+    except Exception as e:
+        log(f"    ⚠ no pude leer los audios por transcribir: {e}")
+        return None
+    if not d or not d.get("token") or not d.get("cuenta") or not d.get("pendientes"):
+        return None
+    pend = {}
+    for p in d["pendientes"]:
+        tel = _clave_tel(p.get("telefono"))
+        try:
+            desde = datetime.fromisoformat(p["desde"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if tel and p.get("owner_id"):
+            pend[(p["owner_id"], tel)] = desde
+    return {"cuenta": d["cuenta"], "token": d["token"], "pend": pend}
+
+
+def _cache_leer():
+    try:
+        with open(TRANSCRIPCIONES) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _cache_guardar(cache):
+    # Solo hace falta mientras dura la ventana de textos: lo viejo se poda.
+    corte = (datetime.now(timezone.utc) - timedelta(hours=TEXTOS_HORAS + 1)).isoformat()
+    cache = {k: v for k, v in cache.items() if v.get("visto", "") >= corte}
+    tmp = TRANSCRIPCIONES + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(cache, f)
+    os.replace(tmp, TRANSCRIPCIONES)
+
+
+def _transcribir(base, mid, jid, ia):
+    """Descarga el audio con el bridge (/api/download) y lo transcribe.
+
+    Se pasa a WAV 16 kHz mono con ffmpeg antes de enviarlo: las notas de voz
+    de WhatsApp son OGG/Opus y la documentación de Whisper en Workers AI no
+    dice qué formatos acepta; WAV no deja dudas. Sin ffmpeg se manda tal cual."""
+    puerto = _env_de(base, "WA_PORT")
+    if not puerto:
+        raise RuntimeError("el env del bridge no tiene WA_PORT")
+    r = requests.post(f"http://127.0.0.1:{puerto}/api/download",
+                      json={"message_id": mid, "chat_jid": jid}, timeout=60)
+    r.raise_for_status()
+    d = r.json()
+    ruta = d.get("path") or ""
+    if not d.get("success") or not ruta:
+        raise RuntimeError(f"el bridge no lo descargó: {d.get('message')}")
+    if not os.path.isabs(ruta):
+        ruta = os.path.join(base, ruta)
+    wav = None
+    try:
+        fd, wav = tempfile.mkstemp(suffix=".wav")
+        os.close(fd)
+        ok = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", ruta, "-ar", "16000",
+                             "-ac", "1", wav], timeout=60).returncode == 0
+        with open(wav if ok else ruta, "rb") as f:
+            datos = f.read()
+    except (OSError, subprocess.SubprocessError):
+        with open(ruta, "rb") as f:
+            datos = f.read()
+    finally:
+        if wav and os.path.exists(wav):
+            os.remove(wav)
+        # La copia que bajó el bridge ya no hace falta y no debe acumularse.
+        if os.path.realpath(ruta).startswith(os.path.realpath(base) + os.sep):
+            try:
+                os.remove(ruta)
+            except OSError:
+                pass
+    r = requests.post(
+        f"https://api.cloudflare.com/client/v4/accounts/{ia['cuenta']}/ai/run/{WHISPER}",
+        headers={"Authorization": f"Bearer {ia['token']}"},
+        json={"audio": base64.b64encode(datos).decode(), "language": "es"},
+        timeout=90)
+    r.raise_for_status()
+    return ((r.json().get("result") or {}).get("text") or "").strip()
+
+
+def _audios(base, owner, chats, ia, cache, cupo, log):
+    """Transcribe los audios de quien tiene la pregunta pendiente y los deja en
+    `entrantes_txt` como texto («🎤 …»). Devuelve cuántos transcribió."""
+    hechos = 0
+    for c in chats:
+        desde = ia["pend"].get((owner, _clave_tel(c["telefono"])))
+        for m in c.get("entrantes_txt") or []:
+            aud = m.get("_audio")
+            if not aud or not desde or datetime.fromisoformat(m["en"]) <= desde:
+                continue
+            mid, jid = aud
+            k = f"{owner}:{mid}"
+            e = cache.get(k) or {}
+            e["visto"] = datetime.now(timezone.utc).isoformat()
+            cache[k] = e
+            if e.get("t") is None and e.get("intentos", 0) < AUDIO_INTENTOS and hechos < cupo:
+                try:
+                    e["t"] = _transcribir(base, mid, jid, ia)
+                    hechos += 1
+                except Exception as ex:
+                    e["intentos"] = e.get("intentos", 0) + 1
+                    log(f"    ⚠ no pude transcribir un audio de {c['telefono']}: {str(ex)[:200]}")
+            if e.get("t"):
+                m["t"] = ("🎤 " + e["t"])[:TEXTO_LARGO]
+    return hechos
+
+
+def _sin_marcas(chats):
+    for c in chats:
+        for m in c.get("entrantes_txt") or []:
+            m.pop("_audio", None)
+
+
 def sincronizar(rest, headers, log, dry_run=False):
     """Recorre los bridges y publica sus chats recientes en Supabase."""
     if not os.path.isdir(BRIDGES_DIR):
         return
     porAgente, total, ok = {}, 0, 0
+    # Un fallo de la transcripción nunca puede cortar la sincronización.
+    ia = None if dry_run else _pendientes_audio(rest, headers, log)
+    cache = _cache_leer() if ia else {}
+    transcritos = 0
     for nombre in sorted(os.listdir(BRIDGES_DIR)):
         # Los `.dup-*.bak` son bridges retirados: su cola ya no es de nadie.
         if nombre.startswith("."):
@@ -263,9 +423,24 @@ def sincronizar(rest, headers, log, dry_run=False):
             continue
         for c in chats:
             c["owner_id"] = owner
+        if ia:
+            try:
+                transcritos += _audios(base, owner, chats, ia, cache,
+                                       AUDIOS_MAX - transcritos, log)
+            except Exception as e:
+                log(f"    ⚠ audios de {nombre}: {e}")
+        _sin_marcas(chats)
         if chats:
             porAgente[nombre] = chats
             total += len(chats)
+
+    if ia:
+        try:
+            _cache_guardar(cache)
+        except OSError as e:
+            log(f"    ⚠ no pude guardar las transcripciones: {e}")
+        if transcritos:
+            log(f"  🎤 {transcritos} audio(s) transcrito(s)")
 
     if dry_run:
         log(f"  [dry-run] {total} chat(s) en {len(porAgente)} agente(s)")

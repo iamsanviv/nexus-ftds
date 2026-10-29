@@ -211,6 +211,17 @@ entonces no pregunta. **Orden de instalación:** primero la migración
 `sql/2026-10-28_48_pregunta_link.sql`; un `chats_sync` nuevo contra una tabla sin la columna haría
 fallar el upsert de cada agente de esa VM.
 
+**Audios transcritos** (29/10/2026): `messages` del bridge `-mt` tiene `media_type`, `media_key`,
+etc. (verificado en VM1) y el bridge expone `POST /api/download` (`{message_id, chat_jid}` →
+`{success, path}`), en `127.0.0.1:<WA_PORT>` del `env`. `chats_sync` pide a la base
+`transcripcion_pendiente()` (solo `service_role`; devuelve el token de Workers AI desde Vault y las
+personas con la pregunta del link enviada y el link retenido), descarga SOLO sus audios posteriores
+a la invitación, los pasa a WAV 16 kHz con ffmpeg (la doc de Whisper no lista formatos) y los
+transcribe con `whisper-large-v3-turbo` (`language: es`). Quedan en `entrantes_txt` como
+«🎤 texto». Tope 8 por vuelta (en VM1 bloquea al worker), 3 intentos por audio, caché en
+`~/.nexus-transcripciones.json` y borra la descarga. Prueba sin instalar:
+`vm/chats-sync/probar_transcripcion.py <slug>`. SQL: `sql/2026-10-29_52_transcripcion_audios.sql`.
+
 **VM2 lo corre aparte** (`vm/chats-sync/correr.py` + `nexus-chats-sync.timer`, cada 5 min):
 `chats_sync` solo ve los bridges del disco local y el worker vive en VM1. No leer VM2 por red
 desde VM1 (`nolock=1` solo es seguro en disco local) ni levantar un worker en VM2 (duplica
