@@ -287,6 +287,11 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   pregunta se le lee lo que dijo; con un «no» de la IA (o de las palabras si la IA no está) se le
   cancela todo lo que falta, en cualquier momento hasta `inicio + 10 min`. IA en duda o «sí» → sigue
   el flujo normal (aquí lo normal es enviar).
+- **Programado «sin invitación»** (30/10/2026, casos Yolanda y Ángel, `sql/2026-10-30_54_…`): si el
+  agente invitó a mano no hay primer mensaje del sistema, y antes la base descartaba la pregunta
+  («aún no se le había enviado nada») y el link salía sin confirmar. Regla de Sanviv: sin mensaje
+  enviado, todo cuenta desde `seguimientos.created_at` (pasos a, b y d). Si respondió antes de
+  programarlo, igual recibe la pregunta.
 - Si la VM del agente aún no publica `entrantes_txt` (NULL), no se pregunta: recordatorio normal.
   Si el cron no corre, sale el rec_60 y el enlace como antes. La falla nunca deja sin link.
 - Todo lo que cancela lleva `error` `omitido: …` (no dispara el push de envío fallido) y en
