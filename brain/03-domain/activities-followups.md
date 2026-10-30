@@ -282,6 +282,11 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   cron lee la respuesta en las vueltas siguientes; mientras, se espera. Su veredicto gana (vale lo
   último que dijo). Sin token en Vault (`cloudflare_ai_token`, `cloudflare_account_id`), con
   error, duda o 3 min sin respuesta, decide la lista de palabras. Registro en `respuestas_ia`.
+- **Quien respondió y dijo que no** (30/10/2026, caso Luis Gudiño, `sql/2026-10-30_53_…`): paso
+  d), antes del a). En tandas con la casilla, a quien escribió desde la invitación y no espera la
+  pregunta se le lee lo que dijo; con un «no» de la IA (o de las palabras si la IA no está) se le
+  cancela todo lo que falta, en cualquier momento hasta `inicio + 10 min`. IA en duda o «sí» → sigue
+  el flujo normal (aquí lo normal es enviar).
 - Si la VM del agente aún no publica `entrantes_txt` (NULL), no se pregunta: recordatorio normal.
   Si el cron no corre, sale el rec_60 y el enlace como antes. La falla nunca deja sin link.
 - Todo lo que cancela lleva `error` `omitido: …` (no dispara el push de envío fallido) y en
