@@ -292,6 +292,11 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   («aún no se le había enviado nada») y el link salía sin confirmar. Regla de Sanviv: sin mensaje
   enviado, todo cuenta desde `seguimientos.created_at` (pasos a, b y d). Si respondió antes de
   programarlo, igual recibe la pregunta.
+- **En duda = nada más hasta que aclare** (30/10/2026, `sql/2026-10-30_56_…`, pedido de Sanviv):
+  si quien respondió queda en duda para la IA, el paso d) cancela recordatorios y pregunta
+  (`omitido: en duda, se espera que aclare`, también escrito en la fila de la pregunta como marca)
+  y retiene enlace y confirmación; el paso b) los suelta con un sí y los cancela con un no o a
+  `inicio + 10 min`. En b), con la IA en duda ya no decide la lista de palabras: se espera.
 - **Qué respondió cada uno, y corregirlo** (30/10/2026, `sql/2026-10-30_55_…`): la lista de
   seguimientos en curso lleva una etiqueta por persona (Sí va, No va, Con duda, IA leyendo,
   Escribió sin texto, Sin respuesta; «· IA» o «· tú» dice quién decidió) y «✎ Mensajes» muestra lo
