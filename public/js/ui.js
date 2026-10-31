@@ -14,8 +14,9 @@ import { asegurarEntrantes } from "./entrantes.js";
 // repaso.js importa a ui.js: para no crear un ciclo, aquí solo se usa el
 // contador (función pura sobre `state`) y el modo manual se carga a demanda.
 import { repasoPendientes } from "./repaso.js";
+import { recibeSegLead } from "./masivo.js";
 import { refrescarCanal } from "./canal.js";
-import { chipTemp, razon, seguimientoHTML, wireSeguimiento, temperatura, llegada, filtroLlegada, enRangoLleg } from "./leads.js";
+import { chipTemp, razon, seguimientoHTML, wireSeguimiento, btnEnviarSeg, abrirSegDe, temperatura, llegada, filtroLlegada, enRangoLleg } from "./leads.js";
 import { renderHoy } from "./hoy.js";
 import { porBajar, crmDe, marcarBajo, ICO_BAJAR } from "./crm.js";
 import { renderMiDia, tieneMiDia } from "./midia.js";
@@ -595,7 +596,7 @@ function cardHTML(c, p, rank, isLead, dir) {
         <div class="chev">▸</div>
       </div>
       <div class="cbody">
-        ${isLead ? (open ? seguimientoHTML(c) : "") + nota
+        ${isLead ? (open ? seguimientoHTML(c, { enviar: recibeSegLead(c) }) : "") + nota
                  : nota + grupos}
         ${porBajar(c) ? `<div class="lbajar"><button class="lbtn hbajar" data-acc="bajado">${ICO_BAJAR}Bajado a WA</button><span>Lead de HighLevel: márcalo cuando ya te escriba por WhatsApp.</span></div>` : ""}
         <div class="cfoot">
@@ -1011,7 +1012,19 @@ function abrirPerfil(c) {
   renderDueno(c.owner_id);
   construirActividades(c);
   pintarBajarPerfil(c);
+  pintarSegPerfil(c);
   $("overlay").classList.add("open");
+}
+
+// «Enviar seguimiento» en el Perfil: el modal de envío se abre ENCIMA (va
+// después en el DOM), así el perfil y lo que se esté editando siguen ahí.
+function pintarSegPerfil(c) {
+  const row = $("fSegRow");
+  const ver = !!c && recibeSegLead(c);
+  row.classList.toggle("hidden", !ver);
+  if (!ver) { row.innerHTML = ""; return; }
+  row.innerHTML = btnEnviarSeg("lbtn hsegenv");
+  row.querySelector("button").onclick = () => abrirSegDe(c, render);
 }
 
 function pintarBajarPerfil(c) {
@@ -1123,6 +1136,7 @@ function cerrarM() {
   ponerNivel(state.modulo === "leads" ? "Lead" : "Beca");
   $("fActividades").innerHTML = "";
   pintarBajarPerfil(null);
+  pintarSegPerfil(null);
 }
 
 // Selector de dueño: solo tiene sentido para un director, que es el único que
@@ -1154,6 +1168,7 @@ $("abrirModal").onclick = () => {
   ponerNivel(state.modulo === "leads" ? "Lead" : "Beca");
   $("fActividades").innerHTML = "";
   pintarBajarPerfil(null);
+  pintarSegPerfil(null);
   renderDueno(state.me.id);
   import("./ftd.js").then(m => m.pintarCasillaFtd());
   $("overlay").classList.add("open");

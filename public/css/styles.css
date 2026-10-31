@@ -1934,10 +1934,22 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .hacc .hmain{flex:1.4 1 0;padding:0 12px}
 .hacc .lbtn{flex:1 1 0}
 .hacc .hico{flex:0 0 44px;padding:0;display:flex;align-items:center;justify-content:center}
-/* Con llamar + WhatsApp un pendiente lleva cinco botones: en 390 px no caben
-   con 44 px y 8 px de separación, así que en móvil los íconos ceden un poco. */
-@media (max-width:420px){.hacc{gap:6px}.hacc .hico{flex:0 0 40px}.hacc .hmain,.hacc .lbtn:not(.hico){min-width:0;padding:0 6px}}
+/* En móvil los íconos ceden un poco (40 px, 6 px de separación) para que las
+   acciones del embudo y los íconos quepan en una línea siempre que se pueda. */
+@media (max-width:479px){.hacc{gap:6px}.hacc .hico{flex:0 0 40px}.hacc>.hmain,.hacc>.lbtn{padding:0 10px}}
+/* Íconos en bloque (hoy.js): con «Enviar seguimiento» un pendiente lleva seis
+   botones y en 390 px el texto se cortaba; ahora, si no caben, el bloque baja. */
+.hacc{flex-wrap:wrap}
+.hacc>.hmain,.hacc>.lbtn{min-width:max-content}
+.hacc .hicos{display:flex;gap:inherit;flex:0 0 auto;margin-left:auto}
+.hacc .hicos>*{min-height:44px;border-radius:12px}
 .hacc .hwa{min-height:44px;border-radius:12px;color:#25D366;border-color:rgba(37,211,102,.4);text-decoration:none}
+/* Enviar seguimiento a UN lead (tarjeta, «Hoy», Perfil): dorado, el color de
+   la acción de enviar en Leads, para distinguirlo de «Registrar contacto». */
+.lsegenv{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-color:color-mix(in srgb,var(--gold) 55%,transparent);color:var(--gold)}
+.hacc .hsegico{min-height:44px;border-radius:12px;color:var(--gold);border-color:color-mix(in srgb,var(--gold) 45%,transparent)}
+.perfseg{margin:0 0 16px}
+.perfseg .hsegenv{margin-left:0}
 /* El «faltan N en D días» del corte solo se ve en escritorio, donde la tarjeta
    tiene una columna propia para el corte; en el celular sería un renglón más. */
 .hmeta-corte small{display:none}

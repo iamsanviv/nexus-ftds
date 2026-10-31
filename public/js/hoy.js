@@ -14,7 +14,8 @@
 // seguimiento es desde el CRM (sin «Enviar seguimiento»). Si no bajan, salen de
 // «Hoy» después de «Llegaron ayer», salvo que vuelvan por una fecha propia.
 // Al bajar pasan al grupo de WhatsApp con la nota «vino de HighLevel».
-import { state, esc, esLead, esInactivo, nombreBroker, telColombia, ICO_TEL, sinSalto, raizScroll } from "./state.js";
+import { state, esc, esLead, esInactivo, nombreBroker, telColombia, ICO_TEL, ICO_ENV, sinSalto, raizScroll } from "./state.js";
+import { recibeSegLead } from "./masivo.js";
 import {
   TEMP, CATEGORIAS, categoria, temperatura, razon, tempAMano, contactosDe,
   form, abiertoAqui, esMio, manejarLead, cuandoTxt, nombreTipo, dias,
@@ -105,11 +106,16 @@ function acciones(c) {
       : `<button class="lbtn mdbtn" data-l="registro">Creó cuenta</button>`;
     return `<div class="hcrm">${accionesCrm(l, emb)}</div>`;
   }
-  const mas = `<button class="lbtn hico" data-l="contacto" aria-label="Registrar contacto">${svg(MAS, "currentColor", 18)}</button>`;
-  const wa = telBtn(c) + waBtn(c);
-  if (cat === "pend") return `<div class="hacc"><button class="btn-ok hmain" data-l="deposito">Depositó</button><button class="lbtn" data-l="promesa">Reagendar</button>${mas}${wa}</div>`;
-  if (cat === "reg") return `<div class="hacc"><button class="btn-oro hmain" data-l="promesa">Prometió depositar</button>${mas}${wa}</div>`;
-  return `<div class="hacc"><button class="btn-oro hmain" data-l="registro">Creó cuenta</button><button class="lbtn" data-l="contacto">Registrar contacto</button>${wa}</div>`;
+  const mas = `<button class="lbtn hico" data-l="contacto" aria-label="Registrar contacto" title="Registrar contacto">${svg(MAS, "currentColor", 18)}</button>`;
+  // Enviar seguimiento: solo ícono, como llamar y WhatsApp, para no quitarle
+  // ancho a la acción del embudo.
+  const env = recibeSegLead(c) ? `<button type="button" class="lbtn hico hsegico" data-l="enviarSeg" title="Enviar seguimiento" aria-label="Enviar seguimiento">${ICO_ENV}</button>` : "";
+  // Los íconos van juntos: si en un celular angosto no caben al lado de las
+  // acciones del embudo, bajan en bloque a otra línea en vez de cortar el texto.
+  const icos = `<span class="hicos">${mas}${env}${telBtn(c)}${waBtn(c)}</span>`;
+  if (cat === "pend") return `<div class="hacc"><button class="btn-ok hmain" data-l="deposito">Depositó</button><button class="lbtn" data-l="promesa">Reagendar</button>${icos}</div>`;
+  if (cat === "reg") return `<div class="hacc"><button class="btn-oro hmain" data-l="promesa">Prometió depositar</button>${icos}</div>`;
+  return `<div class="hacc"><button class="btn-oro hmain" data-l="registro">Creó cuenta</button>${icos}</div>`;
 }
 
 // Si el último contacto no tiene respuesta, se pregunta aquí mismo: es lo que

@@ -109,6 +109,8 @@ export function sinSalto(cont, render) {
 export const raizScroll = () =>
   getComputedStyle(document.body).overflowY === "auto" ? document.body : document.scrollingElement;
 export const ICO_TEL = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>';
+// Enviar seguimiento (avión de papel): Mi día, Leads «Hoy», tarjeta y Perfil.
+export const ICO_ENV = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>`;
 // Para búsquedas: minúsculas y sin acentos ("César" → "cesar").
 export const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
 
