@@ -922,6 +922,17 @@ body.segwide .tabinner{max-width:1180px}
 .achip.suelta{background:rgba(176,124,232,.15);color:var(--vip)}
 /* actividad del director: se puede usar, no editar */
 .achip.equipo{background:rgba(91,155,213,.16);color:var(--beca)}
+/* qué respondió: la IA dudó o está leyendo */
+.achip.duda{background:rgba(91,155,213,.16);color:var(--beca)}
+.achip.neutro{background:var(--surface2);color:var(--muted)}
+/* bloque de respuesta en «✎ Mensajes» */
+.rbloque{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;
+  display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.rcab{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rquote{font-size:.84rem;line-height:1.4;overflow-wrap:anywhere}
+.rquote small{color:var(--muted);font-size:.7rem;margin-left:4px}
+.racc{display:flex;gap:6px;flex-wrap:wrap}
+.racc .pmark{margin-left:0}
 /* un botón deshabilitado tiene que verse deshabilitado */
 .authbtn:disabled,.pmark:disabled,.tbtn:disabled{opacity:.45;cursor:not-allowed}
 

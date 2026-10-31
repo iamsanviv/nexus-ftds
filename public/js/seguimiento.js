@@ -2915,6 +2915,32 @@ let segActBuscarTxt = "";
 // Por debajo de esto la lista entra de un vistazo y un buscador solo estorba.
 const MIN_PARA_BUSCAR = 5;
 
+/* ---------- qué respondió cada invitado ---------- */
+// seguimiento_id → fila de `respuestas_de`. La base solo devuelve los propios:
+// los chats son privados de cada agente, y solo el dueño puede corregir.
+let respuestas = new Map();
+let relojResp = null;
+async function cargarRespuestas() {
+  if (!activosCache.length) { respuestas = new Map(); return; }
+  const { data, error } = await SB.rpc("respuestas_de", { p_ids: activosCache.map(s => s.id) });
+  if (error) return;   // sin respuestas la lista sigue igual, solo sin etiquetas
+  respuestas = new Map((data || []).map(r => [r.seguimiento_id, r]));
+}
+
+const RESP = {
+  si: ["ok", "✓ Sí va"], no: ["miss", "✕ No va"], duda: ["duda", "? Con duda"],
+  leyendo: ["duda", "IA leyendo…"], sin_texto: ["neutro", "Escribió sin texto"], sin_respuesta: ["neutro", "Sin respuesta"],
+};
+const fuenteTxt = r => r.fuente === "manual" ? "lo marcaste tú"
+  : r.fuente === "ia" ? "lo leyó la IA" : r.fuente === "palabras" ? "lo leyó la lista de palabras" : "";
+function respChip(s) {
+  const r = respuestas.get(s.id), d = r && RESP[r.respuesta];
+  if (!d) return "";
+  const suf = r.fuente === "manual" ? " · tú" : r.fuente === "ia" && r.respuesta !== "leyendo" ? " · IA" : "";
+  const quien = fuenteTxt(r);
+  return `<span class="achip ${d[0]}"${quien ? ` title="${esc(quien[0].toUpperCase() + quien.slice(1))}"` : ""}>${d[1]}${suf}</span>`;
+}
+
 async function renderActivos() {
   const { data, error } = await SB.from("seguimientos")
     .select("id, cliente_id, actividad_id, actividad, inicio, estado, clic_token, clic_en, clics, clientes(nombre, telefono)")
@@ -2962,6 +2988,12 @@ async function renderActivos() {
   // se cargan a demanda al abrir «✎ Mensajes», no aquí: así la lista no arrastra
   // una consulta por cada tanda en curso.
   activosCache = activos;
+  // Cada minuto mientras se ve Seguimiento: chats_sync publica los mensajes
+  // cada ~5 min, así que más seguido no trae nada nuevo.
+  if (!relojResp) relojResp = setInterval(() => {
+    if (state.vista === "seguimiento" && !document.hidden && activosCache.length)
+      cargarRespuestas().then(pintarActivos);
+  }, 60 * 1000);
   if (!activos.length) {
     $("segActBuscarWrap").classList.add("hidden");
     $("segActConteo").classList.add("hidden");
@@ -2972,6 +3004,7 @@ async function renderActivos() {
     return;
   }
   pintarActivos();
+  cargarRespuestas().then(pintarActivos);
 }
 
 // Filtra por nombre O por teléfono. El teléfono se compara SOLO por dígitos:
@@ -3015,7 +3048,7 @@ function pintarActivos() {
         <h4>${esc(s.clientes?.nombre || "(cliente)")}</h4>
         <div class="ameta">
           <span class="atime">${esc(s.actividad)} · <b>${fechaHoraCO(s.inicio)}</b></span>
-          ${entradaChip(s)}
+          ${respChip(s)}${entradaChip(s)}
         </div>
       </div>
       <div class="ab">
@@ -3090,9 +3123,19 @@ async function abrirEditarMensajes(s) {
         ${acc}</div>`;
     }).join("");
     $("repBody").innerHTML = `
+      ${bloqueRespuesta(s)}
       <div style="font-size:.9rem;margin-bottom:10px">Seguimiento de <b>${esc(nombre)}</b> para
         <b>${esc(s.actividad)}</b>. Apaga los que no quieras que salgan; lo ya enviado no se puede recoger.</div>
       ${filas || `<div class="naplica">Este seguimiento no tiene mensajes.</div>`}`;
+    $("repBody").querySelectorAll("[data-resp]").forEach(b => b.onclick = async () => {
+      b.disabled = true;
+      const { error: e3 } = await SB.rpc("fijar_respuesta", { p_sid: s.id, p_valor: b.dataset.resp });
+      if (e3) { toast("⚠ " + e3.message); b.disabled = false; return; }
+      toast(b.dataset.resp === "si" ? "Marcado «Sí va»: le sale el link" : "Marcado «No va»: no le sale nada más");
+      await cargarRespuestas();
+      pintarActivos();
+      abrirEditarMensajes(s);
+    });
     $("repBody").querySelectorAll("[data-ht]").forEach(b => b.onclick = async () => {
       const t = b.dataset.ht, acc = b.dataset.acc;
       const nuevo = acc === "silenciar" ? "cancelado" : "pendiente";
@@ -3109,6 +3152,25 @@ async function abrirEditarMensajes(s) {
     });
   };
   pintar();
+}
+
+// Lo que respondió y quién lo decidió, con los botones para corregirlo. Lo que
+// marque el agente gana y la base ya no lo vuelve a decidir.
+function bloqueRespuesta(s) {
+  const r = respuestas.get(s.id);
+  if (!r || !RESP[r.respuesta]) return "";
+  const textos = (r.mensajes || []).filter(m => m.t).slice(-4).map(m => `<div class="rquote">«${esc(m.t)}»
+    <small>${esc(new Date(m.en).toLocaleTimeString("es-CO", { timeZone: "America/Bogota", hour: "numeric", minute: "2-digit" }))}</small></div>`).join("");
+  const quien = fuenteTxt(r);
+  const nota = !r.pregunta && r.fuente !== "manual"
+    ? `<div class="sfecha">Esta tanda no lleva la pregunta del link: el sistema no cambia sus mensajes por lo que responda.</div>` : "";
+  const si = r.respuesta !== "si" ? `<button class="pmark" data-resp="si" title="Le sale el link a la hora de inicio y la confirmación 10 min después">✓ Sí va</button>` : "";
+  const no = r.respuesta !== "no" ? `<button class="pmark off" data-resp="no" title="Se cancelan los recordatorios, la pregunta, el link y la confirmación">✕ No va</button>` : "";
+  return `<div class="rbloque">
+    <div class="rcab">${respChip(s)}${quien ? `<span class="sfecha">${esc(quien)}</span>` : ""}</div>
+    ${textos}${nota}
+    <div class="racc">${si}${no}</div>
+  </div>`;
 }
 
 // seguimiento_id → primer `enviado_en`: desde cuándo cuenta «respondió». En
