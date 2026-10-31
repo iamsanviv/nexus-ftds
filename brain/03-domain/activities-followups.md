@@ -292,6 +292,14 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   («aún no se le había enviado nada») y el link salía sin confirmar. Regla de Sanviv: sin mensaje
   enviado, todo cuenta desde `seguimientos.created_at` (pasos a, b y d). Si respondió antes de
   programarlo, igual recibe la pregunta.
+- **Qué respondió cada uno, y corregirlo** (30/10/2026, `sql/2026-10-30_55_…`): la lista de
+  seguimientos en curso lleva una etiqueta por persona (Sí va, No va, Con duda, IA leyendo,
+  Escribió sin texto, Sin respuesta; «· IA» o «· tú» dice quién decidió) y «✎ Mensajes» muestra lo
+  que escribió con «✓ Sí va» / «✕ No va». Datos de `respuestas_de(ids)` (misma clasificación que
+  el cron, solo seguimientos propios: los chats son privados), refresco cada minuto. La corrección
+  va por `fijar_respuesta` (solo el dueño) y queda en `seguimientos.respuesta_manual`: gana sobre
+  palabras e IA y el cron ya no toca ese seguimiento. «Sí va» devuelve lo que el sistema canceló
+  por la respuesta (no lo silenciado a mano); «No va» cancela todo lo que falta.
 - Si la VM del agente aún no publica `entrantes_txt` (NULL), no se pregunta: recordatorio normal.
   Si el cron no corre, sale el rec_60 y el enlace como antes. La falla nunca deja sin link.
 - Todo lo que cancela lleva `error` `omitido: …` (no dispara el push de envío fallido) y en
