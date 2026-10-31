@@ -151,6 +151,13 @@ temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`),
   `mensajes_registra_contacto_lead` anota el contacto (tipo = lead_tipo, nota = nombre de la campaña,
   `en` = hora real de envío) cuando el mensaje 1 pasa a `enviado`. Al programar no se anota nada.
 - La selección arranca vacía; «Marcar visibles» solo toca lo filtrado; se confirma con nombres.
+- Botón de UN lead (31/10/2026, pedido de Sanviv): «Enviar seguimiento» en la tarjeta abierta
+  (junto a «+ Registrar contacto»), en cada fila de «Hoy» (ícono dorado en el bloque de íconos) y
+  en el Perfil (`#fSegRow`), además de Mi día. Abre el MISMO modal con `soloId` (ese lead marcado
+  porque el agente hizo clic, no por un filtro). Solo se pinta si `masivo.recibeSegLead(c)`: el
+  mismo filtro que el universo del modal, para que nunca abra sin marcar a nadie. En el Perfil el
+  modal se abre encima y el perfil sigue abierto. En «Hoy» los íconos van en `.hicos`: si no caben
+  junto a las acciones del embudo (pendiente en 390 px), bajan en bloque a una segunda línea.
 - «Guardar como segmento» guarda los leads elegidos con el formato de Seguimiento (`tipo: "guardado"`, `cliente_ids`), el único que leen Seguimiento y Masivo a la vez (Masivo guarda `{ ids }`, que Seguimiento no muestra).
 - Aviso de cuota diaria (`data.cuotaDiaria`, TOPE_DIARIO=500 desde el 29/10/2026 (antes 220), que refleja el worker): el footer
   muestra lo que llevas hoy y, si la tanda no cabe, cuántos leads no saldrán; el confirm lo repite.

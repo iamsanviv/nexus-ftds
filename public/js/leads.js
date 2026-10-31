@@ -3,7 +3,7 @@
 //
 // Las reglas viven aquí y no en la vista porque el panel «Hoy» (F3) las usa
 // igual: la lista y el panel tienen que decir la misma temperatura.
-import { state, esc, fmtF, hoyISO, fechaCO, toast, BROKERS, nombreBroker, diaMesCorto } from "./state.js";
+import { state, esc, fmtF, hoyISO, fechaCO, toast, BROKERS, nombreBroker, diaMesCorto, ICO_ENV } from "./state.js";
 import { dbPatch, crearContacto, actualizarContacto, borrarContacto } from "./data.js";
 import { entranteDe } from "./entrantes.js";
 
@@ -311,8 +311,16 @@ export function form(c) {
 }
 export const abiertoAqui = (c, modo) => abierto && abierto.id === c.id && abierto.modo === modo;
 
+// Abre «Enviar seguimiento» con ESTE lead ya marcado (lo eligió con el clic).
+// Lo usan la tarjeta, «Hoy» y el Perfil; `enviar` lo decide quien pinta
+// (masivo.recibeSegLead), porque leads.js no importa masivo.js: ya va al revés.
+export const btnEnviarSeg = (clase = "lbtn") =>
+  `<button type="button" class="${clase} lsegenv" data-l="enviarSeg">${ICO_ENV}<span>Enviar seguimiento</span></button>`;
+export const abrirSegDe = (c, rerender) =>
+  import("./envioleads.js").then(m => m.abrirEnvioLeads(rerender, { soloId: c.id }));
+
 // Sección «Seguimiento» dentro de la tarjeta abierta del lead.
-export function seguimientoHTML(c) {
+export function seguimientoHTML(c, { enviar = false } = {}) {
   const mio = esMio(c);
   const pasos = [];
   if (c.registroEn) pasos.push(`<div class="lpaso ok">✓ Creó cuenta en <b>${esc(nombreBroker(c.registroBroker))}</b> · ${cuandoTxt(c.registroEn)}
@@ -349,7 +357,7 @@ export function seguimientoHTML(c) {
       ${pls.length ? `<div class="lsech sub"><span class="lsect">Plantillas enviadas</span><span class="lcnt">${pls.length}</span></div>
       <div class="lplants">${pls.map(x => `<span class="lplant ${x.recibida ? "" : "prog"}"><span>${x.recibida ? "✓" : "⏱"}</span><span><b>${esc(x.nombre)}</b>${x.veces > 1 ? ` ×${x.veces}` : ""} <i>${marcaPlantilla(x)}</i></span></span>`).join("")}</div>` : ""}
       <div class="lsech sub"><span class="lsect">Contactos</span><span class="lcnt">${contactosDe(c).length}</span></div>
-      ${mio ? (abiertoAqui(c, "contacto") ? form(c) : `<button class="lbtn ancho" data-l="contacto">+ Registrar contacto</button>`) : ""}
+      ${mio ? (abiertoAqui(c, "contacto") ? form(c) : `<div class="lacc">${enviar ? btnEnviarSeg() : ""}<button class="lbtn" data-l="contacto">+ Registrar contacto</button></div>`) : ""}
       ${filas || `<div class="lvacio">Todavía no hay contactos.</div>`}
     </div>`;
 }
@@ -375,6 +383,7 @@ export function manejarLead(raiz, c, rerender) {
     if (["registro", "promesa", "deposito", "contacto", "temp"].includes(a)) {
       abierto = abiertoAqui(c, a) ? null : { id: c.id, modo: a }; return listo();
     }
+    if (a === "enviarSeg") return abrirSegDe(c, listo);
     if (a === "cancel") { abierto = null; return listo(); }
     if (a === "brk") { abierto.brk = v; return listo(); }
     if (a === "tipo") { abierto.tipo = v; abierto.nota = raiz.querySelector("#lNota")?.value || ""; return listo(); }

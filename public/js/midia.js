@@ -17,7 +17,7 @@
 //
 // Solo ve lo PROPIO: es una lista de trabajo. Un director no recibe aquí a los
 // leads de sus agentes aunque pueda verlos.
-import { state, esc, hoyISO, esLead, esInactivo, usd, saldo, estaSaldada, toast, telColombia, ICO_TEL, sinSalto } from "./state.js";
+import { state, esc, hoyISO, esLead, esInactivo, usd, saldo, estaSaldada, toast, telColombia, ICO_TEL, ICO_ENV, sinSalto } from "./state.js";
 import { SB } from "./supabase.js";
 import { SUPABASE_URL } from "./config.js";
 import { cargarCrm } from "./data.js";
@@ -323,7 +323,6 @@ function cola(items, ahora) {
 
 /* ------------------------------------------------------------------ vista */
 // El mismo avión de papel del botón «Enviar seguimiento» de Leads (ui.js).
-const ICO_ENV = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>`;
 const ICO_WA = '<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .3-3.4-.7-2.9-1.2-4.7-4.1-4.9-4.3-.1-.2-1.2-1.6-1.2-3s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .6l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.3.1.2.1.7-.1 1.2z"/></svg>';
 
 function accionesHTML(it) {

@@ -3,7 +3,7 @@
 // que no llegue idéntico (más seguro). Crea una "campaña" y N mensajes en cola.
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
-  esInactivo, nombreMotivo, motivoCorto, BROKERS, insigniasBroker,
+  esInactivo, esLead, nombreMotivo, motivoCorto, BROKERS, insigniasBroker,
   MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto,
   componerMensaje, horaDeCliente, etiquetaZona, todos, cuandoParte } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento, cargarCola, simularCupo, avisoCupo } from "./data.js";
@@ -89,8 +89,13 @@ const resolverMensaje = (tpl, nombre, iso, tzOff, crudo = false) =>
 // mandarle a quien se enfrió. Pero solo si se pide en esta tanda.
 // Un lead de HighLevel que no ha bajado a WhatsApp no recibe envíos automáticos:
 // no te ha escrito por WhatsApp y su seguimiento es desde el CRM (crm.js).
-export const destinatariosMasivo = (incInact = false) => state.clientes.filter(c =>
-  c.tel && c.owner_id === state.me.id && (incInact || !esInactivo(c)) && !porBajar(c));
+const esDestinatario = (c, incInact = false) =>
+  c.tel && c.owner_id === state.me.id && (incInact || !esInactivo(c)) && !porBajar(c);
+export const destinatariosMasivo = (incInact = false) => state.clientes.filter(c => esDestinatario(c, incInact));
+// El botón «Enviar seguimiento» de UN lead (tarjeta, «Hoy», Perfil) solo se
+// muestra si ese lead entraría en el modal: el modal marca al lead únicamente
+// si está en este universo, y un botón que abre el modal sin marcar a nadie engaña.
+export const recibeSegLead = c => esLead(c) && esDestinatario(c);
 // El seguimiento de leads (envioleads.js) usa este MISMO filtro: es un masivo a
 // leads, no una tercera vía de envío.
 const pool = () => destinatariosMasivo(masIncInact);
