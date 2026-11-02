@@ -64,7 +64,8 @@ export const state = {
   ventas: [],
   productos: [],
   parametros: {},        // config global (hoy vacío; el upgrade ya no usa parámetro)
-  metasFtd: [],          // [{ ftd, pago }] ordenadas
+  metasFtd: [],          // [{ ftd, pago }] ordenadas — las metas, sin los mínimos
+  minimosFtd: [],        // [{ ftd, pago }] escalones mínimos elegibles (25, 35)
   ftdBase: {},           // { "<owner>|<YYYY-MM>": { base, declarado, cerrado } }
   metasAgente: {},       // { "<owner>|<YYYY-MM>": { meta_ftd, meta_ventas } }
   notas: {},             // { <cliente_id>: [nota, …] } más recientes primero
@@ -689,6 +690,31 @@ export function ftdMixDelMes(periodo, ownerId) {
 // El que manda para las metas es `reales`. Se toma el mayor entre lo declarado
 // y lo cargado: si sube más de los que declaró, el número lo sigue en vez de
 // quedarse corto.
+// Mínimo que le pagan al agente: cada uno dice si a él le pagan desde 35 o
+// desde 25 (pedido del usuario el 2026-11-02). No es una meta —no sale en el
+// cuadro donde se pone la meta—, solo entra en las cuentas de la comisión.
+//
+// Se guarda por mes en `ftd_base.minimo` porque la comisión de un mes cerrado
+// no debe moverse si luego cambia de mínimo. Un mes sin respuesta hereda la del
+// último mes que la tuvo, para no preguntarlo cada mes. null = nunca respondió:
+// se paga desde la primera meta.
+export function minimoDe(periodo, ownerId) {
+  let mejor = null;
+  for (const [k, v] of Object.entries(state.ftdBase)) {
+    const [o, p] = k.split("|");
+    if (o !== ownerId || v.minimo == null || p > periodo) continue;
+    if (!mejor || p > mejor.p) mejor = { p, ftd: v.minimo };
+  }
+  return mejor ? state.minimosFtd.find(m => m.ftd === mejor.ftd) || null : null;
+}
+
+// La escalera con la que se paga: el mínimo elegido seguido de las metas.
+export function escalaConMinimo(ftdMin) {
+  const min = state.minimosFtd.find(m => m.ftd === ftdMin);
+  return min ? [min, ...state.metasFtd.filter(m => m.ftd > min.ftd)] : state.metasFtd;
+}
+export const escalaFtd = (periodo, ownerId) => escalaConMinimo(minimoDe(periodo, ownerId)?.ftd);
+
 export function comisionFtd(periodo, ownerId) {
   const cargados = ftdDelMes(periodo, ownerId);
   const fila = state.ftdBase[`${ownerId}|${periodo}`] || {};
@@ -696,7 +722,7 @@ export function comisionFtd(periodo, ownerId) {
   const reales = fila.declarado != null ? Math.max(fila.declarado, cargados) : cargados;
   const efectivos = reales + base;
 
-  const metas = state.metasFtd;
+  const metas = escalaFtd(periodo, ownerId);
   const alcanzada = [...metas].reverse().find(m => efectivos >= m.ftd) || null;
   const siguiente = metas.find(m => m.ftd > efectivos) || null;
 
