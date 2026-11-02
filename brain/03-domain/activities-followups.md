@@ -297,6 +297,9 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   (`omitido: en duda, se espera que aclare`, también escrito en la fila de la pregunta como marca)
   y retiene enlace y confirmación; el paso b) los suelta con un sí y los cancela con un no o a
   `inicio + 10 min`. En b), con la IA en duda ya no decide la lista de palabras: se espera.
+- **Con un sí vuelve el recordatorio de 15 min** (2/11/2026, `sql/2026-11-02_58_…`, caso Heidy):
+  al soltar el link en el paso b) también vuelve el rec_15 cancelado por la pregunta o por la duda,
+  si su hora no pasó.
 - **Qué respondió cada uno, y corregirlo** (30/10/2026, `sql/2026-10-30_55_…`): la lista de
   seguimientos en curso lleva una etiqueta por persona (Sí va, No va, Con duda, IA leyendo,
   Escribió sin texto, Sin respuesta; «· IA» o «· tú» dice quién decidió) y «✎ Mensajes» muestra lo
