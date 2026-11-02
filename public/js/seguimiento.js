@@ -8,7 +8,7 @@ import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
   horaDeCliente, etiquetaZona, etiquetaDia, componerMensaje,
   esInactivo, esLead, nombreMotivo, motivoCorto,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas,
-  normBusqueda, BROKERS, insigniasBroker, cuandoParte, fechaCO } from "./state.js";
+  normBusqueda, BROKERS, insigniasBroker, cuandoParte, fechaCO, asistioEseDia } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { porBajar } from "./crm.js";
@@ -2546,7 +2546,7 @@ async function abrirEntradas(a) {
   $("repOverlay").classList.add("open");
 
   const { data, error } = await SB.from("seguimientos")
-    .select("id, owner_id, cliente_id, clic_token, clic_en, clics, clientes(nombre)")
+    .select("id, owner_id, cliente_id, clic_token, clic_en, clics, created_at, clientes(nombre)")
     .eq("actividad_id", a.id).neq("estado", "cancelado");
   if (error) { $("repBody").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
 
@@ -2603,9 +2603,21 @@ async function abrirEntradas(a) {
       `<div class="pstitle">${titulo} (${lista.length})</div>` +
       (lista.length ? lista.map(fila).join("") : `<div class="naplica">${vacio}</div>`);
 
+    // Escribir a quienes asistieron ESE día (clic a tiempo o marca de esta
+    // fecha, `asistioEseDia`), no a quienes alguna vez fueron a ese servicio.
+    // Solo los míos: visibilidad no es propiedad de envío. Va a Masivo para no
+    // tener otra vía de envío con sus propias protecciones.
+    const yaEmpezo = new Date(a.inicio) <= new Date();
+    const asis = yaEmpezo ? conCli
+      .filter(({ s, c }) => s.owner_id === state.me?.id && asistioEseDia(s, c, a))
+      .map(({ s }) => s.cliente_id) : [];
+    const btnAsis = asis.length
+      ? `<button class="pmark" id="repEscAsis" style="margin-bottom:10px">💬 Escribir a quienes asistieron (${asis.length})</button>`
+      : "";
+
     const nResp = conCli.filter(({ s, c }) => respondio(s, c)).length;
     $("repSub").textContent = nResp ? `${a.nombre} · 💬 ${nResp} te respondi${nResp === 1 ? "ó" : "eron"}` : a.nombre;
-    $("repBody").innerHTML = (!filas.length
+    $("repBody").innerHTML = btnAsis + (!filas.length
         ? `<div class="naplica">A esta actividad no le programaste a nadie.</div>`
         : (rastreados.length
             ? grupo("👆 Entraron", entraron, "Nadie ha abierto su enlace todavía.")
@@ -2626,6 +2638,13 @@ async function abrirEntradas(a) {
                 marca a mano.</div>`
             : "");
 
+    const be = $("repEscAsis");
+    if (be) be.onclick = async () => {
+      cerrar();
+      // A demanda, como masivo.js hace con este archivo: evita el ciclo de imports.
+      const m = await import("./masivo.js");
+      m.abrirConAsistentes(a, asis);
+    };
     $("repBody").querySelectorAll("[data-marcar]").forEach(b => b.onclick = () => cambiar(b.dataset.marcar, true, b));
     $("repBody").querySelectorAll("[data-quitar]").forEach(b => b.onclick = () => cambiar(b.dataset.quitar, false, b));
   };

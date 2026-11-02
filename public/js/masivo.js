@@ -5,7 +5,8 @@ import { SB } from "./supabase.js";
 import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
   esInactivo, esLead, nombreMotivo, motivoCorto, BROKERS, insigniasBroker,
   MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto,
-  componerMensaje, horaDeCliente, etiquetaZona, todos, cuandoParte } from "./state.js";
+  componerMensaje, horaDeCliente, etiquetaZona, todos, cuandoParte,
+  asistioEseDia, fechaCO, fmtF } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento, cargarCola, simularCupo, avisoCupo } from "./data.js";
 import { canalVinculado } from "./canal.js";
 import { porBajar } from "./crm.js";
@@ -27,6 +28,7 @@ let masCuando = "ahora";    // ahora | prog
 // que se queda pegada de la vez pasada.
 let masIncInact = false;
 let segmentos = [];         // segmentos guardados
+let asistidas = [];         // [{ nombre, ids }] asistentes de mis actividades recientes (ver cargarAsistidas)
 let masCola = null;         // cola del agente para prever el cupo; null mientras carga
 let enviando = false;       // un envío en curso: ver enviar()
 
@@ -185,7 +187,7 @@ function pintarBrokers(lista) {
 const idsDeSegmento = s => (s?.definicion?.ids) || (s?.definicion?.cliente_ids) || [];
 
 function renderSegs() {
-  if (!segmentos.length) {
+  if (!segmentos.length && !asistidas.length) {
     $("masSegs").innerHTML = `<span class="segselcount">Sin segmentos guardados</span>`;
     return;
   }
@@ -197,22 +199,81 @@ function renderSegs() {
   // destinatarios, que es lo que de verdad se viene a mirar acá.
   $("masSegs").innerHTML =
     guardados.map(s => chip(s, false)).join("") +
+    (asistidas.length ? `<details class="segacc">
+      <summary>Asistieron · últimos ${DIAS_ASISTIDAS} días<span class="pcn">${asistidas.length}</span></summary>
+      <div class="segaccbody">${asistidas.map((g, i) =>
+        `<button class="pill segchip hist" data-asis="${i}">${esc(g.nombre)} · ${g.ids.length}</button>`).join("")}</div>
+    </details>` : "") +
     (historial.length ? `<details class="segacc">
       <summary>Invitados recientes<span class="pcn">${historial.length}</span></summary>
       <div class="segaccbody">${historial.map(s => chip(s, true)).join("")}</div>
     </details>` : "");
   $("masSegs").querySelectorAll("[data-seg]").forEach(b => b.onclick = () => {
     const s = segmentos.find(x => x.id === b.dataset.seg);
-    const ids = idsDeSegmento(s);
-    const enPool = new Set(pool().map(c => c.id));
-    masSel = new Set(ids.filter(id => enPool.has(id)));
-    masFiltro = "todos"; masBroker = "todos"; masSrv = ""; masSrvModo = "no"; masLleg = null;
-    renderFiltros(); renderLista();
-    const omit = ids.length - masSel.size;
-    toast(omit > 0
-      ? `Segmento «${s.nombre}»: ${masSel.size} seleccionados · ${omit} ya no aplican`
-      : `Segmento «${s.nombre}»: ${masSel.size} seleccionados`);
+    aplicarSeleccion(idsDeSegmento(s), s.nombre);
   });
+  $("masSegs").querySelectorAll("[data-asis]").forEach(b => b.onclick = () => {
+    const g = asistidas[+b.dataset.asis];
+    aplicarSeleccion(g.ids, g.nombre);
+  });
+}
+
+// Reemplaza la selección por esas personas, siempre a la vista: se limpian los
+// filtros para que nadie quede marcado y escondido (DP-001), y se dice cuántas
+// quedaron y cuántas no aplican (sin teléfono, inactivas, de otro agente…).
+function aplicarSeleccion(ids, nombre) {
+  const enPool = new Set(pool().map(c => c.id));
+  masSel = new Set(ids.filter(id => enPool.has(id)));
+  masFiltro = "todos"; masBroker = "todos"; masSrv = ""; masSrvModo = "no"; masLleg = null;
+  $("masBuscar").value = ""; $("masBuscarX").classList.add("hidden");
+  renderFiltros(); renderLista();
+  const omit = ids.length - masSel.size;
+  toast(omit > 0
+    ? `«${nombre}»: ${masSel.size} seleccionados · ${omit} ya no aplican`
+    : `«${nombre}»: ${masSel.size} seleccionados`);
+}
+
+// Asistentes de MIS actividades recientes que ya empezaron, una entrada por
+// actividad y fecha. Se calcula al abrir y no se guarda en `segmentos`: la
+// asistencia se sigue marcando a mano después de la clase, y una copia guardada
+// se quedaría sin quienes se marcaron tarde. Solo seguimientos propios: a quien
+// invitó otro agente no se le escribe desde mi WhatsApp.
+const DIAS_ASISTIDAS = 7;
+async function cargarAsistidas() {
+  const ahora = Date.now();
+  const desde = new Date(ahora - (DIAS_ASISTIDAS + 1) * 86400000).toISOString();
+  const { data, error } = await SB.from("seguimientos")
+    .select("cliente_id, created_at, clic_en, actividad_id, actividades(id, nombre, inicio, servicio_id)")
+    .eq("owner_id", state.me.id).neq("estado", "cancelado")
+    .not("actividad_id", "is", null).gte("inicio", desde)
+    .limit(5000);
+  if (error) { asistidas = []; return; }
+  const porAct = new Map();
+  for (const s of data || []) {
+    const a = s.actividades;
+    if (!a) continue;
+    const t = new Date(a.inicio).getTime();
+    // `inicio` de la actividad, no el copiado en el seguimiento: si se
+    // reprogramó, manda el vigente.
+    if (t > ahora || t < ahora - DIAS_ASISTIDAS * 86400000) continue;
+    const c = state.clientes.find(x => x.id === s.cliente_id);
+    if (!asistioEseDia(s, c, a)) continue;
+    const g = porAct.get(a.id) || { a, ids: new Set() };
+    g.ids.add(s.cliente_id);
+    porAct.set(a.id, g);
+  }
+  asistidas = [...porAct.values()]
+    .sort((x, y) => new Date(y.a.inicio) - new Date(x.a.inicio))
+    .map(g => ({ nombre: nombreAsistidos(g.a), ids: [...g.ids] }));
+}
+const nombreAsistidos = a => `${a.nombre} ${fmtF(fechaCO(new Date(a.inicio)))}`;
+
+// Entrada desde «Quiénes entraron»: abre el masivo con los asistentes de esa
+// actividad ya marcados (elección de Sanviv, 2/11/2026). Los ids los calcula el
+// panel con la misma regla (`asistioEseDia`).
+export async function abrirConAsistentes(a, ids) {
+  await abrir();
+  aplicarSeleccion(ids, `Asistieron · ${nombreAsistidos(a)}`);
 }
 
 function visibles() {
@@ -514,8 +575,10 @@ async function abrir() {
 
 // Estaba escrito dos veces, en línea, y ahora hace falta una tercera al enviar.
 async function cargarSegs() {
-  const { data } = await SB.from("segmentos")
-    .select("id, nombre, definicion").order("created_at", { ascending: false });
+  const [{ data }] = await Promise.all([
+    SB.from("segmentos").select("id, nombre, definicion").order("created_at", { ascending: false }),
+    cargarAsistidas().catch(() => { asistidas = []; }),
+  ]);
   segmentos = data || [];
   renderSegs();
 }
