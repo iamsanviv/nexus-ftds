@@ -85,6 +85,24 @@ export const state = {
 /* ---------- utilidades DOM ---------- */
 export const $ = id => document.getElementById(id);
 export const hoyISO = () => fechaCO();
+
+// ¿Esta persona asistió a ESTA actividad, en su fecha? No es lo mismo que
+// «asistió alguna vez»: en las del catálogo `acc[servicio]` es un solo valor
+// por servicio, así que una marca de una clase anterior seguiría ahí.
+// Cuenta el clic a tiempo (`clic_en`) o una marca cuya fecha cae entre el día en
+// que se programó este seguimiento y el día de la actividad: el repaso marca con
+// la fecha de la invitación y el panel con la del inicio, y las dos caen ahí.
+// Medido el 2/11/2026: de 533 marcas en seguimientos de 10 días, 178 eran de
+// antes de la invitación (otra clase) y quedan fuera.
+// `s` = { clic_en, created_at }; `a` = { id, servicio_id, inicio }.
+export function asistioEseDia(s, c, a) {
+  if (!c) return false;
+  if (s.clic_en) return true;
+  if (!a.servicio_id) return !!((c.pun || {})[a.id] || {}).acc;
+  const f = String((c.acc || {})[a.servicio_id] || "").slice(0, 10);
+  if (!f) return false;
+  return f >= fechaCO(new Date(s.created_at)) && f <= fechaCO(new Date(a.inicio));
+}
 export const fmtF = iso => { const p = (iso || "").split("-"); return p.length === 3 ? `${p[2]}/${p[1]}` : (iso || ""); };
 export const esc = s => (s || "").replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m]));
 
