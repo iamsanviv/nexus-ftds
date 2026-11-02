@@ -11,7 +11,7 @@
 import {
   state, $, esc, hoyISO, toast, usd, mesLegible, periodoAntes, periodoDe, estaSaldada,
   comisionFtd, metasDe, progresoMeta, ritmoMeta, periodoSinCerrar, ftdDelMes, resumenVentas,
-  BROKERS, ftdMixDelMes,
+  BROKERS, ftdMixDelMes, minimoDe, escalaConMinimo, escalaFtd,
 } from "./state.js";
 import { cargarVentas, guardarFtd, guardarMeta } from "./data.js";
 
@@ -124,6 +124,7 @@ export function renderBloqueFtd() {
       <div class="ftdmenu hidden" id="ftdMenu" role="menu">
         <button role="menuitem" id="ftdAjustar">${f.declaro ? "Ajustar mis números" : "Poner mis números"}</button>
         <button role="menuitem" id="ftdMeta">Cambiar mis metas</button>
+        ${state.minimosFtd.length ? `<button role="menuitem" id="ftdMinimo">Mínimo que me pagan</button>` : ""}
         <button role="menuitem" id="ftdMeses">Meses anteriores</button>
       </div>
       ${hero}<div class="ftdsep"></div>${ritmo}<div class="ftdsep"></div>${comision}
@@ -146,6 +147,7 @@ export function renderBloqueFtd() {
   // "Ajustar" solo abre los números del mes.
   $("ftdMeta").onclick = () => abrirAsistente("metas");
   $("ftdMeses").onclick = () => abrirResumen();
+  if ($("ftdMinimo")) $("ftdMinimo").onclick = () => abrirAsistente("minimo");
   if ($("ftdPonerMeta")) $("ftdPonerMeta").onclick = () => abrirAsistente("metas");
 
   // Momento natural para el ritual: el agente acaba de llegar a Personas.
@@ -232,11 +234,12 @@ function ritmoHtml(r) {
     </div>`;
 }
 
-// Lo que paga una meta cualquiera: la mayor meta REAL que ese número alcanza.
+// Lo que paga una meta cualquiera: el mayor escalón que ese número alcanza.
 // No puede ser coincidencia exacta — desde que la meta se elige con deslizador,
-// un 70 no está en la tabla y habría mostrado $0.
+// un 70 no está en la tabla y habría mostrado $0. Cuenta el mínimo del agente
+// (25 o 35) porque es una cuenta de comisión, no el cuadro de la meta.
 const pagoDeMeta = n => {
-  const alc = [...state.metasFtd].reverse().find(m => n >= m.ftd);
+  const alc = [...escalaFtd(mesActual(), yo())].reverse().find(m => n >= m.ftd);
   return alc ? Number(alc.pago) : 0;
 };
 
@@ -318,7 +321,7 @@ function pintarResumen(ps) {
           ${dato("Reales", f.reales, `${f.cargados} cargados`)}
           ${dato("Base que traía", f.base, f.base ? "de meses anteriores" : "")}
           ${dato("Efectivos", f.efectivos, "reales + base")}
-          ${dato("Comisión", usd(f.pago), f.meta ? `meta de ${f.meta}` : "no alcanzó meta")}
+          ${dato("Comisión", usd(f.pago), f.meta ? `escalón de ${f.meta}` : "no llegó al mínimo")}
         </div>
         ${metas?.metaFtd
           ? `<div class="ayuda">Tu meta era de <b>${metas.metaFtd}</b> FTD del mes (sin contar base)
@@ -372,6 +375,9 @@ export function abrirAsistente(modo) {
     finalMes: cerrar ? Math.max(comisionFtd(cerrar, yo()).reales, 0) : 0,
     metaFtd: metas?.metaFtd || (state.metasFtd[0]?.ftd ?? 45),
     metaVentas: metas?.metaVentas || 0,
+    // Mínimo que le pagan (25 o 35). En el cierre se pregunta por el mes que
+    // se cierra; se propone el que ya tenía para que solo confirme.
+    minimo: minimoDe(cerrar && modo === "cierre" ? cerrar : p, yo())?.ftd ?? null,
   };
   $("ftdOverlay").classList.add("open");
   pintarPaso();
@@ -383,6 +389,7 @@ const haCerradoAlguno = () =>
 function pasos() {
   if (asis.modo === "ajuste") return ["numeros"];      // solo los FTD del mes
   if (asis.modo === "metas")  return ["metas", "total"];  // solo lo que se propone
+  if (asis.modo === "minimo") return ["minimo"];          // solo cambiar el mínimo
   if (asis.modo === "cierre") return ["cierre", "metas", "total"];
   return ["numeros", "metas", "total"];
 }
@@ -397,6 +404,7 @@ function pintarPaso() {
   $("ftdModal").innerHTML = (
     cual === "numeros" ? pasoNumeros() :
     cual === "cierre"  ? pasoCierre()  :
+    cual === "minimo"  ? pasoMinimo()  :
     cual === "metas"   ? pasoMetas()   : pasoTotal()) + puntos;
   engancharPaso(cual);
 }
@@ -440,9 +448,30 @@ function pasoCierre() {
           <input id="asBaseCierre" type="number" min="0" step="1" value="${asis.baseCierre}" inputmode="numeric">
           <div class="ayuda">Los FTD que traías de meses anteriores. Si no es tu base real, corrígela.</div>
         </div>
+        ${state.minimosFtd.length ? `<div class="frow"><label>¿Desde cuántos FTD te pagan?</label>
+          ${opcionesMinimo()}
+        </div>` : ""}
         <div id="asEco" class="eco"></div>
         <button class="abtn" id="asSeguir">Cerrar ${mesLegible(asis.periodoCierre).split(" ")[0]} y seguir</button>
         <button class="abtn quiet" id="asSaltar">Ahora no, recuérdamelo mañana</button>
+      </div>
+    </div>`;
+}
+
+// Las opciones de mínimo (35 primero, como lo dice el negocio). Reusan los
+// atajos de la meta para no inventar otro control.
+const opcionesMinimo = () => `<div class="atajos">${[...state.minimosFtd].sort((a, b) => b.ftd - a.ftd).map(m =>
+  `<button type="button" class="atajo minopt ${m.ftd === asis.minimo ? "on" : ""}" data-min="${m.ftd}">${m.ftd} FTD · ${usd(m.pago)}</button>`).join("")}</div>`;
+
+function pasoMinimo() {
+  return `
+    <div class="asis">
+      ${cabeza("", "¿Desde cuántos FTD te pagan?",
+               "Lo que hagas desde ese número se paga; por debajo pasa completo de base.")}
+      <div class="abody">
+        <div class="frow">${opcionesMinimo()}</div>
+        <div class="ayuda">Cuenta desde ${mesLegible(asis.periodo)}. Los meses cerrados no cambian.</div>
+        <button class="abtn" id="asSeguir">Guardar</button>
       </div>
     </div>`;
 }
@@ -557,13 +586,23 @@ function engancharPaso(cual) {
       const d = Number($("asFinal").value) || 0;
       const b = Number($("asBaseCierre").value) || 0;
       const ef = d + b;
-      const alc = [...state.metasFtd].reverse().find(m => ef >= m.ftd);
+      if (state.minimosFtd.length && asis.minimo == null) {
+        e.innerHTML = "Elige desde cuántos FTD te pagan para ver cuánto cobras.";
+        return;
+      }
+      const escala = escalaConMinimo(asis.minimo);
+      const alc = [...escala].reverse().find(m => ef >= m.ftd);
       e.innerHTML = alc
-        ? `Alcanzas la meta de <b>${alc.ftd}</b>: se pagan <b>${usd(alc.pago)}</b>, y <b>${ef - alc.ftd}</b> pasan de base.`
-        : `No alcanzas la primera meta (${state.metasFtd[0]?.ftd ?? "—"}). Los <b>${ef}</b> pasan completos de base.`;
+        ? `Llegas a <b>${alc.ftd}</b>: se pagan <b>${usd(alc.pago)}</b>, y <b>${ef - alc.ftd}</b> pasan de base.`
+        : `No llegas a ${escala[0]?.ftd ?? "—"}. Los <b>${ef}</b> pasan completos de base.`;
     }
   };
   ["asDeclarado", "asBase", "asFinal", "asBaseCierre"].forEach(id => { if ($(id)) $(id).oninput = eco; });
+  $("ftdModal").querySelectorAll(".minopt").forEach(b => b.onclick = () => {
+    asis.minimo = Number(b.dataset.min);
+    $("ftdModal").querySelectorAll(".minopt").forEach(x => x.classList.toggle("on", x === b));
+    eco();
+  });
   eco();
 
   // Deslizador y atajos son la misma cifra por dos caminos. Al arrastrar NO se
@@ -607,15 +646,30 @@ async function avanzar(cual) {
       const d = Number($("asFinal").value) || 0;
       const b = Number($("asBaseCierre").value) || 0;
       const ef = d + b;
-      const alc = [...state.metasFtd].reverse().find(m => ef >= m.ftd);
+      if (state.minimosFtd.length && asis.minimo == null) {
+        toast("Elige desde cuántos FTD te pagan");
+        return;
+      }
+      const alc = [...escalaConMinimo(asis.minimo)].reverse().find(m => ef >= m.ftd);
+      // El mínimo se guarda en los dos meses: en el que se cierra, para que su
+      // pago quede congelado, y en el nuevo, para que sus cuentas lo usen ya.
+      const min = asis.minimo != null ? { minimo: asis.minimo } : {};
       // Congelar el mes que se cierra…
       if (!(await guardarFtd(yo(), asis.periodoCierre,
-            { base: b, declarado: d, declarado_en: new Date().toISOString(), cerrado: true }))) return;
+            { base: b, declarado: d, declarado_en: new Date().toISOString(), cerrado: true, ...min }))) return;
       // …y sembrar la base del mes nuevo (se puede corregir luego en «Ajustar mis números»).
       const sobra = ef - (alc ? alc.ftd : 0);
-      if (!(await guardarFtd(yo(), asis.periodo, { base: sobra }))) return;
+      if (!(await guardarFtd(yo(), asis.periodo, { base: sobra, ...min }))) return;
       asis.base = sobra;
       toast(alc ? `${mesLegible(asis.periodoCierre)} cerrado: ${usd(alc.pago)}` : `${mesLegible(asis.periodoCierre)} cerrado`);
+    }
+
+    if (cual === "minimo") {
+      if (asis.minimo == null) { toast("Elige una de las dos opciones"); return; }
+      if (!(await guardarFtd(yo(), asis.periodo, { minimo: asis.minimo }))) return;
+      toast(`Te pagan desde ${asis.minimo} FTD ✓`);
+      cerrarAsistente();
+      return refrescar();
     }
 
     if (cual === "metas") {

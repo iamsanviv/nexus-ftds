@@ -319,10 +319,13 @@ export async function cargarVentas() {
 
     state.productos = prod.data || [];
     state.parametros = Object.fromEntries((par.data || []).map(p => [p.clave, Number(p.valor)]));
-    state.metasFtd = met.data || [];
+    // Los mínimos (25, 35) viven en la misma tabla pero NO son metas: se
+    // separan aquí para que el cuadro de la meta nunca los ofrezca.
+    state.metasFtd = (met.data || []).filter(m => !m.minimo);
+    state.minimosFtd = (met.data || []).filter(m => m.minimo);
     state.ventas = (ven.data || []).map(mapVenta);
     state.ftdBase = Object.fromEntries((base.data || []).map(b => [`${b.owner_id}|${b.periodo}`,
-      { base: b.base, declarado: b.declarado, cerrado: b.cerrado }]));
+      { base: b.base, declarado: b.declarado, cerrado: b.cerrado, minimo: b.minimo ?? null }]));
     state.metasAgente = Object.fromEntries((mag.data || []).map(m => [`${m.owner_id}|${m.periodo}`, m]));
     state.notas = {};
     (notas.data || []).forEach(n => (state.notas[n.cliente_id] ||= []).push(n));
@@ -383,7 +386,7 @@ export async function guardarFtd(owner_id, periodo, campos) {
     .select().single();
   if (error) { toast("⚠ " + error.message); return null; }
   state.ftdBase[`${owner_id}|${periodo}`] =
-    { base: data.base, declarado: data.declarado, cerrado: data.cerrado };
+    { base: data.base, declarado: data.declarado, cerrado: data.cerrado, minimo: data.minimo ?? null };
   return data;
 }
 

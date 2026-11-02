@@ -42,6 +42,17 @@ El cálculo combina datos declarados y datos cargados según las reglas implemen
 
 No reimplementar el cálculo desde cero sin revisar las funciones vigentes y las reglas históricas de `sql/2026-07-29_08_ftd_reales_y_metas.sql` y cambios posteriores.
 
+## Mínimo de pago: 25 o 35 (2026-11-02)
+
+Además de las metas (45, 65, 90, 120, 150), `metas_ftd` tiene dos filas con `minimo = true`: **35 = 280 USD** y **25 = 200 USD**. Cada agente dice desde cuál le pagan; ese escalón se pone debajo de las metas solo para calcular la comisión (`escalaFtd` / `minimoDe` en `state.js`).
+
+- **No es una meta** (pedido explícito del usuario): `data.js` los separa en `state.minimosFtd` y el cuadro «¿Qué te propones este mes?» (atajos, deslizador, «la primera meta es…», total) sigue usando solo `state.metasFtd`.
+- Se pregunta en el **cierre de mes** (obligatorio elegir) y se cambia desde el menú ⋯ de la tarjeta de FTD («Mínimo que me pagan»).
+- Se guarda por mes en `ftd_base.minimo`, para que un mes cerrado no cambie de pago. Un mes sin valor hereda el del último mes que lo tuvo; `null` en todos = se paga desde la primera meta.
+- La base que pasa al mes siguiente se calcula contra el escalón alcanzado, incluido el mínimo.
+
+SQL: `sql/2026-11-02_57_minimos_ftd.sql`.
+
 ## Código relacionado
 
 - `public/js/ftd.js`
