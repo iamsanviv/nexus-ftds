@@ -42,6 +42,19 @@ Prioridad de grupos para acción operativa:
 
 No tomar al azar el texto de un mensaje individual como texto representativo: los mensajes pueden contener variables, snippets o nombre ya resuelto. La campaña conserva la intención/base común.
 
+## Temperatura y filtros de destinatarios (3/11/2026)
+
+Cada fila dice **Caliente / Tibio / Frío** y el motivo, con la MISMA regla que la lista de
+invitados (`temperaturaInvitado`, ahora en `public/js/temperatura.js`, compartida con
+`seguimiento.js`). Elección de Sanviv: se aplica a **todos, leads incluidos**; un lead puede
+decir aquí otra temperatura que en Leads/Mi día (`leads.js`, regla de embudo). Si se cambian los
+cortes, cambian en los dos sitios a la vez.
+
+Filtros: a la vista quedan membresía (píldoras) y **Temperatura** (desplegable con conteos).
+Broker, Servicio y Llegó van plegados tras la píldora «Más filtros», que dice cuántos de esos
+están activos (mismo patrón que Comunidad). Elegir un segmento o reabrir el masivo limpia
+todos los filtros, incluida la temperatura.
+
 ## Historial de segmentos
 
 El historial de destinatarios se comparte entre programación de actividades y masivos. La persistencia común vive en `data.js` (`guardarHistorialSegmento`).

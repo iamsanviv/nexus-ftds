@@ -11,6 +11,8 @@ import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento, cargar
 import { canalVinculado } from "./canal.js";
 import { porBajar } from "./crm.js";
 import { fechaFila, fechaFilaHTML, filtroLlegada, enRangoLleg } from "./leads.js";
+import { temperaturaInvitado, TEMP_NOM } from "./temperatura.js";
+import { asegurarEntrantes } from "./entrantes.js";
 
 const MEMS = ["Beca", "VIP", "Platino", "Oro", "Lead"];
 let masSel = new Set();     // ids seleccionados
@@ -19,6 +21,8 @@ let masBroker = "todos";    // filtro por broker del FTD (eje aparte del anterio
 let masSrv = "";            // servicio del catálogo por el que se filtra ("" = ninguno)
 let masSrvModo = "no";      // "no" = aún no asistió · "si" = ya asistió
 let masLleg = null;         // rango del filtro «Llegó» (leads.js)
+let masTemp = "todos";      // filtro de temperatura: todos | caliente | tibio | frio
+let masMas = false;         // ¿desplegados los filtros secundarios (broker, servicio, llegó)?
 let masImg = null;          // URL del adjunto subido (imagen o video), o null
 let masImgTipo = null;      // "imagen" | "video" — para la vista previa y el nombre de la campaña
 
@@ -117,6 +121,27 @@ function renderPrev() {
     : "";
 }
 
+/* ---------- temperatura ---------- */
+// La misma regla que la lista de invitados (te escribió / asistió) para TODOS,
+// leads incluidos: elección de Sanviv (3/11/2026). Un lead puede decir aquí
+// otra temperatura que en Leads, que usa su embudo y contactos.
+// `motivo` sale ya escapado para usarlo tal cual en HTML y en `title`.
+function tempDe(c) {
+  const r = temperaturaInvitado(c);
+  return { t: r.t, motivo: esc(r.motivo) };
+}
+const TEMPS = [["caliente", "Calientes"], ["tibio", "Tibios"], ["frio", "Fríos"]];
+
+function pintarTemp(lista) {
+  const fila = $("masTempFila"), sel = $("masTemp");
+  fila.classList.remove("hidden");
+  const n = t => lista.filter(c => tempDe(c).t === t).length;
+  sel.innerHTML = `<option value="todos">Todas</option>`
+    + TEMPS.map(([v, l]) => `<option value="${v}">${l} (${n(v)})</option>`).join("");
+  sel.value = masTemp;
+  sel.onchange = () => { masTemp = sel.value; renderFiltros(); renderLista(); };
+}
+
 // ¿La persona ya fue invitada a alguna actividad? (tiene al menos un conf)
 const yaInvitada = c => c.conf && Object.keys(c.conf).length > 0;
 
@@ -129,10 +154,20 @@ function renderFiltros() {
     .concat(presentes.map(m => [m, `${m} (${lista.filter(c => c.mem === m).length})`]));
   $("masFiltros").innerHTML = chips.map(([v, l]) =>
     `<button class="pill ${masFiltro === v ? "on" : ""}" data-fmem="${v}">${l}</button>`).join("");
-  $("masFiltros").querySelectorAll("[data-fmem]").forEach(b => b.onclick = () => { masFiltro = b.dataset.fmem; renderLista(); });
+  $("masFiltros").querySelectorAll("[data-fmem]").forEach(b => b.onclick = () => { masFiltro = b.dataset.fmem; renderFiltros(); renderLista(); });
+  pintarTemp(lista);
   pintarBrokers(lista);
   pintarServicios();
   filtroLlegada($("masLlegFila"), masLleg, r => { masLleg = r; renderFiltros(); renderLista(); });
+  // «Más filtros» va PRIMERO en la fila, como en Comunidad (en celular las
+  // píldoras se desplazan de lado). Dice cuántos ejes plegados están activos:
+  // un filtro escondido nunca debe recortar la lista sin que se note.
+  const nMas = [masBroker !== "todos", !!masSrv, !!masLleg].filter(Boolean).length;
+  $("masFiltrosMas").classList.toggle("hidden", !masMas);
+  $("masFiltros").insertAdjacentHTML("afterbegin",
+    `<button class="pill masfiltros ${masMas ? "abierto" : ""} ${nMas ? "on" : ""}" id="masBtnMas" aria-expanded="${masMas}">`
+    + `${masMas ? "▴" : "▾"} Más filtros${nMas ? ` · ${nMas}` : ""}</button>`);
+  $("masBtnMas").onclick = () => { masMas = !masMas; renderFiltros(); };
 }
 
 // Servicio: reemplaza a la antigua pestaña «Servicios», cuyo único uso vivo era
@@ -224,7 +259,7 @@ function renderSegs() {
 function aplicarSeleccion(ids, nombre) {
   const enPool = new Set(pool().map(c => c.id));
   masSel = new Set(ids.filter(id => enPool.has(id)));
-  masFiltro = "todos"; masBroker = "todos"; masSrv = ""; masSrvModo = "no"; masLleg = null;
+  masFiltro = "todos"; masBroker = "todos"; masSrv = ""; masSrvModo = "no"; masLleg = null; masTemp = "todos";
   $("masBuscar").value = ""; $("masBuscarX").classList.add("hidden");
   renderFiltros(); renderLista();
   const omit = ids.length - masSel.size;
@@ -282,21 +317,22 @@ function visibles() {
     const okMem = masFiltro === "todos" || (masFiltro === "invitadas" ? yaInvitada(c) : c.mem === masFiltro);
     const okBrk = masBroker === "todos" || !!c.ftds?.[masBroker];
     const okSrv = !masSrv || (!!c.acc?.[masSrv] === (masSrvModo === "si"));
-    return okMem && okBrk && okSrv && enRangoLleg(fechaFila(c), masLleg) && (!q || normBusqueda(c.nombre).includes(q));
+    const okTemp = masTemp === "todos" || tempDe(c).t === masTemp;
+    return okMem && okBrk && okSrv && okTemp && enRangoLleg(fechaFila(c), masLleg) && (!q || normBusqueda(c.nombre).includes(q));
   });
 }
 
 function renderLista() {
   const vis = visibles();
   $("masLista").innerHTML = vis.length
-    ? vis.map(c => `
+    ? vis.map(c => { const tp = tempDe(c); return `
         <label class="seg-row${esInactivo(c) ? " inact" : ""}">
           <input type="checkbox" data-cid="${c.id}" ${masSel.has(c.id) ? "checked" : ""}>
           <span class="badge b-${c.mem}">${c.mem}</span>${insigniasBroker(c)}
-          <span class="nm">${esc(c.nombre)}</span>
+          <span class="nmtemp"><span class="nm">${esc(c.nombre)}</span><span class="segtemp ${tp.t}" title="${tp.motivo}"><b>${TEMP_NOM[tp.t]}</b> · ${tp.motivo}</span></span>
           ${fechaFilaHTML(c)}
           ${esInactivo(c) ? `<span class="badge b-inact" title="${esc(nombreMotivo(c.inactivoMotivo))}">😴 ${esc(motivoCorto(c.inactivoMotivo))}</span>` : ""}
-        </label>`).join("")
+        </label>`; }).join("")
     : `<div class="naplica">Nadie en este filtro.</div>`;
   $("masLista").querySelectorAll("input[data-cid]").forEach(inp => inp.onchange = () => {
     inp.checked ? masSel.add(inp.dataset.cid) : masSel.delete(inp.dataset.cid);
@@ -555,8 +591,8 @@ const partesUtiles = () => masSerie.partes
 
 /* ---------- abrir / enviar ---------- */
 async function abrir() {
-  masSel = new Set(); masFiltro = "todos"; masBroker = "todos"; masSrv = ""; masSrvModo = "no"; masLleg = null;
-  masCuando = "ahora"; masIncInact = false;
+  masSel = new Set(); masFiltro = "todos"; masBroker = "todos"; masSrv = ""; masSrvModo = "no"; masLleg = null; masTemp = "todos";
+  masCuando = "ahora"; masIncInact = false; masMas = false;
   masSerie = { modo: "usuario", espera_min: 0, escalona: false, partes: [] };
   $("masTexto").value = ""; $("masBuscar").value = ""; $("masBuscarX").classList.add("hidden");
   $("masHoraRef").value = ""; $("masHoraRow").classList.add("hidden");
@@ -570,6 +606,11 @@ async function abrir() {
   pintarIncInact(); renderFiltros(); renderLista(); renderCuando();
   $("masOverlay").classList.add("open");
   cargarCola().then(c => { masCola = c; renderCount(); }).catch(() => {});
+  // La temperatura usa lo que te escribieron por WhatsApp: si llega después de
+  // abrir, se repinta (la selección no cambia, solo lo que dice cada fila).
+  asegurarEntrantes().then(nuevo => {
+    if (nuevo && $("masOverlay").classList.contains("open")) { renderFiltros(); renderLista(); }
+  });
   await cargarSegs();
 }
 
