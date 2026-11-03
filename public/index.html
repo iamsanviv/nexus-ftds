@@ -1205,6 +1205,15 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <h3 class="paneh">Destinatarios<span class="cnt" id="masCount"></span><span class="rule"></span></h3>
     <div id="masSegs" class="chips"></div>
     <div id="masFiltros" class="chips"></div>
+    <!-- Temperatura: a la vista porque es por lo que más se elige a quién
+         escribirle. Lo pinta masivo.js. -->
+    <div class="brkfila hidden" id="masTempFila">
+      <span class="ejelbl">Temperatura</span>
+      <select class="brksel" id="masTemp" aria-label="Filtrar por temperatura"></select>
+    </div>
+    <!-- Ejes secundarios plegados tras «Más filtros» (primera píldora de
+         #masFiltros), como en Comunidad: pocos mandos a la vista. -->
+    <div class="hidden" id="masFiltrosMas">
     <!-- Broker: eje aparte de la membresía, por eso desplegable y no otra
          píldora de la misma fila. Lo pinta masivo.js. -->
     <div class="brkfila hidden" id="masBrkFila">
@@ -1222,6 +1231,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     </div>
     <!-- Llegó: fecha de llegada (leads) o de entrada a la comunidad. Lo pinta leads.js. -->
     <div class="brkfila llegfila" id="masLlegFila"></div>
+    </div>
     <div class="masbuscarwrap"><input id="masBuscar" placeholder="🔎 Buscar persona…" autocomplete="off"><button id="masBuscarX" class="masbuscarx hidden" title="Limpiar">✕</button></div>
     <div class="segselbar">
       <button class="pill" id="masMarcar">✓ Marcar visibles</button>
