@@ -282,6 +282,13 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   cron lee la respuesta en las vueltas siguientes; mientras, se espera. Su veredicto gana (vale lo
   último que dijo). Sin token en Vault (`cloudflare_ai_token`, `cloudflare_account_id`), con
   error, duda o 3 min sin respuesta, decide la lista de palabras. Registro en `respuestas_ia`.
+- **La IA lee la conversación completa** (03/11/2026, `sql/2026-11-03_59_pregunta_link_conversacion.sql`):
+  `respuesta_ia` arma líneas «Asesor:»/«Persona:» con lo que escribió la persona (`entrantes_txt`),
+  lo que el sistema le envió en ese seguimiento (`mensajes_programados.texto`) y lo que el asesor
+  escribió a mano (`chats_recientes.salientes_txt`, publicada por chats_sync; los duplicados del
+  sistema se quitan por texto). Decide por lo que dijo la persona; si la persona no escribió nada,
+  no se llama a la IA. Motivo: Asael («Ok mándame el link» y luego «No aun no») quedó sin link
+  porque la IA no veía a qué respondía el «no».
 - **Quien respondió y dijo que no** (30/10/2026, caso Luis Gudiño, `sql/2026-10-30_53_…`): paso
   d), antes del a). En tandas con la casilla, a quien escribió desde la invitación y no espera la
   pregunta se le lee lo que dijo; con un «no» de la IA (o de las palabras si la IA no está) se le
