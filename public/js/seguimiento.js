@@ -118,8 +118,13 @@ const PREGUNTA_PLAZO_MIN = 10;
 // En prueba (28/10/2026): Sanviv la valida con sus propios envíos antes de
 // abrirla a todos. Solo el admin ve la casilla; al resto nunca se le encola
 // una pregunta, así que su secuencia no cambia. Para lanzarla: `false`.
+// PREGUNTA_PRUEBA: agentes que Sanviv sumó a la prueba (por id de usuario).
 const PREGUNTA_SOLO_ADMIN = true;
-const preguntaHabilitada = () => !PREGUNTA_SOLO_ADMIN || state.me?.role === "admin";
+const PREGUNTA_PRUEBA = [
+  "85bf65bc-1cf2-4216-ab37-6e9da96cbce3",   // Evelin Gómez (03/11/2026)
+];
+const preguntaHabilitada = () => !PREGUNTA_SOLO_ADMIN || state.me?.role === "admin"
+  || PREGUNTA_PRUEBA.includes(state.me?.id);
 
 const horaCO = iso => new Date(iso).toLocaleTimeString("es-CO",
   { hour: "numeric", minute: "2-digit", hour12: true });
