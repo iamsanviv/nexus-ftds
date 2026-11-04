@@ -101,7 +101,8 @@ def _abrir_ro(ruta):
 
 
 def _textos_de(cm):
-    """Lo que cada chat NOS ESCRIBIÓ en las últimas TEXTOS_HORAS, por jid.
+    """Lo que cada chat NOS ESCRIBIÓ en las últimas TEXTOS_HORAS, por jid, y
+    lo que le escribimos nosotros (dos dicts: entrantes, salientes).
 
     Existe para la «pregunta antes del link»: a quien no respondió la
     invitación se le pregunta si quiere el link, y solo se le manda si contesta
@@ -110,7 +111,11 @@ def _textos_de(cm):
 
     Devuelve None si la tabla no tiene la columna `content` (otra versión del
     bridge): así la base sabe que en este WhatsApp no se puede leer la respuesta
-    y manda el recordatorio de siempre en vez de preguntar."""
+    y manda el recordatorio de siempre en vez de preguntar.
+
+    Los salientes (03/11/2026, pedido de Sanviv) son contexto para la IA: un
+    «no aún no» puede responder otra pregunta del asesor y no la invitación.
+    Solo texto: un audio nuestro no se transcribe."""
     try:
         cols = {r[1] for r in cm.execute("PRAGMA table_info(messages)")}
     except sqlite3.Error:
@@ -121,20 +126,26 @@ def _textos_de(cm):
     # poder transcribirlo si esa persona tiene la pregunta pendiente. La marca
     # es interna y se quita antes de subir.
     audio = "media_type" in cols
-    por_jid = {}
-    for jid, ts, txt, mid, media in cm.execute(
+    por_jid, nuestros = {}, {}
+    for jid, ts, txt, mid, media, mio in cm.execute(
         f"""
         SELECT chat_jid, datetime(timestamp), content, id,
-               {"media_type" if audio else "NULL"}
+               {"media_type" if audio else "NULL"}, is_from_me
           FROM messages
-         WHERE is_from_me = 0
-           AND datetime(timestamp) >= datetime('now', ?)
+         WHERE datetime(timestamp) >= datetime('now', ?)
            AND (chat_jid LIKE '%@lid' OR chat_jid LIKE '%@s.whatsapp.net')
          ORDER BY timestamp
         """,
         (f"-{TEXTOS_HORAS} hours",),
     ):
         if not ts:
+            continue
+        if mio:
+            if txt:
+                lst = nuestros.setdefault(jid, [])
+                lst.append({"en": f"{ts}+00:00", "t": txt[:TEXTO_LARGO]})
+                if len(lst) > TEXTOS_MAX:
+                    lst.pop(0)
             continue
         lst = por_jid.setdefault(jid, [])
         m = {"en": f"{ts}+00:00", "t": (txt or "")[:TEXTO_LARGO]}
@@ -143,7 +154,7 @@ def _textos_de(cm):
         lst.append(m)
         if len(lst) > TEXTOS_MAX:
             lst.pop(0)
-    return por_jid
+    return por_jid, nuestros
 
 
 def _chats_de(dirbase):
@@ -240,14 +251,15 @@ def _chats_de(dirbase):
         ent = str(ent) if ent else None
         # None = este bridge no deja leer textos; [] = los lee y no hay recientes.
         # La base distingue las dos: sin textos no se pregunta por el link.
-        txt = None if textos is None else textos.get(jid, [])
+        txt = None if textos is None else textos[0].get(jid, [])
+        sal = None if textos is None else textos[1].get(jid, [])
         pdia = f"{pdia}+00:00" if pdia else None   # datetime() lo dejó en UTC
         prev = por_tel.get(tel)
         if prev is None:
             por_tel[tel] = {"telefono": tel, "nombre_wa": nom,
                             "ultimo_en": str(ts), "entrante_en": ent,
                             "primer_entrante_dia": pdia, "lid": lid,
-                            "entrantes_txt": txt}
+                            "entrantes_txt": txt, "salientes_txt": sal}
             continue
         # El nombre y el entrante más reciente se conservan de cualquiera de los
         # dos chats; `ultimo_en` y `lid` los define el del último mensaje más
@@ -263,6 +275,8 @@ def _chats_de(dirbase):
         if txt is not None:
             junt = sorted((prev.get("entrantes_txt") or []) + txt, key=lambda m: m["en"])
             prev["entrantes_txt"] = junt[-TEXTOS_MAX:]
+            junt = sorted((prev.get("salientes_txt") or []) + sal, key=lambda m: m["en"])
+            prev["salientes_txt"] = junt[-TEXTOS_MAX:]
         if str(ts) > str(prev["ultimo_en"]):
             prev["ultimo_en"] = str(ts)
             prev["lid"] = lid
