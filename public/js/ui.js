@@ -1051,7 +1051,7 @@ function construirActividades(c) {
   const z = c.zooms || {};
   const hechos = ZOOMS.filter(([k]) => (z[k] || {}).e === "hecha").length;
   const zHtml = `<details class="punacc zoomacc">
-      <summary><span class="pat">◎ Embudo de venta</span><span class="pcn">${hechos}/3</span></summary>
+      <summary><span class="pat">◎ Embudo de venta</span><span class="pcn">${hechos}/${ZOOMS.length}</span></summary>
       <div class="punbody">
         <div class="msgshelp">Se marcan solos al ponerle asistencia a una actividad puntual que sea un zoom. También puedes editarlos aquí.</div>
         ${ZOOMS.map(([k, lbl]) => {

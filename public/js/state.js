@@ -412,14 +412,22 @@ export const esInactivo = c => !!(c && c.inactivoDesde);
 export const nombreMotivo = m => (MOTIVOS_INACTIVO.find(([v]) => v === m) || [, "Inactiva"])[1];
 export const motivoCorto  = m => (MOTIVOS_INACTIVO.find(([v]) => v === m) || [, , "Inactiva"])[2];
 
-/* ---------- embudo de venta: los tres zooms ----------
+/* ---------- embudo de venta: los zooms ----------
    Viven en el CLIENTE, no en la venta: la presentación pasa ANTES de que haya
    una venta que apuntarla, y una persona con upgrade tenía dos filas de venta
-   repitiendo el mismo embudo. La venta los lee de aquí. */
+   repitiendo el mismo embudo. La venta los lee de aquí.
+
+   Única lista de etapas: el selector de la actividad puntual, el perfil y
+   Ventas salen de aquí. La clave es la que se guarda (`actividades.zoom_tipo`
+   y `clientes.zooms`), por eso «pres» conserva su clave aunque cambie el
+   nombre. Agregar una etapa exige ampliar también `actividades_zoom_tipo_check`.
+   [clave, nombre corto (embudo), nombre en el selector] */
 export const ZOOMS = [
-  ["pres",   "Presentación"],
-  ["uno",    "1 a 1"],
-  ["cierre", "Cierre"],
+  ["pres",     "Presentación Membresías", "Zoom Presentación Membresías"],
+  ["ftds",     "Presentación FTDs",       "Zoom Presentación FTDs"],
+  ["avanzada", "Clase Avanzada",          "Clase Avanzada"],
+  ["uno",      "1 a 1",                   "Zoom 1 a 1"],
+  ["cierre",   "Cierre",                  "Zoom de cierre"],
 ];
 export const nombreZoom = k => (ZOOMS.find(([v]) => v === k) || [, ""])[1];
 

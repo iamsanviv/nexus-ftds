@@ -260,7 +260,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
             <div class="msgshelp" id="segNomPubAyuda"></div>
           </div>
         </div>
-        <!-- Si la puntual ES uno de los tres zooms de venta, marcarle la
+        <!-- Si la puntual ES uno de los zooms de venta, marcarle la
              asistencia a alguien marca de una vez su etapa del embudo: es el
              mismo hecho. Solo en las puntuales — una del catálogo es recurrente
              y el embudo de una persona pasa una sola vez. -->
@@ -268,9 +268,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
           <label>¿Es un zoom de ventas? <span class="opt">(opcional)</span></label>
           <select id="segZoom">
             <option value="">No, es una actividad normal</option>
-            <option value="pres">Zoom de presentación</option>
-            <option value="uno">Zoom 1 a 1</option>
-            <option value="cierre">Zoom de cierre</option>
+            <!-- las etapas las agrega seguimiento.js desde ZOOMS -->
           </select>
           <div class="msgshelp">A quien le marques asistencia se le marca también esa etapa en su embudo de venta, y se ve en su perfil y en Ventas.</div>
         </div>
@@ -1363,9 +1361,11 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     </div>
 
     <div class="f3">
-      <div class="frow"><label>Zoom presentación</label><input id="vfPres" type="date"></div>
-      <div class="frow"><label>Zoom 1 a 1</label><input id="vfUno" type="date"></div>
-      <div class="frow"><label>Zoom de cierre</label><input id="vfCierre" type="date"></div>
+      <div class="frow"><label>Zoom Presentación Membresías</label><input id="vfZoom_pres" type="date"></div>
+      <div class="frow"><label>Zoom Presentación FTDs</label><input id="vfZoom_ftds" type="date"></div>
+      <div class="frow"><label>Clase Avanzada</label><input id="vfZoom_avanzada" type="date"></div>
+      <div class="frow"><label>Zoom 1 a 1</label><input id="vfZoom_uno" type="date"></div>
+      <div class="frow"><label>Zoom de cierre</label><input id="vfZoom_cierre" type="date"></div>
     </div>
 
     <div class="mbtns">

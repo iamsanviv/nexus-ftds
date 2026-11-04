@@ -4,7 +4,7 @@
 // Las plantillas de mensajes son editables por agente (tabla plantillas_seguimiento).
 // Tablas: actividades, seguimientos, mensajes_programados, plantillas_seguimiento.
 import { SB } from "./supabase.js";
-import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom,
+import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom, ZOOMS,
   horaDeCliente, etiquetaZona, etiquetaDia, componerMensaje,
   esInactivo, esLead, nombreMotivo, motivoCorto,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas,
@@ -356,6 +356,10 @@ function renderNovedad() {
 }
 
 /* ================= FORMULARIO crear / editar actividad ================= */
+// Las etapas del embudo salen de ZOOMS: así el selector, el perfil y Ventas no
+// se desalinean cuando se agrega una.
+$("segZoom").insertAdjacentHTML("beforeend",
+  ZOOMS.map(([k, , largo]) => `<option value="${k}">${esc(largo)}</option>`).join(""));
 const pad = n => String(n).padStart(2, "0");
 
 // Una actividad puntual (lanzamiento, clase única) NO es un servicio: no se le

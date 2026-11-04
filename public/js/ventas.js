@@ -4,7 +4,7 @@
 // (por eso el upgrade sabe cobrar solo la diferencia), y los FTD se cuentan
 // sobre `comunidad_desde`, un dato que la app ya tenía.
 //
-// Los tres zooms son etapas con fecha y estado. NO mandan WhatsApp ni tocan
+// Los zooms son etapas con fecha y estado. NO mandan WhatsApp ni tocan
 // `mensajes_programados`: programar recordatorios sigue viviendo en Seguimiento
 // y aquí no se duplica esa maquinaria.
 import {
@@ -12,7 +12,7 @@ import {
   usd, periodoDe, periodoAntes, mesLegible,
   pagado, saldo, estaSaldada, fechaSaldo, comisionSinDefinir,
   resumenVentas, comisionFtd, metasDe, alertaPago, alertasDelMes,
-  MEMBRESIA_DE_NIVEL,
+  MEMBRESIA_DE_NIVEL, ZOOMS,
 } from "./state.js";
 import {
   cargarVentas, vInsert, vPatch, vDelete, abInsert, abPatch, abDelete,
@@ -263,9 +263,7 @@ function cuerpo(v, sal, notas) {
     </div>`}
 
     <div class="pasos">
-      ${zoom("pres", "Presentación")}
-      ${zoom("uno", "1 a 1")}
-      ${zoom("cierre", "Cierre")}
+      ${ZOOMS.map(([k, lbl]) => zoom(k, lbl)).join("")}
     </div>
 
     <div class="acciones">
@@ -622,11 +620,9 @@ export function abrirVenta(v = null) {
   set("vfOtro", v && !v.producto_id ? v.producto_nombre : "");
   set("vfValor", v?.valor); set("vfComision", v?.comision);
   set("vfTipo", v?.tipo || "agendado"); set("vfFechaPago", v?.fecha_pago);
-  // Las tres fechas del embudo salen del CLIENTE, no de la venta.
+  // Las fechas del embudo salen del CLIENTE, no de la venta.
   const zc = (state.clientes.find(x => x.id === v?.cliente_id) || {}).zooms || {};
-  set("vfPres", (zc.pres || {}).f || "");
-  set("vfUno", (zc.uno || {}).f || "");
-  set("vfCierre", (zc.cierre || {}).f || "");
+  for (const [k] of ZOOMS) set(`vfZoom_${k}`, (zc[k] || {}).f || "");
   set("vfAbono", "");
   $("vfPagada").checked = false;
   $("vfHint").classList.add("hidden");
@@ -692,8 +688,8 @@ $("vGuardar").onclick = async () => {
   // puso a mano y no se pisa desde aquí.
   const zPrev = c.zooms || {};
   const zNuevo = {};
-  [["pres", "vfPres"], ["uno", "vfUno"], ["cierre", "vfCierre"]].forEach(([k, id]) => {
-    const f = $(id).value || "";
+  ZOOMS.forEach(([k]) => {
+    const f = $(`vfZoom_${k}`).value || "";
     if (f) zNuevo[k] = { f, e: zPrev[k]?.e === "no_asistio" ? "no_asistio" : "hecha" };
     else if (zPrev[k]?.e === "no_asistio") zNuevo[k] = zPrev[k];
   });
