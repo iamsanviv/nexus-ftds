@@ -431,7 +431,10 @@ async function sincronizarMembresia(v, { seBorra = false } = {}) {
   // cambió después —otra venta, o a mano en el perfil— no es nuestro y
   // pisarlo destruiría una decisión más reciente.
   const previa = v.membresia_previa;
-  const esNuestro = c.mem === destino;
+  // Volver a Lead con un FTD es imposible (constraint `clientes_lead_sin_ftd`)
+  // y además falso: si depositó después, su conversión ya no depende de la venta.
+  const esNuestro = c.mem === destino
+    && !(previa === "Lead" && Object.keys(c.ftds || {}).length);
   if (esNuestro && !(await dbPatch(c, { membresia: previa }))) return;
   if (await vPatch(v.id, { membresia_previa: null })) v.membresia_previa = null;
   if (esNuestro) {
@@ -454,8 +457,13 @@ async function abonar(ventaId, monto) {
 // Se venden solo clientes PROPIOS. Un director ve los de sus agentes para
 // supervisar, pero la venta quedaría a su nombre y le contaría a él la
 // comisión: mismo criterio que la regla de envíos.
+//
+// Los leads entran: hay quien compra una membresía sin pasar por la beca. Esa
+// venta NO es un FTD (no hubo depósito en bróker, decisión del usuario del
+// 30/10/2026); el lead sale de Lead solo cuando la venta queda saldada, por la
+// misma regla de nivel que todos (`sincronizarMembresia`).
 const misClientes = () => state.clientes
-  .filter(c => c.owner_id === yo() && !esLead(c))
+  .filter(c => c.owner_id === yo())
   .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
 const prod = id => state.productos.find(p => p.id === id);
@@ -522,11 +530,17 @@ function calcular() {
   } else {
     $("vfValor").value = Number(p.precio);
     $("vfComision").value = Number(p.comision);
+    const avisos = [];
+    if (esLead(c) && p.categoria === "membresia" && MEMBRESIA_DE_NIVEL[p.nivel]) {
+      avisos.push(`<span class="ic">i</span><span>${esc(c.nombre)} es <b>lead</b>: pasa a
+        ${esc(MEMBRESIA_DE_NIVEL[p.nivel])} cuando la venta quede saldada. No cuenta como FTD.</span>`);
+    }
     if (!(Number(p.comision) > 0)) {
-      hint.classList.remove("hidden");
-      hint.innerHTML = `<span class="ic">!</span><span>${esc(p.nombre)} <b>no tiene comisión definida</b>.
-        Se puede registrar la venta, pero no sumará al total hasta que el director la configure.</span>`;
-    } else hint.classList.add("hidden");
+      avisos.push(`<span class="ic">!</span><span>${esc(p.nombre)} <b>no tiene comisión definida</b>.
+        Se puede registrar la venta, pero no sumará al total hasta que el director la configure.</span>`);
+    }
+    hint.classList.toggle("hidden", !avisos.length);
+    hint.innerHTML = avisos.map(a => `<div class="fila">${a}</div>`).join("");
   }
 }
 
