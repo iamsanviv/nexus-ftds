@@ -131,6 +131,10 @@ El embudo pertenece al cliente (`clientes.zooms`), no a una venta concreta. La p
 
 Una actividad puntual puede representar una etapa del embudo mediante `zoom_tipo`; la asistencia puede sincronizar esa etapa sin convertir actividad y venta en dos fuentes separadas del mismo hecho.
 
+Etapas (desde 2026-11-04): `pres` (Zoom Presentación Membresías), `ftds` (Zoom Presentación FTDs), `avanzada` (Clase Avanzada), `uno` (1 a 1), `cierre`. La lista única es `ZOOMS` en `public/js/state.js`: de ahí salen el selector de la actividad puntual, el embudo del perfil y la tarjeta/formulario de Ventas. La clave es lo que se guarda; renombrar una etapa es solo cambiar su texto. Agregar una exige también ampliar `actividades_zoom_tipo_check` (`sql/2026-11-04_60_zooms_ftds_avanzada.sql`).
+
+Trampa: el guardado del embudo (perfil y formulario de venta) reconstruye `clientes.zooms` recorriendo las etapas conocidas; una clave que no esté en `ZOOMS` se pierde al guardar.
+
 ## Alertas de pago
 
 La clasificación visual de vencimientos debe derivarse de `fecha_pago` y mantener el orden de urgencia.
