@@ -58,6 +58,7 @@ Reglas:
 
 - moneda: USD;
 - solo registrar ventas para clientes propios;
+- los **leads** también se pueden elegir (hay quien compra una membresía sin pasar por la beca; decisión del usuario, 2026-10-30). Esa venta **no es FTD**: no abre depósito en bróker. El lead sale de Lead solo cuando la venta queda saldada, por la regla de «La venta aplica el nivel»; con abonos parciales sigue como Lead;
 - `productos.categoria` distingue `membresia`, `servicio` y `bot`;
 - cliente y producto se buscan por texto en lugar de depender de `<select>` enormes;
 - la comisión FTD y la comisión de ventas se muestran separadas; el total combinado puede mostrarse como síntesis, no como sustituto de ambas métricas;
@@ -112,6 +113,7 @@ Dos guardas que no se pueden quitar:
 
 - **solo sube**: si el cliente ya está igual o más arriba, no se toca. Una venta de nivel menor a quien ya subió es un dedazo, no una intención;
 - **solo revierte lo suyo**: se devuelve el nivel únicamente si el que tiene hoy es el que puso esa venta. Si cambió después —otra venta, o a mano en el perfil— pisarlo destruiría una decisión más reciente.
+- **no vuelve a Lead con FTD**: si el nivel previo era Lead y la persona ya tiene un FTD, no se revierte. La base lo rechazaría (`clientes_lead_sin_ftd`) y su conversión ya no depende de la venta.
 
 Las ventas que ya estaban saldadas antes de este cambio quedan con `membresia_previa` nulo a propósito: no se aplica nada retroactivamente.
 

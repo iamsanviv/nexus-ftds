@@ -1511,6 +1511,9 @@ body:has(.overlay.open){overflow:hidden}
 .f3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
 .vthint{font-size:.74rem;color:var(--gold);background:rgba(232,184,75,.07);border:1px solid rgba(232,184,75,.25);border-radius:10px;padding:9px 11px;margin-bottom:11px;display:flex;gap:8px;align-items:flex-start}
 .vthint .ic{flex:0 0 auto;font-weight:800}
+/* Varios avisos a la vez (lead + comisión sin definir): uno por línea. */
+.vthint:has(.fila){flex-direction:column;gap:6px}
+.vthint .fila{display:flex;gap:8px;align-items:flex-start}
 .frow.chk{margin-bottom:9px}
 /* `.frow label` (0,1,1) le gana a `.chkline` (0,1,0) y lo dejaba en mayúsculas
    de etiqueta. Se nombra el elemento para empatar la especificidad y ganar. */
