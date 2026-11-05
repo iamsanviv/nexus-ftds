@@ -28,9 +28,11 @@ No enviar dos fuentes de imagen simultáneamente para el mismo mensaje salvo que
 
 ## Imagen en el mensaje del link (05/11/2026)
 
-Al programar una tanda, la fila «Enlace de la sala» tiene un chip «＋ Imagen». La imagen va como `media_url` en las filas `tipo = 'enlace'` de ESA tanda (no se guarda en la actividad; cada tanda decide, igual que el rastreo). Solo imagen, no video. Recordatorios de 1 h y 15 min todavía no la llevan (Sanviv pidió solo el link por ahora).
+Es de la ACTIVIDAD: `actividades.imagen_enlace`. Al programar, la fila «Enlace de la sala» tiene un chip «＋ Imagen»; solo el dueño de la actividad la pone o la quita (en ajenas se ve la miniatura, sin ✕). Solo imagen, no video. Recordatorios de 1 h y 15 min no la llevan (Sanviv pidió solo el link por ahora).
 
-Hasta esta fecha ninguna fila `enlace` había salido con `media_url` (solo `invitacion`, `invitacion_parte`, `masivo`, `masivo_parte`). El worker se documenta agnóstico al tipo, pero su código no está en este repo: la primera tanda real es la prueba de extremo a extremo.
+La base la aplica, no el panel (`sql/2026-11-05_61_imagen_enlace_actividad.sql`): un trigger BEFORE INSERT copia la imagen a cada mensaje `enlace` sin `media_url`, y otro, al cambiar `imagen_enlace`, la propaga a los `enlace` pendientes o retenidos de todos los seguimientos activos (de cualquier agente; security definer porque el dueño no ve filas ajenas por RLS). Una primera versión la ponía por tanda; Sanviv la quiso general para todos los que van a la actividad.
+
+Probado 05/11: el worker entrega `media_url` en mensajes `enlace` (Sanviv lo recibió en su teléfono).
 
 ## Imagen de catálogo: resolución tardía
 
