@@ -26,6 +26,12 @@ La documentación histórica distingue:
 
 No enviar dos fuentes de imagen simultáneamente para el mismo mensaje salvo que el worker tenga un contrato explícito y probado para decidir precedencia.
 
+## Imagen en el mensaje del link (05/11/2026)
+
+Al programar una tanda, la fila «Enlace de la sala» tiene un chip «＋ Imagen». La imagen va como `media_url` en las filas `tipo = 'enlace'` de ESA tanda (no se guarda en la actividad; cada tanda decide, igual que el rastreo). Solo imagen, no video. Recordatorios de 1 h y 15 min todavía no la llevan (Sanviv pidió solo el link por ahora).
+
+Hasta esta fecha ninguna fila `enlace` había salido con `media_url` (solo `invitacion`, `invitacion_parte`, `masivo`, `masivo_parte`). El worker se documenta agnóstico al tipo, pero su código no está en este repo: la primera tanda real es la prueba de extremo a extremo.
+
 ## Imagen de catálogo: resolución tardía
 
 Las imágenes del servicio se resuelven al enviar para que un cambio de catálogo previo al envío use la versión vigente.
