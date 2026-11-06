@@ -224,10 +224,7 @@ let segSinInvitacion = false;
 // es el comportamiento de siempre, y apagar algo por nuestra cuenta sería la
 // misma falta que mandarlo de más, solo que en silencio.
 let segHitos = { rec_60: true, rec_15: true, enlace: true, confirmacion: true };
-// Imagen que acompaña al mensaje del link en ESTA tanda. Es de la tanda, como
-// el rastreo: la misma actividad puede querer un flyer para un público y nada
-// para otro. null = el link sale solo con texto, como siempre.
-let segImgEnlace = null;
+// Mientras sube la imagen del link (actividades.imagen_enlace).
 let segImgEnlaceSubiendo = false;
 // Preguntar por el link a quien no respondió (en lugar del recordatorio de 1 h).
 // Encendido por defecto, por tanda (Sanviv).
@@ -988,7 +985,7 @@ async function renderPasadas() {
 
 async function cargarActividades() {
   const { data, error } = await SB.from("actividades")
-    .select("id, servicio_id, nombre, nombre_publico, inicio, enlace, estado, imagen, compartida, para_todos, msg_invitacion, serie_invitacion, zoom_tipo, owner_id")
+    .select("id, servicio_id, nombre, nombre_publico, inicio, enlace, estado, imagen, compartida, para_todos, msg_invitacion, serie_invitacion, zoom_tipo, imagen_enlace, owner_id")
     .eq("estado", "activa")
     .order("inicio", { ascending: true });
   if (error) {
@@ -1414,7 +1411,6 @@ async function seleccionarActividad(a) {
   // Todos en sí otra vez: heredar el apagado de la tanda anterior haría
   // desaparecer un recordatorio sin que nadie lo pidiera en ESTA.
   segHitos = { rec_60: true, rec_15: true, enlace: true, confirmacion: true };
-  segImgEnlace = null;
   segPreguntar = true;
   const bs = $("segBuscar"); if (bs) bs.value = "";
   const bx = $("segBuscarX"); if (bx) bx.classList.add("hidden");
@@ -1736,9 +1732,22 @@ function renderHitos() {
   const add = cont.querySelector("[data-enlimg]");
   if (add) add.onclick = e => { e.preventDefault(); $("segEnlImgFile").click(); };
   const ver = cont.querySelector("[data-enlimgver]");
-  if (ver) ver.onclick = e => { e.preventDefault(); window.open(segImgEnlace, "_blank", "noopener"); };
+  if (ver) ver.onclick = e => { e.preventDefault(); window.open(actSel.imagen_enlace, "_blank", "noopener"); };
   const quitar = cont.querySelector("[data-enlimgx]");
-  if (quitar) quitar.onclick = e => { e.preventDefault(); segImgEnlace = null; renderHitos(); };
+  if (quitar) quitar.onclick = e => { e.preventDefault(); guardarImgEnlace(null); };
+}
+
+// La imagen del link es de la ACTIVIDAD: la reciben todos los que van a ella,
+// programados antes o después y por quien sea. La base la copia a cada mensaje
+// `enlace` al insertarlo y la propaga a los que aún no salen cuando cambia
+// (sql/2026-11-05_61). Solo el dueño la cambia: es su actividad.
+async function guardarImgEnlace(url) {
+  const a = actSel;
+  const { error } = await SB.from("actividades").update({ imagen_enlace: url }).eq("id", a.id);
+  if (error) { toast("⚠ No se pudo guardar la imagen: " + error.message); return; }
+  a.imagen_enlace = url;
+  toast(url ? "Imagen del link guardada para toda la actividad" : "El link vuelve a salir sin imagen");
+  if (actSel === a) renderHitos();
 }
 
 // Botón discreto dentro de la fila del link. Va pegado a la casilla y no en
@@ -1746,14 +1755,18 @@ function renderHitos() {
 // link— y la mayoría de las tandas no lo usan: una sección propia sería ruido
 // fijo para algo opcional.
 function chipImgEnlace() {
+  const img = actSel.imagen_enlace;
+  const mia = actSel.owner_id === state.me?.id;
   if (segImgEnlaceSubiendo) return `<span class="hitoimg sub">Subiendo…</span>`;
-  if (!segImgEnlace) return `<button type="button" class="hitoimg" data-enlimg
-      title="Adjuntar una imagen al mensaje del link">＋ Imagen</button>`;
+  // En una ajena no hay nada que ofrecer si su dueño no puso imagen.
+  if (!img) return mia ? `<button type="button" class="hitoimg" data-enlimg
+      title="Adjuntar una imagen al link de todos los que van a esta actividad">＋ Imagen</button>` : "";
   return `<span class="hitoimg con">
-      <button type="button" class="hitoimgver" data-enlimgver title="Ver la imagen">
-        <img src="${esc(segImgEnlace)}" alt=""><span>Con imagen</span></button>
-      <button type="button" class="hitoimgx" data-enlimgx title="Quitar la imagen"
-        aria-label="Quitar la imagen">✕</button></span>`;
+      <button type="button" class="hitoimgver" data-enlimgver
+        title="${mia ? "Ver la imagen" : "El link sale con esta imagen (la puso quien creó la actividad)"}">
+        <img src="${esc(img)}" alt=""><span>Con imagen</span></button>
+      ${mia ? `<button type="button" class="hitoimgx" data-enlimgx title="Quitar la imagen del link de todos"
+        aria-label="Quitar la imagen">✕</button>` : ""}</span>`;
 }
 
 // La pregunta reemplaza a un recordatorio y existe para decidir si sale el
@@ -1933,7 +1946,7 @@ async function programar() {
     // entrar. Se dice aparte y en mayúsculas porque es fácil desmarcarlo
     // pensando que es un recordatorio más.
     + (!segHitos.enlace ? `\n\n⚠ NADIE va a recibir el enlace de la sala.` : "")
-    + (segHitos.enlace && segImgEnlace ? `\n\nEl mensaje del link va con la imagen que adjuntaste.` : "")
+    + (segHitos.enlace && actSel.imagen_enlace ? `\n\nEl mensaje del link va con la imagen de la actividad.` : "")
     + (preguntar ? `\n\nA quien no te haya escrito desde la invitación se le pregunta si quiere el link `
       + `en vez del ${destinoPregunta(inicio, primerContacto) === "rec_60" ? "recordatorio de 1 h" : "recordatorio de 15 min"}, `
       + `y solo lo recibe si contesta que sí.` : "");
@@ -2091,7 +2104,6 @@ async function programar() {
           fila.enlace_url = seg.clic_token
             ? urlRastreada(seg.clic_token)
             : (actSel.enlace || null);
-          if (segImgEnlace) fila.media_url = segImgEnlace;
         }
         msgs.push(fila);
         // La pregunta va como fila aparte, a la hora del PRIMER recordatorio de
@@ -3673,7 +3685,7 @@ $("segMiImgFile").onchange = async () => {
     est.textContent = "⚠ " + mensajeErrorAdjunto(err);
   } finally { $("segMiImgFile").value = ""; }
 };
-// --- imagen del mensaje del link (de esta tanda) ---
+// --- imagen del mensaje del link (de la actividad) ---
 // Solo imagen: el video en el mensaje del link no se pidió ni se probó.
 $("segEnlImgFile").onchange = async () => {
   const file = $("segEnlImgFile").files[0];
@@ -3683,7 +3695,9 @@ $("segEnlImgFile").onchange = async () => {
   if (!v.ok || v.esVideo) return toast("⚠ " + (v.esVideo ? "Al link solo se le puede adjuntar una imagen" : v.error));
   segImgEnlaceSubiendo = true; renderHitos();
   try {
-    segImgEnlace = await subirImagenMensaje(file);
+    const url = await subirImagenMensaje(file);
+    segImgEnlaceSubiendo = false;
+    await guardarImgEnlace(url);
   } catch (err) {
     toast("⚠ " + mensajeErrorAdjunto(err));
   } finally { segImgEnlaceSubiendo = false; renderHitos(); }
