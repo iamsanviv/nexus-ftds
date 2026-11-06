@@ -22,6 +22,8 @@
 --    (pendiente o retenido por la pregunta del link) de todos los seguimientos
 --    activos de esa actividad, incluidos los de otros agentes: el dueño no
 --    puede tocar filas ajenas por RLS, por eso es security definer.
+--  Sin `drop trigger if exists`: los triggers son nuevos, y esa sentencia
+--  deja colgado el MCP de Supabase esperando una confirmación.
 -- =====================================================================
 
 alter table public.actividades add column if not exists imagen_enlace text;
@@ -40,7 +42,6 @@ begin
   return new;
 end $$;
 
-drop trigger if exists mensajes_enlace_imagen on public.mensajes_programados;
 create trigger mensajes_enlace_imagen
   before insert on public.mensajes_programados
   for each row execute function public.enlace_toma_imagen_actividad();
@@ -57,7 +58,6 @@ begin
   return new;
 end $$;
 
-drop trigger if exists actividades_imagen_enlace on public.actividades;
 create trigger actividades_imagen_enlace
   after update of imagen_enlace on public.actividades
   for each row when (new.imagen_enlace is distinct from old.imagen_enlace)
