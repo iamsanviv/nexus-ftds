@@ -104,6 +104,14 @@ temperatura (Calientes/Tibios/Fríos) que filtran la lista (`state.filtroTemp`),
   Masivo y Programar actividad (28/10/2026). Ahí cada fila muestra `leads.fechaFila` como «17/oct»:
   la llegada si es lead, `comunidadDesde` si no; el filtro usa esa misma fecha.
 
+## Hora de llegada de leads de HighLevel (07/11/2026, pedido del usuario)
+- Solo los leads de HighLevel tienen hora de llegada: `crm_leads.asignado_en` (cuando el webhook
+  lo asignó). `leads.llegadaHL(c)` la usa solo si cae el mismo día que `llegada(c)`: si la persona
+  ya existía, `asignado_en` no es su llegada.
+- «Llegó ayer 4:00 pm · sin contactar» en la razón (Leads Hoy, Todos, Mi día). Si el lead está
+  por bajar y la razón ya habla de otra cosa, `razonLlegada` antepone «Llegó … ·» (va primero
+  porque en «Todos los leads» la línea se corta con «…»). Mi día: «Asignado hoy/ayer + hora».
+
 ## Envío de seguimiento a leads (`public/js/envioleads.js`, 06/10/2026)
 - Botón «Enviar seguimiento» en Leads (Hoy y Todos los leads). Es un MASIVO a leads: los
   destinatarios salen de `destinatariosMasivo()` (el cuello del masivo, exportado de masivo.js)
