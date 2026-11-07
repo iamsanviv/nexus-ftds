@@ -207,6 +207,51 @@ async function escribirleSinCandado(c, btn) {
   return true;
 }
 
+/* ---------- quitar invitación ---------- */
+
+// Retira la invitación de un item del repaso (en memoria) y devuelve los campos
+// de `clientes` que cambió, o null si no había nada que tocar. Lo usan «No
+// asistió» y «Cancelar todas»; la diferencia es `anotarZoom`: «No asistió» SÍ
+// es un dato (la etapa del zoom queda con ✕ y su fecha, que es como se sabe a
+// quién reagendar), mientras que cancelar en bloque no confirma nada sobre la
+// asistencia y no debe inventar ese ✕.
+function quitarInvitacion({ c, s, f, actId }, anotarZoom) {
+  if (actId) {
+    // Antes esto hacía `delete c.pun[actId]`, o sea borraba el registro
+    // ENTERO — incluida una asistencia anterior si la hubiera. Solo se quita
+    // la invitación: sin `conf` deja de preguntarse, y `acc` (si existe) se
+    // queda donde está.
+    if (!c.pun?.[actId]?.conf) return null;
+    const { conf, ...resto } = c.pun[actId];
+    c.pun[actId] = resto;
+    const campos = { puntuales: c.pun };
+    if (anotarZoom && syncZoom(c, actId, "no_asistio", f)) campos.zooms = c.zooms;
+    return campos;
+  }
+  // El `if` es una red, no un adorno: `pendientes()` ya excluye a quien
+  // asistió, pero borrar `conf` de alguien que sí fue lo devolvería a
+  // «por invitar» y el estado se le habría corrido hacia atrás.
+  if (c.acc[s.id] || !(c.conf || {})[s.id]) return null;
+  delete c.conf[s.id];
+  return { conf: c.conf };
+}
+
+// Cancela de una vez las invitaciones que siguen sin respuesta. Agrupa por
+// persona para hacer UN update por cliente: dos updates seguidos del mismo
+// jsonb desde la misma copia local pisarían al primero si alguien tiene dos
+// invitaciones en la lista.
+async function cancelarTodas(lista) {
+  const porCliente = new Map();
+  for (const it of lista) {
+    const campos = quitarInvitacion(it, false);
+    if (!campos) continue;
+    porCliente.set(it.c, { ...(porCliente.get(it.c) || {}), ...campos });
+  }
+  let ok = 0, fallos = 0;
+  for (const [c, campos] of porCliente) (await dbPatch(c, campos)) ? ok++ : fallos++;
+  return { ok, fallos };
+}
+
 /* ---------- overlay ---------- */
 
 // `canal`: si el WhatsApp del agente está vinculado al abrir el repaso. Sin él,
@@ -214,6 +259,39 @@ async function escribirleSinCandado(c, btn) {
 function abrir(items, marcarHecho, canal) {
   const hoy = hoyISO();
   let i = 0;
+  // Índices respondidos (sí/no). Los saltados siguen pendientes y entran en
+  // «Cancelar todas» aunque ya hayan pasado en pantalla.
+  const resueltos = new Set();
+  const sinResolver = () => items.filter((_, k) => !resueltos.has(k));
+
+  // Botón de cancelar en bloque. Va aparte y con estilo discreto: es la única
+  // acción del repaso que toca a muchas personas de una vez.
+  const botonTodas = () => {
+    const n = sinResolver().length;
+    return n < 2 ? "" : `<div class="rep-todas">
+        <button class="tbtn" data-cancelar-todas>🗑 Cancelar las ${n} invitaciones sin respuesta</button>
+      </div>`;
+  };
+  const conectarTodas = () => {
+    const b = $("repBody").querySelector("[data-cancelar-todas]");
+    if (!b) return;
+    b.onclick = async () => {
+      if (b.disabled) return;
+      const lista = sinResolver();
+      const nombres = [...new Set(lista.map(it => it.c.nombre))];
+      const muestra = nombres.slice(0, 8).join(", ") + (nombres.length > 8 ? ` y ${nombres.length - 8} más` : "");
+      if (!confirm(`Vas a cancelar ${lista.length} invitaciones sin respuesta (${nombres.length} personas): ${muestra}.\n\n` +
+                   `Vuelven a «por invitar» y salen del repaso. No se anota que no asistieron, y las asistencias ya registradas no se tocan.\n\n¿Cancelar todas?`)) return;
+      b.disabled = true;
+      b.textContent = "Cancelando…";
+      const { ok, fallos } = await cancelarTodas(lista);
+      lista.forEach(it => resueltos.add(items.indexOf(it)));
+      i = items.length;
+      paso();
+      toast(fallos ? `⚠ ${ok} personas actualizadas, ${fallos} fallaron` : `✓ Invitaciones canceladas (${ok} personas)`);
+      if (fallos) $("repSub").textContent = `Quedaron ${fallos} personas sin actualizar: vuelve a abrir el repaso`;
+    };
+  };
 
   const cerrar = () => {
     if (marcarHecho) localStorage.setItem(clave(), hoy);
@@ -224,7 +302,11 @@ function abrir(items, marcarHecho, canal) {
   const paso = () => {
     if (i >= items.length) {
       $("repSub").textContent = "Repaso completado";
-      $("repBody").innerHTML = `<div class="naplica" style="font-size:.95rem">🎉 Todo al día. ¡Buen trabajo!</div>`;
+      const quedan = sinResolver().length;
+      $("repBody").innerHTML = quedan
+        ? `<div class="naplica" style="font-size:.95rem">Saltaste ${quedan === 1 ? "1 invitación" : quedan + " invitaciones"}: ${quedan === 1 ? "volverá" : "volverán"} a aparecer en el próximo repaso.</div>${botonTodas()}`
+        : `<div class="naplica" style="font-size:.95rem">🎉 Todo al día. ¡Buen trabajo!</div>`;
+      conectarTodas();
       if (marcarHecho) localStorage.setItem(clave(), hoy);
       return;
     }
@@ -244,7 +326,8 @@ function abrir(items, marcarHecho, canal) {
           <button class="pmark off" data-r="no">✗ No asistió</button>
           <button class="tbtn" data-r="skip">Saltar por hoy</button>
         </div>
-      </div>`;
+      </div>${botonTodas()}`;
+    conectarTodas();
     const bEsc = $("repBody").querySelector("[data-escribir]");
     if (bEsc) bEsc.onclick = () => escribirle(c, bEsc);
     $("repBody").querySelectorAll("[data-r]").forEach(b => b.onclick = async () => {
@@ -262,29 +345,14 @@ function abrir(items, marcarHecho, canal) {
         }
         toast(`✓ ${c.nombre.split(" ")[0]} asistió a «${s.n}»`);
       } else if (b.dataset.r === "no") {
-        if (actId) {
-          // Antes esto hacía `delete c.pun[actId]`, o sea borraba el registro
-          // ENTERO — incluida una asistencia anterior si la hubiera. Responder
-          // «no asistió» no puede destruir el historial de nadie. Ahora solo se
-          // quita la invitación: sin `conf` deja de preguntarse, y `acc` (si
-          // existe) se queda donde está.
-          const { conf, ...resto } = c.pun[actId] || {};
-          c.pun[actId] = resto;
-          // «No asistió» a un zoom SÍ es un dato: deja la etapa con ✕ y su
-          // fecha, que es como se sabe a quién hay que reagendar.
-          const campos = { puntuales: c.pun };
-          if (syncZoom(c, actId, "no_asistio", f)) campos.zooms = c.zooms;
+        const campos = quitarInvitacion(items[i], true);
+        if (campos) {
           await dbPatch(c, campos);
-          toast(`${c.nombre.split(" ")[0]} no asistió · anotado`);
-        } else if (!c.acc[s.id]) {
-          // El `if` es una red, no un adorno: `pendientes()` ya excluye a quien
-          // asistió, pero borrar `conf` de alguien que sí fue lo devolvería a
-          // «por invitar» y el estado se le habría corrido hacia atrás.
-          delete c.conf[s.id];
-          await dbPatch(c, { conf: c.conf });
-          toast(`${c.nombre.split(" ")[0]} vuelve a «por invitar»`);
+          toast(actId ? `${c.nombre.split(" ")[0]} no asistió · anotado`
+                      : `${c.nombre.split(" ")[0]} vuelve a «por invitar»`);
         }
       }
+      if (b.dataset.r !== "skip") resueltos.add(i);
       i++;
       paso();
     });
