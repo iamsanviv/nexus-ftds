@@ -130,6 +130,10 @@ El repaso (`repaso.js`) solo pregunta «¿asistió?» cuando pasó **1 hora desd
 
 Trampa que ya falló: `conf[servicio]` guarda el día en que se **programó** la invitación, no el de la actividad. Buscar «la actividad de ese servicio ese día» fallaba al invitar con días de anticipación (caía a «desde el día siguiente» y preguntaba antes de la clase) o encontraba otra actividad del mismo servicio que ya había pasado. Por eso la hora sale, en este orden, de: el seguimiento más reciente de ese cliente para ese servicio (la actividad exacta), la primera actividad propia del servicio desde el día de la invitación, y solo para invitaciones a mano sin actividad, el día siguiente. En puntuales manda el `inicio` vigente de `actividades`, no el copiado en `puntuales` (se queda viejo si se reprograma). Los horarios se recargan cada 5 min porque el panel puede quedar abierto días.
 
+### Cancelar todas (07/11/2026)
+
+Botón «🗑 Cancelar las N invitaciones sin respuesta» en el repaso (desde 2 pendientes, también en la pantalla final si se saltaron). Pide `confirm()` con el número y los nombres. Elegido por Sanviv: **solo quita la invitación** (`conf` del servicio o `puntuales[act].conf`), igual que «No asistió» pero **sin** anotar ✕ en la etapa del zoom, porque cancelar no confirma que no fue. Nunca toca `acc`. Entran las saltadas y las que faltan; las ya respondidas no. Un update por cliente: dos updates del mismo jsonb desde la copia local se pisarían. Código: `quitarInvitacion()` y `cancelarTodas()` en `repaso.js`.
+
 ## Zooms y asistencia
 
 Una actividad puntual puede representar una etapa de zoom mediante `actividades.zoom_tipo`.

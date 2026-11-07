@@ -2414,3 +2414,9 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .hitonota.sub{margin-left:32px}
 /* «en lugar del de 15 min» no cabe en una línea a 390 px junto a la etiqueta. */
 .hito.sub .hitohora{white-space:normal}
+
+/* Repaso: cancelar en bloque. Separado de los botones de cada persona para que
+   no se toque por error al responder una por una. */
+.rep-todas{margin:14px 0 10px;padding-top:12px;border-top:1px dashed var(--border);display:flex}
+.rep-todas .tbtn{color:var(--bad)}
+.rep-todas .tbtn:disabled{opacity:.6}
