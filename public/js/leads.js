@@ -38,6 +38,19 @@ export const sinHora = ts => { const d = new Date(ts); return !isNaN(d) && d.get
 const cuandoHora = ts => sinHora(ts) ? cuandoTxt(ts) : `${cuandoTxt(ts)} ${horaTxt(ts)}`;
 // Fecha de llegada: la que puso el agente o, si no la puso, cuándo se creó.
 export const llegada = c => c.creado || (c.createdAt ? fechaCO(new Date(c.createdAt)) : null);
+// Hora de llegada: solo la tienen los leads de HighLevel (`crm_leads.asignado_en`,
+// cuando el webhook lo asignó); `creado` es solo fecha. Si la persona ya existía
+// antes de llegar por HighLevel, ese instante no es su llegada: se usa solo si cae
+// el mismo día que `llegada`. Se lee de state para no importar crm.js (circular).
+export const llegadaHL = c => {
+  const ts = state.crmPor?.[c.id]?.asignado_en;
+  return ts && fechaCO(new Date(ts)) === llegada(c) ? ts : null;
+};
+// «hoy 9:12 am» si se sabe la hora; si no, «hoy».
+export const llegadaTxt = c => {
+  const ts = llegadaHL(c), l = llegada(c);
+  return ts ? `${cuandoTxt(ts)} ${horaTxt(ts)}` : l ? cuandoTxt(l) : "";
+};
 // Fecha de una fila en las listas para elegir a quién escribir: la de llegada
 // si es lead; la de entrada a la comunidad si no. El filtro «Llegó» filtra por
 // esta misma fecha, para que lo que se ve y lo que se filtra no difieran.
@@ -233,8 +246,19 @@ export function razon(c) {
   }
   const cs = contactosDe(c);
   if (cs.length) return `Sin respuesta desde <b>${cuandoTxt(cs[cs.length - 1].en)}</b>`;
-  const l = llegada(c);
-  return l ? `Llegó <b>${cuandoTxt(l)}</b> · sin contactar` : "Sin contactar";
+  const l = llegadaTxt(c);
+  return l ? `Llegó <b>${l}</b> · sin contactar` : "Sin contactar";
+}
+
+// Un lead de HighLevel por bajar se atiende por orden de llegada: su hora de
+// llegada sigue a la vista aunque la razón ya hable de otra cosa (contactos,
+// respuesta, registro). Va primero porque en «Todos los leads» la línea se
+// corta con «…» y la hora quedaría oculta. `hl` lo decide quien llama
+// (porBajar vive en crm.js).
+export function razonLlegada(c, hl) {
+  const r = razon(c);
+  if (!hl || !llegadaHL(c) || r.startsWith("Llegó")) return r;
+  return `Llegó <b>${llegadaTxt(c)}</b> · ${r.charAt(0).toLowerCase()}${r.slice(1)}`;
 }
 
 // La misma razón partida en etiqueta + dato corto, para las filas de «Mi día»
@@ -258,8 +282,8 @@ export function razonCorta(c) {
   }
   const cs = contactosDe(c);
   if (cs.length) return { tag: "Sin respuesta", tono: "neutro", det: `desde ${cuandoTxt(cs[cs.length - 1].en)}` };
-  const l = llegada(c);
-  return { tag: "Sin contactar", tono: "neutro", det: l ? `llegó ${cuandoTxt(l)}` : "" };
+  const l = llegadaTxt(c);
+  return { tag: "Sin contactar", tono: "neutro", det: l ? `llegó ${l}` : "" };
 }
 
 /* ----------------------------------------------------------------- vista */

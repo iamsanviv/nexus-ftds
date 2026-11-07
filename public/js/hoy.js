@@ -17,7 +17,7 @@
 import { state, esc, esLead, esInactivo, nombreBroker, telColombia, ICO_TEL, ICO_ENV, sinSalto, raizScroll } from "./state.js";
 import { recibeSegLead } from "./masivo.js";
 import {
-  TEMP, CATEGORIAS, categoria, temperatura, razon, tempAMano, contactosDe,
+  TEMP, CATEGORIAS, categoria, temperatura, razonLlegada, tempAMano, contactosDe,
   form, abiertoAqui, esMio, manejarLead, cuandoTxt, nombreTipo, dias,
   respondioAuto, horaTxt, entranteDe,
 } from "./leads.js";
@@ -156,7 +156,7 @@ const fila = c => {
   return `<div class="hfila${hl ? " hfhl" : ""}${abierta ? "" : " plegada"}" data-id="${c.id}">
     <div class="hl1"${hl ? " data-pleg-zona" : ""}>
       <span class="hav ${t}" aria-hidden="true">${esc(iniciales(c.nombre))}</span>
-      <div class="hl1t"><button class="hnm" data-ver="${c.id}">${esc(c.nombre)}</button>${dep2}${escr}${origen}<div class="lwhy">${hl ? chip(c) : ""}${razon(c)}${est ? ` · ${est}` : ""}</div></div>
+      <div class="hl1t"><button class="hnm" data-ver="${c.id}">${esc(c.nombre)}</button>${dep2}${escr}${origen}<div class="lwhy">${hl ? chip(c) : ""}${razonLlegada(c, hl)}${est ? ` · ${est}` : ""}</div></div>
       ${hl ? pleg : chip(c)}
     </div>
     ${abierta ? `${abiertoAqui(c, "temp") ? form(c) : ""}

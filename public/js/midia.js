@@ -265,7 +265,7 @@ function itemsCrm(ahora) {
     }
     const listo = contestoHoy && esHoy(l.escribi_en);
     const sub = [
-      dias(l.asignado_en) === 0 ? `Asignado hoy ${horaTxt(l.asignado_en)}` : dias(l.asignado_en) === 1 ? "Asignado ayer" : (l.siguiente === "crm" ? "Seguimiento en el CRM para hoy" : "Vuelve hoy"),
+      dias(l.asignado_en) === 0 ? `Asignado hoy ${horaTxt(l.asignado_en)}` : dias(l.asignado_en) === 1 ? `Asignado ayer ${horaTxt(l.asignado_en)}` : (l.siguiente === "crm" ? "Seguimiento en el CRM para hoy" : "Vuelve hoy"),
       l.intentos ? `${l.intentos}.º intento hecho` : "",
       contestoHoy && !esHoy(l.escribi_en) ? "Contestó · falta «Le escribí»" : "",
     ].filter(Boolean).join(" · ");
