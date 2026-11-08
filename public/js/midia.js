@@ -153,13 +153,14 @@ function itemsDelDia() {
   const porTemp = { caliente: [], tibio: [], frio: [] };
   state.clientes
     // Los de HighLevel por bajar van en su propio bloque, no aquí.
-    .filter(c => !esInactivo(c) && esMio(c) && (esLead(c) || (c.promesaEn && c.promesaBroker)) && !porBajar(c))
+    // Los Caídos salen de «Mi día»: ya decidieron no depositar (Sanviv, 08/11/2026).
+    .filter(c => !esInactivo(c) && esMio(c) && (esLead(c) || (c.promesaEn && c.promesaBroker)) && !porBajar(c) && categoria(c) !== "caido")
     .forEach(c => {
       const cat = categoria(c), t = temperatura(c);
       const at = cat === "pend" && !sinHora(c.promesaEn) && dias(c.promesaEn) === 0 ? new Date(c.promesaEn).getTime() : null;
       const porWa = escribisteHoy(c), aMano = contactoHoy(c), seg = extra?.seg[c.id];
       // Reciente = su último movimiento: te escribió, lo contactaste, prometió o llegó.
-      const rec = Math.max(ts(entranteDe(c)), ts(contactosDe(c)[0]?.en), cat === "pend" ? ts(c.promesaEn) : 0, ts(c.creado && c.creado + "T00:00:00-05:00"));
+      const rec = Math.max(ts(entranteDe(c)), ts(contactosDe(c)[0]?.en), (cat === "pend" || cat === "venc") ? ts(c.promesaEn) : 0, ts(c.creado && c.creado + "T00:00:00-05:00"));
       porTemp[t].push({ b: BLOQUE_T[t], id: "wa" + c.id, c, cat, at, prog: at, rec, t: c.nombre, s: razon(c), ...razonCorta(c),
         hecho: porWa || aMano || !!seg,
         ok: porWa ? "Le escribiste hoy por WhatsApp" : aMano ? "Contacto registrado hoy"
@@ -353,8 +354,8 @@ function embudoHTML(it) {
   const c = it.c, cat = it.cat;
   if (!esMio(c)) return `<div class="mdsec">${verLeadsHTML(it)}${pasarHTML(it)}</div>`;
   for (const m of ["registro", "promesa", "deposito"]) if (abiertoAqui(c, m)) return `<div class="mdemb" data-cid="${c.id}">${form(c)}</div>`;
-  const b = cat === "pend" ? `<button class="btn-ok mdbtn" data-l="deposito">Depositó</button><button class="lbtn mdbtn" data-l="promesa">Reagendar</button>`
-    : cat === "reg" ? `<button class="lbtn mdbtn" data-l="promesa">Prometió depositar</button>`
+  const b = cat === "pend" || cat === "venc" ? `<button class="btn-ok mdbtn" data-l="deposito">Depositó</button><button class="lbtn mdbtn" data-l="promesa">Reagendar</button>`
+    : cat === "reg" || cat === "posible" ? `<button class="lbtn mdbtn" data-l="promesa">Prometió depositar</button>`
     : `<button class="lbtn mdbtn" data-l="registro">Creó cuenta</button>`;
   return `<div class="mdemb mdsec" data-cid="${c.id}">${b}${verLeadsHTML(it)}${pasarHTML(it)}</div>`;
 }

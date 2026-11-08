@@ -23,7 +23,23 @@ Los campos del embudo no viajan en `mapAEditar`: guardar la ficha no debe pisarl
 - Corrección a mano: vale mientras `temp_manual_en` sea posterior al último contacto.
 
 ## Categoría (una sola, la más alta)
-pend (promesa) > reg (registro) > hoy (llegó hoy) > bajo (respondió hoy; F4 lo cambia a «escribió hoy») > ayer > resto.
+Orden del riel: pend > posible > reg > hoy > bajo > ayer > venc > resto > caido.
+Precedencia al calcular (`leads.categoria`): caido > promesa (pend o venc) > posible vigente > reg > hoy > bajo > ayer > resto.
+
+## Pendientes, Posible, Vencidos y Caídos (decisiones de Sanviv, 07–08/11/2026)
+- **Vencimiento por día, no por hora** (`VENCE_DIAS = 2`): promesa del día D → Pendientes D y D+1;
+  desde D+2 → «Pendientes vencidos» (`venc`, derivado de `promesa_en`, sin columna). Etapa propia
+  justo antes de «El resto». Reagendar lo devuelve a Pendientes.
+- **Posible** (`posible_en` = cuándo se marcó, `posible_fecha` opcional; SQL 62): solo a quien creó
+  cuenta (lo exige `clientes_posible_ok`). Vence igual: fecha (o, sin fecha, el día marcado) + 2.
+  Vencido vuelve a **Registrados** con la nota «posible vencido» (sin etapa propia).
+- **Caídos** (`caido_en`): solo a mano con «No depositará» (desde Pendientes, vencidos y Posible);
+  «Volver a activar» lo pone en null. Gana a todo y conserva la promesa, para que al reactivar vuelva
+  donde estaba. Etapa al final del riel. Salen de «Mi día» y de `pendHoy` de la meta, pero SIGUEN
+  recibiendo envíos (Enviar seguimiento y Masivo; el chip de etapa «Caído» permite filtrarlos).
+- Prometer o depositar limpia Posible y Caído; deshacer el registro limpia Posible.
+- **Becados con 2º depósito** (no Lead) quedan como antes: siempre en Pendientes aunque venza; no
+  tienen Vencidos ni Caídos.
 
 ## Panel «Hoy» (`public/js/hoy.js`, rediseño «riel» 05/10/2026)
 - Leads abre en «Hoy» (`state.leadsVista`); «Todos los leads» es la lista de siempre.
@@ -32,14 +48,15 @@ pend (promesa) > reg (registro) > hoy (llegó hoy) > bajo (respondió hoy; F4 lo
 - Arriba, la meta del día (`ftd.renderMetaHoy`): tarjeta `.metacard` translúcida dorada (la
   del FTD en Personas), anillo con hechos/meta, «N prometieron hoy» y el corte como barra.
   Sin `overflow:hidden` para no recortar el globo de la ⓘ (el brillo se dibuja dentro).
-- Debajo, un RIEL con las 6 etapas en orden de prioridad (icono y color propios, conteo y un
+- Debajo, un RIEL con las 9 etapas en orden de prioridad (icono y color propios, conteo y un
   dato corto). Se elige una y se listan sus leads; abre en la primera con leads. En escritorio
-  el riel es una fila fija de 6. «Siguiente etapa» salta a la próxima con leads.
+  el riel es una fila fija de 9. «Siguiente etapa» salta a la próxima con leads.
 - Escritorio (≥1040 px): el panel llega a 1120 px; la meta va en una fila (día | corte, con
   «faltan N en D días» solo aquí) y los leads de la etapa en columnas de ≥380 px.
 - Ya NO hay filtro por temperatura en «Hoy»: el diseño aprobado lo quitó; la temperatura se
   ve en cada lead y se filtra en «Todos los leads».
-- Pendientes: hoy y próximos por hora ascendente, luego vencidos (más reciente arriba).
+- Pendientes: hoy y próximos por hora ascendente (solo un becado con 2º depósito puede seguir ahí
+  vencido, al final). Vencidos: la promesa más reciente arriba. Posible: la fecha más cercana arriba.
 - `ritmoMeta` cuenta solo las promesas de hoy: `metaHoy = max(reparto, min(pendHoy + hechosHoy,
   falta))`. Se suman los hechos de hoy porque un pendiente que deposita deja de ser lead y la
   meta no debe bajar al cumplirse.

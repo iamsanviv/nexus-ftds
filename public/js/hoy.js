@@ -7,7 +7,7 @@
 // equipo desde «Todos los leads».
 //
 // Diseño (validado en mockup, opción D): meta del día arriba, un riel con las
-// seis etapas en orden de prioridad y, debajo, los leads de la etapa elegida.
+// etapas en orden de prioridad y, debajo, los leads de la etapa elegida.
 //
 // Leads de HighLevel (decisiones del usuario, 14/10/2026): dentro de cada etapa
 // van en su propio grupo, antes que los de WhatsApp, mientras no bajen. Su
@@ -19,7 +19,7 @@ import { recibeSegLead } from "./masivo.js";
 import {
   TEMP, CATEGORIAS, categoria, temperatura, razonLlegada, tempAMano, contactosDe,
   form, abiertoAqui, esMio, manejarLead, cuandoTxt, nombreTipo, dias,
-  respondioAuto, horaTxt, entranteDe,
+  respondioAuto, horaTxt, entranteDe, posibleVencido,
 } from "./leads.js";
 import { primeroHoy } from "./entrantes.js";
 import { crmDe, porBajarCrm, vinoDeHL, accionesCrm, accionCrm, manejarNotas, estadoCrm, esHoy, detectarBajadas } from "./crm.js";
@@ -31,11 +31,14 @@ const ORDEN_T = { caliente: 0, tibio: 1, frio: 2 };
 // son los de CATEGORIAS; aquí solo vive lo visual.
 const ETAPA = {
   pend:  { n: "Pendientes",     d: "Prometieron depositar",       c: "#E8B84B", ico: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 1.8"/>' },
+  posible: { n: "Posible",      d: "Se habló de depósito, sin promesa", c: "#E89B4B", ico: '<path d="M12 3a6 6 0 0 0-3.5 10.9V17h7v-3.1A6 6 0 0 0 12 3z"/><path d="M9.5 21h5"/>' },
   reg:   { n: "Registrados",    d: "Crearon cuenta, sin promesa", c: "#B07CE8", ico: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="12" r="2.5"/><path d="M14 10h4M14 14h3"/>' },
   hoy:   { n: "Llegaron hoy",   d: "Entraron hoy",                 c: "#4ECB8D", ico: '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/>' },
   bajo:  { n: "Te escribieron", d: "Te escribieron hoy",           c: "#5B9BD5", ico: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>' },
   ayer:  { n: "Llegaron ayer",  d: "Entraron ayer",                c: "#8E9AA8", ico: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>' },
+  venc:  { n: "Pendientes vencidos", d: "Prometieron y no depositaron", c: "#E0685F", ico: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12"/><path d="M12 15.5h.01"/>' },
   resto: { n: "El resto",       d: "En espera",                    c: "#8E9AA8", ico: '<path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/>' },
+  caido: { n: "Caídos",         d: "Decidieron no depositar",      c: "#7A7F87", ico: '<circle cx="12" cy="12" r="9"/><path d="M8 16l8-8"/>' },
 };
 const svg = (ico, color, s = 20) =>
   `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ico}</svg>`;
@@ -56,6 +59,11 @@ function ordenPend(a, b) {
   const d = new Date(a.promesaEn) - new Date(b.promesaEn);
   return va ? -d : d;
 }
+// Vencidos: la promesa más reciente arriba (es la que todavía se puede rescatar).
+const ordenVenc = (a, b) => new Date(b.promesaEn) - new Date(a.promesaEn);
+// Posible: la fecha más cercana arriba; sin fecha, por cuándo se marcó.
+const basePos = c => c.posibleFecha || (c.posibleEn || "").slice(0, 10);
+const ordenPosible = (a, b) => basePos(a).localeCompare(basePos(b));
 const ordenResto = (a, b) => ORDEN_T[temperatura(a)] - ORDEN_T[temperatura(b)] || a.nombre.localeCompare(b.nombre, "es");
 // «Te escribieron»: por la hora de su PRIMER mensaje de hoy, el más antiguo
 // arriba: es quien lleva más rato esperando respuesta.
@@ -68,8 +76,16 @@ function subEtapa(k, ls) {
   if (k === "pend") {
     const hoy = ls.filter(c => dias(c.promesaEn) === 0).length;
     const venc = ls.filter(c => dias(c.promesaEn) > 0).length;
-    return hoy ? `${hoy} para hoy` : venc ? `${venc} vencida${venc === 1 ? "" : "s"}` : "próximas";
+    const ayer = ls.filter(c => dias(c.promesaEn) === 1).length;
+    // Solo un becado (2º depósito) puede seguir aquí con la fecha vencida.
+    return hoy ? `${hoy} para hoy` : ayer ? `${ayer} de ayer` : venc ? `${venc} vencida${venc === 1 ? "" : "s"}` : "próximas";
   }
+  if (k === "posible") {
+    const con = ls.filter(c => c.posibleFecha).length;
+    return con === ls.length ? "con fecha" : `${ls.length - con} sin fecha`;
+  }
+  if (k === "venc") return "sin depositar";
+  if (k === "caido") return "no depositarán";
   const sin = ls.filter(c => !contactosDe(c).length).length;
   if (k === "reg") return "sin promesa";
   if (k === "bajo") return "responde hoy";
@@ -96,13 +112,16 @@ const telBtn = c => {
   return co ? `<a class="lbtn hico htel" href="tel:+${co}" title="Llamar al +${co}" aria-label="Llamar al +${co}">${ICO_TEL}</a>` : "";
 };
 function acciones(c) {
-  for (const m of ["registro", "promesa", "deposito", "contacto"]) if (abiertoAqui(c, m)) return form(c);
+  for (const m of ["registro", "promesa", "posible", "deposito", "contacto"]) if (abiertoAqui(c, m)) return form(c);
   const cat = categoria(c);
   const l = crmDe(c);
   if (porBajarCrm(l)) {
     // Lo mismo que en «Mi día» más el embudo: puede registrarse antes de bajar.
-    const emb = cat === "pend" ? `<button class="btn-ok mdbtn" data-l="deposito">Depositó</button><button class="lbtn mdbtn" data-l="promesa">Reagendar</button>`
-      : cat === "reg" ? `<button class="lbtn mdbtn" data-l="promesa">Prometió depositar</button>`
+    const cae = `<button class="lbtn mdbtn" data-l="caido">No depositará</button>`;
+    const emb = cat === "pend" || cat === "venc" ? `<button class="btn-ok mdbtn" data-l="deposito">Depositó</button><button class="lbtn mdbtn" data-l="promesa">Reagendar</button>${esLead(c) ? cae : ""}`
+      : cat === "posible" ? `<button class="lbtn mdbtn" data-l="promesa">Prometió depositar</button>${cae}`
+      : cat === "reg" ? `<button class="lbtn mdbtn" data-l="promesa">Prometió depositar</button><button class="lbtn mdbtn" data-l="posible">Posible</button>`
+      : cat === "caido" ? `<button class="lbtn mdbtn" data-l="undoCaido">Volver a activar</button>`
       : `<button class="lbtn mdbtn" data-l="registro">Creó cuenta</button>`;
     return `<div class="hcrm">${accionesCrm(l, emb)}</div>`;
   }
@@ -113,8 +132,12 @@ function acciones(c) {
   // Los íconos van juntos: si en un celular angosto no caben al lado de las
   // acciones del embudo, bajan en bloque a otra línea en vez de cortar el texto.
   const icos = `<span class="hicos">${mas}${env}${telBtn(c)}${waBtn(c)}</span>`;
-  if (cat === "pend") return `<div class="hacc"><button class="btn-ok hmain" data-l="deposito">Depositó</button><button class="lbtn" data-l="promesa">Reagendar</button>${icos}</div>`;
-  if (cat === "reg") return `<div class="hacc"><button class="btn-oro hmain" data-l="promesa">Prometió depositar</button>${icos}</div>`;
+  // «No depositará» solo para leads: un becado con 2º depósito no cae (Sanviv, 08/11/2026).
+  const cae = esLead(c) ? `<button class="lbtn" data-l="caido">No depositará</button>` : "";
+  if (cat === "pend" || cat === "venc") return `<div class="hacc"><button class="btn-ok hmain" data-l="deposito">Depositó</button><button class="lbtn" data-l="promesa">Reagendar</button>${cae}${icos}</div>`;
+  if (cat === "posible") return `<div class="hacc"><button class="btn-oro hmain" data-l="promesa">Prometió depositar</button><button class="lbtn" data-l="posible">Cambiar fecha</button>${cae}${icos}</div>`;
+  if (cat === "reg") return `<div class="hacc"><button class="btn-oro hmain" data-l="promesa">Prometió depositar</button><button class="lbtn" data-l="posible">Posible</button>${icos}</div>`;
+  if (cat === "caido") return `<div class="hacc"><button class="lbtn hmain" data-l="undoCaido">Volver a activar</button>${icos}</div>`;
   return `<div class="hacc"><button class="btn-oro hmain" data-l="registro">Creó cuenta</button>${icos}</div>`;
 }
 
@@ -132,7 +155,7 @@ function esperando(c) {
 
 // Tarjetas de HighLevel abiertas a mano; las demás van plegadas.
 const hlAbiertos = new Set();
-const FORMS = ["temp", "registro", "promesa", "deposito", "contacto"];
+const FORMS = ["temp", "registro", "promesa", "posible", "deposito", "contacto"];
 
 const fila = c => {
   const t = temperatura(c);
@@ -148,6 +171,8 @@ const fila = c => {
   const l = crmDe(c), hl = porBajarCrm(l);
   const est = hl ? estadoCrm(l) : "";
   const origen = !hl && vinoDeHL(c) ? `<span class="hvino">vino de HighLevel</span>` : "";
+  // Un Posible que venció vuelve a Registrados con esta nota (Sanviv, 08/11/2026).
+  const posV = categoria(c) === "reg" && posibleVencido(c) ? `<span class="hposv">posible vencido</span>` : "";
   // La tarjeta de HighLevel es larga (cuatro grupos): va plegada y se abre al
   // tocarla (pedido del usuario, 20/10/2026). «Llamar» queda a la vista y la
   // temperatura baja junto a la razón para dejarle el ancho al nombre.
@@ -156,7 +181,7 @@ const fila = c => {
   return `<div class="hfila${hl ? " hfhl" : ""}${abierta ? "" : " plegada"}" data-id="${c.id}">
     <div class="hl1"${hl ? " data-pleg-zona" : ""}>
       <span class="hav ${t}" aria-hidden="true">${esc(iniciales(c.nombre))}</span>
-      <div class="hl1t"><button class="hnm" data-ver="${c.id}">${esc(c.nombre)}</button>${dep2}${escr}${origen}<div class="lwhy">${hl ? chip(c) : ""}${razonLlegada(c, hl)}${est ? ` · ${est}` : ""}</div></div>
+      <div class="hl1t"><button class="hnm" data-ver="${c.id}">${esc(c.nombre)}</button>${dep2}${escr}${origen}${posV}<div class="lwhy">${hl ? chip(c) : ""}${razonLlegada(c, hl)}${est ? ` · ${est}` : ""}</div></div>
       ${hl ? pleg : chip(c)}
     </div>
     ${abierta ? `${abiertoAqui(c, "temp") ? form(c) : ""}
@@ -195,8 +220,8 @@ export function renderHoy(cont, render) {
     && (esLead(c) || (c.promesaEn && c.promesaBroker)) && enHoyHL(c));
   const por = Object.fromEntries(CATEGORIAS.map(([k]) => [k, []]));
   mios.forEach(c => por[categoria(c)].push(c));
-  por.pend.sort(ordenPend);
-  CATEGORIAS.forEach(([k]) => { if (k !== "pend") por[k].sort(k === "bajo" ? ordenEscribio : ordenResto); });
+  const ORDEN = { pend: ordenPend, venc: ordenVenc, posible: ordenPosible, bajo: ordenEscribio };
+  CATEGORIAS.forEach(([k]) => por[k].sort(ORDEN[k] || ordenResto));
 
   const sel = etapaSel || (CATEGORIAS.find(([k]) => por[k].length) || ["pend"])[0];
   const prometieronHoy = por.pend.filter(c => dias(c.promesaEn) === 0).length;

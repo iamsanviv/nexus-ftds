@@ -37,7 +37,7 @@ const primerNombre = n => (n || "").trim().split(/\s+/)[0];
 const esVideo = u => /\.(mp4|mov)(\?|$)/i.test(u || "");
 const nombreTipo = t => (TIPOS.find(x => x[0] === t) || [, t])[1];
 // Etiqueta corta de cada etapa en la lista (la del riel de «Hoy»).
-const ETQ = { pend: "Pendiente", reg: "Registrado", hoy: "Llegó hoy", bajo: "Te escribió", ayer: "Llegó ayer", resto: "En espera" };
+const ETQ = { pend: "Pendiente", posible: "Posible", venc: "Vencido", caido: "Caído", reg: "Registrado", hoy: "Llegó hoy", bajo: "Te escribió", ayer: "Llegó ayer", resto: "En espera" };
 
 // Los leads a los que se les puede escribir: el cuello del masivo (propios, con
 // teléfono, activos) y además que sigan siendo leads.
