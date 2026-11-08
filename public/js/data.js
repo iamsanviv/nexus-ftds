@@ -33,6 +33,9 @@ export const mapDesdeDB = r => ({
   // Broker objetivo de la promesa: con valor es un pendiente de 2º depósito de
   // alguien que ya es Beca. Como registroBroker/promesaEn, NO va en mapAEditar.
   promesaBroker: r.promesa_broker || null,
+  // Etapas «Posible» y «Caídos» (SQL 62). Tampoco van en mapAEditar.
+  posibleEn: r.posible_en || null, posibleFecha: r.posible_fecha || null,
+  caidoEn: r.caido_en || null,
   tempManual: r.temp_manual || null, tempManualEn: r.temp_manual_en || null,
 });
 export const mapAEditar = c => ({

@@ -202,11 +202,29 @@ export const tempAMano = c => manualVigente(c) && !calcTemp(c).ent;
 /* ------------------------------------------------------------- categoría */
 // Orden de prioridad del usuario. Un lead está SOLO en su categoría más alta.
 export const CATEGORIAS = [
-  ["pend", "Pendientes"], ["reg", "Registrados"], ["hoy", "Llegaron hoy"],
-  ["bajo", "Bajaron hoy a tu WhatsApp"], ["ayer", "Llegaron ayer"], ["resto", "El resto"],
+  ["pend", "Pendientes"], ["posible", "Posible"], ["reg", "Registrados"], ["hoy", "Llegaron hoy"],
+  ["bajo", "Bajaron hoy a tu WhatsApp"], ["ayer", "Llegaron ayer"], ["venc", "Pendientes vencidos"],
+  ["resto", "El resto"], ["caido", "Caídos"],
 ];
+// Vencimiento (decisión de Sanviv, 07/11/2026): una promesa o un Posible del
+// día D sigue vigente D y D+1, y vence desde D+2. Se cuenta por día, no por hora.
+export const VENCE_DIAS = 2;
+// Día de referencia del Posible: su fecha si la dieron; si no, el día en que se
+// marcó (sin fecha, «máximo 2 días»).
+const basePosible = c => c.posibleFecha || c.posibleEn;
+// Posible vigente: marcado, con cuenta y sin vencer. Vencido vuelve a Registrados.
+export const posibleVigente = c => !!(c.posibleEn && c.registroEn) && dias(basePosible(c)) < VENCE_DIAS;
+export const posibleVencido = c => !!(c.posibleEn && c.registroEn) && !posibleVigente(c);
+// Vencidos y Caídos son solo para leads: un becado pendiente de un 2º depósito
+// sigue en Pendientes aunque su fecha pase (decisión de Sanviv, 08/11/2026).
+export const promesaVencida = c => !!c.promesaEn && c.mem === "Lead" && dias(c.promesaEn) >= VENCE_DIAS;
+export const esCaido = c => !!c.caidoEn && c.mem === "Lead";
 export function categoria(c) {
-  if (c.promesaEn) return "pend";
+  // Caído gana a todo: el agente decidió que no va a depositar. La promesa se
+  // conserva para que «Volver a activar» lo devuelva donde estaba.
+  if (esCaido(c)) return "caido";
+  if (c.promesaEn) return promesaVencida(c) ? "venc" : "pend";
+  if (posibleVigente(c)) return "posible";
   if (c.registroEn) return "reg";
   const dl = dias(llegada(c));
   if (dl === 0) return "hoy";
@@ -232,12 +250,18 @@ export function razon(c) {
   const escribio = r.ent
     ? `Te escribió <b>${cuandoTxt(r.ent)}</b>${r.t !== r.antes ? ` · subió de ${TEMP[r.antes]} a ${TEMP[r.t]}` : ""}`
     : "";
+  if (esCaido(c)) return `No depositará · lo marcaste <b>${cuandoTxt(c.caidoEn)}</b>`;
   if (c.promesaEn) {
     const d = dias(c.promesaEn);
     const br = c.promesaBroker ? ` en <b>${esc(nombreBroker(c.promesaBroker))}</b>` : "";
     const txt = `Prometió depositar${br} <b>${cuandoHora(c.promesaEn)}</b>${d > 0 ? " y no depositó" : ""}`;
     return escribio ? `${txt} · ${escribio.replace("Te", "te")}` : txt;
   }
+  if (posibleVigente(c)) {
+    const txt = `Posible depósito${c.posibleFecha ? ` <b>${cuandoTxt(c.posibleFecha)}</b>` : ` · sin fecha, marcado <b>${cuandoTxt(c.posibleEn)}</b>`}`;
+    return escribio ? `${txt} · ${escribio.replace("Te", "te")}` : txt;
+  }
+  if (posibleVencido(c) && !escribio) return `Posible vencido · ${c.posibleFecha ? `iba a depositar <b>${cuandoTxt(c.posibleFecha)}</b>` : `marcado <b>${cuandoTxt(c.posibleEn)}</b>`}`;
   if (escribio) return escribio;
   const s = senalBase(c);
   if (s) {
@@ -268,12 +292,14 @@ export function razonLlegada(c, hl) {
 export function razonCorta(c) {
   const r = calcTemp(c);
   const subio = r.ent && r.t !== r.antes ? `antes ${TEMP[r.antes].toLowerCase()}` : "";
+  if (esCaido(c)) return { tag: "Caído", tono: "neutro", det: `desde ${cuandoTxt(c.caidoEn)}` };
   if (c.promesaEn) {
     const vencida = dias(c.promesaEn) > 0;
     const det = [cuandoHora(c.promesaEn), c.promesaBroker ? nombreBroker(c.promesaBroker) : "",
       r.ent ? `te escribió ${cuandoTxt(r.ent)}` : ""].filter(Boolean).join(" · ");
     return { tag: vencida ? "Promesa vencida" : "Prometió depositar", tono: vencida ? "bad" : "oro", det };
   }
+  if (posibleVigente(c)) return { tag: "Posible depósito", tono: "oro", det: c.posibleFecha ? cuandoTxt(c.posibleFecha) : "sin fecha" };
   if (r.ent) return { tag: "Te escribió", tono: "ok", det: [cuandoTxt(r.ent), subio].filter(Boolean).join(" · ") };
   const s = senalBase(c);
   if (s) {
@@ -310,6 +336,12 @@ export function form(c) {
       <div class="lfila"><input type="date" id="lFecha" value="${hoy}" min="${hoy}"><input type="time" id="lHora" value=""></div>
       <div class="lfl2">La hora es opcional</div>
       <div class="lacc"><button class="btn-oro" data-l="okPromesa">Confirmar</button><button class="lbtn" data-l="cancel">Cancelar</button></div></div>`;
+  }
+  if (abierto.modo === "posible") {
+    return `<div class="lform"><div class="lft">¿Cuándo podría depositar?</div>
+      <input type="date" id="lFecha" value="${c.posibleFecha || ""}" min="${hoy}">
+      <div class="lfl2">La fecha es opcional. Sin fecha, vence en ${VENCE_DIAS} días.</div>
+      <div class="lacc"><button class="btn-oro" data-l="okPosible">Confirmar</button><button class="lbtn" data-l="cancel">Cancelar</button></div></div>`;
   }
   if (abierto.modo === "deposito") {
     // Para un 2º depósito (ya es Beca) el broker objetivo es el de la promesa.
@@ -349,15 +381,21 @@ export function seguimientoHTML(c, { enviar = false } = {}) {
   const pasos = [];
   if (c.registroEn) pasos.push(`<div class="lpaso ok">✓ Creó cuenta en <b>${esc(nombreBroker(c.registroBroker))}</b> · ${cuandoTxt(c.registroEn)}
     ${mio && !c.promesaEn ? `<button class="llink" data-l="undoRegistro">Deshacer</button>` : ""}</div>`);
+  if (c.posibleEn && c.registroEn && !c.promesaEn) pasos.push(`<div class="lpaso ${posibleVigente(c) ? "ok" : ""}">${posibleVigente(c) ? "✓ Posible depósito" : "Posible vencido"} <b>${c.posibleFecha ? cuandoTxt(c.posibleFecha) : "sin fecha"}</b>
+    ${mio ? `<button class="llink" data-l="undoPosible">Deshacer</button>` : ""}</div>`);
   if (c.promesaEn) pasos.push(`<div class="lpaso ok">✓ Prometió depositar <b>${cuandoHora(c.promesaEn)}</b>
     ${mio ? `<button class="llink" data-l="undoPromesa">Deshacer</button>` : ""}</div>`);
+  if (esCaido(c)) pasos.push(`<div class="lpaso">✕ No depositará · ${cuandoTxt(c.caidoEn)}</div>`);
 
   let accion = "";
   if (mio) {
-    if (!c.registroEn) accion = abiertoAqui(c, "registro") ? form(c) : `<button class="btn-oro" data-l="registro">Creó cuenta en el broker</button>`;
-    else if (!c.promesaEn) accion = abiertoAqui(c, "promesa") ? form(c) : `<button class="btn-oro" data-l="promesa">Prometió depositar</button>`;
+    const cae = c.mem === "Lead" ? `<button class="lbtn" data-l="caido">No depositará</button>` : "";
+    if (esCaido(c)) accion = `<button class="btn-oro" data-l="undoCaido">Volver a activar</button>`;
+    else if (!c.registroEn) accion = abiertoAqui(c, "registro") ? form(c) : `<button class="btn-oro" data-l="registro">Creó cuenta en el broker</button>`;
+    else if (!c.promesaEn) accion = abiertoAqui(c, "promesa") || abiertoAqui(c, "posible") ? form(c)
+      : `<div class="lacc"><button class="btn-oro" data-l="promesa">Prometió depositar</button><button class="lbtn" data-l="posible">${posibleVigente(c) ? "Cambiar fecha posible" : "Posible depósito"}</button>${posibleVigente(c) ? cae : ""}</div>`;
     else accion = abiertoAqui(c, "deposito") || abiertoAqui(c, "promesa") ? form(c)
-      : `<div class="lacc"><button class="btn-oro" data-l="deposito">Depositó</button><button class="lbtn" data-l="promesa">Reagendar</button></div>`;
+      : `<div class="lacc"><button class="btn-oro" data-l="deposito">Depositó</button><button class="lbtn" data-l="promesa">Reagendar</button>${cae}</div>`;
   }
 
   const cs = contactosDe(c).slice(0, 4);
@@ -404,7 +442,7 @@ export function manejarLead(raiz, c, rerender) {
     const a = b.dataset.l, v = b.dataset.v;
     const listo = () => rerender(c.id);
 
-    if (["registro", "promesa", "deposito", "contacto", "temp"].includes(a)) {
+    if (["registro", "promesa", "posible", "deposito", "contacto", "temp"].includes(a)) {
       abierto = abiertoAqui(c, a) ? null : { id: c.id, modo: a }; return listo();
     }
     if (a === "enviarSeg") return abrirSegDe(c, listo);
@@ -425,9 +463,35 @@ export function manejarLead(raiz, c, rerender) {
       const f = raiz.querySelector("#lFecha").value, h = raiz.querySelector("#lHora").value;
       if (!f) return toast("Falta la fecha");
       const ts = promesaISO(f, h);
-      if (await dbPatch(c, { promesa_en: ts })) {
-        c.promesaEn = ts; abierto = null; toast(`✓ ${primer(c)} pasó a Pendientes`);
+      // Prometer reemplaza al Posible y saca de Caídos: es un paso adelante.
+      if (await dbPatch(c, { promesa_en: ts, posible_en: null, posible_fecha: null, caido_en: null })) {
+        Object.assign(c, { promesaEn: ts, posibleEn: null, posibleFecha: null, caidoEn: null });
+        abierto = null; toast(`✓ ${primer(c)} pasó a Pendientes`);
       }
+      return listo();
+    }
+    if (a === "okPosible") {
+      const f = raiz.querySelector("#lFecha").value || null;
+      const ts = new Date().toISOString();
+      if (await dbPatch(c, { posible_en: ts, posible_fecha: f, caido_en: null })) {
+        Object.assign(c, { posibleEn: ts, posibleFecha: f, caidoEn: null });
+        abierto = null; toast(`✓ ${primer(c)} pasó a Posible`);
+      }
+      return listo();
+    }
+    if (a === "caido") {
+      if (!confirm(`¿${c.nombre} decidió no depositar? Pasa a Caídos (se puede deshacer).`)) return;
+      const ts = new Date().toISOString();
+      if (await dbPatch(c, { caido_en: ts })) { c.caidoEn = ts; abierto = null; toast(`✓ ${primer(c)} pasó a Caídos`); }
+      return listo();
+    }
+    if (a === "undoCaido") {
+      if (await dbPatch(c, { caido_en: null })) { c.caidoEn = null; toast(`✓ ${primer(c)} volvió a sus etapas`); }
+      return listo();
+    }
+    if (a === "undoPosible") {
+      if (!confirm(`¿Quitar «posible depósito» de ${c.nombre}?`)) return;
+      if (await dbPatch(c, { posible_en: null, posible_fecha: null })) Object.assign(c, { posibleEn: null, posibleFecha: null });
       return listo();
     }
     if (a === "okDeposito") {
@@ -438,14 +502,14 @@ export function manejarLead(raiz, c, rerender) {
       // en un 2º broker sin perder el primero. Y la promesa se limpia (con su
       // broker) para que salga de Pendientes. Un lead, además, pasa a Beca.
       const ftds = { ...c.ftds, [brk]: f };
-      const campos = { ftds, promesa_en: null, promesa_broker: null };
+      const campos = { ftds, promesa_en: null, promesa_broker: null, posible_en: null, posible_fecha: null, caido_en: null };
       if (nuevo) campos.membresia = "Beca";
       if (await dbPatch(c, campos)) {
         // comunidad_desde lo recalcula el trigger (FTD más antiguo): en un 2º
         // depósito no cambia; en el 1º es la fecha nueva. Se replica local.
         const comunidadDesde = Object.values(ftds).filter(Boolean).sort()[0] || f;
         Object.assign(c, { mem: nuevo ? "Beca" : c.mem, ftds, comunidadDesde,
-          promesaEn: null, promesaBroker: null });
+          promesaEn: null, promesaBroker: null, posibleEn: null, posibleFecha: null, caidoEn: null });
         abierto = null;
         // FTD nuevo: si el agente declaró sus números del mes, se suma (sea 1º o 2º).
         await (await import("./ftd.js")).ajustarDeclarado(c, +1);
@@ -456,7 +520,9 @@ export function manejarLead(raiz, c, rerender) {
     }
     if (a === "undoRegistro") {
       if (!confirm(`¿Deshacer «creó cuenta» de ${c.nombre}?`)) return;
-      if (await dbPatch(c, { registro_broker: null, registro_en: null })) Object.assign(c, { registroBroker: null, registroEn: null });
+      // Sin cuenta no hay Posible (lo exige la base): se quitan juntos.
+      if (await dbPatch(c, { registro_broker: null, registro_en: null, posible_en: null, posible_fecha: null }))
+        Object.assign(c, { registroBroker: null, registroEn: null, posibleEn: null, posibleFecha: null });
       return listo();
     }
     if (a === "undoPromesa") {

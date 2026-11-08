@@ -1993,7 +1993,7 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
   .hmeta-corte small{grid-area:fal;display:block;font-size:12px;color:var(--muted)}
   .hlista{display:grid;grid-template-columns:repeat(auto-fill, minmax(380px, 1fr));gap:12px;align-items:start}
   /* En escritorio caben las seis: fila fija, sin desplazamiento. */
-  .hriel{display:grid;grid-template-columns:repeat(6, minmax(0, 1fr));overflow:visible;margin:0 0 18px;padding:0}
+  .hriel{display:grid;grid-template-columns:repeat(9, minmax(0, 1fr));overflow:visible;margin:0 0 18px;padding:0}
   .hetapa{min-width:0;padding:11px}
   .hetapa.on{padding:10.5px}
 }
@@ -2268,6 +2268,8 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .hvino{display:inline-block;font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:7px;margin:3px 0 1px 5px;white-space:nowrap;
   background:color-mix(in srgb,#E8833A 14%,transparent);color:var(--text);border:1px solid color-mix(in srgb,#E8833A 45%,transparent)}
 .hcrm .mdsubl a{color:var(--gold)}
+.hposv{display:inline-block;font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:7px;margin:3px 0 1px 5px;white-space:nowrap;
+  background:color-mix(in srgb,#E89B4B 14%,transparent);color:var(--text);border:1px solid color-mix(in srgb,#E89B4B 45%,transparent)}
 
 /* Tarjeta del lead de HighLevel (Leads «Hoy» y «Mi día»): cuatro grupos
    separados por una línea, para que la llamada, el chat en HighLevel, el avance
