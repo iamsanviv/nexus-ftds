@@ -196,6 +196,15 @@ function textoParte(tpl, nombre, actividad, inicioISO, enlace, tzOff, saleISO) {
   });
 }
 
+// Número del primer mensaje de la serie (2..4) que lleva adjunto, o 0 si
+// ninguno. Hay quien pone el flyer en un mensaje adicional y no en el
+// principal: para la persona la invitación sí llega con imagen, así que
+// ninguna etiqueta puede decir lo contrario mirando solo el principal.
+const mensajeConAdjunto = sr => {
+  const i = (sr?.partes || []).findIndex(x => x.media);
+  return i < 0 ? 0 : i + 2;
+};
+
 const resumenSerie = sr => `${1 + sr.partes.length} mensajes, ${sr.modo === "mensaje" ? "por mensaje" : "por usuario"}, `
   + (sr.espera_min ? `${sr.espera_min} min entre cada uno` : "con pausa natural");
 
@@ -489,7 +498,9 @@ function pintarAyudaImg() {
   const el = $("segImgAyuda");
   if (!el) return;
   let txt;
+  const nSerie = mensajeConAdjunto(serieForm.leerSilencioso());
   if (segImg) txt = `Se envía ${segImgTipo === "video" ? "el video" : "la imagen"} que subiste.`;
+  else if (nSerie) txt = `El mensaje principal va sin adjunto; la imagen o el video sale en el mensaje ${nSerie}.`;
   else if (segTipoAct === "libre") txt = "Una actividad puntual no tiene servicio del cual heredar imagen: si no subes nada, la invitación va sin adjunto.";
   else {
     const srv = todos().find(x => x.id === $("segSrv").value);
@@ -498,7 +509,7 @@ function pintarAyudaImg() {
       : `⚠ «${srv.n}» no tiene imagen en el catálogo: si no subes nada, la invitación sale sin imagen.`;
   }
   el.textContent = txt + " Video en MP4, hasta 16 MB.";
-  el.classList.toggle("sinimg", !segImg && segTipoAct !== "libre" && !!$("segSrv").value
+  el.classList.toggle("sinimg", !segImg && !nSerie && segTipoAct !== "libre" && !!$("segSrv").value
     && !todos().find(x => x.id === $("segSrv").value)?.img);
 }
 
@@ -589,7 +600,9 @@ const esVideoUrl = u => /\.(mp4|mov)(\?|$)/i.test(u || "");
 // (la serie de la actividad) y en el panel de programación (la serie propia
 // del agente para una actividad ajena). Mismo comportamiento, distinto estado y
 // distintos ids: `p` es el prefijo de los ids del HTML.
-function crearEditorSerie(p, preview) {
+// `alPintar` corre tras cada repintado: es cuando cambia un adjunto (subir o
+// quitar), y las etiquetas de imagen dependen de eso.
+function crearEditorSerie(p, preview, alPintar) {
   const ed = { st: { modo: "usuario", espera_min: 0, partes: [] } };
 
   ed.set = sr => {
@@ -653,6 +666,7 @@ function crearEditorSerie(p, preview) {
     $(p + "Esp").querySelectorAll("[data-esp]").forEach(b => b.classList.toggle("on", (b.dataset.esp === "min") === conMin));
     $(p + "MinWrap").classList.toggle("hidden", !conMin);
     if (conMin) $(p + "Min").value = st.espera_min;
+    alPintar?.();
 
     cont.querySelectorAll(".seriep").forEach(el => {
       const i = +el.dataset.i, x = st.partes[i];
@@ -698,8 +712,8 @@ function crearEditorSerie(p, preview) {
 
 // Mensajes 2..4: los de la actividad en el formulario, y los propios del agente
 // en el panel de programación de una actividad ajena.
-const serieForm = crearEditorSerie("segSerie", txt => previewTexto(txt));
-const serieMia = crearEditorSerie("segMiSerie", txt => previewMiTexto(txt));
+const serieForm = crearEditorSerie("segSerie", txt => previewTexto(txt), () => pintarAyudaImg());
+const serieMia = crearEditorSerie("segMiSerie", txt => previewMiTexto(txt), () => pintarMiImagen());
 
 // Vista previa con datos de ejemplo, igual que la de la invitación.
 function previewTexto(txt) {
@@ -1021,9 +1035,18 @@ async function cargarActividades() {
   // Imagen propia que puse en actividades ajenas: con ella, para mí, la
   // invitación ya no sale sin imagen. Si la consulta falla, la etiqueta se
   // calcula solo con la actividad y el catálogo.
-  const { data: misMedias } = await SB.from("invitaciones_agente")
-    .select("actividad_id, media").eq("owner_id", state.me.id).not("media", "is", null);
-  const miMediaDe = new Map((misMedias || []).map(r => [r.actividad_id, r.media]));
+  // La serie propia también cuenta: si el agente puso el flyer en su mensaje 2,
+  // la invitación no sale sin imagen.
+  const { data: misInv } = await SB.from("invitaciones_agente")
+    .select("actividad_id, media, serie").eq("owner_id", state.me.id);
+  const miInvDe = new Map((misInv || []).map(r => [r.actividad_id, r]));
+  // La serie que sale es la propia si existe; si no, la de la actividad (igual
+  // que al programar, ver cargarMiInvitacion).
+  const conAdjunto = (a, mia) => {
+    const r = mia ? null : miInvDe.get(a.id);
+    return !!adjuntoInvitacion(a, r?.media).url
+      || !!mensajeConAdjunto(r?.serie || a.serie_invitacion);
+  };
 
   $("segActividades").innerHTML = actividades.map(a => {
     const mia = esMia(a);
@@ -1040,8 +1063,8 @@ async function cargarActividades() {
               ? "La ven y la pueden usar todos los equipos"
               : "La compartió el administrador con todos los equipos: puedes programar, no editar"}">🌐 Global</span>`
             : deMiDirector(a) ? `<span class="achip equipo" title="La creó tu director: puedes programar, no editar">👥 De tu director</span>` : ""}
-          ${adjuntoInvitacion(a, mia ? null : miMediaDe.get(a.id)).url ? ""
-            : `<span class="achip miss" title="La invitación sale solo con texto: ni la actividad ni su servicio del catálogo tienen imagen o video">Sin imagen</span>`}
+          ${conAdjunto(a, mia) ? ""
+            : `<span class="achip miss" title="La invitación sale solo con texto: ni sus mensajes, ni la actividad, ni su servicio del catálogo tienen imagen o video">Sin imagen</span>`}
           ${enl === "congelado" ? `<span class="achip" title="El enlace y la confirmación están retenidos: no salen hasta que des «Enviar enlace»">❄ Enlace congelado</span>` : ""}
           ${a.enlace
             ? `<span class="achip ok">Enlace listo</span>`
@@ -1279,12 +1302,15 @@ function pintarMiImagen() {
   video.src = url && vid ? url : "";
   $("segMiImgSin").classList.toggle("hidden", !!url);
   const que = vid ? "Video" : "Imagen";
+  const nSerie = url ? 0
+    : mensajeConAdjunto(ajena ? serieMia.leerSilencioso() : actSel.serie_invitacion);
   $("segMiImgFuente").textContent = {
     tuyo: `${que} tuya · solo en tus envíos`,
     actividad: `${que} de la actividad`,
     catalogo: `${que} del catálogo`,
-  }[de] || "Sin imagen: la invitación sale solo con texto";
-  $("segMiImgFuente").classList.toggle("sinimg", !url);
+  }[de] || (nSerie ? `El mensaje principal va sin adjunto · la imagen sale en el mensaje ${nSerie}`
+    : "Sin imagen: la invitación sale solo con texto");
+  $("segMiImgFuente").classList.toggle("sinimg", !url && !nSerie);
   $("segMiImgPick").classList.toggle("hidden", !ajena);
   $("segMiImgPick").textContent = url ? "Cambiar" : "Agregar";
   $("segMiImgDel").classList.toggle("hidden", !(ajena && miMedia));
