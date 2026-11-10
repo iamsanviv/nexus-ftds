@@ -1,6 +1,7 @@
 -- =====================================================================
 --  Pregunta antes del link: el plazo corre desde que la pregunta SALE
---  (10/11/2026, pedido de Sanviv)
+--  (10/11/2026, pedido de Sanviv). Aplicado el 10/11 con el MCP de Supabase;
+--  el SQL 65 lo reemplaza enseguida (inicio + 15).
 --
 --  Caso Evelin Gómez (3/11, «Canales en el Movimiento del Precio», 19:00): la
 --  cola iba ~25 min atrasada. Las preguntas programadas a las 18:45 salieron

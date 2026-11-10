@@ -283,7 +283,7 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   último que dijo). Sin token en Vault (`cloudflare_ai_token`, `cloudflare_account_id`), con
   error, duda o 3 min sin respuesta, decide la lista de palabras. Registro en `respuestas_ia`.
 - **Plazo desde que sale la pregunta** (10/11/2026, `sql/2026-11-10_64_pregunta_link_plazo_desde_envio.sql`):
-  el sí cuenta hasta el mayor entre `inicio + 10 min` y `salida de la pregunta + 15 min`; una
+  el sí cuenta hasta el mayor entre `inicio + 15 min` (antes 10; SQL 65) y `salida de la pregunta + 15 min`; una
   pregunta que aún no sale al empezar la actividad se manda igual y el link sigue retenido
   (antes se cancelaba). Motivo: el 3/11 la cola de Evelin iba ~25 min atrasada y los 61 links se
   cancelaron antes de que la gente pudiera responder.
