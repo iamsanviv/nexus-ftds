@@ -282,6 +282,11 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   cron lee la respuesta en las vueltas siguientes; mientras, se espera. Su veredicto gana (vale lo
   último que dijo). Sin token en Vault (`cloudflare_ai_token`, `cloudflare_account_id`), con
   error, duda o 3 min sin respuesta, decide la lista de palabras. Registro en `respuestas_ia`.
+- **Plazo desde que sale la pregunta** (10/11/2026, `sql/2026-11-10_64_pregunta_link_plazo_desde_envio.sql`):
+  el sí cuenta hasta el mayor entre `inicio + 10 min` y `salida de la pregunta + 15 min`; una
+  pregunta que aún no sale al empezar la actividad se manda igual y el link sigue retenido
+  (antes se cancelaba). Motivo: el 3/11 la cola de Evelin iba ~25 min atrasada y los 61 links se
+  cancelaron antes de que la gente pudiera responder.
 - **La IA lee la conversación completa** (03/11/2026, `sql/2026-11-03_59_pregunta_link_conversacion.sql`):
   `respuesta_ia` arma líneas «Asesor:»/«Persona:» con lo que escribió la persona (`entrantes_txt`),
   lo que el sistema le envió en ese seguimiento (`mensajes_programados.texto`) y lo que el asesor

@@ -113,7 +113,8 @@ let plantillasUsuario = { ...PLANTILLAS_DEF };  // se sobreescribe al cargar
 // Nace `retenido` (el worker no lo ve); la base decide 2 min antes del
 // recordatorio cuál de los dos sale. Ver sql/2026-10-28_48_pregunta_link.sql.
 const PREGUNTA_LINK = `{nombre}, {¿deseas que te envíe el link?|¿deseas asistir?|confírmame para enviarte el link.|¿me confirmas para poderte enviar el link?}`;
-// Hasta cuándo cuenta una respuesta, desde el inicio (igual en la base).
+// Hasta cuándo cuenta una respuesta, desde el inicio (igual en la base, que
+// además da 15 min desde la pregunta si salió tarde).
 const PREGUNTA_PLAZO_MIN = 10;
 // En prueba (28/10/2026): Sanviv la valida con sus propios envíos antes de
 // abrirla a todos. Solo el admin ve la casilla; al resto nunca se le encola
@@ -1818,7 +1819,7 @@ function filaPregunta(destino, inicio) {
       </label>
       ${on ? `<div class="hitonota sub">A quien no te escribió desde la invitación le llega
         «Nombre, ¿deseas que te envíe el link?» (o una variación) en vez del recordatorio.${destino === "rec_60"
-        ? " No recibe el de 15 min," : ""} Recibe el link solo si contesta que sí hasta las ${esc(plazo)} (10 min después de empezar)</div>` : ""}`;
+        ? " No recibe el de 15 min," : ""} Recibe el link solo si contesta que sí hasta las ${esc(plazo)} (10 min después de empezar; si la pregunta le llega tarde, 15 min desde que le llega)</div>` : ""}`;
 }
 
 // El botón dice lo que va a pasar: es el último punto donde el agente puede
