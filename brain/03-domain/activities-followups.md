@@ -315,6 +315,12 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   va por `fijar_respuesta` (solo el dueño) y queda en `seguimientos.respuesta_manual`: gana sobre
   palabras e IA y el cron ya no toca ese seguimiento. «Sí va» devuelve lo que el sistema canceló
   por la respuesta (no lo silenciado a mano); «No va» cancela todo lo que falta.
+- **Audios de quien responde antes de la pregunta** (10/11/2026, caso Ana Arciniegas,
+  `sql/2026-11-10_63_…`): `transcripcion_pendiente()` ya no lista solo a quien tiene la pregunta
+  enviada y el link retenido, sino a todo seguimiento en curso con pregunta en la tanda, sin decisión
+  manual, hasta `inicio + 10 min`, con algo pendiente o retenido y que escribió desde `desde`. Antes un
+  «no puedo» por audio tras la invitación quedaba sin texto («Escribió sin texto») y el paso d) no lo
+  veía. Cuota medida: 145–495 neuronas/día de 10.000 (Whisper: 46,63 por minuto de audio).
 - Si la VM del agente aún no publica `entrantes_txt` (NULL), no se pregunta: recordatorio normal.
   Si el cron no corre, sale el rec_60 y el enlace como antes. La falla nunca deja sin link.
 - Todo lo que cancela lleva `error` `omitido: …` (no dispara el push de envío fallido) y en

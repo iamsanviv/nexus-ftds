@@ -217,8 +217,8 @@ bridge **devuelve 403** («download failed with status code 403»), pero un GET 
 responde 200 (probado en VM1). Por eso `chats_sync` no usa el bridge: baja el `.enc`, verifica el
 hash y el MAC y lo descifra él mismo (HKDF «WhatsApp Audio Keys» + AES-256-CBC; `cryptography` si
 está, si no `openssl`). Pide a la base `transcripcion_pendiente()` (solo `service_role`; devuelve
-el token de Workers AI desde Vault y las personas con la pregunta del link enviada y el link
-retenido) y transcribe SOLO sus audios posteriores a la invitación: WAV 16 kHz con ffmpeg (la doc
+el token de Workers AI desde Vault y, desde el 10/11/2026, las personas con seguimiento en curso
+con pregunta del link que te escribieron desde la invitación) y transcribe SOLO sus audios posteriores a la invitación: WAV 16 kHz con ffmpeg (la doc
 de Whisper no lista formatos) → `whisper-large-v3-turbo` (`language: es`). Quedan en
 `entrantes_txt` como «🎤 texto». Tope 8 por vuelta (en VM1 bloquea al worker), 3 intentos por
 audio, caché en `~/.nexus-transcripciones.json`; de un audio largo se guardan 500 caracteres

@@ -292,8 +292,9 @@ def _clave_tel(t):
 
 def _pendientes_audio(rest, headers, log):
     """Credenciales de Workers AI y a quién hay que transcribirle los audios:
-    las personas con la pregunta del link enviada y el link aún retenido, con
-    la hora desde la que cuenta su respuesta. None si no hay IA configurada."""
+    las personas con seguimiento en curso con pregunta del link que escribieron
+    desde la invitación (la base decide la lista), con la hora desde la que
+    cuenta su respuesta. None si no hay IA configurada."""
     try:
         r = requests.post(f"{rest}/rpc/transcripcion_pendiente", headers=headers,
                           json={}, timeout=20)
@@ -415,7 +416,7 @@ def _transcribir(base, mid, jid, ia):
 
 
 def _audios(base, owner, chats, ia, cache, cupo, log):
-    """Transcribe los audios de quien tiene la pregunta pendiente y los deja en
+    """Transcribe los audios de quien la base listó y los deja en
     `entrantes_txt` como texto («🎤 …»). Devuelve cuántos transcribió."""
     hechos = 0
     for c in chats:
