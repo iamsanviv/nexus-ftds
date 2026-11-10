@@ -122,6 +122,7 @@ const PREGUNTA_PLAZO_MIN = 10;
 const PREGUNTA_SOLO_ADMIN = true;
 const PREGUNTA_PRUEBA = [
   "85bf65bc-1cf2-4216-ab37-6e9da96cbce3",   // Evelin Gómez (03/11/2026)
+  "a46e1b7b-f688-462d-a4b1-79fc97c087fb",   // Leonardo Angarita (10/11/2026)
 ];
 const preguntaHabilitada = () => !PREGUNTA_SOLO_ADMIN || state.me?.role === "admin"
   || PREGUNTA_PRUEBA.includes(state.me?.id);
