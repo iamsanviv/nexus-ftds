@@ -278,7 +278,16 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
              los recordatorios y el enlace son iguales en todas partes.
              Visible en los dos tipos de actividad: ser recurrente no implica
              que el texto de siempre sirva para esta edición en concreto. -->
-        <div class="frow wide" id="segMsgInvRow">
+        <!-- La invitación como conversación (burbujas.js): mensaje 1 con su
+             imagen y los adicionales, en el orden en que llegan. Los bloques
+             de abajo quedan ocultos: guardan el estado que las burbujas editan. -->
+        <div class="frow wide" id="segChatRow">
+          <label>Así le llega la invitación <span class="opt">(hasta 4 mensajes)</span></label>
+          <div id="segChat" class="chatinv"></div>
+          <!-- Estado inicial: seguimiento.js lo reescribe según el tipo de actividad. -->
+          <div class="msgshelp" id="segImgAyuda">Si no subes nada, se usa la imagen del servicio del catálogo. Video en MP4, hasta 16 MB.</div>
+        </div>
+        <div class="frow wide hidden" id="segMsgInvRow">
           <button type="button" class="tbtn" id="segMsgInvBtn">✎ Personalizar la invitación</button>
           <div id="segMsgInvBox" class="hidden">
             <textarea id="segMsgInv" rows="4" placeholder="Escribe la invitación de esta actividad…"></textarea>
@@ -289,7 +298,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
             <button type="button" class="tbtn" id="segMsgInvQuitar" style="color:var(--bad)">Quitar y usar mi plantilla</button>
           </div>
         </div>
-        <div class="frow wide">
+        <div class="frow wide hidden" id="segImgRow">
           <label>Imagen o video de la invitación <span class="opt">(opcional)</span></label>
           <div class="imgfield">
             <img id="segImgPrev" class="imgprev hidden" alt="">
@@ -301,16 +310,13 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
               <span id="segImgEstado" class="imgestado"></span>
             </div>
           </div>
-          <!-- Estado inicial: seguimiento.js lo reescribe según el tipo de actividad. -->
-          <div class="msgshelp" id="segImgAyuda">Si no subes nada, se usa la imagen del servicio del catálogo. Video en MP4, hasta 16 MB.</div>
         </div>
         <!-- Invitación en serie: hasta 3 mensajes más después de la invitación,
              cada uno con su texto y su adjunto. Vale en catálogo y en puntual:
              no reemplaza la plantilla, la continúa. -->
         <div class="frow wide" id="segSerieRow">
-          <label>Más mensajes de la invitación <span class="opt">(opcional, hasta 3)</span></label>
-          <div id="segSerieLista" class="serielista"></div>
-          <button type="button" class="tbtn" id="segSerieAdd">＋ Agregar mensajes a la invitación</button>
+          <div id="segSerieLista" class="serielista hidden"></div>
+          <button type="button" class="tbtn hidden" id="segSerieAdd">＋ Agregar mensajes a la invitación</button>
           <div id="segSerieOpts" class="serieopts hidden">
             <div class="serieopt">
               <span class="serielbl">Enviar</span>
@@ -418,19 +424,22 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         </div>
       </div>
       <div id="segMiInvRow" class="miinvrow hidden">
-        <button type="button" class="tbtn" id="segMiInvBtn">✎ Personalizar mi invitación</button>
-        <div id="segMiInvBox" class="hidden">
+        <button type="button" class="tbtn hidden" id="segMiInvBtn">✎ Personalizar mi invitación</button>
+        <div id="segMiInvBox">
+          <label class="michatlbl">Así le llega tu invitación <span class="opt">· lo que cambies es solo para tus envíos</span></label>
+          <div id="segMiChat" class="chatinv"></div>
+          <div class="hidden">
           <textarea id="segMiInv" rows="4" placeholder="Escribe tu invitación para esta actividad…"></textarea>
           <div class="msgshelp">Etiquetas: <code>{nombre}</code> <code>{actividad}</code>
             <code>{hora}</code> <code>{zona}</code>. Variantes al azar con <code>{hola|buenas|qué más}</code>.
             Solo cambia <b>tu</b> invitación para esta actividad; los recordatorios,
             el enlace y la confirmación no cambian.</div>
           <div class="prevmsg" id="segMiInvPrev"></div>
+          </div>
           <!-- Mensajes 2..4 propios: arranca con los de la actividad. -->
           <div class="miserie" id="segMiSerieRow">
-            <label>Más mensajes de tu invitación <span class="opt">(opcional, hasta 3)</span></label>
-            <div id="segMiSerieLista" class="serielista"></div>
-            <button type="button" class="tbtn" id="segMiSerieAdd">＋ Agregar mensajes a la invitación</button>
+            <div id="segMiSerieLista" class="serielista hidden"></div>
+            <button type="button" class="tbtn hidden" id="segMiSerieAdd">＋ Agregar mensajes a la invitación</button>
             <div id="segMiSerieOpts" class="serieopts hidden">
               <div class="serieopt">
                 <span class="serielbl">Enviar</span>
@@ -451,7 +460,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
               </div>
             </div>
           </div>
-          <button type="button" class="tbtn" id="segMiInvQuitar" style="color:var(--bad)">Quitar y usar la de la actividad</button>
+          <button type="button" class="tbtn" id="segMiInvQuitar" style="color:var(--bad)">Deshacer mis cambios y usar la de la actividad</button>
         </div>
       </div>
       <!-- A QUIÉN. Va todo junto y pegado a la lista: el buscador y los

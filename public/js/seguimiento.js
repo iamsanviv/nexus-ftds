@@ -19,6 +19,7 @@ import { avisarSiCanalCaido } from "./salud.js";
 import { cargarAvisoEnvios, avisoEnviosHTML } from "./envios.js";
 import { subirImagenMensaje, guardarHistorialSegmento, cargarCola, simularCupo, avisoCupo } from "./data.js";
 import { BASE_URL, NIVEL } from "./config.js";
+import { crearBurbujas } from "./burbujas.js";
 
 /* ---------- plantillas ---------- */
 // Tipos de mensaje programado (5 por persona). NO incluye invitacion_extra:
@@ -276,6 +277,7 @@ async function cargarPlantillas() {
     for (const t of CLAVES_TPL) if (typeof data.data[t] === "string" && data.data[t].trim()) plantillasUsuario[t] = data.data[t];
   }
   volcarPlantillasAlForm();
+  burbujasForm?.pintar(); burbujasMia?.pintar();
 }
 
 function volcarPlantillasAlForm() {
@@ -385,6 +387,9 @@ let segTipoAct = "cat";   // "cat" (del catálogo) | "libre" (puntual)
 let segImg = null;
 // URL del adjunto subido para esta actividad (imagen o video)
 let segImgTipo = null;    // "imagen" | "video" — solo decide qué previsualización se ve
+// Editores de burbujas (burbujas.js). Se crean más abajo, junto a los de la
+// serie; `let` para que las funciones que corren antes no tropiecen con ellos.
+let burbujasForm = null, burbujasMia = null;
 
 /* ---------- enlace rastreado ("trigger link") ---------- */
 // Cada seguimiento lleva un token propio. El mensaje del enlace no manda la URL
@@ -452,6 +457,7 @@ function renderForm() {
   setImgActividad(null);
   setMsgInvitacion(null);
   serieForm.set(null);
+  burbujasForm?.reset();
   $("segImgEstado").textContent = "";
   // Compartir solo aplica si hay a quién: es cosa de directores.
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
@@ -482,13 +488,11 @@ function setTipoActividad(tipo) {
     b.classList.toggle("on", b.dataset.tipo === tipo));
   $("segSrvRow").classList.toggle("hidden", tipo !== "cat");
   $("segLibreRow").classList.toggle("hidden", tipo !== "libre");
-  // #segMsgInvRow no se oculta en ningún tipo (el HTML ya no lo trae oculto):
-  // una actividad del catálogo es recurrente y usa tu plantilla por defecto,
-  // pero una fecha concreta puede necesitar otra invitación. Vacío = plantilla.
   // El embudo de venta le pasa a la persona una sola vez; una actividad del
   // catálogo es recurrente, así que marcarla como zoom no tendría sentido.
   $("segZoomRow").classList.toggle("hidden", tipo !== "libre");
   pintarAyudaImg();
+  burbujasForm?.pintar();   // la puntual no hereda imagen del catálogo
 }
 
 // Texto de ayuda de la imagen. En catálogo dice si el servicio elegido TIENE
@@ -547,6 +551,7 @@ function setMsgInvitacion(texto) {
   $("segMsgInvBtn").textContent = hay ? "✎ Editando la invitación" : "✎ Personalizar la invitación";
   $("segMsgInvBtn").classList.toggle("on", hay);
   renderPrevInvitacion();
+  burbujasForm?.pintar();
 }
 
 // Vista previa con datos de ejemplo, igual que el editor de plantillas: los
@@ -590,6 +595,7 @@ function setImgActividad(url, tipo) {
   else if (url) { img.src = url; img.classList.remove("hidden"); del.classList.remove("hidden"); }
   else { del.classList.add("hidden"); }
   pintarAyudaImg();
+  burbujasForm?.pintar();
 }
 
 // --- invitación en serie: editor del formulario ---
@@ -633,6 +639,10 @@ function crearEditorSerie(p, preview, alPintar) {
     return { modo: ed.st.modo, espera_min: espera, partes };
   };
 
+  // Reemplaza los mensajes 2..4 conservando modo y espera: las burbujas
+  // reordenan, agregan y quitan por aquí.
+  ed.setPartes = arr => { ed.st.partes = arr; ed.render(); };
+
   ed.render = () => {
     const cont = $(p + "Lista");
     if (!cont) return;
@@ -658,8 +668,7 @@ function crearEditorSerie(p, preview, alPintar) {
     }).join("");
 
     const hay = st.partes.length > 0;
-    $(p + "Add").classList.toggle("hidden", st.partes.length >= MAX_PARTES);
-    $(p + "Add").textContent = hay ? "＋ Agregar otro mensaje" : "＋ Agregar mensajes a la invitación";
+    // La lista y su botón quedaron ocultos: se agrega desde las burbujas.
     $(p + "Opts").classList.toggle("hidden", !hay);
     $(p + "Modo").querySelectorAll("[data-modo]").forEach(b => b.classList.toggle("on", b.dataset.modo === st.modo));
     const conMin = (st.espera_min || 0) > 0;
@@ -712,8 +721,49 @@ function crearEditorSerie(p, preview, alPintar) {
 
 // Mensajes 2..4: los de la actividad en el formulario, y los propios del agente
 // en el panel de programación de una actividad ajena.
-const serieForm = crearEditorSerie("segSerie", txt => previewTexto(txt), () => pintarAyudaImg());
-const serieMia = crearEditorSerie("segMiSerie", txt => previewMiTexto(txt), () => pintarMiImagen());
+const serieForm = crearEditorSerie("segSerie", txt => previewTexto(txt),
+  () => { pintarAyudaImg(); burbujasForm?.pintar(); });
+const serieMia = crearEditorSerie("segMiSerie", txt => previewMiTexto(txt),
+  () => { pintarMiImagen(); burbujasMia?.pintar(); });
+
+const plantillaInv = () => plantillasUsuario.invitacion || PLANTILLAS_DEF.invitacion;
+
+// Formulario de la actividad: el mensaje 1 es `msg_invitacion` (vacío = la
+// plantilla de cada agente) con `imagen` (vacía = la del servicio del catálogo).
+burbujasForm = crearBurbujas("segChat", {
+  leer: () => ({
+    texto: $("segMsgInv").value.trim() ? $("segMsgInv").value : null,
+    textoFb: plantillaInv(), etiquetaFb: "tu plantilla",
+    media: segImg,
+    mediaFb: segTipoAct === "libre" ? null : (todos().find(x => x.id === $("segSrv").value)?.img || null),
+    etiquetaMediaFb: "imagen del catálogo",
+    partes: serieForm.st.partes,
+  }),
+  previa: txt => previewTexto(txt),
+  setTexto: v => { $("segMsgInv").value = v || ""; },
+  setMedia: url => setImgActividad(url),
+  setPartes: arr => serieForm.setPartes(arr),
+});
+
+// Panel de programación, actividad ajena: el mensaje 1 es la invitación propia
+// del agente; sin ella, la de la actividad o su plantilla. La imagen, la suya o
+// la de la actividad/catálogo.
+burbujasMia = crearBurbujas("segMiChat", {
+  leer: () => ({
+    texto: miInvitacion.trim() ? miInvitacion : null,
+    textoFb: (actSel?.msg_invitacion || "").trim() || plantillaInv(),
+    etiquetaFb: (actSel?.msg_invitacion || "").trim() ? "texto de la actividad" : "tu plantilla",
+    media: miMedia,
+    mediaFb: actSel?.imagen || imgServicio(actSel),
+    etiquetaMediaFb: actSel?.imagen ? "imagen de la actividad" : "imagen del catálogo",
+    partes: serieMia.st.partes,
+  }),
+  previa: txt => previewMiTexto(txt),
+  setTexto: v => { miInvitacion = v || ""; $("segMiInv").value = miInvitacion; },
+  setMedia: url => { miMedia = url; pintarMiImagen(); },
+  setPartes: arr => serieMia.setPartes(arr),
+  cambio: () => { pintarBtnMiInv(); renderHitos(); },
+});
 
 // Vista previa con datos de ejemplo, igual que la de la invitación.
 function previewTexto(txt) {
@@ -746,6 +796,7 @@ function entrarEdicion(a) {
   setImgActividad(a.imagen);
   setMsgInvitacion(a.msg_invitacion);
   serieForm.set(a.serie_invitacion);
+  burbujasForm?.reset();
   $("segImgEstado").textContent = "";
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
   $("segCompartir").checked = !!a.compartida;
@@ -1226,7 +1277,6 @@ async function cargarMiInvitacion(a) {
   const row = $("segMiInvRow");
   if (!row) return;
   row.classList.toggle("hidden", !puedoPersonalizarInvitacion(a));
-  $("segMiInvBox").classList.add("hidden");
   $("segMiImgEstado").textContent = "";
   if (!puedoPersonalizarInvitacion(a)) { serieMia.set(null); pintarMiImagen(); return; }
 
@@ -1242,6 +1292,7 @@ async function cargarMiInvitacion(a) {
   miGuardado = firmaMiInv(miInvitacion, miMedia, data?.serie || null);
   pintarMiInvitacion();
   pintarMiImagen();
+  burbujasMia?.reset();
 }
 
 // Firma comparable de una serie: el jsonb vuelve de la base con las claves en
@@ -1261,6 +1312,7 @@ function pintarMiInvitacion() {
   $("segMiInv").value = miInvitacion;
   pintarBtnMiInv();
   renderPrevMiInvitacion();
+  burbujasMia?.pintar();
 }
 
 // «Editando» si el texto o la serie ya no son los de la actividad.
@@ -1268,6 +1320,8 @@ function pintarBtnMiInv() {
   const hay = !!miInvitacion.trim() || (!!actSel && serieDistinta(serieMia.leerSilencioso(), actSel));
   $("segMiInvBtn").textContent = hay ? "✎ Editando mi invitación" : "✎ Personalizar mi invitación";
   $("segMiInvBtn").classList.toggle("on", hay);
+  // «Deshacer» solo cuando hay algo propio que deshacer.
+  $("segMiInvQuitar").classList.toggle("hidden", !hay && !miMedia);
 }
 
 // Imagen del servicio del catálogo, la que el worker resuelve al enviar cuando
@@ -1289,10 +1343,11 @@ function adjuntoInvitacion(a, propio) {
 function pintarMiImagen() {
   const row = $("segMiImgRow");
   if (!row) return;
-  const mostrar = !!actSel && !segSinInvitacion;
+  // En una ajena la imagen ya se ve (y se cambia) en las burbujas.
+  const ajena = puedoPersonalizarInvitacion(actSel);
+  const mostrar = !!actSel && !segSinInvitacion && !ajena;
   row.classList.toggle("hidden", !mostrar);
   if (!mostrar) return;
-  const ajena = puedoPersonalizarInvitacion(actSel);
   const { url, de } = adjuntoInvitacion(actSel, ajena ? miMedia : null);
   const vid = esVideoUrl(url);
   const img = $("segMiImgPrev"), video = $("segMiVidPrev");
@@ -1673,7 +1728,6 @@ function alternarInvitacion(sinInvitacion) {
   // su caja abierta) en vez de dejar un control que no haría nada.
   const mostrarMiInv = !segSinInvitacion && puedoPersonalizarInvitacion(actSel);
   $("segMiInvRow").classList.toggle("hidden", !mostrarMiInv);
-  if (!mostrarMiInv) $("segMiInvBox").classList.add("hidden");
   pintarMiImagen();
   // Sin invitación la frontera pasa a ser «ahora», así que cambian las horas
   // y puede volver a caber algo que antes no.
@@ -3677,10 +3731,12 @@ $("segMiInv").oninput = () => {
 };
 $("segMiInvQuitar").onclick = () => {
   miInvitacion = "";
+  miMedia = null;
   serieMia.set(actSel?.serie_invitacion);
   pintarMiInvitacion();
+  pintarMiImagen();
+  burbujasMia.reset();
   renderHitos();
-  $("segMiInvBox").classList.add("hidden");
 };
 // El estado del botón («Editando…») también depende de la serie: se repinta al
 // tocar cualquier cosa del editor, que vive dentro de la caja.
@@ -3733,6 +3789,10 @@ $("segMiImgDel").onclick = () => { miMedia = null; $("segMiImgEstado").textConte
 // no para leer lo que dice el flyer.
 $("segMiImgPrev").onclick = () => $("segMiImgPrev").classList.toggle("grande");
 $("segHora").addEventListener("change", renderPrevInvitacion);
+// Las burbujas muestran el texto con la hora, el nombre y la imagen del
+// catálogo: cambian con estos campos.
+for (const [id, ev] of [["segHora", "change"], ["segFecha", "change"], ["segLibre", "input"], ["segSrv", "change"], ["segNomPub", "input"], ["segLink", "input"]])
+  $(id).addEventListener(ev, () => burbujasForm.pintar());
 $("segLibre").addEventListener("input", renderPrevInvitacion);
 $("segSrv").addEventListener("change", renderPrevInvitacion);
 $("segLibre").addEventListener("input", pintarNombrePublico);
