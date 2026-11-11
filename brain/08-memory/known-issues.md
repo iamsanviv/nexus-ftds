@@ -16,23 +16,13 @@ El «día» de cualquier tope/corte es el de Colombia, no UTC. Cualquier cálcul
 
 ---
 
-## KI-002 — Audio/nota de voz · CAUSA ARREGLADA EN EL WORKER 11/11/2026 (UI sigue oculta)
+## KI-002 — Audio/nota de voz
 
 La UI ha ocultado o restringido audio porque existieron fallos de reproducción/entrega aunque el worker tuviera conversión PTT.
 
-**Causa:** `convertir_a_ogg` de `worker.py` no forzaba mono. Un origen estéreo salía como nota de voz estéreo: WhatsApp la sube, la entrega y la muestra como audio, pero el teléfono no la reproduce. El archivo NO se corrompe en el camino: bajado del CDN y descifrado es idéntico byte a byte al enviado y decodifica sin errores con ffmpeg. Por eso «decodifica con ffmpeg» no prueba nada aquí.
-
-**Prueba (11/11/2026, teléfono real de Sanviv, bridge `santiago_viveros`):** dos notas de 6 s enviadas directo al bridge. Receta anterior (estéreo, `-ar 24000`, `-frame_duration 60`) → no suena. Receta nueva (mono) → suena.
-
-**Arreglo aplicado en producción (VM1, worker reiniciado):** la conversión es ahora `-vn -ac 1 -ar 48000 -c:a libopus -b:a 32k -application voip`. Respaldo: `worker.py.bak-20261111-voz-mono`. El bridge no se tocó. Solo se cambió lo que se probó en teléfono: la receta completa de la prueba 2, no únicamente `-ac 1` (las dos recetas diferían también en tramas de 60 ms; no se aisló cuál de las diferencias basta).
-
-**Lo que falta para cerrar:** el flujo completo desde el panel (grabar/subir → Storage → cola → worker → teléfono) no se ha probado, y la UI sigue ocultando audio. Verificar además que el bucket acepte el MIME y que una nota de voz hacia un bridge de VM2 llegue (la copia remota del `.conv.ogg`).
-
-**Cosméticos conocidos del bridge (no arreglados):** `analyzeOggOpus` lee `OpusHead` con desplazamientos equivocados, falla y cae al valor por defecto de 48000 (correcto por casualidad); la duración se redondea hacia arriba sin descontar el pre-skip (6,01 s → 7 s); el waveform es sintético.
-
 ### Regla
 
-No habilitar audio solo porque exista código parcial. Probar subida, envío, recepción y reproducción real. **Una nota de voz debe ser mono**; no relajar `-ac 1`.
+No habilitar audio solo porque exista código parcial. Probar subida, envío, recepción y reproducción real.
 
 ---
 

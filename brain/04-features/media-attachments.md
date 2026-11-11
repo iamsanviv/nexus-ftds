@@ -48,8 +48,6 @@ La nota de voz ha estado oculta porque existieron casos en los que el archivo su
 
 No reactivar audio por presencia de código. Hace falta prueba real de extremo a extremo: subida, envío, recepción y reproducción.
 
-**11/11/2026:** la causa era que el worker convertía sin forzar mono (una nota de voz estéreo llega pero no suena). Arreglado en `worker.py` y probado enviando directo al bridge; el flujo desde el panel aún no se ha probado y la UI sigue oculta. Detalle en [[../08-memory/known-issues]] KI-002.
-
 ## Video
 
 Habilitado en Masivo desde el 20/08/2026. Desde el **08/10/2026: SOLO MP4** (antes también MOV).
