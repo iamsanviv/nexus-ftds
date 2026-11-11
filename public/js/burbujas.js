@@ -23,6 +23,26 @@ import { iniciarGrabacion, puedeGrabar, fmtSeg, esAudioUrl } from "./grabadora.j
 
 const MAX_MENSAJES = 4;
 const esVideo = u => /\.(mp4|mov)(\?|$)/i.test(u || "");
+// Vista previa de las notas de voz: se reproducen desde una copia en memoria
+// (objectURL), no desde la URL del Storage. El reproductor del iPhone se queda
+// cargando con el webm que graba el navegador cuando llega por red (no trae
+// duración), aunque el archivo esté bien y se envíe bien. Desde memoria suena,
+// que es como lo hacía el grabador viejo del masivo. Clave: URL remota.
+const copiasAudio = new Map();   // url → objectURL | null (bajando)
+function hidratarAudios(raiz) {
+  raiz.querySelectorAll("audio[data-url]").forEach(a => {
+    const url = a.dataset.url;
+    if (copiasAudio.has(url)) return;
+    copiasAudio.set(url, null);
+    const poner = src => document.querySelectorAll("audio[data-url]")
+      .forEach(x => { if (x.dataset.url === url) x.src = src; });
+    fetch(url).then(r => r.ok ? r.blob() : Promise.reject(new Error(r.status)))
+      .then(bl => { const o = URL.createObjectURL(bl); copiasAudio.set(url, o); poner(o); })
+      // Sin copia (sin red, archivo borrado): al menos se intenta la remota.
+      .catch(() => { copiasAudio.delete(url); raiz.querySelectorAll("audio[data-url]").forEach(x => { if (x.dataset.url === url && !x.src) x.src = url; }); });
+  });
+}
+
 const AYUDA_DEF = `Etiquetas: <code>{nombre}</code> <code>{actividad}</code> <code>{hora}</code> <code>{zona}</code>.
   Variantes al azar con <code>{hola|buenas|qué más}</code>.`;
 
@@ -86,7 +106,7 @@ export function crearBurbujas(contId, cfg) {
   const vacio = it => !(it.textoEf || "").trim() && !it.mediaEf;
 
   const mediaHTML = (url, cls) => !url ? ""
-    : esAudioUrl(url) ? `<audio class="caudio" src="${esc(url)}" controls preload="metadata"></audio>`
+    : esAudioUrl(url) ? `<audio class="caudio" data-url="${esc(url)}"${copiasAudio.get(url) ? ` src="${esc(copiasAudio.get(url))}"` : ""} controls preload="metadata"></audio>`
     : esVideo(url) ? `<video class="${cls}" src="${esc(url)}" muted playsinline></video>`
     : `<img class="${cls}" src="${esc(url)}" alt="">`;
   const tipoDe = it => esAudioUrl(it.mediaEf) ? "Nota de voz"
@@ -125,6 +145,7 @@ export function crearBurbujas(contId, cfg) {
           : "Sin imagen ni video"}<span class="imgestado" data-est></span></div>
         <input type="file" data-file accept="${ACCEPT_ADJUNTO}" class="hidden">
         <button type="button" class="tbtn" data-pick>${it.mediaEf ? "Cambiar" : "＋ Imagen o video"}</button>
+        ${!propia ? `<button type="button" class="tbtn" data-avoz>🎤 Nota de voz</button>` : ""}
         ${it.mediaEf ? `<button type="button" class="tbtn" data-delmedia style="color:var(--bad)">Quitar</button>` : ""}
         ${it.principal && it.sinMedia && it.hayMediaFb && !it.mediaEf
           ? `<button type="button" class="tbtn" data-fbmedia>↺ Usar ${esc(it.etiquetaMediaFb)}</button>` : ""}
@@ -187,6 +208,7 @@ export function crearBurbujas(contId, cfg) {
       ${cabe && !b.eligiendo ? `<button type="button" class="caddmsg">＋ Agregar mensaje</button>` : ""}
       ${its.length > 1 ? `<div class="msgshelp cayuda">Mantén presionado <b>⠿</b> y arrastra para cambiar el orden: lo de arriba llega primero.</div>` : ""}`;
     cablear(el, its);
+    hidratarAudios(el);
   }
 
   function mover(de, a) {
@@ -243,6 +265,8 @@ export function crearBurbujas(contId, cfg) {
     g.subiendo = true; pintar();
     try {
       const url = await subirAudioMensaje(r.blob, r.ext);
+      // La vista previa usa lo recién grabado, sin volver a bajarlo.
+      copiasAudio.set(url, URL.createObjectURL(r.blob));
       if (b.grab !== g) return;
       const its = items();
       const voz = { textoEf: "", mediaEf: url };
@@ -323,6 +347,15 @@ export function crearBurbujas(contId, cfg) {
     });
     ed.querySelector("[data-quitar]")?.addEventListener("click", () => quitar(i));
     ed.querySelector("[data-regrabar]")?.addEventListener("click", () => grabar(i));
+    // Convertir ESTE mensaje en nota de voz, sin tener que agregar otro y
+    // borrar este (pedido de Sanviv: sobre todo para el primero). Una nota de
+    // voz no lleva texto: si ya había uno escrito a mano, se avisa antes.
+    ed.querySelector("[data-avoz]")?.addEventListener("click", () => {
+      const a = items()[i];
+      const escrito = (a.textoEf || "").trim() && !a.heredaTexto;
+      if (escrito && !confirm("La nota de voz reemplaza el texto de este mensaje. Si quieres conservarlo, agrégala como otro mensaje.\n\n¿Reemplazar?")) return;
+      grabar(i);
+    });
     const file = ed.querySelector("[data-file]"), est = ed.querySelector("[data-est]");
     if (!file) return;
     ed.querySelector("[data-pick]").onclick = () => file.click();

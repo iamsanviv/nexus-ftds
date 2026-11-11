@@ -66,6 +66,10 @@ Tres reglas que pidió Sanviv:
 - **Leads**: escribe en `bor.mensajes`. La nota de voz queda **dentro de la plantilla** (`plantillas_lead.mensajes[].media`): quien use una plantilla ajena envía la voz de quien la grabó.
 - **Invitación**: el mensaje 1 tiene respaldos (plantilla del agente, imagen del catálogo o de la actividad). Ver «El mensaje 1 de la invitación» en [[../03-domain/activities-followups]].
 
+**La vista previa del audio se reproduce desde memoria, no desde la URL (11/11/2026).** Con `<audio src="<url del Storage>">` el reproductor del iPhone se quedaba cargando en 0:00, aunque el archivo estaba bien y se enviaba bien: el webm que graba el navegador no trae duración (`duration = Infinity`) y Safari no lo reproduce por red. `burbujas.js` guarda una copia local (`copiasAudio`: la grabación recién hecha, o un `fetch` → `objectURL` para las ya guardadas) y esa es la que suena. No volver a poner la URL remota directa en el `src`.
+
+Cualquier mensaje sin adjunto propio ofrece «🎤 Nota de voz» en su edición, también el primero: lo convierte en nota de voz sin tener que agregar otro mensaje y borrar ese. Si tenía texto escrito a mano, pregunta antes de reemplazarlo.
+
 Limitación conocida: al mover el mensaje que mostraba la imagen **del catálogo**, esa URL queda copiada en la serie. Si después se cambia la imagen del servicio, el catálogo borra el archivo anterior y esa copia deja de existir (el worker manda entonces solo el texto). Las actividades son del día, así que casi no se nota; en una plantilla de leads no aplica (no hereda del catálogo).
 
 Probado en navegador sin sesión (carga de módulos, reordenar, grabar con micrófono simulado, paneles de masivo y leads, arrastre real en el formulario de actividad). **No probado: ningún envío real con el editor nuevo.**
