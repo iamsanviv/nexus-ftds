@@ -39,7 +39,11 @@ returns boolean
 language sql
 immutable
 as $$
-  select s is null or (
+  -- El `coalesce(…, false)` de fuera importa: en un CHECK, NULL cuenta como
+  -- válido. Sin él, una serie a la que le falta una clave (o vacía y sin
+  -- marcas) daba NULL y pasaba la restricción. La versión anterior de esta
+  -- función tenía ese mismo hueco para una serie sin `modo`.
+  select s is null or coalesce((
     jsonb_typeof(s) = 'object'
     and s->>'modo' in ('usuario', 'mensaje')
     and coalesce(s->>'espera_min', '') ~ '^[0-9]{1,3}$'
@@ -50,8 +54,8 @@ as $$
     -- Sin mensajes 2..4 la serie solo existe para marcar cómo va el primero.
     and (
       jsonb_array_length(s->'partes') > 0
-      or s->'m1'->'sin_texto' = 'true'::jsonb
-      or s->'m1'->'sin_media' = 'true'::jsonb
+      or coalesce(s->'m1'->'sin_texto' = 'true'::jsonb, false)
+      or coalesce(s->'m1'->'sin_media' = 'true'::jsonb, false)
     )
     and not exists (
       select 1 from jsonb_array_elements(s->'partes') p
@@ -60,7 +64,7 @@ as $$
          or (coalesce(btrim(p->>'texto'), '') = '' and coalesce(p->>'media', '') = '')
          or length(coalesce(p->>'texto', '')) > 4000
     )
-  )
+  ), false)
 $$;
 
 comment on column public.actividades.serie_invitacion is
