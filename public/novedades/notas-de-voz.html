@@ -20,6 +20,11 @@
   color-scheme:dark;
 }
 *{box-sizing:border-box}
+/* Sin esto, `.overlay{display:grid}` le gana al atributo `hidden` y el botón
+   «Ver el tutorial» queda encima aunque el tutorial ya esté corriendo. El
+   artefacto publicado lo trae de su página base; esta copia no. */
+[hidden]{display:none!important}
+img{max-width:100%}
 /* Página propia del panel (public/novedades): la abre novedades.js dentro de
    un iframe. Copia del tutorial publicado como artefacto; si se cambia uno,
    cambiar el otro. */
