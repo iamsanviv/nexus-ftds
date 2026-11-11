@@ -26,7 +26,9 @@ La UI ha ocultado o restringido audio porque existieron fallos de reproducción/
 
 **Lo que NO era:** el perfil de Opus. Con la misma grabación fallaron por igual SILK, híbrido SWB/FB, CELT, 16 kHz, paquetes de 20 y de 120 ms (imitando a WhatsApp). Tampoco el bridge ni la subida: lo que queda en el CDN es idéntico byte a byte a lo enviado.
 
-**Arreglo en producción (VM1, `worker.py`, worker reiniciado):** `convertir_a_ogg` usa `-af aresample=async=1:first_pts=0,asetpts=N/SR/TB -ac 1 -ar 48000 -c:a libopus -b:a 32k -application voip`. Respaldos: `worker.py.bak-20261111-voz-mono` (original) y `.bak-20261111-voz-tiempos`. El bridge no se tocó.
+**Arreglo en producción (VM1, `worker.py`, worker reiniciado):** `convertir_a_ogg` usa `-af asetpts=N/SR/TB -ac 1 -ar 48000 -c:a libopus -b:a 32k -application voip`. Respaldos: `worker.py.bak-20261111-voz-mono` (original), `.bak-20261111-voz-tiempos` y `.bak-20261111-voz-silencio`. El bridge no se tocó.
+
+**NO usar `aresample=async` (incidente del mismo 11/11).** La primera versión del arreglo llevaba `aresample=async=1:first_pts=0` delante de `asetpts`. Ese filtro «respeta» los tiempos de entrada y rellena los huecos con silencio. Una grabación de Leonardo Angarita (49 s de voz) traía un salto de 332 s entre el primer fragmento y el segundo; salió como un audio de 6:21 con 5,5 min de silencio al inicio, a 23 personas de un masivo (WhatsApp mostraba 5:00 porque el bridge recorta la duración a 300 s). `asetpts=N/SR/TB` solo numera las muestras de corrido e ignora los tiempos de la grabación: mismo audio, 49,3 s. Comprobación obligatoria al tocar la conversión: la duración de salida debe coincidir con la del audio decodificado (p. ej. pasándolo a WAV), no con la que declara el contenedor.
 
 **Probado en iPhone real (Sanviv), enviando directo al bridge `santiago_viveros`:** sus dos grabaciones reales de Chrome, reconvertidas con la receta nueva, suenan; con la anterior, no.
 
