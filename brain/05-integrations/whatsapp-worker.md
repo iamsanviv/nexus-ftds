@@ -66,8 +66,8 @@ El worker resuelve recursos al enviar según su implementación vigente. Histór
 - el `worker.py` es **agnóstico al tipo**: baja el archivo a un temporal conservando la extensión de la URL y le pasa la ruta al bridge. Quien decide si algo va como imagen, video, nota de voz o documento es el **bridge**, y lo decide por la **extensión**;
 - imágenes están soportadas;
 - video (`mp4`, `mov`) funciona de extremo a extremo desde el 20/08/2026, comprobado en teléfono. El worker distingue audio de video con `ffprobe` cuando la extensión es ambigua;
-- `webm` no tiene rama en el bridge, pero el worker convierte todo audio a `.ogg` antes de entregarlo, así que no era la causa del defecto de las notas de voz;
-- notas de voz: no sonaban porque `convertir_a_ogg` no forzaba mono. Desde el 11/11/2026 convierte a Opus **mono** 48 kHz (probado en teléfono). Ver [[../08-memory/known-issues]] KI-002.
+- `webm` no tiene rama y cae en `DocumentMessage`, lo que probablemente explica el defecto de las notas de voz;
+- notas de voz han tenido restricciones de reproducción.
 
 No habilitar una capacidad de frontend porque el formulario la acepte si el worker no sabe entregarla correctamente.
 
