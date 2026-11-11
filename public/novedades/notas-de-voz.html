@@ -41,12 +41,12 @@ h1 em{font-style:normal;color:var(--gold)}
 .stage{position:relative;height:560px;background:
   radial-gradient(120% 90% at 50% 0%, #17202B 0%, var(--bg) 70%);overflow:hidden;display:grid;place-items:center}
 .cursor{position:absolute;left:0;top:0;width:26px;height:26px;pointer-events:none;z-index:20;opacity:0;
-  transition:transform .6s cubic-bezier(.3,.7,.2,1), opacity .3s}
+  transition:transform .35s cubic-bezier(.3,.7,.2,1), opacity .2s}
 .cursor.on{opacity:1}
 .cursor.rapido{transition:opacity .3s}
 .cursor svg{display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
 .cursor .pulso{position:absolute;left:-12px;top:-12px;width:28px;height:28px;border-radius:50%;border:2px solid var(--gold);opacity:0;transform:scale(.4)}
-.cursor.click .pulso{animation:pulso .45s ease-out}
+.cursor.click .pulso{animation:pulso .3s ease-out}
 @keyframes pulso{0%{opacity:1;transform:scale(.4)}100%{opacity:0;transform:scale(1.6)}}
 
 .overlay{position:absolute;inset:0;z-index:30;display:grid;place-items:center;background:rgba(6,9,13,.55);border:0;width:100%;cursor:pointer;color:var(--text);font:inherit}
@@ -67,7 +67,7 @@ h1 em{font-style:normal;color:var(--gold)}
   display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.45)}
 /* La entrada se anima solo al cambiar de escena: dentro de una escena el
    escenario se repinta en cada clic y repetirla hacía parpadear todo. */
-#scene.entra .panel,#scene.entra .phone{animation:entra .45s ease-out}
+#scene.entra .panel,#scene.entra .phone{animation:entra .3s ease-out}
 @keyframes entra{from{opacity:0;transform:translateY(14px) scale(.98)}}
 .phead{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);font-family:var(--f-display);font-weight:800;font-size:17px}
 .phead svg{color:var(--gold)}
@@ -136,7 +136,7 @@ h1 em{font-style:normal;color:var(--gold)}
 .shead small{color:var(--ok);font-size:11.5px}
 .sbody{flex:1;padding:14px 10px;display:flex;flex-direction:column;gap:8px}
 .in{align-self:flex-start;max-width:88%;background:var(--bub-in);border-radius:12px 12px 12px 3px;padding:7px 9px 5px;display:flex;flex-direction:column;gap:5px}
-.in.nueva{animation:entra .35s ease-out}
+.in.nueva{animation:entra .25s ease-out}
 .in .hora{align-self:flex-end;font-size:10.5px;color:#9AA7B4}
 .in .vplay{background:var(--ok);color:#06110B}
 .in .onda i.on{background:var(--ok)}
@@ -376,6 +376,10 @@ h1 em{font-style:normal;color:var(--gold)}
     { tit: "Ya está disponible", txt: "En Seguimientos masivos, Seguimiento por actividad y Plantillas de leads. Vuelve a ver este tutorial cuando quieras desde la campana de novedades, arriba.", dur: 6000,
       at: t => base({ view: "donde", c1: t > 300, c2: t > 900, c3: t > 1500, tip: t > 2400 }) },
   ];
+  // Velocidad de reproducción: las escenas se escribieron en tiempo «lento» y
+  // se reproducen 1,6 veces más rápido (≈30 s en total). Los tiempos que se
+  // muestran ya vienen divididos por VEL.
+  const VEL = 1.6;
   let acc = 0;
   ESCENAS.forEach(e => { e.ini = acc; acc += e.dur; });
   const TOTAL = acc;
@@ -432,17 +436,17 @@ h1 em{font-style:normal;color:var(--gold)}
       const e = ESCENAS[j];
       sg.firstChild.style.width = (clamp((T - e.ini) / e.dur) * 100) + "%";
     });
-    $("tiempo").textContent = fmt(T / 1000) + " / " + fmt(TOTAL / 1000);
+    $("tiempo").textContent = fmt(T / VEL / 1000) + " / " + fmt(TOTAL / VEL / 1000);
     const fin = T >= TOTAL;
     $("play").innerHTML = jugando ? ICO.pause : fin ? ICO.replay : ICO.play;
     $("play").setAttribute("aria-label", jugando ? "Pausar" : fin ? "Ver de nuevo" : "Reproducir");
     overlay.hidden = jugando || (empezo && !fin);
-    $("overlayTxt").textContent = fin ? "Ver de nuevo" : "Ver el tutorial · " + Math.round(TOTAL / 1000) + " s";
+    $("overlayTxt").textContent = fin ? "Ver de nuevo" : "Ver el tutorial · " + Math.round(TOTAL / VEL / 1000) + " s";
   }
 
   function bucle(ahora) {
     if (!jugando) return;
-    T = Math.min(TOTAL, T + (ahora - ultimo));
+    T = Math.min(TOTAL, T + (ahora - ultimo) * VEL);
     ultimo = ahora;
     if (T >= TOTAL) jugando = false;
     pintar();
@@ -475,7 +479,7 @@ h1 em{font-style:normal;color:var(--gold)}
     tl.appendChild(sg);
     const c = document.createElement("button");
     c.type = "button"; c.className = "cap";
-    c.innerHTML = `<span class="n">${i + 1}</span><span><b>${e.tit}</b><small>${fmt(e.ini / 1000)}</small></span>`;
+    c.innerHTML = `<span class="n">${i + 1}</span><span><b>${e.tit}</b><small>${fmt(e.ini / VEL / 1000)}</small></span>`;
     c.onclick = () => { ir(e.ini); if (!jugando) reproducir(); };
     caps.appendChild(c);
   });
