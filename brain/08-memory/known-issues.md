@@ -16,7 +16,7 @@ El «día» de cualquier tope/corte es el de Colombia, no UTC. Cualquier cálcul
 
 ---
 
-## KI-002 — Audio/nota de voz · WORKER ARREGLADO 11/11/2026 (falta probar desde el panel)
+## KI-002 — Audio/nota de voz · CERRADO 11/11/2026
 
 La UI ha ocultado o restringido audio porque existieron fallos de reproducción/entrega aunque el worker tuviera conversión PTT.
 
@@ -30,7 +30,9 @@ La UI ha ocultado o restringido audio porque existieron fallos de reproducción/
 
 **Probado en iPhone real (Sanviv), enviando directo al bridge `santiago_viveros`:** sus dos grabaciones reales de Chrome, reconvertidas con la receta nueva, suenan; con la anterior, no.
 
-**Falta para cerrar:** el flujo completo desde el panel; una grabación hecha en iPhone (`.m4a`), que no se probó; un bridge en VM2; y un teléfono Android.
+**Probado de extremo a extremo desde el panel (11/11/2026, preview de la rama, Sanviv):** grabando en navegador de escritorio, iPhone y Android; recibiendo en iPhone y Android; con los canales de Santiago Viveros y Andrés Calle (VM1) y de Sebastián Ceballos y Leonardo Angarita (VM2); una nota de 4 minutos y tres envíos a la vez. Todo sonó. En la cola: 13 notas, todas `enviado`, sin errores.
+
+**Lo único sin ejercitar:** la rama `.m4a`. Las 13 notas llegaron como `.webm`, también las grabadas en iPhone (su Safari ya graba webm/opus, que `mimeGrabacion` prefiere). Un iPhone con iOS antiguo grabaría `audio/mp4`; ese camino solo se probó con un archivo sintético.
 
 ### Trampas de diagnóstico (costaron una salida a producción fallida)
 
