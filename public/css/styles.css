@@ -563,6 +563,38 @@ body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 .repind svg{width:16px;height:16px}
 .repcount{font-size:.74rem;font-weight:700;letter-spacing:.01em;color:var(--text)}
 
+/* Indicadores del header en fila: repaso de asistencias + campana de novedades. */
+.headinds{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.headinds .repind{margin-bottom:0}
+.novind{position:relative;width:36px;height:36px;border-radius:999px;display:grid;place-items:center;flex-shrink:0;
+  background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:color .15s,border-color .15s}
+.novind svg{width:18px;height:18px}
+.novind:hover,.novind:focus-visible{color:var(--gold);border-color:var(--gold)}
+.novpunto{position:absolute;top:6px;right:7px;width:9px;height:9px;border-radius:50%;background:var(--gold);
+  box-shadow:0 0 0 2px var(--surface2);display:none}
+.novind.nueva{color:var(--gold)}
+.novind.nueva .novpunto{display:block}
+.novind.nueva svg{animation:novcampana 2.4s ease-in-out infinite;transform-origin:50% 15%}
+@keyframes novcampana{0%,70%,100%{transform:rotate(0)}76%{transform:rotate(14deg)}84%{transform:rotate(-12deg)}92%{transform:rotate(6deg)}}
+@media (prefers-reduced-motion:reduce){.novind.nueva svg{animation:none}}
+
+/* Ventana de novedades: grande, para que el tutorial se vea como un video. */
+.novmodal{max-width:1120px;width:100%;height:92vh;max-height:92vh;display:flex;flex-direction:column;padding:14px 14px 0;overflow:hidden}
+.novhead{display:flex;align-items:center;gap:10px;padding-bottom:10px}
+.novhead h2{flex:1;margin:0;font-size:1.05rem}
+.novhead .tbtn{width:auto;flex:none}
+.novhead .mx{color:var(--muted);font-size:1rem;padding:6px 10px;border-radius:8px;background:none;border:0;cursor:pointer}
+.novframe{flex:1;width:100%;border:0;border-radius:12px 12px 0 0;background:#0B0E13;display:block}
+.novlista{display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding-bottom:16px}
+.novitem{display:flex;flex-direction:column;gap:4px;text-align:left;background:var(--surface2);border:1px solid var(--border);
+  border-radius:14px;padding:14px;color:var(--text);font:inherit;cursor:pointer}
+.novitem:hover,.novitem:focus-visible{border-color:var(--gold)}
+.novtag{align-self:flex-start;font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
+.novitem b{font-size:1rem}
+.novtxt{font-size:.85rem;color:var(--muted)}
+.novver{font-size:.82rem;font-weight:700;color:var(--gold);margin-top:4px}
+@media (min-width:768px){ .overlay:has(.novmodal){align-items:center} .novmodal{border-radius:18px;height:88vh} }
+
 /* tab bar inferior */
 /* Fondo SÓLIDO a propósito: con backdrop-filter, Safari de iOS repinta el
    elemento fijo en una posición vieja durante el scroll con inercia y la barra

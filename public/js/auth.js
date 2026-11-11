@@ -9,6 +9,7 @@ import { tieneMiDia } from "./midia.js";
 import { refrescarIndicadorAgentes } from "./salud.js";
 import { iniciarNotificaciones, olvidarDispositivo } from "./notificaciones.js";
 import { revisarAvisos } from "./avisos.js";
+import { revisarNovedades } from "./novedades.js";
 
 /* ---------- ver la contraseña ---------- */
 // Un botón dentro del campo que alterna type=password/text. Se arma desde JS y
@@ -189,7 +190,13 @@ async function entrar() {
   iniciarNotificaciones();
   // Quien tiene «Mi día» entra por ahí: es su pantalla de inicio.
   if (tieneMiDia()) state.vista = "midia";
-  try { await cargarTodo(); render(); repasoDiario(); revisarAvisos(); }
+  // La novedad va DESPUÉS del repaso y del aviso del equipo, y solo si ninguno
+  // de los dos se abrió: dos ventanas apiladas al entrar no las lee nadie. Si
+  // esta vez no le tocó, se muestra en la próxima entrada.
+  try {
+    await cargarTodo(); render();
+    Promise.allSettled([repasoDiario(), revisarAvisos()]).then(() => revisarNovedades()).catch(() => {});
+  }
   catch (err) { toast("⚠ Error cargando datos: " + err.message); }
 }
 

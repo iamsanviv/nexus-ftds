@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Notas de voz en Nexus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Un reproductor de "video" hecho de escenas: el escenario imita el panel de
+   Nexus (oscuro con dorado) y debajo van subtítulos, línea de tiempo y capítulos. */
+:root{
+  --bg:#0B0E13; --surface:#141922; --surface2:#1C232E; --line:#283140;
+  --text:#ECEFF4; --muted:#93A0B0; --dim:#667385;
+  --gold:#E8B84B; --gold-soft:rgba(232,184,75,.16); --on-gold:#1A1305;
+  --bub:#1F3A2E; --bub-in:#202C35; --chat:#0A1218; --rec:#F2555A; --ok:#4ECB8D;
+  --f-display:"Bricolage Grotesque", "Space Grotesk", system-ui, sans-serif;
+  --f-body:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+/* Página propia del panel (public/novedades): la abre novedades.js dentro de
+   un iframe. Copia del tutorial publicado como artefacto; si se cambia uno,
+   cambiar el otro. */
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 var(--f-body);
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:28px 48px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+.top{display:flex;flex-direction:column;gap:8px;max-width:720px}
+.badge{align-self:flex-start;display:inline-flex;align-items:center;gap:8px;background:var(--gold-soft);color:var(--gold);
+  font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;padding:6px 12px;border-radius:99px}
+.badge i{width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 0 rgba(232,184,75,.6);animation:latido 1.8s infinite}
+@keyframes latido{70%{box-shadow:0 0 0 8px rgba(232,184,75,0)}100%{box-shadow:0 0 0 0 rgba(232,184,75,0)}}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(30px,5vw,48px);line-height:1.04;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1 em{font-style:normal;color:var(--gold)}
+.lead{margin:0;color:var(--muted);font-size:16px;max-width:62ch}
+
+/* ---------- reproductor ---------- */
+.player{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden;outline:none}
+.player:focus-visible{box-shadow:0 0 0 2px var(--gold)}
+.stage{position:relative;height:560px;background:
+  radial-gradient(120% 90% at 50% 0%, #17202B 0%, var(--bg) 70%);overflow:hidden;display:grid;place-items:center}
+.cursor{position:absolute;left:0;top:0;width:26px;height:26px;pointer-events:none;z-index:20;opacity:0;
+  transition:transform .6s cubic-bezier(.3,.7,.2,1), opacity .3s}
+.cursor.on{opacity:1}
+.cursor.rapido{transition:opacity .3s}
+.cursor svg{display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+.cursor .pulso{position:absolute;left:-12px;top:-12px;width:28px;height:28px;border-radius:50%;border:2px solid var(--gold);opacity:0;transform:scale(.4)}
+.cursor.click .pulso{animation:pulso .45s ease-out}
+@keyframes pulso{0%{opacity:1;transform:scale(.4)}100%{opacity:0;transform:scale(1.6)}}
+
+.overlay{position:absolute;inset:0;z-index:30;display:grid;place-items:center;background:rgba(6,9,13,.55);border:0;width:100%;cursor:pointer;color:var(--text);font:inherit}
+.overlay span{display:flex;align-items:center;gap:14px;background:var(--gold);color:var(--on-gold);font-weight:800;font-size:17px;padding:16px 26px 16px 20px;border-radius:99px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.overlay span svg{width:26px;height:26px}
+.overlay:hover span{transform:scale(1.03)}
+.overlay:focus-visible span{outline:3px solid var(--text);outline-offset:3px}
+
+/* intro */
+.intro{display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center;padding:0 16px}
+.intro .kicker{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:700}
+.intro h2{font-family:var(--f-display);font-weight:800;font-size:clamp(28px,4.6vw,44px);line-height:1.05;margin:0;max-width:16ch;text-wrap:balance}
+.intro p{margin:0;color:var(--muted);max-width:44ch}
+.hero-voz{display:flex;align-items:center;gap:12px;background:var(--bub);padding:14px 18px;border-radius:18px 18px 4px 18px;min-width:280px;max-width:100%}
+
+/* panel */
+.panel{width:min(392px, calc(100% - 24px));max-height:528px;background:var(--surface);border:1px solid var(--line);border-radius:18px;
+  display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+/* La entrada se anima solo al cambiar de escena: dentro de una escena el
+   escenario se repinta en cada clic y repetirla hacía parpadear todo. */
+#scene.entra .panel,#scene.entra .phone{animation:entra .45s ease-out}
+@keyframes entra{from{opacity:0;transform:translateY(14px) scale(.98)}}
+.phead{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);font-family:var(--f-display);font-weight:800;font-size:17px}
+.phead svg{color:var(--gold)}
+.phead .x{margin-left:auto;color:var(--dim);font-family:var(--f-body);font-weight:400}
+.pbody{padding:14px 14px 10px;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
+.plbl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.chat{position:relative;background:var(--chat);border:1px solid var(--line);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.bub{display:flex;align-items:center;gap:4px;margin-left:auto;max-width:94%;transition:transform .08s linear;position:relative}
+.bub.lift{z-index:3}
+.bub.lift .bc{outline:2px solid var(--gold);box-shadow:0 12px 24px rgba(0,0,0,.5)}
+.grip{width:22px;display:grid;place-items:center;color:var(--dim);flex:none}
+.bc{background:var(--bub);border-radius:12px 12px 3px 12px;padding:8px 10px 6px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.bc .txt{font-size:13.5px;line-height:1.4;overflow-wrap:anywhere}
+.meta{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:11.5px;color:#B6C1CD}
+.meta b{color:var(--text)}
+.meta .ed{color:var(--gold);font-weight:700}
+.flyer{height:96px;border-radius:8px;background:linear-gradient(135deg,#6E5214,#C9962D 55%,#3A2C0C);display:flex;align-items:flex-end;padding:8px 10px;
+  font-family:var(--f-display);font-weight:800;color:#FFF6DD;font-size:15px;line-height:1.1}
+.flyer small{display:block;font-family:var(--f-body);font-weight:600;font-size:10.5px;opacity:.85}
+.voz{display:flex;align-items:center;gap:9px;min-width:220px}
+.vplay{width:32px;height:32px;border-radius:50%;background:var(--gold);color:var(--on-gold);display:grid;place-items:center;flex:none}
+.vplay svg{width:13px;height:13px}
+.onda{display:flex;align-items:center;gap:2px;height:26px;flex:1}
+.onda i{width:3px;border-radius:2px;background:#5E6B7A;flex:none}
+.onda i.on{background:var(--gold)}
+.vdur{font-size:11.5px;color:#B6C1CD;font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
+
+.edit{background:var(--surface);border:2px solid var(--gold);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:9px}
+.edhd{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13.5px}
+.num{width:22px;height:22px;border-radius:50%;background:var(--gold);color:var(--on-gold);font-weight:800;font-size:12px;display:grid;place-items:center;flex:none}
+.ta{background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:9px 10px;min-height:64px;font-size:13.5px;line-height:1.4;color:var(--text)}
+.ta .ph{color:var(--dim)}
+.ta .caret{display:inline-block;width:1.5px;height:15px;background:var(--gold);vertical-align:-2px;margin-left:1px;animation:parpadeo 1s steps(1) infinite}
+@keyframes parpadeo{50%{opacity:0}}
+.btns{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.btns .esp{flex:1}
+.b{border:1px solid var(--line);background:var(--surface2);color:var(--text);border-radius:9px;padding:7px 10px;font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:box-shadow .25s, border-color .25s}
+.b.gold{color:var(--gold)}
+.b.bad{color:#FF8A8E}
+.b.solid{background:var(--gold);color:var(--on-gold);border-color:var(--gold);font-weight:800}
+.b.hl,.add.hl,.opt.hl,.vplay.hl,.grip.hl{box-shadow:0 0 0 3px rgba(232,184,75,.45);border-color:var(--gold)}
+.mini{width:40px;height:40px;border-radius:7px;background:linear-gradient(135deg,#6E5214,#C9962D);flex:none}
+.adj{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.recbox{display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:12px}
+.recdot{width:11px;height:11px;border-radius:50%;background:var(--rec);animation:parpadeo 1.1s steps(1) infinite}
+.recdot.quieta{animation:none;opacity:.4}
+.rect{font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
+.recest{font-size:12px;color:var(--muted)}
+.add{align-self:flex-end;border:1.5px dashed var(--gold);color:var(--gold);background:var(--surface);border-radius:99px;padding:8px 14px;font-weight:700;font-size:12.5px}
+.elige{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.opt{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 6px;text-align:center;display:flex;flex-direction:column;gap:2px;transition:box-shadow .25s}
+.opt b{font-size:13px}
+.opt span{font-size:11px;color:var(--muted)}
+.opt.voz-opt{border-color:var(--gold)}
+.opt.voz-opt b{color:var(--gold)}
+.pfoot{margin-top:auto;border-top:1px solid var(--line);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2)}
+.pfoot .cnt{font-size:12px;color:var(--muted)}
+.pfoot .cnt b{color:var(--text);font-size:15px}
+
+/* teléfono de quien recibe */
+.phone{width:min(310px, calc(100% - 24px));height:520px;border-radius:36px;background:#06090C;border:1px solid var(--line);padding:10px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+.screen{height:100%;border-radius:28px;background:var(--chat);overflow:hidden;display:flex;flex-direction:column}
+.shead{display:flex;align-items:center;gap:10px;padding:16px 14px 12px;background:#121A21;border-bottom:1px solid #1C2630}
+.av{width:34px;height:34px;border-radius:50%;background:var(--gold);color:var(--on-gold);font-weight:800;display:grid;place-items:center;font-size:13px}
+.shead b{display:block;font-size:14px}
+.shead small{color:var(--ok);font-size:11.5px}
+.sbody{flex:1;padding:14px 10px;display:flex;flex-direction:column;gap:8px}
+.in{align-self:flex-start;max-width:88%;background:var(--bub-in);border-radius:12px 12px 12px 3px;padding:7px 9px 5px;display:flex;flex-direction:column;gap:5px}
+.in.nueva{animation:entra .35s ease-out}
+.in .hora{align-self:flex-end;font-size:10.5px;color:#9AA7B4}
+.in .vplay{background:var(--ok);color:#06110B}
+.in .onda i.on{background:var(--ok)}
+.escribiendo{align-self:flex-start;font-size:12px;color:var(--ok);padding:4px 6px}
+
+/* dónde está */
+.donde{width:min(760px, calc(100% - 32px));display:flex;flex-direction:column;gap:18px}
+.donde h3{font-family:var(--f-display);font-weight:800;font-size:clamp(22px,3.4vw,30px);margin:0;text-wrap:balance}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px;opacity:0;transform:translateY(10px)}
+.card.on{animation:aparece .4s ease-out forwards}
+@keyframes aparece{to{opacity:1;transform:none}}
+.card svg{color:var(--gold)}
+.card b{font-size:15px}
+.card p{margin:0;color:var(--muted);font-size:13px}
+.tip{display:flex;gap:10px;align-items:flex-start;background:var(--gold-soft);border-radius:12px;padding:12px 14px;font-size:13.5px;color:var(--text);opacity:0;transition:opacity .4s}
+.tip.on{opacity:1}
+.tip svg{color:var(--gold);flex:none;margin-top:2px}
+
+/* subtítulos y controles */
+.sub{display:flex;gap:14px;align-items:flex-start;padding:16px 18px;border-top:1px solid var(--line);min-height:92px}
+.sub .paso{font-family:var(--f-display);font-weight:800;color:var(--gold);font-size:28px;line-height:1;font-variant-numeric:tabular-nums;min-width:38px}
+.sub h2{margin:0 0 3px;font-size:17px;font-weight:700}
+.sub p{margin:0;color:var(--muted);font-size:14px;max-width:70ch}
+.ctrls{display:flex;align-items:center;gap:10px;padding:0 14px 14px;flex-wrap:wrap}
+.ib{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface2);color:var(--text);display:grid;place-items:center;cursor:pointer;flex:none}
+.ib.main{background:var(--gold);color:var(--on-gold);border-color:var(--gold)}
+.ib:hover{border-color:var(--gold)}
+.ib:focus-visible,.seg:focus-visible,.cap:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.ib svg{width:18px;height:18px}
+.tl{flex:1;min-width:180px;display:flex;gap:4px;height:44px;align-items:center}
+.seg{height:8px;border-radius:4px;background:var(--surface2);border:0;padding:0;position:relative;overflow:hidden;cursor:pointer}
+.seg i{position:absolute;inset:0 auto 0 0;background:var(--gold);width:0}
+.seg:hover{height:12px}
+.tiempo{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px;min-width:86px;text-align:right}
+
+.caps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.cap{display:flex;gap:10px;align-items:flex-start;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--text);font:inherit;cursor:pointer}
+.cap .n{font-family:var(--f-display);font-weight:800;color:var(--dim);font-size:16px;min-width:20px}
+.cap b{display:block;font-size:13px;font-weight:600}
+.cap small{color:var(--dim);font-size:11.5px;font-variant-numeric:tabular-nums}
+.cap.on{border-color:var(--gold);background:var(--gold-soft)}
+.cap.on .n{color:var(--gold)}
+.cap.hecho .n{color:var(--muted)}
+
+@media (max-width:760px){
+  .stage{height:540px}
+  .cards{grid-template-columns:1fr}
+  .caps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .donde{gap:12px}
+  .card{padding:12px;flex-direction:row;align-items:flex-start;gap:10px}
+}
+@media (max-width:420px){ .tiempo{display:none} }
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <span class="badge"><i></i>Nuevo en Nexus</span>
+    <h1>Ya puedes enviar <em>notas de voz</em> a muchas personas a la vez</h1>
+    <p class="lead">Graba tu voz dentro del envío, súmala a tus textos, imágenes y videos, y decide el orden en que llega cada mensaje. Mira cómo se usa en menos de un minuto.</p>
+  </header>
+
+  <section class="player" id="player" tabindex="0" aria-label="Tutorial de notas de voz. Espacio para reproducir o pausar, flechas para cambiar de paso.">
+    <div class="stage" id="stage" aria-live="off">
+      <div id="scene"></div>
+      <div class="cursor" id="cursor" aria-hidden="true">
+        <span class="pulso"></span>
+        <svg width="26" height="26" viewBox="0 0 26 26"><path d="M4 2l17 10.5-7.6 1.6L9.8 21z" fill="#ECEFF4" stroke="#0B0E13" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      </div>
+      <button class="overlay" id="overlay" type="button" aria-label="Reproducir el tutorial">
+        <span><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg><b id="overlayTxt">Ver el tutorial</b></span>
+      </button>
+    </div>
+    <div class="sub" aria-live="polite">
+      <div class="paso" id="subPaso">1</div>
+      <div><h2 id="subTit"></h2><p id="subTxt"></p></div>
+    </div>
+    <div class="ctrls">
+      <button class="ib" id="prev" type="button" aria-label="Paso anterior"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button class="ib main" id="play" type="button" aria-label="Reproducir"></button>
+      <button class="ib" id="next" type="button" aria-label="Paso siguiente"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+      <div class="tl" id="tl"></div>
+      <span class="tiempo" id="tiempo">0:00 / 0:00</span>
+    </div>
+  </section>
+
+  <nav class="caps" id="caps" aria-label="Pasos del tutorial"></nav>
+</div>
+
+<script>
+(() => {
+  // ---------- piezas de interfaz ----------
+  const ICO = {
+    play: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg>',
+    pause: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>',
+    replay: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg>',
+    mail: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5"/></svg>',
+    mic: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>',
+    grip: '<svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.6"/><circle cx="9" cy="3" r="1.6"/><circle cx="3" cy="9" r="1.6"/><circle cx="9" cy="9" r="1.6"/><circle cx="3" cy="15" r="1.6"/><circle cx="9" cy="15" r="1.6"/></svg>',
+    users: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c.8-3.2 3.2-5 6-5s5.2 1.8 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M16 14.2c2.4.2 4.2 1.8 5 4.8"/></svg>',
+    cal: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+    tpl: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 3.5h9l4 4V20a.5.5 0 0 1-.5.5H6a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5z"/><path d="M15 3.5V8h4M9 13h6M9 17h4"/></svg>',
+    info: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>',
+  };
+  const ONDA = [6,11,8,15,9,18,12,7,16,10,20,13,8,17,11,6,14,19,9,12,16,8,13,10,18,7,11,6];
+  const fmt = s => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+  const suave = p => p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+
+  const onda = (prog = 0, n = ONDA.length) => '<div class="onda">' + ONDA.slice(0, n).map((h, i) =>
+    `<i style="height:${h}px" class="${i / n < prog ? "on" : ""}"></i>`).join("") + "</div>";
+  const vozHTML = (m, hl) => `<div class="voz"><span class="vplay${hl === "play" ? " hl" : ""}" data-hl="play">${m.sonando ? ICO.pause : ICO.play}</span>${onda(m.prog || 0)}<span class="vdur">${m.sonando ? fmt(m.seg * (m.prog || 0)) : fmt(m.seg)}</span></div>`;
+  const FLYER = '<div class="flyer"><div><small>Clase en vivo · hoy</small>Nivel 0 a Avanzado<br>7:00 p. m.</div></div>';
+
+  // ---------- el panel ----------
+  function panel(s) {
+    const msgs = s.msgs.map((m, i) => {
+      if (i === s.editing) return s.modo === "rec" ? editVoz(i, s) : editTexto(m, i, s);
+      const tipo = m.t === "voz" ? "Nota de voz" : m.img ? "Texto + imagen" : "Texto";
+      const cuerpo = m.t === "voz" ? vozHTML(m, s.hl)
+        : (m.img ? FLYER : "") + `<div class="txt">${esc(m.text.replace("{nombre}", "Ana"))}</div>`;
+      return `<div class="bub" data-i="${i}"><span class="grip${s.hl === "grip" + i ? " hl" : ""}" data-hl="grip${i}">${ICO.grip}</span>
+        <div class="bc">${cuerpo}<div class="meta"><span><b>${i + 1}</b> · ${tipo}</span><span class="ed">✎ Editar</span></div></div></div>`;
+    }).join("");
+    const pie = s.elige
+      ? `<div class="elige"><div class="opt${s.hl === "opt-texto" ? " hl" : ""}" data-hl="opt-texto"><b>Texto</b><span>con imagen o video</span></div>
+         <div class="opt voz-opt"><b>Nota de voz</b><span>la grabas aquí mismo</span></div></div>`
+      : (s.editing < 0 && s.msgs.length < 4 ? `<div class="add${s.hl === "add" ? " hl" : ""}" data-hl="add">＋ Agregar mensaje</div>` : "");
+    return `<div class="panel" role="img" aria-label="Panel de mensaje masivo de Nexus">
+      <div class="phead">${ICO.mail}Mensaje masivo<span class="x">✕</span></div>
+      <div class="pbody"><div class="plbl">Mensajes</div><div class="chat" id="chat">${msgs}</div>${pie}</div>
+      <div class="pfoot"><span class="cnt"><b>48</b> destinatarios</span><span class="b solid">Enviar mensaje</span></div>
+    </div>`;
+  }
+  function editTexto(m, i, s) {
+    const cuerpo = m.text ? esc(m.text) : '<span class="ph">Escribe el mensaje…</span>';
+    return `<div class="edit"><div class="edhd"><span class="num">${i + 1}</span>Editando mensaje ${i + 1}</div>
+      <div class="ta">${cuerpo}${s.cursorTxt ? '<span class="caret"></span>' : ""}</div>
+      ${m.img ? `<div class="adj"><span class="mini"></span>Imagen de este mensaje</div>` : ""}
+      <div class="btns">
+        <span class="b${s.hl === "img" ? " hl" : ""}" data-hl="img">${m.img ? "Cambiar" : "＋ Imagen o video"}</span>
+        ${m.img ? "" : `<span class="b gold${s.hl === "avoz" ? " hl" : ""}" data-hl="avoz">${ICO.mic}Nota de voz</span>`}
+        <span class="esp"></span><span class="b${s.hl === "listo" ? " hl" : ""}" data-hl="listo">Listo</span>
+      </div></div>`;
+  }
+  function editVoz(i, s) {
+    return `<div class="edit"><div class="edhd"><span class="num">${i + 1}</span>Nota de voz · mensaje ${i + 1}</div>
+      <div class="recbox"><span class="recdot${s.pausa ? " quieta" : ""}"></span><span class="rect">${fmt(s.recSeg)}</span><span class="recest">${s.pausa ? "En pausa" : "Grabando…"}</span></div>
+      <div class="btns"><span class="b${s.hl === "pausa" ? " hl" : ""}" data-hl="pausa">${s.pausa ? "▶ Reanudar" : "⏸ Pausar"}</span>
+        <span class="b bad">✕ Descartar</span><span class="esp"></span><span class="b solid${s.hl === "recok" ? " hl" : ""}" data-hl="recok">✔ Listo</span></div></div>`;
+  }
+
+  // ---------- teléfono de quien recibe ----------
+  function telefono(s) {
+    const burbujas = s.msgs.slice(0, s.vistos).map((m, i) => `<div class="in${i === s.vistos - 1 && s.reciente ? " nueva" : ""}">${m.t === "voz" ? vozHTML(m)
+      : (m.img ? FLYER : "") + `<div class="txt" style="font-size:13.5px">${esc(m.text.replace("{nombre}", "Ana"))}</div>`}<span class="hora">7:0${i} p. m.</span></div>`).join("");
+    return `<div class="phone" role="img" aria-label="Chat de WhatsApp de quien recibe los mensajes"><div class="screen">
+      <div class="shead"><span class="av">S</span><div><b>Santiago · Nexus</b><small>${s.escribiendo ? "grabando audio…" : "en línea"}</small></div></div>
+      <div class="sbody">${burbujas}${s.escribiendo ? '<span class="escribiendo">grabando audio…</span>' : ""}</div></div></div>`;
+  }
+
+  function intro(s) {
+    return `<div class="intro"><span class="kicker">Nueva funcionalidad</span><h2>Tu voz, en todos tus envíos</h2>
+      <div class="hero-voz">${vozHTML({ seg: 18, prog: s.prog, sonando: s.prog > 0 })}</div>
+      <p>Graba una nota de voz y envíala junto a tus textos, imágenes y videos, a todas las personas que elijas.</p></div>`;
+  }
+
+  function donde(s) {
+    const c = (on, ico, t, p) => `<div class="card${on ? " on" : ""}">${ico}<div><b>${t}</b><p>${p}</p></div></div>`;
+    return `<div class="donde"><h3>Disponible en tres lugares</h3><div class="cards">
+      ${c(s.c1, ICO.users, "Seguimientos masivos", "Una nota de voz para todos los que selecciones, sola o junto a otros mensajes.")}
+      ${c(s.c2, ICO.cal, "Seguimiento por actividad", "La invitación puede empezar con tu voz y seguir con el flyer.")}
+      ${c(s.c3, ICO.tpl, "Plantillas de leads", "La nota queda guardada en la plantilla: la grabas una vez y la reutilizas.")}
+    </div><div class="tip${s.tip ? " on" : ""}">${ICO.info}<span>Una nota de voz no lleva texto. Si quieres escribir algo antes o después, agrégalo como otro mensaje y arrástralo a su lugar.</span></div></div>`;
+  }
+
+  // ---------- escenas: cada una devuelve el estado en el instante t (ms) ----------
+  const TEXTO2 = "Este es el flyer con la hora de la clase.";
+  const tx = (text, img = false) => ({ t: "texto", text, img });
+  const vz = (seg, prog = 0, sonando = false) => ({ t: "voz", seg, prog, sonando });
+  const base = o => Object.assign({ view: "panel", msgs: [], editing: -1, modo: "texto", hl: null, cur: null, click: false, elige: false }, o);
+  const clic = (t, a) => t >= a && t < a + 380;
+  const REC_FIN = Math.round((3800 - 1250) / 330 + (6500 - 4700) / 330);
+
+  const ESCENAS = [
+    { tit: "Nuevo: notas de voz", txt: "Desde hoy puedes enviar notas de voz desde Nexus, a muchas personas a la vez y en el orden que tú decidas.", dur: 5000,
+      at: t => base({ view: "intro", prog: clamp((t - 800) / 3800) }) },
+    { tit: "Abre el envío", txt: "Entra a Seguimientos masivos, a una actividad o a Seguimiento a leads. El primer mensaje ya viene abierto.", dur: 5000,
+      at: t => base({ msgs: [tx("")], editing: 0, cursorTxt: true, cur: t > 2400 ? "avoz" : null, hl: t > 3000 ? "avoz" : null }) },
+    { tit: "Graba tu voz", txt: "Toca «Nota de voz» en el mismo mensaje. Puedes pausar y seguir, o descartar y empezar de nuevo.", dur: 6500,
+      at: t => {
+        if (t < 1250) return base({ msgs: [tx("")], editing: 0, cursorTxt: true, cur: "avoz", hl: "avoz", click: clic(t, 900) });
+        const pausa = t >= 3800 && t < 4700;
+        const seg = t < 3800 ? (t - 1250) / 330 : t < 4700 ? (3800 - 1250) / 330 : (3800 - 1250) / 330 + (t - 4700) / 330;
+        return base({ msgs: [vz(0)], editing: 0, modo: "rec", recSeg: seg, pausa,
+          cur: t < 5500 ? "pausa" : "recok", hl: t >= 3300 && t < 5000 ? "pausa" : t >= 5500 ? "recok" : null,
+          click: clic(t, 3800) || clic(t, 4700) || clic(t, 6100) });
+      } },
+    { tit: "Escúchala antes de enviar", txt: "Queda como el mensaje 1. Dale play para oír exactamente lo que grabaste.", dur: 5500,
+      at: t => {
+        const p = clamp((t - 1000) / 4000);
+        return base({ msgs: [vz(REC_FIN, p, t >= 1000 && p < 1)], cur: "play", hl: t > 400 ? "play" : null, click: clic(t, 800) });
+      } },
+    { tit: "Suma más mensajes", txt: "Con «Agregar mensaje» eliges texto o nota de voz. Cada texto puede llevar su imagen o su video. Hasta 4 mensajes.", dur: 7200,
+      at: t => {
+        const v = vz(REC_FIN);
+        if (t < 1000) return base({ msgs: [v], cur: "add", hl: t > 500 ? "add" : null, click: clic(t, 800) });
+        if (t < 2300) return base({ msgs: [v], elige: true, cur: "opt-texto", hl: t > 1500 ? "opt-texto" : null, click: clic(t, 2000) });
+        const n = Math.round(clamp((t - 2600) / 1700) * TEXTO2.length);
+        const conImg = t >= 5050;
+        const s = base({ msgs: [v, tx(TEXTO2.slice(0, n), conImg)], editing: 1, cursorTxt: t < 4400 });
+        if (t >= 6650) return base({ msgs: [v, tx(TEXTO2, true)], cur: "listo-x" });
+        if (t >= 5600) Object.assign(s, { cur: "listo", hl: "listo", click: clic(t, 6200) });
+        else if (t >= 4500) Object.assign(s, { cur: "img", hl: "img", click: clic(t, 4900) });
+        return s;
+      } },
+    { tit: "Ordena arrastrando", txt: "Mantén presionado ⠿ y arrastra. Lo que está arriba llega primero, y la imagen viaja con su mensaje.", dur: 6000,
+      at: t => {
+        const v = vz(REC_FIN), f = tx(TEXTO2, true);
+        if (t >= 3400) return base({ msgs: [f, v], cur: "grip0", hl: t < 4200 ? "grip0" : null });
+        const p = suave(clamp((t - 1100) / 2200));
+        return base({ msgs: [v, f], cur: "grip1", hl: "grip1", drag: t >= 1100 ? p : null, rapido: t >= 1100 });
+      } },
+    { tit: "Así le llega a cada persona", txt: "En el orden que dejaste, como una nota de voz normal de WhatsApp, con tu voz.", dur: 6500,
+      at: t => {
+        const p = clamp((t - 3400) / 2800);
+        return base({ view: "phone", msgs: [tx(TEXTO2, true), vz(REC_FIN, p, t >= 3400 && p < 1)],
+          vistos: t < 700 ? 0 : t < 2400 ? 1 : 2, escribiendo: t >= 1300 && t < 2400,
+          // Solo la burbuja que acaba de llegar se anima, y solo un momento.
+          reciente: (t >= 700 && t < 1100) || (t >= 2400 && t < 2800) });
+      } },
+    { tit: "Ya está disponible", txt: "En Seguimientos masivos, Seguimiento por actividad y Plantillas de leads. Vuelve a ver este tutorial cuando quieras desde la campana de novedades, arriba.", dur: 6000,
+      at: t => base({ view: "donde", c1: t > 300, c2: t > 900, c3: t > 1500, tip: t > 2400 }) },
+  ];
+  let acc = 0;
+  ESCENAS.forEach(e => { e.ini = acc; acc += e.dur; });
+  const TOTAL = acc;
+
+  // ---------- reproducción ----------
+  const $ = id => document.getElementById(id);
+  const stageEl = $("stage"), sceneEl = $("scene"), cursorEl = $("cursor"), overlay = $("overlay");
+  let T = 0, jugando = false, empezo = false, ultimo = 0, clave = "", escenaPrevia = -1;
+
+  const indiceEn = t => { for (let i = ESCENAS.length - 1; i >= 0; i--) if (t >= ESCENAS[i].ini) return i; return 0; };
+
+  function pintar(forzar) {
+    const i = indiceEn(Math.min(T, TOTAL - 1));
+    const e = ESCENAS[i];
+    const s = e.at(Math.min(T, TOTAL - 1) - e.ini);
+    const k = i + "|" + JSON.stringify(s);
+    if (i !== escenaPrevia) {
+      $("subPaso").textContent = i + 1; $("subTit").textContent = e.tit; $("subTxt").textContent = e.txt;
+      document.querySelectorAll(".cap").forEach((c, j) => { c.classList.toggle("on", j === i); c.classList.toggle("hecho", j < i); c.setAttribute("aria-current", j === i ? "step" : "false"); });
+    }
+    if (forzar || k !== clave) {
+      clave = k;
+      sceneEl.classList.toggle("entra", i !== escenaPrevia);
+      sceneEl.innerHTML = s.view === "intro" ? intro(s) : s.view === "phone" ? telefono(s) : s.view === "donde" ? donde(s) : panel(s);
+      if (s.view === "panel" && s.drag != null) arrastre(s.drag);
+      moverCursor(s, i !== escenaPrevia || forzar);
+    }
+    escenaPrevia = i;
+    pintarLinea();
+  }
+
+  function arrastre(p) {
+    const bs = sceneEl.querySelectorAll(".bub");
+    if (bs.length < 2) return;
+    const a = bs[0], b = bs[1];
+    b.classList.add("lift");
+    b.style.transform = `translateY(${(a.offsetTop - b.offsetTop) * p}px)`;
+    a.style.transform = `translateY(${(b.offsetHeight + 8) * p}px)`;
+  }
+
+  function moverCursor(s, salto) {
+    const el = s.cur && sceneEl.querySelector(`[data-hl="${s.cur}"]`);
+    if (!el) { cursorEl.classList.remove("on"); return; }
+    const r = el.getBoundingClientRect(), st = stageEl.getBoundingClientRect();
+    const x = r.left - st.left + r.width * .55, y = r.top - st.top + r.height * .55;
+    cursorEl.classList.toggle("rapido", !!(salto || s.rapido));
+    cursorEl.style.transform = `translate(${x}px, ${y}px)`;
+    cursorEl.classList.add("on");
+    cursorEl.classList.toggle("click", !!s.click);
+  }
+
+  function pintarLinea() {
+    document.querySelectorAll(".seg").forEach((sg, j) => {
+      const e = ESCENAS[j];
+      sg.firstChild.style.width = (clamp((T - e.ini) / e.dur) * 100) + "%";
+    });
+    $("tiempo").textContent = fmt(T / 1000) + " / " + fmt(TOTAL / 1000);
+    const fin = T >= TOTAL;
+    $("play").innerHTML = jugando ? ICO.pause : fin ? ICO.replay : ICO.play;
+    $("play").setAttribute("aria-label", jugando ? "Pausar" : fin ? "Ver de nuevo" : "Reproducir");
+    overlay.hidden = jugando || (empezo && !fin);
+    $("overlayTxt").textContent = fin ? "Ver de nuevo" : "Ver el tutorial · " + Math.round(TOTAL / 1000) + " s";
+  }
+
+  function bucle(ahora) {
+    if (!jugando) return;
+    T = Math.min(TOTAL, T + (ahora - ultimo));
+    ultimo = ahora;
+    if (T >= TOTAL) jugando = false;
+    pintar();
+    if (jugando) requestAnimationFrame(bucle);
+  }
+  function reproducir() {
+    if (T >= TOTAL) { T = 0; escenaPrevia = -1; }
+    empezo = true; jugando = true; ultimo = performance.now();
+    pintarLinea();
+    requestAnimationFrame(bucle);
+  }
+  function pausar() { jugando = false; pintar(); }
+  const alternar = () => jugando ? pausar() : reproducir();
+  function ir(t) { T = clamp(t, 0, TOTAL); empezo = true; escenaPrevia = -1; pintar(true); if (jugando) ultimo = performance.now(); }
+  const paso = d => {
+    const i = indiceEn(Math.min(T, TOTAL - 1));
+    const dentro = T - ESCENAS[i].ini;
+    const j = d < 0 && dentro > 1200 ? i : clamp(i + d, 0, ESCENAS.length - 1);
+    ir(ESCENAS[j].ini);
+  };
+
+  // ---------- controles ----------
+  const tl = $("tl"), caps = $("caps");
+  ESCENAS.forEach((e, i) => {
+    const sg = document.createElement("button");
+    sg.type = "button"; sg.className = "seg"; sg.style.flex = e.dur;
+    sg.setAttribute("aria-label", `Ir al paso ${i + 1}: ${e.tit}`);
+    sg.innerHTML = "<i></i>";
+    sg.onclick = ev => { const r = sg.getBoundingClientRect(); ir(e.ini + clamp((ev.clientX - r.left) / r.width) * e.dur); };
+    tl.appendChild(sg);
+    const c = document.createElement("button");
+    c.type = "button"; c.className = "cap";
+    c.innerHTML = `<span class="n">${i + 1}</span><span><b>${e.tit}</b><small>${fmt(e.ini / 1000)}</small></span>`;
+    c.onclick = () => { ir(e.ini); if (!jugando) reproducir(); };
+    caps.appendChild(c);
+  });
+  $("play").onclick = alternar;
+  overlay.onclick = reproducir;
+  $("prev").onclick = () => paso(-1);
+  $("next").onclick = () => paso(1);
+  $("player").addEventListener("keydown", ev => {
+    if (ev.target.closest(".seg, .cap") && (ev.key === " " || ev.key === "Enter")) return;
+    if (ev.key === " " || ev.key === "k") { ev.preventDefault(); alternar(); }
+    else if (ev.key === "ArrowRight") { ev.preventDefault(); paso(1); }
+    else if (ev.key === "ArrowLeft") { ev.preventDefault(); paso(-1); }
+  });
+  window.addEventListener("resize", () => pintar(true));
+
+  // Primer cuadro: la portada completa, con el botón de reproducir encima.
+  T = 2400;
+  pintar(true);
+  T = 0; escenaPrevia = 0;
+  pintarLinea();
+  // Dentro del panel (novedades.js) se abre con ?auto: arranca solo, sin
+  // sonido que bloquear, y con el foco en el reproductor para el teclado.
+  if (new URLSearchParams(location.search).has("auto")) { reproducir(); $("player").focus({ preventScroll: true }); }
+})();
+</script>
+
+</body>
+</html>

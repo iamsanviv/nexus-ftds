@@ -119,10 +119,17 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <div class="apptitle" id="viewTitle">Personas</div>
       <div class="appsub" id="viewSub"></div>
     </div>
-    <button class="repind hidden" id="repInd" title="Repaso de asistencias pendientes">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3 7-7"/><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/></svg>
-      <span class="repcount" id="repIndCount">0</span>
-    </button>
+    <div class="headinds">
+      <button class="repind hidden" id="repInd" title="Repaso de asistencias pendientes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3 7-7"/><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/></svg>
+        <span class="repcount" id="repIndCount">0</span>
+      </button>
+      <!-- Campana de novedades (novedades.js): el punto dorado = hay una sin ver. -->
+      <button class="novind" id="novInd" type="button" title="Novedades" aria-label="Novedades">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0112 0c0 5 2 6.5 2 6.5H4S6 14 6 9"/><path d="M10.3 19a1.9 1.9 0 003.4 0"/></svg>
+        <span class="novpunto" aria-hidden="true"></span>
+      </button>
+    </div>
   </div>
   <input type="file" id="fileInput" accept=".csv,text/csv" style="display:none">
 
@@ -946,6 +953,20 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <h2>📣 Aviso del equipo</h2>
     <div id="avisoBody"></div>
     <div class="mbtns"><button class="guardar" id="avisoOk">Entendido</button></div>
+  </div>
+</div>
+
+<!-- Novedades: lista de anuncios y su tutorial (novedades.js). El tutorial es
+     una página aparte (public/novedades/) dentro de un iframe del mismo sitio. -->
+<div class="overlay" id="novOverlay">
+  <div class="modal novmodal" role="dialog" aria-modal="true" aria-labelledby="novTit">
+    <div class="novhead">
+      <button class="tbtn hidden" id="novVolver" type="button">← Novedades</button>
+      <h2 id="novTit">Novedades</h2>
+      <button class="mx" id="novCerrar" type="button" aria-label="Cerrar">✕</button>
+    </div>
+    <div id="novLista" class="novlista hidden"></div>
+    <iframe id="novFrame" class="novframe hidden" title="Tutorial de la novedad" src="about:blank"></iframe>
   </div>
 </div>
 
