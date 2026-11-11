@@ -2459,6 +2459,24 @@ html[data-tema="claro"] .chatinv{--cb:#d9fdd3;--cfondo:#efe7dc}
 .caddmsg{display:block;margin:8px 0 0 auto;border:1.5px dashed var(--gold);color:var(--gold);background:var(--surface);
   border-radius:99px;padding:8px 14px;font:inherit;font-weight:700;font-size:.8rem;cursor:pointer}
 .cayuda{margin:6px 0 0}
+/* Nota de voz dentro del editor de mensajes (grabadora.js). El reproductor es
+   el del navegador a propósito: el agente oye exactamente lo que grabó. */
+.caudio{display:block;width:240px;max-width:100%;height:38px;margin-bottom:5px}
+.cbub.edit .caudio{width:100%;margin:6px 0 2px}
+.cgrab{display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:10px;padding:12px;margin-top:6px}
+.cgrab .audtimer{font-size:1.05rem;font-weight:800}
+.cgrabest{font-size:.8rem;color:var(--muted)}
+.recdot.quieta{animation:none;opacity:.4}
+.clisto{gap:8px;flex-wrap:wrap}
+.celige{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
+.celige button{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:12px;
+  padding:12px 8px;font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:60px}
+.celige button b{font-size:.86rem}
+.celige button span{font-size:.72rem;color:var(--muted)}
+.celige button[data-nuevo="voz"]{border-color:var(--gold)}
+.celige button[data-nuevo="voz"] b{color:var(--gold)}
+.cmover{min-height:44px}
 .cbub.sortable-ghost{opacity:.35}
 .cbub.sortable-chosen .ccuerpo{outline:2px solid var(--gold)}
 .michatlbl{display:block;font-size:.8rem;font-weight:700;margin:4px 0 8px}

@@ -9,6 +9,8 @@ import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
   asistioEseDia, fechaCO, fmtF } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje, guardarHistorialSegmento, cargarCola, simularCupo, avisoCupo } from "./data.js";
 import { canalVinculado } from "./canal.js";
+import { crearBurbujas } from "./burbujas.js";
+import { esAudioUrl } from "./grabadora.js";
 import { porBajar } from "./crm.js";
 import { fechaFila, fechaFilaHTML, filtroLlegada, enRangoLleg } from "./leads.js";
 import { temperaturaInvitado, TEMP_NOM } from "./temperatura.js";
@@ -517,6 +519,9 @@ function setImg(url, tipo) {
   img.classList.add("hidden"); vid.classList.add("hidden"); vid.pause?.();
   img.src = ""; vid.src = "";
   if (url && tipo === "video") { vid.src = url; vid.classList.remove("hidden"); del.classList.remove("hidden"); }
+  // Una nota de voz viaja en el mismo `media_url`, pero esta vista previa (la
+  // vieja, hoy oculta) no tiene cómo pintarla.
+  else if (url && esAudioUrl(url)) { del.classList.remove("hidden"); }
   else if (url) { img.src = url; img.classList.remove("hidden"); del.classList.remove("hidden"); }
   else { del.classList.add("hidden"); }
 }
@@ -533,6 +538,7 @@ function renderPartes() {
       <textarea rows="3" data-txt maxlength="4000" placeholder="Texto del mensaje ${i + 2}… (opcional si adjuntas imagen o video)">${esc(x.texto)}</textarea>
       <div class="imgfield">
         ${x.media ? (esVideo(x.media) ? `<video class="imgprev" src="${esc(x.media)}" muted controls></video>`
+                    : esAudioUrl(x.media) ? `<audio src="${esc(x.media)}" controls preload="none"></audio>`
                                       : `<img class="imgprev" src="${esc(x.media)}" alt="">`) : ""}
         <div class="imgbtns">
           <input type="file" data-file accept="${ACCEPT_ADJUNTO}" class="hidden">
@@ -589,6 +595,20 @@ const partesUtiles = () => masSerie.partes
   .map(x => ({ texto: x.texto.trim(), media: x.media || null }))
   .filter(x => x.texto || x.media);
 
+// El editor que se ve. No guarda nada: escribe en el mismo estado de siempre
+// (`masTexto`, `masImg`, `masSerie.partes`), que es el que lee el envío. Una
+// nota de voz es un mensaje con el audio en `media` y sin texto.
+const burbujasMas = crearBurbujas("masChat", {
+  leer: () => ({ texto: $("masTexto").value, media: masImg, partes: masSerie.partes }),
+  previa: txt => resolverMensaje(txt, "Ana Bermúdez", instanteReferencia(), null, true),
+  setTexto: v => { $("masTexto").value = v || ""; },
+  setMedia: url => setImg(url, esVideo(url) ? "video" : "imagen"),
+  setPartes: arr => { masSerie.partes = arr; renderPartes(); },
+  cambio: () => { renderPrev(); renderCount(); },
+  ayuda: `Etiquetas: <code>{nombre}</code> <code>{hora}</code> <code>{zona}</code>. Variantes al azar con <code>{Hola|Buenas|Qué tal}</code>.`,
+});
+const cerrarMasivo = () => { burbujasMas.reset(); $("masOverlay").classList.remove("open"); };
+
 /* ---------- abrir / enviar ---------- */
 async function abrir() {
   masSel = new Set(); masFiltro = "todos"; masBroker = "todos"; masSrv = ""; masSrvModo = "no"; masLleg = null; masTemp = "todos";
@@ -600,6 +620,7 @@ async function abrir() {
   if (rec && rec.state !== "inactive") { recDescartar = true; rec.stop(); }
   limpiarAudio(); $("masAudEstado").textContent = "";
   renderPartes();
+  burbujasMas.reset();
   $("masProgRow").classList.add("hidden");
   $("masCuandoSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.cuando === "ahora"));
   masCola = null;
@@ -653,7 +674,7 @@ async function enviarSinCandado(btn) {
   }
   const tpl = $("masTexto").value.trim();
   const partes = partesUtiles();
-  if (rec && rec.state !== "inactive") { toast("Termina la grabación primero (✔ Listo)"); return; }
+  if (burbujasMas.grabando() || (rec && rec.state !== "inactive")) { toast("Termina la grabación primero (✔ Listo)"); return; }
   if (!tpl && !masImg && !masAudio) {
     toast(partes.length
       ? "El mensaje 1 está vacío: escríbelo o adjúntale algo"
@@ -705,7 +726,7 @@ async function enviarSinCandado(btn) {
     $("masAudEstado").textContent = "✓ Nota de voz lista";
   }
 
-  const etiquetaAdjunto = masAudio ? "Nota de voz" : masImgTipo === "video" ? "Video" : "Imagen";
+  const etiquetaAdjunto = (masAudio || esAudioUrl(media)) ? "Nota de voz" : masImgTipo === "video" ? "Video" : "Imagen";
   const { data: camp, error: e1 } = await SB.from("campanas").insert({
     nombre: (tpl || etiquetaAdjunto).slice(0, 60), texto: tpl || null, media_url: media,
     enviar_en: enviarEn.toISOString(), total: sel.length,
@@ -757,8 +778,10 @@ async function enviarSinCandado(btn) {
 
 /* ---------- wiring ---------- */
 $("segBtnMasivo").onclick = abrir;
-$("masCerrar").onclick = () => $("masOverlay").classList.remove("open");
-$("masOverlay").onclick = e => { if (e.target.id === "masOverlay") $("masOverlay").classList.remove("open"); };
+// Cerrar también corta una grabación en curso: si no, el micrófono quedaría
+// abierto detrás del panel cerrado.
+$("masCerrar").onclick = cerrarMasivo;
+$("masOverlay").onclick = e => { if (e.target.id === "masOverlay") cerrarMasivo(); };
 $("masTexto").oninput = renderPrev;
 $("masBuscar").oninput = () => {
   $("masBuscarX").classList.toggle("hidden", !$("masBuscar").value);
@@ -788,8 +811,8 @@ $("masHora").onchange = renderCuando;
 // rechazaba.
 $("masImgFile").accept = ACCEPT_ADJUNTO;
 // La previa depende de la hora elegida y de la fecha de envío.
-$("masHoraRef").oninput = () => { renderPrev(); renderPartes(); };
-$("masFecha").addEventListener("change", () => { renderPrev(); renderPartes(); });
+$("masHoraRef").oninput = () => { renderPrev(); renderPartes(); burbujasMas.pintar(); };
+$("masFecha").addEventListener("change", () => { renderPrev(); renderPartes(); burbujasMas.pintar(); });
 $("masImgPick").onclick = () => $("masImgFile").click();
 $("masImgFile").onchange = async () => {
   const file = $("masImgFile").files[0];

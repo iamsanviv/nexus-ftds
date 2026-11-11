@@ -371,6 +371,25 @@ y sin imagen del servicio en el catálogo. Misma precedencia que `programar()` (
 En el formulario, el texto de ayuda de la imagen dice si el servicio elegido **tiene o no** imagen en
 el catálogo (`pintarAyudaImg`), para saber antes de guardar si la invitación saldrá con imagen.
 
+## El mensaje 1 de la invitación puede ir sin plantilla o sin imagen heredada (11/11/2026)
+
+La invitación se edita como conversación reordenable (`burbujas.js`, ver [[../04-features/media-attachments]]). El mensaje 1 era siempre «plantilla o texto propio + imagen propia, de la actividad o del catálogo». Al poder mover los mensajes aparecen dos casos que ese modelo no sabía decir:
+
+- el primero es una **nota de voz** (o solo imagen/video): va **sin** la plantilla;
+- la imagen heredada **se movió con su mensaje** a otro lugar: el primero va **sin** imagen.
+
+Se guarda en la misma serie, sin columnas nuevas: `serie.m1 = { sin_texto, sin_media }`, tanto en `actividades.serie_invitacion` como en `invitaciones_agente.serie`. Solo se escribe cuando marca algo; una invitación de siempre se guarda igual que antes. Lo arma `crearEditorSerie().leer()` y lo lee `m1De()` en `seguimiento.js`.
+
+Dónde pesa:
+
+- `programar()`: con `sin_media` la fila `invitacion` no lleva `servicio_id` ni la imagen de la actividad ajena; con `sin_texto` va con `texto = ''` — **solo si lleva un adjunto propio**; sin él saldría un mensaje vacío y entonces manda la plantilla.
+- `reprogramarPorHora()`: no regenera el texto de una `invitacion` cuyo texto está vacío. Si lo hiciera, al cambiar la hora le pegaría la plantilla detrás de la nota de voz.
+- `adjuntoInvitacion()` respeta `sin_media` para la etiqueta «Sin imagen».
+
+**Base:** `serie_invitacion_ok` exigía 1..3 partes. Una invitación que es UNA sola nota de voz no tiene partes pero sí `m1`; `sql/2026-11-11_66_invitacion_mensaje1_sin_plantilla.sql` admite 0 partes cuando `m1` marca algo. Sin esa migración aplicada, guardar ese caso en una actividad propia falla con `actividades_serie_ok` (en `invitaciones_agente` ya se admitía `partes: []`).
+
+Lo que NO cambió: la `invitacion` sigue siendo el primer contacto y la que frena el tope diario, sea texto o voz; las partes 2..4 siguen como `invitacion_parte`; recordatorios, enlace y pregunta del link, igual.
+
 ## Rastreo
 
 Cada seguimiento rastreado tiene su propio `clic_token`. El token identifica a esa persona dentro de esa actividad y debe sobrevivir a reprogramaciones de mensajes.

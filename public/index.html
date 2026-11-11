@@ -992,9 +992,15 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     </div>
 
     <div class="frow">
-      <div id="ldMsgs" class="serielista"></div>
-      <button type="button" class="tbtn" id="ldMsgAdd">＋ Agregar mensaje</button>
-      <div class="msgshelp">Etiquetas: <code>{nombre}</code> <code>{hora}</code> <code>{zona}</code>. Variantes al azar: <code>{Hola|Buenas|Qué tal}</code>. Cada mensaje puede llevar su imagen o video (MP4, hasta 16 MB).</div>
+      <!-- Mismo editor de conversación que el masivo y la invitación
+           (burbujas.js). La lista vieja sigue pintándose, oculta: es la que
+           enciende las opciones de orden y pausa. -->
+      <div id="ldChat" class="chatinv"></div>
+      <div class="hidden">
+        <div id="ldMsgs" class="serielista"></div>
+        <button type="button" class="tbtn" id="ldMsgAdd">＋ Agregar mensaje</button>
+      </div>
+      <div class="msgshelp">Etiquetas: <code>{nombre}</code> <code>{hora}</code> <code>{zona}</code>. Variantes al azar: <code>{Hola|Buenas|Qué tal}</code>. Cada mensaje es un texto (con imagen o video MP4 de hasta 16 MB) o una nota de voz.</div>
       <!-- La hora de referencia solo aparece si algún mensaje menciona {hora}. -->
       <div class="frow hidden" id="ldHoraRow">
         <label for="ldHoraRef">¿A qué hora? <span class="opt">(hora Colombia)</span></label>
@@ -1110,8 +1116,14 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
     <div class="pane">
     <h3 class="paneh">Mensaje<span class="rule"></span></h3>
 
-    <div class="frow"><label for="masTexto" id="masM1Lbl" class="hidden">Mensaje 1</label><textarea id="masTexto" rows="4" placeholder="¡Hola {nombre}! Te comparto algo importante…"></textarea>
-      <div class="msgshelp">Etiquetas: <code>{nombre}</code> <code>{hora}</code> <code>{zona}</code>. Para variar el texto entre personas (más seguro): <code>{Hola|Buenas|Qué tal}</code>.</div>
+    <!-- Los mensajes se editan como conversación (burbujas.js): se ven en el
+         orden en que llegan y se reordenan arrastrando. El textarea, la imagen
+         y la lista de abajo siguen siendo el ESTADO que lee el envío, pero ya
+         no se ven: por eso están dentro de un `hidden`. -->
+    <div class="frow">
+      <div id="masChat" class="chatinv"></div>
+      <div class="hidden"><label for="masTexto" id="masM1Lbl" class="hidden">Mensaje 1</label><textarea id="masTexto" rows="4" placeholder="¡Hola {nombre}! Te comparto algo importante…"></textarea></div>
+      <div class="msgshelp">Etiquetas: <code>{nombre}</code> <code>{hora}</code> <code>{zona}</code>. Para variar el texto entre personas (más seguro): <code>{Hola|Buenas|Qué tal}</code>. Video en MP4, hasta 16 MB.</div>
       <!-- La hora de referencia solo aparece si el texto la menciona: un campo
            que casi nunca se usa estorba, y vacío no significa nada. -->
       <div class="frow hidden" id="masHoraRow">
@@ -1119,8 +1131,10 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
         <input type="time" id="masHoraRef">
         <div class="msgshelp" id="masHoraAyuda">A cada persona con diferencia horaria en su perfil le llega convertida a su hora, y <code>{zona}</code> lo aclara.</div>
       </div>
-      <div class="masprevbox hidden" id="masPrevBox"><span class="prevlbl">Así le llega a Ana</span><span id="masPrev"></span></div>
+      <div class="hidden"><div class="masprevbox hidden" id="masPrevBox"><span class="prevlbl">Así le llega a Ana</span><span id="masPrev"></span></div></div>
     </div>
+
+    <div class="hidden" id="masEstadoViejo">
 
     <!-- VIDEO ACTIVADO (20/08). El bridge de produccion mapea por extension
          mp4/mov/avi a VideoMessage; verificado en la VM contra el binario en uso.
@@ -1176,6 +1190,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
       <div id="masPartes" class="serielista"></div>
       <button type="button" class="tbtn" id="masParteAdd">＋ Agregar otro mensaje</button>
     </div>
+    </div><!-- /masEstadoViejo -->
     <div id="masOpts" class="serieopts hidden">
       <div class="serieopt">
         <span class="serielbl">Enviar</span>

@@ -20,6 +20,7 @@ import { cargarAvisoEnvios, avisoEnviosHTML } from "./envios.js";
 import { subirImagenMensaje, guardarHistorialSegmento, cargarCola, simularCupo, avisoCupo } from "./data.js";
 import { BASE_URL, NIVEL } from "./config.js";
 import { crearBurbujas } from "./burbujas.js";
+import { esAudioUrl } from "./grabadora.js";
 
 /* ---------- plantillas ---------- */
 // Tipos de mensaje programado (5 por persona). NO incluye invitacion_extra:
@@ -594,6 +595,9 @@ function setImgActividad(url, tipo) {
   img.classList.add("hidden"); vid.classList.add("hidden"); vid.pause?.();
   img.src = ""; vid.src = "";
   if (url && segImgTipo === "video") { vid.src = url; vid.classList.remove("hidden"); del.classList.remove("hidden"); }
+  // Una nota de voz como mensaje 1 viaja en el mismo campo, pero no es una
+  // imagen: esta vista previa (la vieja, hoy oculta) no la pinta.
+  else if (url && esAudioUrl(url)) { del.classList.remove("hidden"); }
   else if (url) { img.src = url; img.classList.remove("hidden"); del.classList.remove("hidden"); }
   else { del.classList.add("hidden"); }
   pintarAyudaImg();
@@ -611,13 +615,15 @@ const esVideoUrl = u => /\.(mp4|mov)(\?|$)/i.test(u || "");
 // `alPintar` corre tras cada repintado: es cuando cambia un adjunto (subir o
 // quitar), y las etiquetas de imagen dependen de eso.
 function crearEditorSerie(p, preview, alPintar) {
-  const ed = { st: { modo: "usuario", espera_min: 0, partes: [] } };
+  const M1_DEF = () => ({ sin_texto: false, sin_media: false });
+  const ed = { st: { modo: "usuario", espera_min: 0, partes: [], m1: M1_DEF() } };
 
   ed.set = sr => {
     ed.st = sr && Array.isArray(sr.partes)
       ? { modo: sr.modo === "mensaje" ? "mensaje" : "usuario", espera_min: sr.espera_min || 0,
-          partes: sr.partes.map(x => ({ texto: x.texto || "", media: x.media || null })) }
-      : { modo: "usuario", espera_min: 0, partes: [] };
+          partes: sr.partes.map(x => ({ texto: x.texto || "", media: x.media || null })),
+          m1: { sin_texto: !!sr.m1?.sin_texto, sin_media: !!sr.m1?.sin_media } }
+      : { modo: "usuario", espera_min: 0, partes: [], m1: M1_DEF() };
     ed.render();
   };
 
@@ -627,23 +633,32 @@ function crearEditorSerie(p, preview, alPintar) {
   const partesLlenas = () => ed.st.partes
     .map(x => ({ texto: (x.texto || "").trim(), media: x.media || null }))
     .filter(x => x.texto || x.media);
-  // Para pintar estados (¿cambió?), sin validar ni avisar.
-  ed.leerSilencioso = () => {
-    const partes = partesLlenas();
-    return partes.length ? { modo: ed.st.modo, espera_min: ed.st.espera_min || 0, partes } : null;
+  // `m1` viaja en la serie porque es jsonb y no pide columna nueva: dice que el
+  // mensaje 1 va SIN la plantilla (p. ej. es una nota de voz) o SIN la imagen
+  // heredada (se movió con otro mensaje). Solo se escribe si marca algo, así
+  // una invitación de siempre sigue guardándose igual que antes.
+  const armar = (partes, espera) => {
+    const m1 = ed.st.m1 || M1_DEF();
+    const marca = m1.sin_texto || m1.sin_media;
+    if (!partes.length && !marca) return null;
+    const s = { modo: ed.st.modo, espera_min: espera, partes };
+    if (marca) s.m1 = { sin_texto: !!m1.sin_texto, sin_media: !!m1.sin_media };
+    return s;
   };
+  // Para pintar estados (¿cambió?), sin validar ni avisar.
+  ed.leerSilencioso = () => armar(partesLlenas(), ed.st.espera_min || 0);
   ed.leer = () => {
     const partes = partesLlenas();
-    if (!partes.length) return null;
     if (partes.some(x => x.texto.length > 4000)) { toast("Un mensaje de la invitación es demasiado largo"); return false; }
     const espera = ed.st.espera_min || 0;
-    if (espera && (espera < 1 || espera > 120)) { toast("La espera entre mensajes va de 1 a 120 minutos"); return false; }
-    return { modo: ed.st.modo, espera_min: espera, partes };
+    if (partes.length && espera && (espera < 1 || espera > 120)) { toast("La espera entre mensajes va de 1 a 120 minutos"); return false; }
+    return armar(partes, partes.length ? espera : 0);
   };
 
   // Reemplaza los mensajes 2..4 conservando modo y espera: las burbujas
   // reordenan, agregan y quitan por aquí.
   ed.setPartes = arr => { ed.st.partes = arr; ed.render(); };
+  ed.setM1 = f => { ed.st.m1 = { sin_texto: !!f?.sinTexto, sin_media: !!f?.sinMedia }; };
 
   ed.render = () => {
     const cont = $(p + "Lista");
@@ -657,6 +672,7 @@ function crearEditorSerie(p, preview, alPintar) {
         <textarea rows="3" data-txt maxlength="4000" placeholder="Texto del mensaje ${i + 2}…">${esc(x.texto)}</textarea>
         <div class="imgfield">
           ${x.media ? (vid ? `<video class="imgprev" src="${esc(x.media)}" muted controls></video>`
+                           : esAudioUrl(x.media) ? `<audio src="${esc(x.media)}" controls preload="none"></audio>`
                            : `<img class="imgprev" src="${esc(x.media)}" alt="">`) : ""}
           <div class="imgbtns">
             <input type="file" data-file accept="${ACCEPT_ADJUNTO}" class="hidden">
@@ -739,12 +755,14 @@ burbujasForm = crearBurbujas("segChat", {
     media: segImg,
     mediaFb: segTipoAct === "libre" ? null : (todos().find(x => x.id === $("segSrv").value)?.img || null),
     etiquetaMediaFb: "imagen del catálogo",
+    sinTexto: serieForm.st.m1.sin_texto, sinMedia: serieForm.st.m1.sin_media,
     partes: serieForm.st.partes,
   }),
   previa: txt => previewTexto(txt),
   setTexto: v => { $("segMsgInv").value = v || ""; },
   setMedia: url => setImgActividad(url),
   setPartes: arr => serieForm.setPartes(arr),
+  setFlags: f => serieForm.setM1(f),
 });
 
 // Panel de programación, actividad ajena: el mensaje 1 es la invitación propia
@@ -757,13 +775,16 @@ burbujasMia = crearBurbujas("segMiChat", {
     etiquetaFb: (actSel?.msg_invitacion || "").trim() ? "texto de la actividad" : "tu plantilla",
     media: miMedia,
     mediaFb: actSel?.imagen || imgServicio(actSel),
-    etiquetaMediaFb: actSel?.imagen ? "imagen de la actividad" : "imagen del catálogo",
+    etiquetaMediaFb: esAudioUrl(actSel?.imagen) ? "nota de voz de la actividad"
+      : actSel?.imagen ? "imagen de la actividad" : "imagen del catálogo",
+    sinTexto: serieMia.st.m1.sin_texto, sinMedia: serieMia.st.m1.sin_media,
     partes: serieMia.st.partes,
   }),
   previa: txt => previewMiTexto(txt),
   setTexto: v => { miInvitacion = v || ""; $("segMiInv").value = miInvitacion; },
   setMedia: url => { miMedia = url; pintarMiImagen(); },
   setPartes: arr => serieMia.setPartes(arr),
+  setFlags: f => serieMia.setM1(f),
   cambio: () => { pintarBtnMiInv(); renderHitos(); },
 });
 
@@ -1097,7 +1118,7 @@ async function cargarActividades() {
   // que al programar, ver cargarMiInvitacion).
   const conAdjunto = (a, mia) => {
     const r = mia ? null : miInvDe.get(a.id);
-    return !!adjuntoInvitacion(a, r?.media).url
+    return !!adjuntoInvitacion(a, r?.media, m1De(r?.serie || a.serie_invitacion).sinMedia).url
       || !!mensajeConAdjunto(r?.serie || a.serie_invitacion);
   };
 
@@ -1301,14 +1322,19 @@ async function cargarMiInvitacion(a) {
 // otro orden, así que no sirve comparar el JSON tal cual.
 const firmaSerie = sr => !sr ? "null"
   : JSON.stringify([sr.modo || "usuario", sr.espera_min || 0,
-      (sr.partes || []).map(x => [(x.texto || "").trim(), x.media || null])]);
+      (sr.partes || []).map(x => [(x.texto || "").trim(), x.media || null]),
+      !!sr.m1?.sin_texto, !!sr.m1?.sin_media]);
 const firmaMiInv = (txt, media, serie) => JSON.stringify([txt.trim(), media || null, firmaSerie(serie)]);
+
+// Una serie «dice algo» si trae mensajes 2..4 o marca cómo va el mensaje 1.
+const serieUtil = s => (s && (s.partes?.length || s.m1?.sin_texto || s.m1?.sin_media)) ? s : null;
+// Marcas del mensaje 1 de una serie (ver `crearEditorSerie`).
+const m1De = s => ({ sinTexto: !!s?.m1?.sin_texto, sinMedia: !!s?.m1?.sin_media });
 
 // ¿El agente cambió la serie respecto de la de la actividad? `leida` es lo que
 // devuelve el editor (null = ningún mensaje extra).
 const serieDistinta = (leida, a) =>
-  firmaSerie(leida?.partes?.length ? leida : null)
-  !== firmaSerie(a?.serie_invitacion?.partes?.length ? a.serie_invitacion : null);
+  firmaSerie(serieUtil(leida)) !== firmaSerie(serieUtil(a?.serie_invitacion));
 
 function pintarMiInvitacion() {
   $("segMiInv").value = miInvitacion;
@@ -1332,9 +1358,11 @@ const imgServicio = a => (a?.servicio_id && todos().find(s => s.id === a.servici
 
 // Con qué adjunto sale la invitación de `a`, por la misma precedencia que usa
 // `programar()`: el mío (solo en ajenas) → el de la actividad → el del servicio.
-function adjuntoInvitacion(a, propio) {
+function adjuntoInvitacion(a, propio, sinMedia = m1De(a?.serie_invitacion).sinMedia) {
   if (propio) return { url: propio, de: "tuyo" };
   if (a?.imagen) return { url: a.imagen, de: "actividad" };
+  // El mensaje 1 va sin la imagen del catálogo (se movió con otro mensaje).
+  if (sinMedia) return { url: null, de: null };
   const srv = imgServicio(a);
   return srv ? { url: srv, de: "catalogo" } : { url: null, de: null };
 }
@@ -1351,14 +1379,14 @@ function pintarMiImagen() {
   row.classList.toggle("hidden", !mostrar);
   if (!mostrar) return;
   const { url, de } = adjuntoInvitacion(actSel, ajena ? miMedia : null);
-  const vid = esVideoUrl(url);
+  const vid = esVideoUrl(url), voz = esAudioUrl(url);
   const img = $("segMiImgPrev"), video = $("segMiVidPrev");
-  img.classList.toggle("hidden", !url || vid);
+  img.classList.toggle("hidden", !url || vid || voz);
   video.classList.toggle("hidden", !url || !vid);
-  img.src = url && !vid ? url : "";
+  img.src = url && !vid && !voz ? url : "";
   video.src = url && vid ? url : "";
   $("segMiImgSin").classList.toggle("hidden", !!url);
-  const que = vid ? "Video" : "Imagen";
+  const que = voz ? "Nota de voz" : vid ? "Video" : "Imagen";
   const nSerie = url ? 0
     : mensajeConAdjunto(ajena ? serieMia.leerSilencioso() : actSel.serie_invitacion);
   $("segMiImgFuente").textContent = {
@@ -1400,7 +1428,7 @@ function renderPrevMiInvitacion() {
 async function guardarMiInvitacion(actividadId, serieLeida) {
   const txt = miInvitacion.trim();
   const serie = !serieDistinta(serieLeida, actSel) ? null
-    : (serieLeida?.partes?.length ? serieLeida : { modo: "usuario", espera_min: 0, partes: [] });
+    : (serieUtil(serieLeida) || { modo: "usuario", espera_min: 0, partes: [] });
   const firma = firmaMiInv(txt, miMedia, serie);
   if (firma === miGuardado) return;          // no cambió: no se toca la base
   let error;
@@ -1971,6 +1999,9 @@ async function programar() {
     if (serieElegida === false) return;   // leer() ya dijo qué falta
   }
   const serie = (!segSinInvitacion && serieElegida?.partes?.length) ? serieElegida : null;
+  // Cómo va el mensaje 1: sin la plantilla (nota de voz, o solo imagen/video) o
+  // sin la imagen heredada. Vale aunque no haya mensajes 2..4.
+  const m1 = m1De(serieElegida);
   const nPartes = 1 + (serie ? serie.partes.length : 0);
   const idx = new Map(seleccion.map((c, i) => [c.id, i]));
   const tParte = (i, k) => cuandoParte(serie, cuandoInv.getTime(), i, k, seleccion.length);
@@ -2000,7 +2031,8 @@ async function programar() {
   // después. Las plantillas por defecto ya usan {dia}, pero cada agente puede
   // tener la suya guardada, así que el aviso protege también a quien no la haya
   // actualizado.
-  const invTexto = (puedoPersonalizarInvitacion(actSel) && miInvitacion.trim())
+  const invTexto = m1.sinTexto ? ""
+    : (puedoPersonalizarInvitacion(actSel) && miInvitacion.trim())
     ? miInvitacion
     : (actSel.msg_invitacion
        || plantillasUsuario.invitacion || PLANTILLAS_DEF.invitacion);
@@ -2173,10 +2205,18 @@ async function programar() {
         //      servicio_id y el worker resuelve la imagen vigente al enviar,
         //      así no se congela si se cambia después.
         // Se manda UNA sola, para que no haya ambigüedad.
+        // `m1.sinMedia` corta la herencia: el agente movió la imagen heredada a
+        // otro mensaje (o la quitó), así que el primero NO debe volver a
+        // traerla del catálogo ni de la actividad ajena.
         if (tipo === "invitacion") {
+          const ajena = puedoPersonalizarInvitacion(actSel);
           if (miMediaEf) fila.media_url = miMediaEf;
-          else if (actSel.imagen) fila.media_url = actSel.imagen;
-          else if (actSel.servicio_id) fila.servicio_id = actSel.servicio_id;
+          else if (actSel.imagen && !(ajena && m1.sinMedia)) fila.media_url = actSel.imagen;
+          else if (actSel.servicio_id && !m1.sinMedia) fila.servicio_id = actSel.servicio_id;
+          // Mensaje 1 sin plantilla (nota de voz, o solo imagen/video). Solo si
+          // de verdad lleva un adjunto propio: sin él saldría un mensaje vacío,
+          // y entonces manda la plantilla, que es lo seguro.
+          if (m1.sinTexto && fila.media_url) fila.texto = "";
         }
         // El enlace se resuelve al enviar (el texto conserva el token {enlace}).
         // Con rastreo, cada persona recibe SU url puente en vez de la de Zoom:
@@ -2551,7 +2591,7 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
              tzOff: s.clientes?.tz_offset_min ?? null }]));
 
   const { data: msgs } = await SB.from("mensajes_programados")
-    .select("id, tipo, parte, seguimiento_id, enviar_en")
+    .select("id, tipo, parte, seguimiento_id, enviar_en, texto")
     .in("seguimiento_id", [...info.keys()]).eq("estado", "pendiente");
   if (!msgs || !msgs.length) return { movidos: 0, cancelados: 0 };
 
@@ -2595,7 +2635,10 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
     const tpl = textos.get(m.seguimiento_id);
     const cuando = nuevaHora[m.tipo];
     const campos = {};
-    if (tpl && tpl[m.tipo]) campos.texto = tpl[m.tipo];
+    // Una invitación SIN texto es una nota de voz (o solo imagen/video) puesta
+    // así a propósito: regenerarla le pegaría la plantilla detrás del audio.
+    const sinTexto = m.tipo === "invitacion" && !(m.texto || "").trim();
+    if (tpl && tpl[m.tipo] && !sinTexto) campos.texto = tpl[m.tipo];
     // Las partes de la serie no se mueven (cuelgan de la invitación, no del
     // inicio), pero su `{hora}` sí cambió: se regenera cada una con su texto.
     const pt = m.tipo === "invitacion_parte" && serie?.partes?.[m.parte - 2];

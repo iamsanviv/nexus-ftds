@@ -17,6 +17,8 @@ import { state, $, esc, toast, normBusqueda, esLead, componerMensaje,
 import { subirImagenMensaje, guardarHistorialSegmento, cargarCola, simularCupo, avisoCupo, cargarPlantillasEnviadas } from "./data.js";
 import { canalVinculado } from "./canal.js";
 import { destinatariosMasivo } from "./masivo.js";
+import { crearBurbujas } from "./burbujas.js";
+import { esAudioUrl } from "./grabadora.js";
 import { TIPOS, TEMP, CATEGORIAS, categoria, temperatura, plantillaPara, llegada, fechaFilaHTML, filtroLlegada, enRangoLleg } from "./leads.js";
 
 const MAX_MSGS = 4;
@@ -94,6 +96,7 @@ function usarPlantilla(id) {
           : nuevoBorrador();
   $("ldNombre").value = bor.nombre;
   pintarPlantillas(); pintarTipos(); pintarMsgs(); pintarLista();
+  burbujasLd.reset();
 }
 
 // Lo que se guarda o se envía. null = algo incompleto (ya se avisó).
@@ -187,6 +190,7 @@ function pintarMsgs() {
       <textarea rows="3" data-txt maxlength="4000" placeholder="${i === 0 ? "¡Hola {nombre}! …" : `Texto del mensaje ${i + 1}… (opcional si adjuntas un video)`}">${esc(m.texto)}</textarea>
       <div class="imgfield">
         ${m.media ? (esVideo(m.media) ? `<video class="imgprev" src="${esc(m.media)}" muted controls></video>`
+                    : esAudioUrl(m.media) ? `<audio src="${esc(m.media)}" controls preload="none"></audio>`
                                       : `<img class="imgprev" src="${esc(m.media)}" alt="">`) : ""}
         <div class="imgbtns">
           <input type="file" data-file accept="${ACCEPT_ADJUNTO}" class="hidden">
@@ -235,6 +239,23 @@ function pintarMsgs() {
     };
   });
 }
+
+// El editor que se ve. Escribe en `bor.mensajes`, la misma lista que se guarda
+// en la plantilla y se envía: el mensaje 1 es `mensajes[0]` y el resto, las
+// «partes». Una nota de voz es un mensaje con el audio en `media` y sin texto,
+// así que viaja dentro de la plantilla como cualquier otro adjunto.
+const burbujasLd = crearBurbujas("ldChat", {
+  leer: () => ({ texto: bor.mensajes[0].texto, media: bor.mensajes[0].media, partes: bor.mensajes.slice(1) }),
+  previa: txt => prev(txt),
+  setTexto: v => { bor.mensajes[0].texto = v || ""; },
+  setMedia: url => { bor.mensajes[0].media = url || null; },
+  setPartes: arr => { bor.mensajes = [bor.mensajes[0], ...arr]; },
+  // Las opciones de orden y pausa, la fila de la hora y el cupo dependen de
+  // cuántos mensajes hay y de qué dicen.
+  cambio: () => { pintarMsgs(); pintarConteo(); },
+  ayuda: `Etiquetas: <code>{nombre}</code> <code>{hora}</code> <code>{zona}</code>. Variantes al azar con <code>{Hola|Buenas|Qué tal}</code>.`,
+});
+const cerrarLeads = () => { burbujasLd.reset(); $("ldOverlay").classList.remove("open"); };
 
 /* ---------- destinatarios ---------- */
 function pintarFiltros() {
@@ -342,6 +363,7 @@ async function enviar() {
 
 async function enviarSinCandado() {
   if (!(await canalVinculado())) { toast("Vincula tu WhatsApp en «Más → Mi WhatsApp» para poder enviar"); return; }
+  if (burbujasLd.grabando()) { toast("Termina la grabación primero (✔ Listo)"); return; }
   const d = leerBorrador({ paraEnviar: true }); if (!d) return;
   const lista = elegidos();
   if (!lista.length) { toast("No hay leads seleccionados"); return; }
@@ -427,6 +449,7 @@ export async function abrirEnvioLeads(render, { soloId, plantillaId } = {}) {
   $("ldNombre").value = ""; $("ldBuscar").value = solo ? solo.nombre : "";
   $("ldFecha").value = ""; $("ldHora").value = ""; $("ldHoraRef").value = "";
   pintarTipos(); pintarMsgs(); pintarFiltros(); pintarLista(); pintarCuando(); pintarPlantillas();
+  burbujasLd.reset();
   $("ldOverlay").classList.add("open");
   cola = null;
   cargarCola().then(c => { cola = c; pintarConteo(); }).catch(() => {});
@@ -437,8 +460,9 @@ export async function abrirEnvioLeads(render, { soloId, plantillaId } = {}) {
   if (plantillaId && plantillas.some(p => p.id === plantillaId)) usarPlantilla(plantillaId);
 }
 
-$("ldCerrar").onclick = () => $("ldOverlay").classList.remove("open");
-$("ldOverlay").onclick = e => { if (e.target.id === "ldOverlay") $("ldOverlay").classList.remove("open"); };
+// Cerrar también corta una grabación en curso (micrófono abierto).
+$("ldCerrar").onclick = cerrarLeads;
+$("ldOverlay").onclick = e => { if (e.target.id === "ldOverlay") cerrarLeads(); };
 $("ldPlant").onchange = e => usarPlantilla(e.target.value);
 $("ldPlantGuardar").onclick = guardarPlantilla;
 $("ldPlantBorrar").onclick = borrarPlantilla;
@@ -453,7 +477,7 @@ $("ldEsp").querySelectorAll("[data-esp]").forEach(b => b.onclick = () => {
   bor.espera_min = b.dataset.esp === "min" ? (bor.espera_min || 5) : 0; pintarMsgs();
 });
 $("ldEsc").querySelectorAll("[data-esc]").forEach(b => b.onclick = () => { bor.escalona = b.dataset.esc === "1"; pintarMsgs(); });
-$("ldHoraRef").oninput = pintarMsgs;   // la previa depende de la hora de referencia
+$("ldHoraRef").oninput = () => { pintarMsgs(); burbujasLd.pintar(); };   // la previa depende de la hora de referencia
 $("ldMin").oninput = () => { const v = parseInt($("ldMin").value, 10); if (v >= 1 && v <= 120) bor.espera_min = v; };
 $("ldMin").onchange = pintarMsgs;
 $("ldBuscar").oninput = pintarLista;

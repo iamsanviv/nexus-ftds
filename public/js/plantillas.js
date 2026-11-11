@@ -71,7 +71,8 @@ function tarjeta(p) {
     </div>
     <ol class="plmsgs">${msgs.map(m => `
       <li>${m.texto ? `<span class="pltxt">${esc(previa(m.texto))}</span>` : ""}${
-        m.media ? `<span class="pladj">${esVideo(m.media) ? "🎬 Video" : "🖼 Imagen"}</span>` : ""}</li>`).join("")}
+        m.media ? `<span class="pladj">${esVideo(m.media) ? "🎬 Video"
+          : /\.(webm|m4a|ogg|oga|opus|mp3|aac|wav)(\?|$)/i.test(m.media) ? "🎤 Nota de voz" : "🖼 Imagen"}</span>` : ""}</li>`).join("")}
     </ol>
     <div class="placc">
       <button type="button" class="plusar" data-pl="usar">Usar</button>

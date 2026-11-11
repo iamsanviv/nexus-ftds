@@ -1,112 +1,167 @@
-// Editor de la invitación como conversación de WhatsApp (pedido de Sanviv,
-// 10/11/2026). Antes el mensaje 1 era «✎ Personalizar la invitación» con su
-// imagen en otro bloque, y los adicionales aparecían como «Mensaje 2» en una
-// lista aparte: no se entendía que eran la misma secuencia. Aquí se ven todos
-// como burbujas, en el orden en que le llegan a la persona, y se reordenan
-// arrastrando.
+// Editor de mensajes como conversación de WhatsApp. Nació para la invitación
+// de una actividad (pedido de Sanviv, 10/11/2026) y desde el 11/11/2026 es el
+// editor de TODOS los envíos en serie: masivo, invitación y seguimiento a
+// leads. Los mensajes se ven en el orden en que le llegan a la persona y se
+// reordenan arrastrando.
 //
-// No guarda nada propio: es una vista sobre el estado que ya existía (texto e
-// imagen de la invitación + editor de la serie). Así el guardado, la
-// programación y la base no cambian; `cfg` dice de dónde leer y dónde escribir.
+// Tres reglas que pidió Sanviv y que este archivo sostiene:
+//   1. El orden de la lista es el orden de llegada, sea texto, imagen, video o
+//      nota de voz.
+//   2. Cada mensaje se mueve ENTERO: su imagen o su video viaja con él. La
+//      imagen del catálogo deja de estar anclada al primer lugar: al mover ese
+//      mensaje queda fijada a él.
+//   3. La nota de voz es un mensaje propio, sin texto (WhatsApp no le pone pie
+//      a una nota de voz). Texto antes o después = otro mensaje.
+//
+// No guarda nada propio: es una vista sobre el estado que ya existía (mensaje 1
+// + arreglo de los mensajes 2..4). Así el guardado, la programación y la base
+// no cambian; `cfg` dice de dónde leer y dónde escribir.
 import Sortable from "https://esm.sh/sortablejs@1.15.3";
 import { $, esc, toast, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto } from "./state.js";
-import { subirImagenMensaje } from "./data.js";
+import { subirImagenMensaje, subirAudioMensaje } from "./data.js";
+import { iniciarGrabacion, puedeGrabar, fmtSeg, esAudioUrl } from "./grabadora.js";
 
 const MAX_MENSAJES = 4;
 const esVideo = u => /\.(mp4|mov)(\?|$)/i.test(u || "");
+const AYUDA_DEF = `Etiquetas: <code>{nombre}</code> <code>{actividad}</code> <code>{hora}</code> <code>{zona}</code>.
+  Variantes al azar con <code>{hola|buenas|qué más}</code>.`;
 
 // cfg:
-//   leer() → { texto, textoFb, etiquetaFb, media, mediaFb, etiquetaMediaFb, partes }
-//     texto/media: lo propio del mensaje 1 (null = se usa el respaldo *Fb).
-//     partes: el arreglo VIVO del editor de la serie ([{ texto, media }]).
+//   leer() → { texto, media, partes, textoFb, etiquetaFb, mediaFb,
+//              etiquetaMediaFb, sinTexto, sinMedia }
+//     texto/media: lo propio del mensaje 1. Con respaldo (*Fb), vacío = se usa
+//       el respaldo, salvo que `sinTexto` / `sinMedia` digan que va sin él.
+//     partes: el arreglo VIVO de los mensajes 2..4 ([{ texto, media }]).
 //   previa(txt)          → texto con datos de ejemplo
-//   setTexto(txt|null)   → mensaje 1 propio (null = vuelve al respaldo)
+//   setTexto(txt|null)   → texto propio del mensaje 1 (null = sin texto propio)
 //   setMedia(url|null)   → adjunto propio del mensaje 1
-//   setPartes(arr)       → reemplaza los mensajes 2..4 y repinta la serie
-//   cambio()             → avisar a quien dependa (botones, hitos)
+//   setPartes(arr)       → reemplaza los mensajes 2..4
+//   setFlags({ sinTexto, sinMedia })  → SOLO donde el mensaje 1 tiene respaldo
+//     (invitación): que el primero vaya sin la plantilla o sin la imagen
+//     heredada. Su presencia es lo que le dice al editor que hay respaldos.
+//   cambio()             → avisar a quien dependa (botones, conteos, hitos)
+//   ayuda                → HTML de ayuda bajo el texto (etiquetas válidas ahí)
 export function crearBurbujas(contId, cfg) {
-  const b = { editando: -1, sortable: null };
+  const b = { editando: -1, eligiendo: false, grab: null, sortable: null };
   const cont = () => $(contId);
+  const conRespaldo = () => typeof cfg.setFlags === "function";
 
-  // Lista uniforme: el 1 con sus respaldos resueltos, el resto tal cual.
+  // Lista uniforme. `textoEf` / `mediaEf` es lo que de verdad sale; `hereda*`
+  // marca que viene del respaldo y no de algo escrito para este mensaje.
   const items = () => {
     const d = cfg.leer();
+    const propio = (d.texto || "").trim() ? d.texto : "";
+    const heredaTexto = !propio && !d.sinTexto && !!d.textoFb;
+    const heredaMedia = !d.media && !d.sinMedia && !!d.mediaFb;
     return [
-      { principal: true, texto: d.texto, media: d.media, textoFb: d.textoFb, etiquetaFb: d.etiquetaFb,
-        mediaFb: d.mediaFb, etiquetaMediaFb: d.etiquetaMediaFb },
-      ...d.partes.map((x, i) => ({ parte: i, texto: x.texto || "", media: x.media || null })),
+      { principal: true, heredaTexto, heredaMedia,
+        textoEf: propio || (heredaTexto ? d.textoFb : ""),
+        mediaEf: d.media || (heredaMedia ? d.mediaFb : null),
+        etiquetaFb: d.etiquetaFb, etiquetaMediaFb: d.etiquetaMediaFb,
+        hayMediaFb: !!d.mediaFb, sinMedia: !!d.sinMedia, sinTexto: !!d.sinTexto },
+      ...d.partes.map((x, i) => ({ parte: i, textoEf: x.texto || "", mediaEf: x.media || null })),
     ];
   };
 
+  // Escribe la lista entera de vuelta. El primero pasa a ser «el mensaje 1»;
+  // los demás quedan con lo que mostraban, texto e imagen incluidos: así es
+  // como la imagen heredada viaja con su mensaje en vez de quedarse arriba.
+  function guardar(its) {
+    const p = its[0];
+    if (conRespaldo()) {
+      const hT = !!p.principal && p.heredaTexto, hM = !!p.principal && p.heredaMedia;
+      const txt = hT ? null : ((p.textoEf || "").trim() ? p.textoEf : null);
+      const med = hM ? null : (p.mediaEf || null);
+      const d = cfg.leer();
+      cfg.setTexto(txt);
+      cfg.setMedia(med);
+      // La marca solo significa algo si hay un respaldo que evitar.
+      cfg.setFlags({ sinTexto: !hT && !txt && !!d.textoFb, sinMedia: !hM && !med && !!d.mediaFb });
+    } else {
+      cfg.setTexto(p.textoEf || "");
+      cfg.setMedia(p.mediaEf || null);
+    }
+    cfg.setPartes(its.slice(1).map(x => ({ texto: x.textoEf || "", media: x.mediaEf || null })));
+  }
+  const vacio = it => !(it.textoEf || "").trim() && !it.mediaEf;
+
   const mediaHTML = (url, cls) => !url ? ""
+    : esAudioUrl(url) ? `<audio class="caudio" src="${esc(url)}" controls preload="metadata"></audio>`
     : esVideo(url) ? `<video class="${cls}" src="${esc(url)}" muted playsinline></video>`
     : `<img class="${cls}" src="${esc(url)}" alt="">`;
+  const tipoDe = it => esAudioUrl(it.mediaEf) ? "Nota de voz"
+    : esVideo(it.mediaEf) ? ((it.textoEf || "").trim() ? "Texto + video" : "Video")
+    : it.mediaEf ? ((it.textoEf || "").trim() ? "Texto + imagen" : "Imagen") : "Texto";
 
-  function burbujaVista(it, i) {
-    const texto = it.principal ? (it.texto || it.textoFb || "") : it.texto;
-    const media = it.principal ? (it.media || it.mediaFb) : it.media;
-    const origen = it.principal
-      ? [it.texto ? "texto propio" : it.etiquetaFb, !it.media && it.mediaFb ? it.etiquetaMediaFb : ""].filter(Boolean).join(" · ")
-      : "";
+  function burbujaVista(it, i, quieta) {
+    const origen = !it.principal ? ""
+      : [it.heredaTexto ? it.etiquetaFb : "", it.heredaMedia ? it.etiquetaMediaFb : ""].filter(Boolean).join(" · ");
+    const txt = (it.textoEf || "").trim();
     return `<div class="cbub" data-i="${i}">
       <button type="button" class="cmover" aria-label="Arrastrar para cambiar el orden" title="Mantén presionado y arrastra">⠿</button>
       <div class="ccuerpo">
-        ${mediaHTML(media, "cmedia")}
-        ${texto.trim() ? `<div class="ctxt">${esc(cfg.previa(texto))}</div>` : `<div class="ctxt vacio">Solo ${esVideo(media) ? "video" : "imagen"}</div>`}
-        <div class="cmeta"><span><b>${i + 1}</b>${origen ? " · " + esc(origen) : ""}</span>
-          <button type="button" class="ced" data-ed="${i}">✎ Editar</button></div>
+        ${mediaHTML(it.mediaEf, "cmedia")}
+        ${txt ? `<div class="ctxt">${esc(cfg.previa(it.textoEf))}</div>` : ""}
+        ${vacio(it) ? `<div class="ctxt vacio">Mensaje vacío</div>` : ""}
+        <div class="cmeta"><span><b>${i + 1}</b> · ${tipoDe(it)}${origen ? " · " + esc(origen) : ""}</span>
+          ${quieta ? "" : `<button type="button" class="ced" data-ed="${i}">✎ Editar</button>`}</div>
       </div>
     </div>`;
   }
 
-  function burbujaEdicion(it, i) {
-    const texto = it.principal ? (it.texto ?? "") : it.texto;
-    const valor = it.principal && !it.texto ? (it.textoFb || "") : texto;
-    const propia = it.media;
-    const fb = it.principal && !propia ? it.mediaFb : null;
+  function edicionTexto(it, i, n) {
+    const propia = it.mediaEf && !it.heredaMedia;
     return `<div class="cbub edit" data-i="${i}">
       <div class="cedhd"><span class="cnum">${i + 1}</span><b>Editando mensaje ${i + 1}</b>
-        ${it.principal ? "" : `<button type="button" class="tbtn cquitar" data-quitar style="color:var(--bad)">Quitar mensaje</button>`}</div>
-      <textarea rows="4" data-txt maxlength="4000" placeholder="Escribe el mensaje…">${esc(valor)}</textarea>
-      <div class="msgshelp">Etiquetas: <code>{nombre}</code> <code>{actividad}</code> <code>{hora}</code> <code>{zona}</code>.
-        Variantes al azar con <code>{hola|buenas|qué más}</code>.</div>
-      ${it.principal && it.texto ? `<button type="button" class="tbtn" data-fb>↺ Volver a ${esc(it.etiquetaFb)}</button>` : ""}
+        ${n > 1 ? `<button type="button" class="tbtn cquitar" data-quitar style="color:var(--bad)">Quitar mensaje</button>` : ""}</div>
+      <textarea rows="4" data-txt maxlength="4000" placeholder="Escribe el mensaje…">${esc(it.textoEf || "")}</textarea>
+      <div class="msgshelp">${cfg.ayuda || AYUDA_DEF}</div>
+      ${it.principal && !it.heredaTexto && it.etiquetaFb && (it.textoEf || "").trim()
+        ? `<button type="button" class="tbtn" data-fb>↺ Volver a ${esc(it.etiquetaFb)}</button>` : ""}
       <div class="cadj">
-        ${mediaHTML(propia || fb, "cthumb")}
-        <div class="cadjtxt">${propia ? (esVideo(propia) ? "Video de este mensaje" : "Imagen de este mensaje")
-          : fb ? esc(it.etiquetaMediaFb) + " · va siempre en el primer mensaje"
+        ${mediaHTML(it.mediaEf, "cthumb")}
+        <div class="cadjtxt">${propia ? (esVideo(it.mediaEf) ? "Video de este mensaje" : "Imagen de este mensaje")
+          : it.heredaMedia ? esc(it.etiquetaMediaFb) + " · se mueve con este mensaje"
           : "Sin imagen ni video"}<span class="imgestado" data-est></span></div>
         <input type="file" data-file accept="${ACCEPT_ADJUNTO}" class="hidden">
-        <button type="button" class="tbtn" data-pick>${propia || fb ? "Cambiar" : "＋ Imagen o video"}</button>
-        ${propia ? `<button type="button" class="tbtn" data-delmedia style="color:var(--bad)">Quitar</button>` : ""}
+        <button type="button" class="tbtn" data-pick>${it.mediaEf ? "Cambiar" : "＋ Imagen o video"}</button>
+        ${it.mediaEf ? `<button type="button" class="tbtn" data-delmedia style="color:var(--bad)">Quitar</button>` : ""}
+        ${it.principal && it.sinMedia && it.hayMediaFb && !it.mediaEf
+          ? `<button type="button" class="tbtn" data-fbmedia>↺ Usar ${esc(it.etiquetaMediaFb)}</button>` : ""}
       </div>
       <div class="clisto"><button type="button" class="tbtn" data-listo>Listo</button></div>
     </div>`;
   }
 
-  // Mueve el mensaje de `de` a `a`. Si cambia el PRIMERO, el que baja se
-  // convierte en un mensaje normal con su texto escrito tal cual (la plantilla
-  // no se puede «heredar» en otra posición: solo la invitación la usa), y el
-  // que sube pasa a ser la invitación. La imagen del catálogo/actividad no se
-  // mueve: es el respaldo del primer mensaje, sea cual sea.
-  function mover(de, a) {
-    const its = items();
-    const [m] = its.splice(de, 1);
-    its.splice(a, 0, m);
-    const nuevo = its[0];
-    if (!nuevo.principal) {
-      if (!nuevo.texto.trim()) {
-        toast("El primer mensaje necesita texto: ponle uno a ese mensaje antes de subirlo.");
-        return pintar();
-      }
-      const viejo = its.find(x => x.principal);
-      viejo.texto = viejo.texto || viejo.textoFb || "";
-      cfg.setTexto(nuevo.texto);
-      cfg.setMedia(nuevo.media);
-    }
-    cfg.setPartes(its.slice(1).map(x => ({ texto: x.texto || "", media: x.media || null })));
-    pintar();
-    cfg.cambio?.();
+  function edicionVoz(it, i, n) {
+    return `<div class="cbub edit" data-i="${i}">
+      <div class="cedhd"><span class="cnum">${i + 1}</span><b>Nota de voz · mensaje ${i + 1}</b>
+        ${n > 1 ? `<button type="button" class="tbtn cquitar" data-quitar style="color:var(--bad)">Quitar mensaje</button>` : ""}</div>
+      ${mediaHTML(it.mediaEf, "")}
+      <div class="msgshelp">Una nota de voz no lleva texto. Si quieres escribir algo antes o después, agrégalo como otro mensaje y arrástralo.</div>
+      <div class="clisto">
+        <button type="button" class="tbtn" data-regrabar>🎤 Volver a grabar</button>
+        <button type="button" class="tbtn" data-listo>Listo</button>
+      </div>
+    </div>`;
+  }
+
+  function burbujaGrabando(i) {
+    const g = b.grab;
+    return `<div class="cbub edit" data-grab>
+      <div class="cedhd"><span class="cnum">${i + 1}</span><b>Nota de voz · mensaje ${i + 1}</b></div>
+      ${g.subiendo ? `<div class="cgrab"><span class="imgestado">Subiendo nota de voz…</span></div>`
+        : `<div class="cgrab">
+            <span class="recdot${g.pausada ? " quieta" : ""}"></span>
+            <span class="audtimer" data-timer>${fmtSeg(g.seg)}</span>
+            <span class="cgrabest" data-recest>${g.pausada ? "En pausa" : "Grabando…"}</span>
+          </div>
+          <div class="clisto">
+            <button type="button" class="tbtn" data-recpausa>${g.pausada ? "▶ Reanudar" : "⏸ Pausar"}</button>
+            <button type="button" class="tbtn" data-recno style="color:var(--bad)">✕ Descartar</button>
+            <button type="button" class="tbtn" data-recok>✔ Listo</button>
+          </div>`}
+    </div>`;
   }
 
   function pintar() {
@@ -114,10 +169,91 @@ export function crearBurbujas(contId, cfg) {
     if (!el) return;
     const its = items();
     if (b.editando >= its.length) b.editando = -1;
-    el.innerHTML = `<div class="cchat">${its.map((it, i) => i === b.editando ? burbujaEdicion(it, i) : burbujaVista(it, i)).join("")}</div>
-      ${its.length < MAX_MENSAJES ? `<button type="button" class="caddmsg">＋ Agregar mensaje</button>` : ""}
-      ${its.length > 1 ? `<div class="msgshelp cayuda">Mantén presionado <b>⠿</b> y arrastra para cambiar el orden.</div>` : ""}`;
+    const g = b.grab;
+    // Un envío nuevo arranca con un único mensaje en blanco: se abre ya en
+    // edición, en vez de mostrar una burbuja «vacía» que hay que tocar primero.
+    if (!g && b.editando < 0 && !b.eligiendo && its.length === 1 && vacio(its[0])) b.editando = 0;
+    const cuerpo = its.map((it, i) =>
+      g && g.i === i ? burbujaGrabando(i)
+      : (!g && i === b.editando) ? (esAudioUrl(it.mediaEf) ? edicionVoz(it, i, its.length) : edicionTexto(it, i, its.length))
+      : burbujaVista(it, i, !!g)).join("")
+      + (g && g.i === its.length ? burbujaGrabando(its.length) : "");
+    const cabe = its.length < MAX_MENSAJES && !g;
+    el.innerHTML = `<div class="cchat">${cuerpo}</div>
+      ${cabe && b.eligiendo ? `<div class="celige">
+          <button type="button" data-nuevo="texto"><b>Texto</b><span>con imagen o video opcional</span></button>
+          <button type="button" data-nuevo="voz"><b>🎤 Nota de voz</b><span>la grabas aquí mismo</span></button>
+        </div>` : ""}
+      ${cabe && !b.eligiendo ? `<button type="button" class="caddmsg">＋ Agregar mensaje</button>` : ""}
+      ${its.length > 1 ? `<div class="msgshelp cayuda">Mantén presionado <b>⠿</b> y arrastra para cambiar el orden: lo de arriba llega primero.</div>` : ""}`;
     cablear(el, its);
+  }
+
+  function mover(de, a) {
+    const its = items();
+    const [m] = its.splice(de, 1);
+    its.splice(a, 0, m);
+    guardar(its);
+    pintar();
+    cfg.cambio?.();
+  }
+
+  function quitar(i) {
+    const its = items();
+    if (its.length < 2) return;
+    its.splice(i, 1);
+    guardar(its);
+    b.editando = -1;
+    pintar();
+    cfg.cambio?.();
+  }
+
+  // Empieza a grabar el mensaje `i` (uno nuevo si i === cantidad actual).
+  async function grabar(i) {
+    if (b.grab) return;
+    if (!puedeGrabar()) { toast("⚠ Este navegador no soporta grabar audio"); return; }
+    b.eligiendo = false; b.editando = -1;
+    const g = b.grab = { i, seg: 0, pausada: false, subiendo: false, ctl: null };
+    pintar();
+    try {
+      g.ctl = await iniciarGrabacion((seg, pausada) => {
+        g.seg = seg;
+        const cambio = g.pausada !== pausada;
+        g.pausada = pausada;
+        // El segundero no repinta todo: perdería el foco de los botones.
+        if (cambio) return pintar();
+        const t = cont()?.querySelector("[data-timer]");
+        if (t) t.textContent = fmtSeg(seg);
+      });
+      // Si la cerraron (reset) mientras el navegador pedía el micrófono.
+      if (b.grab !== g) g.ctl.descartar();
+    } catch (err) {
+      if (b.grab === g) { b.grab = null; pintar(); }
+      toast("⚠ " + err.message);
+    }
+  }
+
+  async function terminarGrabacion(guardarla) {
+    const g = b.grab;
+    if (!g || !g.ctl || g.subiendo) return;
+    if (!guardarla) { await g.ctl.descartar(); b.grab = null; return pintar(); }
+    const r = await g.ctl.terminar();
+    if (b.grab !== g) return;
+    if (!r) { b.grab = null; toast("No quedó nada grabado"); return pintar(); }
+    g.subiendo = true; pintar();
+    try {
+      const url = await subirAudioMensaje(r.blob, r.ext);
+      if (b.grab !== g) return;
+      const its = items();
+      const voz = { textoEf: "", mediaEf: url };
+      if (g.i < its.length) its[g.i] = voz; else its.push(voz);
+      guardar(its);
+    } catch (err) {
+      toast("⚠ No se pudo subir la nota de voz: " + mensajeErrorAdjunto(err));
+    }
+    if (b.grab === g) b.grab = null;
+    pintar();
+    cfg.cambio?.();
   }
 
   function cablear(el, its) {
@@ -125,39 +261,70 @@ export function crearBurbujas(contId, cfg) {
     b.sortable?.destroy();
     b.sortable = Sortable.create(lista, {
       handle: ".cmover", animation: 150, ghostClass: "sortable-ghost", chosenClass: "sortable-chosen",
-      // Con un mensaje abierto no se arrastra: el orden cambiaría debajo de lo
-      // que se está escribiendo.
-      disabled: b.editando >= 0 || its.length < 2,
+      // Con un mensaje abierto o grabando no se arrastra: el orden cambiaría
+      // debajo de lo que se está haciendo.
+      disabled: b.editando >= 0 || !!b.grab || its.length < 2,
       delay: 120, delayOnTouchOnly: true,
       onEnd: ev => { if (ev.oldIndex !== ev.newIndex) mover(ev.oldIndex, ev.newIndex); },
     });
-    el.querySelectorAll("[data-ed]").forEach(x => x.onclick = () => { b.editando = +x.dataset.ed; pintar(); enfocar(); });
-    el.querySelector(".caddmsg")?.addEventListener("click", () => {
+    el.querySelectorAll("[data-ed]").forEach(x => x.onclick = () => {
+      b.editando = +x.dataset.ed; b.eligiendo = false; pintar(); enfocar();
+    });
+    el.querySelector(".caddmsg")?.addEventListener("click", () => { b.eligiendo = true; b.editando = -1; pintar(); });
+    el.querySelectorAll("[data-nuevo]").forEach(x => x.onclick = () => {
+      if (x.dataset.nuevo === "voz") return grabar(its.length);
       const d = cfg.leer();
-      cfg.setPartes([...d.partes.map(x => ({ ...x })), { texto: "", media: null }]);
-      b.editando = its.length;
+      cfg.setPartes([...d.partes.map(p => ({ ...p })), { texto: "", media: null }]);
+      b.eligiendo = false; b.editando = its.length;
       pintar(); enfocar();
       cfg.cambio?.();
     });
+
+    if (b.grab) {
+      const uno = (sel, fn) => { const e = el.querySelector(sel); if (e) e.onclick = fn; };
+      uno("[data-recpausa]", () => b.grab?.ctl?.alternarPausa());
+      uno("[data-recok]", () => terminarGrabacion(true));
+      uno("[data-recno]", () => terminarGrabacion(false));
+      return;
+    }
+
     const ed = el.querySelector(".cbub.edit");
     if (!ed) return;
     const i = +ed.dataset.i, it = its[i];
     const txt = ed.querySelector("[data-txt]");
-    // Escribir no repinta: perdería el foco. El mensaje 1 solo se vuelve
-    // «propio» cuando de verdad se escribe; abrirlo no cambia nada.
-    txt.oninput = () => {
-      if (it.principal) cfg.setTexto(txt.value.trim() ? txt.value : null);
-      else { const d = cfg.leer(); d.partes[it.parte].texto = txt.value; }
+    // Escribir no repinta: perdería el foco. Vaciar el mensaje 1 lo devuelve a
+    // su respaldo (la plantilla), salvo que ya viniera marcado «sin texto».
+    if (txt) txt.oninput = () => {
+      if (it.principal) {
+        const hay = !!txt.value.trim();
+        cfg.setTexto(hay ? txt.value : (conRespaldo() ? null : ""));
+        if (conRespaldo()) cfg.setFlags({ sinTexto: hay ? false : it.sinTexto, sinMedia: cfg.leer().sinMedia });
+      } else { const d = cfg.leer(); d.partes[it.parte].texto = txt.value; }
       cfg.cambio?.();
     };
-    ed.querySelector("[data-listo]").onclick = () => { b.editando = -1; pintar(); cfg.cambio?.(); };
-    ed.querySelector("[data-fb]")?.addEventListener("click", () => { cfg.setTexto(null); pintar(); cfg.cambio?.(); });
-    ed.querySelector("[data-quitar]")?.addEventListener("click", () => {
-      const d = cfg.leer();
-      cfg.setPartes(d.partes.filter((_, k) => k !== it.parte).map(x => ({ ...x })));
+    ed.querySelector("[data-listo]").onclick = () => {
+      // Un mensaje sin texto ni adjunto no es un mensaje: el que no es el
+      // primero se quita; el primero, donde hay respaldo, vuelve a él.
+      const ahora = items();
+      if (vacio(ahora[i])) {
+        if (i > 0) return quitar(i);
+        if (conRespaldo()) cfg.setFlags({ sinTexto: false, sinMedia: cfg.leer().sinMedia });
+      }
       b.editando = -1; pintar(); cfg.cambio?.();
+    };
+    ed.querySelector("[data-fb]")?.addEventListener("click", () => {
+      cfg.setTexto(null);
+      cfg.setFlags?.({ sinTexto: false, sinMedia: cfg.leer().sinMedia });
+      pintar(); cfg.cambio?.();
     });
+    ed.querySelector("[data-fbmedia]")?.addEventListener("click", () => {
+      cfg.setFlags({ sinTexto: cfg.leer().sinTexto, sinMedia: false });
+      pintar(); cfg.cambio?.();
+    });
+    ed.querySelector("[data-quitar]")?.addEventListener("click", () => quitar(i));
+    ed.querySelector("[data-regrabar]")?.addEventListener("click", () => grabar(i));
     const file = ed.querySelector("[data-file]"), est = ed.querySelector("[data-est]");
+    if (!file) return;
     ed.querySelector("[data-pick]").onclick = () => file.click();
     ed.querySelector("[data-delmedia]")?.addEventListener("click", () => ponerMedia(it, null));
     file.onchange = async () => {
@@ -170,9 +337,14 @@ export function crearBurbujas(contId, cfg) {
     };
   }
 
+  // Poner o quitar el adjunto de un mensaje. Quitárselo al primero, cuando lo
+  // que se ve es la imagen heredada, es decir «este va sin imagen».
   function ponerMedia(it, url) {
-    if (it.principal) cfg.setMedia(url);
-    else {
+    if (it.principal) {
+      const d = cfg.leer();
+      cfg.setMedia(url);
+      if (conRespaldo()) cfg.setFlags({ sinTexto: d.sinTexto, sinMedia: !url && !!d.mediaFb });
+    } else {
       const d = cfg.leer();
       cfg.setPartes(d.partes.map((x, k) => k === it.parte ? { ...x, media: url } : { ...x }));
     }
@@ -185,7 +357,14 @@ export function crearBurbujas(contId, cfg) {
   }
 
   b.pintar = pintar;
-  // Al cambiar de actividad o abrir otra en el formulario, nada queda abierto.
-  b.reset = () => { b.editando = -1; pintar(); };
+  b.grabando = () => !!b.grab;
+  // Al cambiar de actividad, abrir otro formulario o cerrar el panel, nada
+  // queda abierto ni grabando.
+  b.reset = () => {
+    const g = b.grab;
+    b.grab = null; b.editando = -1; b.eligiendo = false;
+    g?.ctl?.descartar();
+    pintar();
+  };
   return b;
 }

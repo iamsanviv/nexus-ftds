@@ -48,7 +48,27 @@ La nota de voz ha estado oculta porque existieron casos en los que el archivo su
 
 No reactivar audio por presencia de código. Hace falta prueba real de extremo a extremo: subida, envío, recepción y reproducción.
 
-**11/11/2026:** la causa estaba en la conversión del worker (tiempos inválidos heredados de la grabación de Chrome, y estéreo). Arreglada y probada de extremo a extremo desde el panel (iPhone, Android, VM1 y VM2). La nota de voz solo existe en el masivo. Detalle y trampas de diagnóstico en [[../08-memory/known-issues]] KI-002.
+**11/11/2026:** la causa estaba en la conversión del worker (tiempos inválidos heredados de la grabación de Chrome, y estéreo). Arreglada y probada de extremo a extremo desde el panel (iPhone, Android, VM1 y VM2). Detalle y trampas de diagnóstico en [[../08-memory/known-issues]] KI-002.
+
+## Editor de conversación: mensajes reordenables y nota de voz (11/11/2026, rama `mensajes-reordenables-voz`)
+
+Los tres envíos en serie —**masivo**, **invitación de actividad** y **seguimiento a leads**— se editan con el mismo componente, `public/js/burbujas.js`: los mensajes (hasta 4) se ven como burbujas en el orden en que llegan y se reordenan arrastrando ⠿. La grabación vive en `public/js/grabadora.js`.
+
+Tres reglas que pidió Sanviv:
+
+1. **El orden de la lista es el orden de llegada**, sea texto, imagen, video o nota de voz.
+2. **Cada mensaje se mueve entero**: su imagen o video viaja con él. Antes la imagen del catálogo quedaba anclada al primer mensaje.
+3. **La nota de voz es un mensaje propio, sin texto.** WhatsApp no le pone pie a una nota de voz, y el worker manda el audio y luego el texto por su cuenta; al ser mensajes separados, el orden lo decide el agente. Un mensaje de texto no admite audio adjunto.
+
+`burbujas.js` **no guarda nada propio**: es una vista sobre el estado que ya existía (mensaje 1 + arreglo de los mensajes 2..4), así que la cola y el worker no cambiaron. Una nota de voz es un mensaje con el audio en `media` (`a_<ts>.webm|m4a|ogg` en el bucket `mensajes`, subida al terminar de grabar) y `texto` vacío. El worker decide que es audio por la extensión.
+
+- **Masivo**: el `textarea`, la imagen y la lista de partes siguen en el DOM dentro de un `hidden`; son el estado que lee `enviarSinCandado()`.
+- **Leads**: escribe en `bor.mensajes`. La nota de voz queda **dentro de la plantilla** (`plantillas_lead.mensajes[].media`): quien use una plantilla ajena envía la voz de quien la grabó.
+- **Invitación**: el mensaje 1 tiene respaldos (plantilla del agente, imagen del catálogo o de la actividad). Ver «El mensaje 1 de la invitación» en [[../03-domain/activities-followups]].
+
+Limitación conocida: al mover el mensaje que mostraba la imagen **del catálogo**, esa URL queda copiada en la serie. Si después se cambia la imagen del servicio, el catálogo borra el archivo anterior y esa copia deja de existir (el worker manda entonces solo el texto). Las actividades son del día, así que casi no se nota; en una plantilla de leads no aplica (no hereda del catálogo).
+
+Probado en navegador sin sesión (carga de módulos, reordenar, grabar con micrófono simulado, paneles de masivo y leads, arrastre real en el formulario de actividad). **No probado: ningún envío real con el editor nuevo.**
 
 ## Video
 
