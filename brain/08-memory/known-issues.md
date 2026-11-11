@@ -16,13 +16,37 @@ El «día» de cualquier tope/corte es el de Colombia, no UTC. Cualquier cálcul
 
 ---
 
-## KI-002 — Audio/nota de voz
+## KI-002 — Audio/nota de voz · CERRADO 11/11/2026
 
 La UI ha ocultado o restringido audio porque existieron fallos de reproducción/entrega aunque el worker tuviera conversión PTT.
 
+**Causa principal: marcas de tiempo inválidas en el `.ogg`.** La grabación de Chrome (`MediaRecorder`, webm/opus) trae tiempos irregulares y arranque negativo. ffmpeg los hereda al convertir, y el `.ogg` resultante declara en cada página **menos** audio del que trae (granule position menor que las muestras decodificadas: −312, luego −336, variable). Ogg/Opus no lo permite. ffmpeg lo decodifica sin quejarse; el iPhone lo descarta al recibirlo con **«No se pudo descargar el audio»**.
+
+**Causa secundaria: estéreo.** Una nota de voz estéreo llega y se ve, pero el iPhone responde «Este audio ya no está disponible».
+
+**Lo que NO era:** el perfil de Opus. Con la misma grabación fallaron por igual SILK, híbrido SWB/FB, CELT, 16 kHz, paquetes de 20 y de 120 ms (imitando a WhatsApp). Tampoco el bridge ni la subida: lo que queda en el CDN es idéntico byte a byte a lo enviado.
+
+**Arreglo en producción (VM1, `worker.py`, worker reiniciado):** `convertir_a_ogg` usa `-af asetpts=N/SR/TB -ac 1 -ar 48000 -c:a libopus -b:a 32k -application voip`. Respaldos: `worker.py.bak-20261111-voz-mono` (original), `.bak-20261111-voz-tiempos` y `.bak-20261111-voz-silencio`. El bridge no se tocó.
+
+**NO usar `aresample=async` (incidente del mismo 11/11).** La primera versión del arreglo llevaba `aresample=async=1:first_pts=0` delante de `asetpts`. Ese filtro «respeta» los tiempos de entrada y rellena los huecos con silencio. Una grabación de Leonardo Angarita (49 s de voz) traía un salto de 332 s entre el primer fragmento y el segundo; salió como un audio de 6:21 con 5,5 min de silencio al inicio, a 23 personas de un masivo (WhatsApp mostraba 5:00 porque el bridge recorta la duración a 300 s). `asetpts=N/SR/TB` solo numera las muestras de corrido e ignora los tiempos de la grabación: mismo audio, 49,3 s. Comprobación obligatoria al tocar la conversión: la duración de salida debe coincidir con la del audio decodificado (p. ej. pasándolo a WAV), no con la que declara el contenedor.
+
+**Probado en iPhone real (Sanviv), enviando directo al bridge `santiago_viveros`:** sus dos grabaciones reales de Chrome, reconvertidas con la receta nueva, suenan; con la anterior, no.
+
+**Probado de extremo a extremo desde el panel (11/11/2026, preview de la rama, Sanviv):** grabando en navegador de escritorio, iPhone y Android; recibiendo en iPhone y Android; con los canales de Santiago Viveros y Andrés Calle (VM1) y de Sebastián Ceballos y Leonardo Angarita (VM2); una nota de 4 minutos y tres envíos a la vez. Todo sonó. En la cola: 13 notas, todas `enviado`, sin errores.
+
+**Lo único sin ejercitar:** la rama `.m4a`. Las 13 notas llegaron como `.webm`, también las grabadas en iPhone (su Safari ya graba webm/opus, que `mimeGrabacion` prefiere). Un iPhone con iOS antiguo grabaría `audio/mp4`; ese camino solo se probó con un archivo sintético.
+
+### Trampas de diagnóstico (costaron una salida a producción fallida)
+
+- **«Decodifica con ffmpeg» no prueba nada.** ffmpeg tolera los tiempos inválidos. Lo que hay que medir es, página por página, granule position contra muestras decodificadas: no puede ser negativo ni variar.
+- **Un tono sintético no representa una nota de voz.** Generado con `lavfi` trae tiempos perfectos y pasa; por eso una primera prueba con tonos «confirmó» que bastaba el mono, se publicó, y la voz real falló. Probar siempre con una grabación real del navegador.
+- **No fusionar a `main` para probar.** Usar la URL de preview de la rama.
+
+**Cosméticos del bridge (sin arreglar):** `analyzeOggOpus` lee `OpusHead` con desplazamientos equivocados y cae al valor por defecto (correcto por casualidad); la duración se redondea hacia arriba; el waveform es sintético.
+
 ### Regla
 
-No habilitar audio solo porque exista código parcial. Probar subida, envío, recepción y reproducción real.
+No habilitar audio solo porque exista código parcial. Probar subida, envío, recepción y reproducción real, con voz grabada de verdad. No quitar el filtro de tiempos ni `-ac 1` de la conversión.
 
 ---
 

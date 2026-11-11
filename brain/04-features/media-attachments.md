@@ -48,6 +48,8 @@ La nota de voz ha estado oculta porque existieron casos en los que el archivo su
 
 No reactivar audio por presencia de código. Hace falta prueba real de extremo a extremo: subida, envío, recepción y reproducción.
 
+**11/11/2026:** la causa estaba en la conversión del worker (tiempos inválidos heredados de la grabación de Chrome, y estéreo). Arreglada y probada de extremo a extremo desde el panel (iPhone, Android, VM1 y VM2). La nota de voz solo existe en el masivo. Detalle y trampas de diagnóstico en [[../08-memory/known-issues]] KI-002.
+
 ## Video
 
 Habilitado en Masivo desde el 20/08/2026. Desde el **08/10/2026: SOLO MP4** (antes también MOV).
