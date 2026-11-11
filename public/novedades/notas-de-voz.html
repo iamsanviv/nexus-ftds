@@ -167,6 +167,9 @@ h1 em{font-style:normal;color:var(--gold)}
 .ib:hover{border-color:var(--gold)}
 .ib:focus-visible,.seg:focus-visible,.cap:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .ib svg{width:18px;height:18px}
+.ib .tachado{display:none}
+.ib[aria-pressed="false"]{color:var(--dim)}
+.ib[aria-pressed="false"] .tachado{display:inline}
 .tl{flex:1;min-width:180px;display:flex;gap:4px;height:44px;align-items:center}
 .seg{height:8px;border-radius:4px;background:var(--surface2);border:0;padding:0;position:relative;overflow:hidden;cursor:pointer}
 .seg i{position:absolute;inset:0 auto 0 0;background:var(--gold);width:0}
@@ -222,6 +225,7 @@ h1 em{font-style:normal;color:var(--gold)}
       <button class="ib" id="prev" type="button" aria-label="Paso anterior"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
       <button class="ib main" id="play" type="button" aria-label="Reproducir"></button>
       <button class="ib" id="next" type="button" aria-label="Paso siguiente"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+      <button class="ib" id="mus" type="button" aria-pressed="true" aria-label="Silenciar música" title="Silenciar música"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/><path class="tachado" d="M3 3l18 18"/></svg></button>
       <div class="tl" id="tl"></div>
       <span class="tiempo" id="tiempo">0:00 / 0:00</span>
     </div>
@@ -384,7 +388,96 @@ h1 em{font-style:normal;color:var(--gold)}
   ESCENAS.forEach(e => { e.ini = acc; acc += e.dur; });
   const TOTAL = acc;
 
-  // ---------- reproducción ----------
+  // ---------- música de fondo ----------
+  // Se genera en el navegador con Web Audio (no hay archivo de audio): un
+  // colchón de acordes suave, un arpegio y un pulso grave, en bucle. Suena
+  // solo mientras el tutorial se reproduce. El navegador no deja sonar nada
+  // antes de que la persona toque algo, así que si arrancó solo, la música
+  // entra con el primer toque. El botón de la nota la apaga y se recuerda.
+  const MUSICA = (() => {
+    const BPM = 92, CORCHEA = 60 / BPM / 2;
+    // Do maj7 · La m7 · Fa maj7 · Sol 6, dos compases cada uno.
+    const ACORDES = [[48, 55, 59, 64], [45, 52, 55, 60], [41, 48, 52, 57], [43, 50, 55, 59]];
+    const ARPEGIO = [0, 1, 2, 3, 2, 1, 3, 2];
+    const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+    let ctx = null, master = null, filtro = null, timer = null, sig = 0, paso = 0, activa = false;
+    let apagada = false;
+    try { apagada = localStorage.getItem("tutorialMusica") === "no"; } catch (e) { /* sin almacenamiento */ }
+
+    function preparar() {
+      if (ctx) return true;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      ctx = new AC();
+      master = ctx.createGain(); master.gain.value = 0;
+      filtro = ctx.createBiquadFilter(); filtro.type = "lowpass"; filtro.frequency.value = 1800;
+      filtro.connect(master); master.connect(ctx.destination);
+      return true;
+    }
+    function nota(f, t, dur, tipo, vol, ataque) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = tipo; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + ataque);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(filtro);
+      o.start(t); o.stop(t + dur + 0.05);
+    }
+    function golpe(t) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.18);
+      g.gain.setValueAtTime(0.32, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+      o.connect(g); g.connect(master);
+      o.start(t); o.stop(t + 0.35);
+    }
+    function tocar(p, t) {
+      const acorde = ACORDES[Math.floor(p / 16) % ACORDES.length];
+      if (p % 16 === 0) acorde.forEach(m => {
+        nota(hz(m), t, CORCHEA * 16, "triangle", 0.045, 0.9);
+        nota(hz(m) * 1.004, t, CORCHEA * 16, "sine", 0.03, 1.1);
+      });
+      nota(hz(acorde[ARPEGIO[p % 8]] + 12), t, 0.5, "sine", 0.06, 0.01);
+      if (p % 4 === 0) golpe(t);
+    }
+    function programar() {
+      while (sig < ctx.currentTime + 0.15) { tocar(paso, sig); sig += CORCHEA; paso++; }
+    }
+    function arrancar() {
+      if (apagada || !preparar()) return;
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      if (activa) return;
+      activa = true;
+      sig = ctx.currentTime + 0.08;
+      master.gain.cancelScheduledValues(ctx.currentTime);
+      master.gain.setTargetAtTime(0.55, ctx.currentTime, 0.4);
+      timer = setInterval(programar, 30);
+      programar();
+    }
+    function parar() {
+      if (!activa) return;
+      activa = false;
+      clearInterval(timer); timer = null;
+      master.gain.cancelScheduledValues(ctx.currentTime);
+      master.gain.setTargetAtTime(0, ctx.currentTime, 0.12);
+    }
+    return {
+      arrancar, parar,
+      get apagada() { return apagada; },
+      alternar(sonando) {
+        apagada = !apagada;
+        try { localStorage.setItem("tutorialMusica", apagada ? "no" : "si"); } catch (e) { /* sin almacenamiento */ }
+        if (apagada) parar(); else if (sonando) arrancar();
+      },
+    };
+  })();
+  const pintarMusica = () => {
+    const b = $("mus");
+    b.setAttribute("aria-pressed", MUSICA.apagada ? "false" : "true");
+    b.setAttribute("aria-label", MUSICA.apagada ? "Activar música" : "Silenciar música");
+    b.title = MUSICA.apagada ? "Activar música" : "Silenciar música";
+  };
+
+
   const $ = id => document.getElementById(id);
   const stageEl = $("stage"), sceneEl = $("scene"), cursorEl = $("cursor"), overlay = $("overlay");
   let T = 0, jugando = false, empezo = false, ultimo = 0, clave = "", escenaPrevia = -1;
@@ -448,17 +541,17 @@ h1 em{font-style:normal;color:var(--gold)}
     if (!jugando) return;
     T = Math.min(TOTAL, T + (ahora - ultimo) * VEL);
     ultimo = ahora;
-    if (T >= TOTAL) jugando = false;
+    if (T >= TOTAL) { jugando = false; MUSICA.parar(); }
     pintar();
     if (jugando) requestAnimationFrame(bucle);
   }
   function reproducir() {
     if (T >= TOTAL) { T = 0; escenaPrevia = -1; }
-    empezo = true; jugando = true; ultimo = performance.now();
+    empezo = true; jugando = true; ultimo = performance.now(); MUSICA.arrancar();
     pintarLinea();
     requestAnimationFrame(bucle);
   }
-  function pausar() { jugando = false; pintar(); }
+  function pausar() { jugando = false; MUSICA.parar(); pintar(); }
   const alternar = () => jugando ? pausar() : reproducir();
   function ir(t) { T = clamp(t, 0, TOTAL); empezo = true; escenaPrevia = -1; pintar(true); if (jugando) ultimo = performance.now(); }
   const paso = d => {
@@ -487,6 +580,11 @@ h1 em{font-style:normal;color:var(--gold)}
   overlay.onclick = reproducir;
   $("prev").onclick = () => paso(-1);
   $("next").onclick = () => paso(1);
+  $("mus").onclick = () => { MUSICA.alternar(jugando); pintarMusica(); };
+  pintarMusica();
+  // Si el tutorial arrancó solo, la música entra con el primer toque o tecla.
+  document.addEventListener("pointerdown", () => { if (jugando) MUSICA.arrancar(); });
+  document.addEventListener("keydown", () => { if (jugando) MUSICA.arrancar(); });
   $("player").addEventListener("keydown", ev => {
     if (ev.target.closest(".seg, .cap") && (ev.key === " " || ev.key === "Enter")) return;
     if (ev.key === " " || ev.key === "k") { ev.preventDefault(); alternar(); }
