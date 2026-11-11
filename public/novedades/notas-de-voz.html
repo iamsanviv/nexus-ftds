@@ -539,6 +539,9 @@ h1 em{font-style:normal;color:var(--gold)}
     $("play").innerHTML = jugando ? ICO.pause : fin ? ICO.replay : ICO.play;
     $("play").setAttribute("aria-label", jugando ? "Pausar" : fin ? "Ver de nuevo" : "Reproducir");
     overlay.hidden = jugando || (empezo && !fin);
+    // También por estilo en línea: que el botón se quite no dependa de que
+    // una regla de CSS le gane a otra.
+    overlay.style.display = overlay.hidden ? "none" : "";
     $("overlayTxt").textContent = fin ? "Ver de nuevo" : "Ver el tutorial · " + Math.round(TOTAL / VEL / 1000) + " s";
   }
 

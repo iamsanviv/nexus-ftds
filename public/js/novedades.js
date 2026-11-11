@@ -18,6 +18,9 @@ const NOVEDADES = [
     titulo: "Notas de voz en tus envíos",
     texto: "Graba tu voz y envíala a muchas personas a la vez, junto a textos, imágenes y videos, en el orden que tú decidas.",
     url: "/novedades/notas-de-voz.html",
+    // Subirla cada vez que cambie el tutorial: va en la dirección del iframe,
+    // y sin eso el navegador puede seguir mostrando la copia vieja que guardó.
+    version: 4,
   },
 ];
 
@@ -59,7 +62,7 @@ function abrirTutorial(n) {
   $("novTit").textContent = n.titulo;
   // ?auto: arranca solo. El parámetro de versión evita que el navegador
   // muestre una copia vieja del tutorial después de un despliegue.
-  $("novFrame").src = `${n.url}?auto&v=${encodeURIComponent(n.clave)}`;
+  $("novFrame").src = `${n.url}?auto&v=${encodeURIComponent(n.clave)}-${n.version || 1}`;
   $("novFrame").classList.remove("hidden");
   $("novVolver").classList.toggle("hidden", NOVEDADES.length < 2);
   $("novOverlay").classList.add("open");
