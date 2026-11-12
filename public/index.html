@@ -34,6 +34,24 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
 </head>
 <body>
 
+<!-- ================= PANTALLA DE CARGA ================= -->
+<!-- Visible desde la primera pintura: mientras se revisa la sesión y se cargan
+     los datos, ninguna otra pantalla está a la vista y antes se veía solo el
+     fondo vacío. La quita auth.js (quitarCarga) cuando hay algo que mostrar. -->
+<div id="carga" role="status" aria-label="Cargando">
+  <img class="cargalogo" src="/favicon.svg" alt="" width="76" height="76">
+  <div class="cargamarca">Seguimiento <span>FTDs y Ventas</span></div>
+  <div class="cargabarra" aria-hidden="true"><i></i></div>
+  <div class="cargalenta">Está tardando más de lo normal.
+    <button type="button" onclick="location.reload()">Recargar</button></div>
+</div>
+<script>
+// Si el módulo principal no llega (p. ej. falla el import de Supabase), nada
+// quitaría la pantalla de carga: tras un rato se ofrece recargar en vez de
+// dejar a la persona mirando una animación infinita.
+setTimeout(function () { var c = document.getElementById("carga"); if (c) c.classList.add("lenta"); }, 12000);
+</script>
+
 <!-- ================= PANTALLA DE LOGIN ================= -->
 <div id="authScreen" class="hidden">
   <div class="authcard">

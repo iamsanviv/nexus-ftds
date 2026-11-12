@@ -87,12 +87,24 @@ function ocultarOjos(...ids) {
 
 ["auPass", "pass1", "pass2", "recu1", "recu2"].forEach(ponerOjo);
 
+/* ---------- pantalla de carga ---------- */
+// Se quita cuando ya hay algo que mirar: login, espera, recuperación, o el
+// panel con sus datos ya pintados (no el cascarón vacío). Idempotente, porque
+// entrar() también corre tras iniciar sesión, cuando ya no está.
+function quitarCarga() {
+  const c = $("carga");
+  if (!c || c.classList.contains("saliendo")) return;
+  c.classList.add("saliendo");
+  setTimeout(() => c.remove(), 300);
+}
+
 export function boot() {
   if (SUPABASE_URL.includes("TU-PROYECTO") || SUPABASE_ANON.includes("TU_ANON")) {
     $("authScreen").classList.remove("hidden");
     $("setupMsg").classList.remove("hidden");
     $("setupMsg").innerHTML = "⚙ <b>Falta configurar.</b> Edita <code>public/js/config.js</code> y pon tu <code>SUPABASE_URL</code> y <code>SUPABASE_ANON</code> (Supabase → Project Settings → API).";
     ["auName", "auEmail", "auPass", "auBtn", "auToggle"].forEach(i => { const e = $(i); if (e) e.disabled = true; });
+    quitarCarga();
     return;
   }
   /* Volver de un correo de recuperación abre una sesión válida. Sin este
@@ -101,7 +113,11 @@ export function boot() {
      —la que olvidó— seguiría siendo la única que sirve. */
   if (esRecuperacion()) { mostrarRecuperacion(); return; }
 
-  SB.auth.getSession().then(({ data }) => { data.session ? entrar() : mostrarLogin(); });
+  // Sin el catch, un fallo de red al arrancar dejaría la pantalla de carga
+  // girando para siempre; así al menos queda el login y el motivo.
+  SB.auth.getSession()
+    .then(({ data }) => data.session ? entrar() : mostrarLogin())
+    .catch(err => { mostrarLogin(); toast("⚠ No se pudo conectar: " + (textoDeError(err) || "revisa tu conexión")); });
 }
 
 // El hash se capturó en supabase.js antes de que el cliente lo consumiera.
@@ -114,6 +130,7 @@ function mostrarRecuperacion() {
   $("authScreen").classList.add("hidden");
   $("pendScreen").classList.add("hidden");
   $("recuScreen").classList.remove("hidden");
+  quitarCarga();
   $("recu1").focus();
 }
 
@@ -124,7 +141,7 @@ SB.auth.onAuthStateChange((evento) => {
   if (evento === "PASSWORD_RECOVERY") mostrarRecuperacion();
 });
 
-function mostrarLogin() { $("app").classList.add("hidden"); $("authScreen").classList.remove("hidden"); }
+function mostrarLogin() { $("app").classList.add("hidden"); $("authScreen").classList.remove("hidden"); quitarCarga(); }
 function authError(msg) { const e = $("authErr"); e.textContent = msg; e.classList.add("show"); }
 function clearErr() { $("authErr").classList.remove("show"); }
 
@@ -198,6 +215,7 @@ async function entrar() {
     Promise.allSettled([repasoDiario(), revisarAvisos()]).then(() => revisarNovedades()).catch(() => {});
   }
   catch (err) { toast("⚠ Error cargando datos: " + err.message); }
+  finally { quitarCarga(); }
 }
 
 /* ---------- espera de aprobación ---------- */
@@ -205,6 +223,7 @@ async function mostrarEspera(directorId, rechazadoEn) {
   $("app").classList.add("hidden");
   $("authScreen").classList.add("hidden");
   $("pendScreen").classList.remove("hidden");
+  quitarCarga();
 
   // A quien fue rechazado no se le deja esperando un permiso que no va a
   // llegar: se le dice, y se le quita el botón de "ya me aprobaron".
