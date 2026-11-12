@@ -3,7 +3,7 @@ import Sortable from "https://esm.sh/sortablejs@1.15.3";
 import { NIVEL } from "./config.js";
 import {
   state, $, esc, fmtF, hoyISO, uid, toast, copyNum, norm, normBusqueda, bandera, ZOOMS,
-  todos, esRequerido, esAdicional, esLead, progreso, siguiente,
+  todos, esLead, progreso,
   OPCIONES_TZ, etiquetaOffset, horaDeCliente,
   MOTIVOS_INACTIVO, esInactivo, nombreMotivo, motivoCorto, BROKERS, nombreBroker,
   insigniasBroker, telColombia, ICO_TEL,
@@ -619,7 +619,7 @@ function resultadoHTML(e) {
 }
 
 function cardHTML(c, p, rank, isLead, dir, emb) {
-  const next = siguiente(c), open = state.abiertos.has(c.id);
+  const open = state.abiertos.has(c.id);
 
   let rankChip = "";
   if (state.orden === "cerca") {
@@ -651,21 +651,6 @@ function cardHTML(c, p, rank, isLead, dir, emb) {
     ? ` <span class="badge b-ciclo" title="Solo cuenta lo que hizo después de su último pago de membresía">Upgrade${emb.desde ? ` · desde ${fechaEtp(emb.desde)}` : ""}</span>`
     : "";
 
-  const grupos = state.catalogo.map(g => {
-    if (!g.items.length) return "";
-    const filas = g.items.map(s => {
-      const ok = !!c.acc[s.id], adic = esAdicional(c.mem, s), esNext = next && next.id === s.id;
-      return `<div class="srv ${ok ? 'done' : ''} ${adic ? 'adic' : ''} ${esNext ? 'next' : ''}" data-srv="${s.id}">
-          <div class="check">${ok ? '✓' : ''}</div>
-          <div class="sname">${esc(s.n)} ${esNext ? `<span class="nextlbl">← ${isLead ? 'invitar' : 'siguiente'}</span>` : ''}</div>
-          ${adic ? `<span class="stag adic">✦ invitación</span>` : ''}
-          ${s.tier ? `<span class="stag ${s.tier}">${s.tier === 'oro' ? 'ORO' : 'VIP'}</span>` : ''}
-          ${ok ? `<span class="sfecha">${fmtF(c.acc[s.id])}</span>` : ''}
-        </div>`;
-    }).join("");
-    return `<div class="grupo"><div class="gtitle">${esc(g.g)}</div>${filas}</div>`;
-  }).join("");
-
   const nota = c.nota ? `<div class="notaimp"><span class="nlbl">Nota</span>${esc(c.nota)}</div>` : "";
 
   return `<div class="card ${open ? 'open' : ''} ${esInactivo(c) ? 'inact' : ''}" data-id="${c.id}">
@@ -679,7 +664,7 @@ function cardHTML(c, p, rank, isLead, dir, emb) {
       </div>
       <div class="cbody">
         ${isLead ? (open ? seguimientoHTML(c, { enviar: recibeSegLead(c) }) : "") + nota
-                 : nota + grupos}
+                 : nota}
         ${porBajar(c) ? `<div class="lbajar"><button class="lbtn hbajar" data-acc="bajado">${ICO_BAJAR}Bajado a WA</button><span>Lead de HighLevel: márcalo cuando ya te escriba por WhatsApp.</span></div>` : ""}
         <div class="cfoot">
           ${contacto(c)}
@@ -707,17 +692,6 @@ function wireCards() {
     card.querySelector(".chead").onclick = () => { state.abiertos.has(c.id) ? state.abiertos.delete(c.id) : state.abiertos.add(c.id); renderKeepingCard(c.id); };
     const nml = card.querySelector(".nmlink"); if (nml) nml.onclick = e => { e.stopPropagation(); abrirPerfil(c); };
     wireSeguimiento(card, c, renderKeepingCard);
-    card.querySelectorAll(".srv").forEach(row => {
-      row.onclick = async () => {
-        const s = todos().find(x => x.id === row.dataset.srv);
-        if (c.acc[s.id]) delete c.acc[s.id];
-        else {
-          c.acc[s.id] = (c.conf || {})[s.id] || hoyISO();
-        }
-        renderKeepingCard(c.id);
-        await dbPatch(c, { acc: c.acc });
-      };
-    });
     card.querySelector('[data-acc="perfil"]').onclick = () => abrirPerfil(c);
     const bj = card.querySelector('[data-acc="bajado"]');
     if (bj) bj.onclick = e => { e.stopPropagation(); marcarBajo(crmDe(c), () => renderKeepingCard(c.id)); };
