@@ -20,7 +20,7 @@ import { chipTemp, razonLlegada, seguimientoHTML, wireSeguimiento, btnEnviarSeg,
 import { renderHoy } from "./hoy.js";
 import { porBajar, crmDe, marcarBajo, ICO_BAJAR } from "./crm.js";
 import { renderMiDia, tieneMiDia } from "./midia.js";
-import { ETAPAS, RESULTADOS, embudo, compararEmbudo, cumpleResultado } from "./embudo.js";
+import { ETAPAS, RESULTADOS, SERVICIO_BASICA, embudo, compararEmbudo, cumpleResultado } from "./embudo.js";
 
 const NIVELES = ["Lead", "Beca", "VIP", "Platino", "Oro"];
 // Orden de urgencia de la temperatura para ordenar la lista de leads.
@@ -1120,22 +1120,23 @@ function pintarBajarPerfil(c) {
 }
 
 function construirActividades(c) {
-  const items = todos().filter(s => c.acc[s.id]);
-  // Actividades puntuales a las que asistió. Van aparte porque no son del
-  // catálogo y no cuentan para el progreso, pero sí son parte de su historia.
-  const pun = Object.entries(c.pun || {})
-    .filter(([, p]) => p && p.acc)
-    .sort((a, b) => (b[1].acc || "").localeCompare(a[1].acc || ""));
-
-  // Embudo de venta. Va en TODOS los perfiles porque la presentación pasa antes
-  // de que exista una venta —hasta hoy no había dónde anotarla— pero plegado:
-  // 300+ clientes de comunidad no lo usan y no tiene por qué estorbarles.
+  // Desde 12/11/2026 el perfil ya no lista servicios ni actividades puntuales
+  // (decisión de Sanviv): la lista de Comunidad resume lo que importa en las
+  // etapas de venta. Queda solo el embudo para CORREGIR una etapa, con la
+  // Básica (`acc.nivel0`) delante porque sin la lista de servicios no habría
+  // otro sitio donde arreglarla.
   const z = c.zooms || {};
-  const hechos = ZOOMS.filter(([k]) => (z[k] || {}).e === "hecha").length;
-  const zHtml = `<details class="punacc zoomacc">
-      <summary><span class="pat">◎ Embudo de venta</span><span class="pcn">${hechos}/${ZOOMS.length}</span></summary>
+  const bas = c.acc?.[SERVICIO_BASICA] || "";
+  const hechos = ZOOMS.filter(([k]) => (z[k] || {}).e === "hecha").length + (bas ? 1 : 0);
+  $("fActividades").innerHTML = `<details class="punacc zoomacc">
+      <summary><span class="pat">◎ Embudo de venta</span><span class="pcn">${hechos}/${ZOOMS.length + 1}</span></summary>
       <div class="punbody">
-        <div class="msgshelp">Se marcan solos al ponerle asistencia a una actividad puntual que sea un zoom. También puedes editarlos aquí.</div>
+        <div class="msgshelp">Se marcan solos al ponerle asistencia a la actividad. Aquí se corrigen.</div>
+        <div class="actrow zrow">
+          <span class="an">Básica (Nivel 0 a Avanzado)</span>
+          <span class="zbas">${bas ? "✓ Asistió" : "Pendiente"}</span>
+          <input type="date" data-zbas value="${esc(bas)}">
+        </div>
         ${ZOOMS.map(([k, lbl]) => {
           const zz = z[k] || {};
           return `<div class="actrow zrow">
@@ -1151,30 +1152,6 @@ function construirActividades(c) {
       </div>
     </details>`;
 
-  let html = "";
-  html += items.length
-    ? `<div class="pstitle">Fechas de actividades (edita o vacía para quitar)</div>` +
-      items.map(s => `<div class="actrow"><span class="an">${esc(s.n)}</span><input type="date" data-sid="${s.id}" value="${c.acc[s.id]}"></div>`).join("")
-    : `<div class="pstitle">Fechas de actividades</div><div class="naplica">Aún no ha tomado ningún servicio.</div>`;
-
-  // Acordeón: los lanzamientos y clases sueltas se acumulan con el tiempo y no
-  // se consultan casi nunca. Plegado, el perfil sigue cabiendo en una pantalla;
-  // desplegado, está la historia completa con fecha.
-  if (pun.length) {
-    html += `<details class="punacc">
-      <summary><span class="pat">✦ Actividades puntuales</span><span class="pcn">${pun.length}</span></summary>
-      <div class="punbody">` +
-      pun.map(([id, p]) => `<div class="actrow">
-        <span class="an">${esc(p.n || "actividad")}</span>
-        <input type="date" data-pid="${esc(id)}" value="${esc(p.acc)}">
-        <button type="button" class="pmark off" data-punx="${esc(id)}"
-                title="Eliminar este registro">✕</button>
-      </div>`).join("") +
-      `</div></details>`;
-  }
-  html += zHtml;
-  $("fActividades").innerHTML = html;
-
   // Guardar el embudo. Vaciar la fecha y dejar «Pendiente» borra la etapa: es
   // la única forma de deshacer un zoom marcado por error.
   const guardarZoom = async () => {
@@ -1185,26 +1162,18 @@ function construirActividades(c) {
       if (e || f) nuevo[k] = { ...(f ? { f } : {}), ...(e ? { e } : { e: "pendiente" }) };
     }
     c.zooms = nuevo;
-    if (await dbPatch(c, { zooms: nuevo })) toast("Embudo actualizado");
+    if (await dbPatch(c, { zooms: nuevo })) { toast("Embudo actualizado"); render(); }
   };
   $("fActividades").querySelectorAll("[data-zest],[data-zf]")
     .forEach(el => el.onchange = guardarZoom);
 
-  // Eliminar un registro puntual. Pide confirmación con el nombre adentro: es
-  // la única forma de borrar una asistencia sin querer desde acá, y la lista
-  // puede tener varias parecidas.
-  $("fActividades").querySelectorAll("[data-punx]").forEach(b => b.onclick = async () => {
-    const id = b.dataset.punx;
-    const p = (c.pun || {})[id] || {};
-    if (!confirm(`¿Eliminar el registro de «${p.n || "esta actividad"}»?\n\n`
-               + `Se borra su asistencia del ${fmtF(p.acc)}. No se puede deshacer.`)) return;
-    delete c.pun[id];
-    if (await dbPatch(c, { puntuales: c.pun })) {
-      toast("Registro eliminado");
-      construirActividades(c);
-      render();
-    }
-  });
+  // La Básica es asistencia a un servicio del catálogo: vaciar la fecha la borra.
+  $("fActividades").querySelector("[data-zbas]").onchange = async e => {
+    const v = e.target.value;
+    c.acc = { ...(c.acc || {}) };
+    if (v) c.acc[SERVICIO_BASICA] = v; else delete c.acc[SERVICIO_BASICA];
+    if (await dbPatch(c, { acc: c.acc })) { toast("Embudo actualizado"); construirActividades(c); render(); }
+  };
 }
 
 function cerrarM() {
@@ -1389,18 +1358,6 @@ async function guardarCliente() {
   if (state.cliEdit) {
     const c = state.clientes.find(x => x.id === state.cliEdit);
     Object.assign(c, datos);
-    // aplicar fechas de actividades editadas
-    $("fActividades").querySelectorAll("input[data-sid]").forEach(inp => {
-      const sid = inp.dataset.sid;
-      if (inp.value) c.acc[sid] = inp.value; else delete c.acc[sid];
-    });
-    // lo mismo para las puntuales: vaciar la fecha borra la asistencia
-    $("fActividades").querySelectorAll("input[data-pid]").forEach(inp => {
-      const pid = inp.dataset.pid;
-      if (!c.pun || !c.pun[pid]) return;
-      if (inp.value) c.pun[pid] = { ...c.pun[pid], acc: inp.value };
-      else delete c.pun[pid];
-    });
     if (await dbPatch(c, mapAEditar(c))) toast("Perfil actualizado ✓");
   } else {
     const nuevo = await dbInsert({ ...datos, acc: {} });

@@ -18,10 +18,19 @@ export const ETAPAS = [
 ];
 const ZOOM_DE = { a: "avanzada", p: "pres", u: "uno" };
 export const SERVICIO_BASICA = "nivel0";
+// Días que un pago vencido sigue arriba. Pasado esto ya se parece a un «Sin
+// acuerdo» y baja, para que los vencidos viejos no tapen lo que sí se cobra
+// (decisión de Sanviv, 12/11/2026).
+export const DIAS_VENCIDO_ARRIBA = 7;
 
 export const RESULTADOS = [
   ["agp", "Agendó pago"], ["aga", "Agendó abono"], ["abo", "Abonó"], ["sin", "Sin acuerdo"], ["venc", "Vencidos"],
 ];
+
+const restarDias = (iso, n) => {
+  const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+};
 
 const esMembresia = v => (state.productos || []).find(p => p.id === v.producto_id)?.categoria === "membresia";
 
@@ -82,9 +91,10 @@ export function embudo(c) {
   const nivel = top ? ETAPAS.indexOf(top) + 1 : 0;   // 0 = sin etapas … 4 = 1 a 1
   const res = est.u?.f ? resultado(c, desde) : null;
   // Rango del orden: primero quien hizo 1 a 1 y tiene fecha de pago (la más
-  // próxima arriba, vencidos incluidos), luego «Abonó», luego «Sin acuerdo»;
-  // después el resto por la etapa más alta.
-  const rango = nivel === 4 ? (res?.f ? 0 : res?.r === "abo" ? 1 : 2) : 7 - nivel;
+  // próxima arriba, con los vencidos recientes), luego «Abonó», luego los
+  // vencidos viejos, luego «Sin acuerdo»; después el resto por la etapa más alta.
+  const viejo = !!res?.f && res.f < restarDias(hoyISO(), DIAS_VENCIDO_ARRIBA);
+  const rango = nivel === 4 ? (viejo ? 1.5 : res?.f ? 0 : res?.r === "abo" ? 1 : 2) : 7 - nivel;
   const fechas = Object.values(est).map(x => x.f).filter(Boolean).sort();
   return {
     oro: false, upgrade, desde, etapas, est, nivel, res, rango,
@@ -97,6 +107,7 @@ export function embudo(c) {
 export function compararEmbudo(ea, eb) {
   if (ea.rango !== eb.rango) return ea.rango - eb.rango;
   if (ea.rango === 0) return ea.res.f.localeCompare(eb.res.f);
+  if (ea.rango === 1.5) return eb.res.f.localeCompare(ea.res.f);   // el menos viejo primero
   return (eb.ultima || "").localeCompare(ea.ultima || "");
 }
 

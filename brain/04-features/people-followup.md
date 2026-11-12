@@ -61,8 +61,8 @@ Sustituye al ranking «X/29 servicios»: Nexus crea clases nuevas a cada rato y 
 - **Resultado tras el 1 a 1**, leído de la venta de membresía abierta más reciente (`ventas` + `abonos`): sin abonos con `fecha_pago` = Agendó pago; abonos parciales con fecha = Agendó abono; parciales sin fecha = Abonó; sin venta (o sin abono ni fecha) = Sin acuerdo. Vencido = `fecha_pago` < hoy. Mientras las ventas cargan no se inventa «Sin acuerdo» (conteos en «…»).
 - **Upgrade**: cada venta de membresía saldada cierra un ciclo; las etapas solo cuentan con fecha posterior al último pago (si no hay venta registrada, `upgrade_fecha`). El ciclo de upgrade no pide Básica. Etiqueta «Upgrade · desde <fecha>».
 - **Oro** es el nivel máximo: sin flechas, al final («Oro · nivel máximo»).
-- **Orden «Cerca del cierre»** (por defecto): 1 a 1 con fecha de pago/abono (la más próxima arriba, vencidos incluidos), luego Abonó sin fecha, luego Sin acuerdo; después Presentación, Avanzada, Básica y sin etapas, lo más reciente arriba.
-- El progreso X/29 de servicios ya no está en la lista; queda en el perfil y en la ficha expandida.
+- **Orden «Cerca del cierre»** (por defecto): 1 a 1 con fecha de pago/abono (la más próxima arriba, con los vencidos de hasta 7 días, `DIAS_VENCIDO_ARRIBA`), luego Abonó sin fecha, luego los vencidos de más de 7 días (el menos viejo primero, para que no se acumulen arriba), luego Sin acuerdo; después Presentación, Avanzada, Básica y sin etapas, lo más reciente arriba.
+- El progreso X/29 de servicios ya no está en la lista; queda en la ficha expandida. El **perfil** ya no lista servicios ni actividades puntuales (los datos siguen en `acc` / `puntuales`): solo tiene el «Embudo de venta» para corregir etapas, con la Básica (`acc.nivel0`) como primera fila.
 - Diseño: flechas encadenadas con ícono, color por etapa (`--etp1..4` en `tema.css`, claro y oscuro) y fecha «10/oct». En celular las flechas ocupan todo el ancho de la tarjeta (también bajo el número del ranking) y usan el nombre corto («Membresías»); en fila con ícono al lado solo si la fila de flechas mide ≥560px (container query), y el nombre largo desde 720px.
 
 ## Móvil

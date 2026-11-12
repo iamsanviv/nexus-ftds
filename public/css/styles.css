@@ -1234,6 +1234,7 @@ body.segwide .tabinner{max-width:1180px}
 .zrow{gap:8px;flex-wrap:wrap}
 .zrow .an{flex:1 1 110px;min-width:0}
 .zrow select{width:auto;flex:0 1 auto;min-width:0;padding:6px 8px;font-size:.8rem}
+.zrow .zbas{flex:0 0 auto;font-size:.8rem;color:var(--muted);padding:6px 8px}
 .zrow input[type=date]{flex:0 1 auto;min-width:0}
 
 .alerta.nueva{background:rgba(78,203,141,.07);border-color:rgba(78,203,141,.38);
