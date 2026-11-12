@@ -386,8 +386,40 @@ const esLibre = a => !a || !a.servicio_id;
 // panel, pensado para los agentes; `nombre_publico` nulo = el mismo.
 const nombreParaPersonas = a => (a?.nombre_publico || "").trim() || a?.nombre || "";
 
+// Notas de voz de `a` que YO no puedo enviar: las que quien la creó marcó
+// «Solo yo». Al dueño no se le bloquea nada.
+const audiosBloqueados = a =>
+  new Set(a && state.me && a.owner_id !== state.me.id ? (a.audios_privados || []) : []);
+
+// Lo que de verdad sale en una actividad ajena: la serie sin las notas de voz
+// bloqueadas. `serie` es la que se ve en el editor y `mediaM1` el adjunto
+// efectivo del mensaje 1. Si el bloqueado ERA el mensaje 1 (nota de voz sola),
+// el siguiente mensaje pasa a ser el primero; sin siguiente, sale la plantilla
+// sin adjunto. Devuelve { serie, m1Fuera, promovido }.
+function sinBloqueados(a, serie, mediaM1) {
+  const bloq = audiosBloqueados(a);
+  if (!bloq.size || serie === false) return { serie, m1Fuera: false, promovido: null };
+  const partes = (serie?.partes || []).filter(x => !bloq.has(x.media));
+  const m1 = m1De(serie);
+  const m1Fuera = !!mediaM1 && bloq.has(mediaM1);
+  let promovido = null, sinTexto = m1.sinTexto;
+  if (m1Fuera && m1.sinTexto) {
+    if (partes.length) promovido = partes.shift();
+    else sinTexto = false;   // sin nada más: la plantilla, que es lo seguro
+  }
+  const marca = sinTexto || m1.sinMedia || m1Fuera;
+  if (!partes.length && !marca) return { serie: null, m1Fuera, promovido };
+  return { serie: { ...(serie || { modo: "usuario", espera_min: 0 }), partes,
+    m1: { sin_texto: !!sinTexto, sin_media: !!(m1.sinMedia || m1Fuera) } }, m1Fuera, promovido };
+}
+
 let segTipoAct = "cat";   // "cat" (del catálogo) | "libre" (puntual)
 let segImg = null;
+// Notas de voz de esta actividad que solo envía quien la creó (pedido de
+// Sanviv, 12/11/2026). Por URL y no por posición: la marca viaja con el audio
+// al reordenar, y la base la puede comprobar al encolar (ver
+// `sql/2026-11-12_68_audios_privados.sql`).
+let segAudiosPriv = new Set();
 // URL del adjunto subido para esta actividad (imagen o video)
 let segImgTipo = null;    // "imagen" | "video" — solo decide qué previsualización se ve
 // Editores de burbujas (burbujas.js). Se crean más abajo, junto a los de la
@@ -460,6 +492,7 @@ function renderForm() {
   setImgActividad(null);
   setMsgInvitacion(null);
   serieForm.set(null);
+  segAudiosPriv = new Set();
   burbujasForm?.reset();
   $("segImgEstado").textContent = "";
   // Compartir solo aplica si hay a quién: es cosa de directores.
@@ -763,7 +796,23 @@ burbujasForm = crearBurbujas("segChat", {
   setMedia: url => setImgActividad(url),
   setPartes: arr => serieForm.setPartes(arr),
   setFlags: f => serieForm.setM1(f),
+  // «Solo yo / Todos» se ofrece donde hay alguien más que programe: actividad
+  // del director para su equipo o del admin para todos.
+  privada: {
+    mostrar: () => (state.me?.role === "director" && $("segCompartir").checked)
+      || (state.me?.role === "admin" && $("segParaTodos").checked),
+    es: url => segAudiosPriv.has(url),
+    poner: (url, priv) => { if (priv) segAudiosPriv.add(url); else segAudiosPriv.delete(url); },
+  },
+  // Una nota de voz nace «Solo yo» (decisión de Sanviv: es su voz, olvidarse
+  // de marcarla no debe ponerla en el WhatsApp de otros). Regrabarla conserva
+  // lo que tenía la anterior.
+  alGrabar: (url, vieja) => {
+    if (!vieja || segAudiosPriv.has(vieja)) segAudiosPriv.add(url);
+  },
 });
+$("segCompartir").addEventListener("change", () => burbujasForm.pintar());
+$("segParaTodos").addEventListener("change", () => burbujasForm.pintar());
 
 // Panel de programación, actividad ajena: el mensaje 1 es la invitación propia
 // del agente; sin ella, la de la actividad o su plantilla. La imagen, la suya o
@@ -786,6 +835,10 @@ burbujasMia = crearBurbujas("segMiChat", {
   setPartes: arr => serieMia.setPartes(arr),
   setFlags: f => serieMia.setM1(f),
   cambio: () => { pintarBtnMiInv(); renderHitos(); },
+  bloqueado: url => audiosBloqueados(actSel).has(url),
+  // Su voz en lugar de la del dueño: se guarda YA, no al programar. Si cierra
+  // el panel sin programar, la próxima tanda de esta actividad la encuentra.
+  alGrabar: () => { if (actSel) guardarMiInvitacion(actSel.id, serieMia.leerSilencioso()); },
 });
 
 // Vista previa con datos de ejemplo, igual que la de la invitación.
@@ -819,12 +872,16 @@ function entrarEdicion(a) {
   setImgActividad(a.imagen);
   setMsgInvitacion(a.msg_invitacion);
   serieForm.set(a.serie_invitacion);
+  segAudiosPriv = new Set(a.audios_privados || []);
   burbujasForm?.reset();
   $("segImgEstado").textContent = "";
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
   $("segCompartir").checked = !!a.compartida;
   $("segParaTodosRow").classList.toggle("hidden", state.me.role !== "admin");
   $("segParaTodos").checked = !!a.para_todos;
+  // El chip «Solo yo / Todos» depende de si está compartida: se repinta ya
+  // marcada la casilla (el reset de arriba pinta antes).
+  burbujasForm?.pintar();
   $("segFecha").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   $("segHora").value = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   $("segLink").value = a.enlace;
@@ -891,6 +948,10 @@ async function guardarActividad() {
       // La serie sí vale en las dos: es «qué más se le manda», no un texto que
       // reemplace la plantilla del agente.
       serie_invitacion: serie,
+      // Solo las que siguen en la invitación: una nota borrada o regrabada no
+      // tiene por qué seguir en la lista.
+      audios_privados: [segImg, ...(serie?.partes || []).map(x => x.media)]
+        .filter(u => u && segAudiosPriv.has(u)),
       // Igual que la invitación propia: solo en las puntuales, y se limpia al
       // cambiar de tipo para no dejar una del catálogo marcada como zoom.
       zoom_tipo: libre ? ($("segZoom").value || null) : null,
@@ -1073,7 +1134,7 @@ async function renderPasadas() {
 
 async function cargarActividades() {
   const { data, error } = await SB.from("actividades")
-    .select("id, servicio_id, nombre, nombre_publico, inicio, enlace, estado, imagen, compartida, para_todos, msg_invitacion, serie_invitacion, zoom_tipo, imagen_enlace, owner_id")
+    .select("id, servicio_id, nombre, nombre_publico, inicio, enlace, estado, imagen, compartida, para_todos, msg_invitacion, serie_invitacion, zoom_tipo, imagen_enlace, audios_privados, owner_id")
     .eq("estado", "activa")
     .order("inicio", { ascending: true });
   if (error) {
@@ -1783,7 +1844,11 @@ function renderHitos() {
   const inicio = new Date(actSel.inicio);
   const { ahora, cuandoInv, primerContacto } = primerContactoAhora();
   // En una ajena, la serie que va a salir es la del editor propio.
-  const serieVista = puedoPersonalizarInvitacion(actSel) ? serieMia.leerSilencioso() : actSel.serie_invitacion;
+  // Sin las notas de voz bloqueadas: el resumen cuenta lo que sí sale.
+  const serieVista = puedoPersonalizarInvitacion(actSel)
+    ? sinBloqueados(actSel, serieMia.leerSilencioso(), miMedia
+        || (actSel.imagen && !m1De(serieMia.leerSilencioso()).sinMedia ? actSel.imagen : null)).serie
+    : actSel.serie_invitacion;
 
   // La invitación es una casilla más, no una fila fija: tenía su propio
   // «No enviar invitación» en otro sitio de la pantalla, y dos controles para
@@ -1998,6 +2063,14 @@ async function programar() {
     serieElegida = serieMia.leer();
     if (serieElegida === false) return;   // leer() ya dijo qué falta
   }
+  // Las notas de voz «Solo yo» de quien creó la actividad se ven en el editor
+  // pero no salen: desde aquí todo trabaja con la serie que de verdad se manda.
+  const ajenaP = puedoPersonalizarInvitacion(actSel);
+  const { serie: serieSale, m1Fuera, promovido } = ajenaP
+    ? sinBloqueados(actSel, serieElegida,
+        miMedia || (actSel.imagen && !m1De(serieElegida).sinMedia ? actSel.imagen : null))
+    : { serie: serieElegida, m1Fuera: false, promovido: null };
+  serieElegida = serieSale;
   const serie = (!segSinInvitacion && serieElegida?.partes?.length) ? serieElegida : null;
   // Cómo va el mensaje 1: sin la plantilla (nota de voz, o solo imagen/video) o
   // sin la imagen heredada. Vale aunque no haya mensajes 2..4.
@@ -2210,13 +2283,20 @@ async function programar() {
         // traerla del catálogo ni de la actividad ajena.
         if (tipo === "invitacion") {
           const ajena = puedoPersonalizarInvitacion(actSel);
-          if (miMediaEf) fila.media_url = miMediaEf;
+          if (m1Fuera) {
+            // El 1 era una nota de voz que no se puede enviar: va el siguiente
+            // en su lugar, o la plantilla sola (sin adjunto de nadie).
+            if (promovido) {
+              fila.texto = textoParte(promovido.texto, c.nombre, nombreParaPersonas(actSel), actSel.inicio, actSel.enlace, c.tzOff, tInv.toISOString());
+              if (promovido.media) fila.media_url = promovido.media;
+            }
+          } else if (miMediaEf) fila.media_url = miMediaEf;
           else if (actSel.imagen && !(ajena && m1.sinMedia)) fila.media_url = actSel.imagen;
           else if (actSel.servicio_id && !m1.sinMedia) fila.servicio_id = actSel.servicio_id;
           // Mensaje 1 sin plantilla (nota de voz, o solo imagen/video). Solo si
           // de verdad lleva un adjunto propio: sin él saldría un mensaje vacío,
           // y entonces manda la plantilla, que es lo seguro.
-          if (m1.sinTexto && fila.media_url) fila.texto = "";
+          if (!m1Fuera && m1.sinTexto && fila.media_url) fila.texto = "";
         }
         // El enlace se resuelve al enviar (el texto conserva el token {enlace}).
         // Con rastreo, cada persona recibe SU url puente en vez de la de Zoom:

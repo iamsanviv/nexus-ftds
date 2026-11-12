@@ -74,6 +74,17 @@ Limitación conocida: al mover el mensaje que mostraba la imagen **del catálogo
 
 Probado en navegador sin sesión (carga de módulos, reordenar, grabar con micrófono simulado, paneles de masivo y leads, arrastre real en el formulario de actividad). **No probado: ningún envío real con el editor nuevo.**
 
+## Notas de voz «Solo yo» en actividades compartidas (12/11/2026)
+
+Pedido de Sanviv: quien crea una actividad **Global** o **de equipo** elige, **audio por audio**, si su nota de voz la envía cualquiera que programe la actividad («👥 Todos») o solo él («🔒 Solo yo»). Una nota nueva nace **«Solo yo»** (decisión de Sanviv: es su voz; olvidarse de marcarla no debe ponerla en el WhatsApp de otros). Regrabar conserva la marca de la anterior.
+
+- Fuente: `actividades.audios_privados text[]` (URLs). Por URL y no por posición: la marca viaja con el audio al reordenar y vale igual en el mensaje 1 (`imagen`) que en los 2..4 (`serie_invitacion`). Al guardar la actividad se poda a las URLs que siguen en la invitación.
+- Dueño (`burbujas.js`, `cfg.privada`): chip discreto en la burbuja y selector «¿Quién la puede enviar?» al editarla. Solo se ofrece con «Compartir con mi equipo» (director) o «Compartir con todos los equipos» (admin) marcado.
+- Agente (`cfg.bloqueado`): la nota se ve apagada, con borde punteado, sin número (el número es el orden real de llegada), «🔒 No se envía» y «🎤 Usar mi voz». Su grabación ocupa ese lugar en SU serie (`invitaciones_agente.serie`) y **se guarda al terminar de grabar**, no al programar: queda para las siguientes tandas de esa actividad.
+- Envío (`sinBloqueados()` en `seguimiento.js`): se manda el resto del flujo sin la nota. Si la bloqueada era el mensaje 1 (nota de voz sola), el siguiente mensaje pasa a ser el 1; sin siguiente, sale la plantilla sin adjunto.
+- Base (`sql/2026-11-12_68_audios_privados.sql`): el trigger `mensajes_audio_privado` rechaza encolar (insert o cambio de `media_url`) una nota privada desde otro `owner_id`. El trigger `actividades_audios_privados` saca la nota de los mensajes **ya programados** por otros si el dueño la pasa a «Solo yo» después: corre los contenidos hacia arriba sobre las mismas filas y omite la última (`omitido:`), porque cancelar una parte intermedia dispararía `mensajes_cancela_partes` y se llevaría las siguientes. Probado con `begin … rollback` el 12/11/2026.
+- Pasar de «Solo yo» a «Todos» no agrega la nota a lo ya programado.
+
 ## Video
 
 Habilitado en Masivo desde el 20/08/2026. Desde el **08/10/2026: SOLO MP4** (antes también MOV).
