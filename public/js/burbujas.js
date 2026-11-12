@@ -61,6 +61,13 @@ const AYUDA_DEF = `Etiquetas: <code>{nombre}</code> <code>{actividad}</code> <co
 //     heredada. Su presencia es lo que le dice al editor que hay respaldos.
 //   cambio()             → avisar a quien dependa (botones, conteos, hitos)
 //   ayuda                → HTML de ayuda bajo el texto (etiquetas válidas ahí)
+//   privada              → SOLO en el formulario de la actividad: quién puede
+//     enviar cada nota de voz. { mostrar() → ¿se ofrece? (actividad Global o
+//     de equipo), es(url) → ¿solo el dueño?, poner(url, bool) }.
+//   bloqueado(url)       → SOLO al programar una ajena: esa nota de voz es
+//     «solo» de quien creó la actividad. Se ve y se escucha, pero no sale.
+//   alGrabar(url, vieja) → tras guardar una nota de voz nueva (`vieja` = la
+//     que reemplazó, si había).
 export function crearBurbujas(contId, cfg) {
   const b = { editando: -1, eligiendo: false, grab: null, sortable: null };
   const cont = () => $(contId);
@@ -113,7 +120,27 @@ export function crearBurbujas(contId, cfg) {
     : esVideo(it.mediaEf) ? ((it.textoEf || "").trim() ? "Texto + video" : "Video")
     : it.mediaEf ? ((it.textoEf || "").trim() ? "Texto + imagen" : "Imagen") : "Texto";
 
-  function burbujaVista(it, i, quieta) {
+  // Nota de voz de quien creó la actividad que este agente no puede enviar.
+  const bloq = it => !!it.mediaEf && esAudioUrl(it.mediaEf) && !!cfg.bloqueado?.(it.mediaEf);
+  // El número es el orden en que llega: lo bloqueado no llega, no cuenta.
+  const numeros = its => { let k = 0; return its.map(it => bloq(it) ? 0 : ++k); };
+  const chipPrivada = it => !esAudioUrl(it.mediaEf) || !cfg.privada?.mostrar() ? ""
+    : cfg.privada.es(it.mediaEf) ? `<span class="cpriv solo" title="Solo tú la envías">🔒 Solo yo</span>`
+    : `<span class="cpriv" title="La envía todo el que programe esta actividad">👥 Todos</span>`;
+
+  function burbujaBloqueada(it, i, quieta) {
+    return `<div class="cbub bloq" data-i="${i}">
+      <button type="button" class="cmover" aria-label="Arrastrar para cambiar el orden" title="Mantén presionado y arrastra">⠿</button>
+      <div class="ccuerpo">
+        ${mediaHTML(it.mediaEf, "cmedia")}
+        <div class="cbloq"><span title="Quien creó la actividad no compartió esta nota de voz: tu invitación sale sin ella">🔒 No se envía</span>
+          ${quieta ? "" : `<button type="button" class="cmine" data-mivoz="${i}">🎤 Usar mi voz</button>`}</div>
+      </div>
+    </div>`;
+  }
+
+  function burbujaVista(it, i, quieta, num) {
+    if (bloq(it)) return burbujaBloqueada(it, i, quieta);
     const origen = !it.principal ? ""
       : [it.heredaTexto ? it.etiquetaFb : "", it.heredaMedia ? it.etiquetaMediaFb : ""].filter(Boolean).join(" · ");
     const txt = (it.textoEf || "").trim();
@@ -123,7 +150,7 @@ export function crearBurbujas(contId, cfg) {
         ${mediaHTML(it.mediaEf, "cmedia")}
         ${txt ? `<div class="ctxt">${esc(cfg.previa(it.textoEf))}</div>` : ""}
         ${vacio(it) ? `<div class="ctxt vacio">Mensaje vacío</div>` : ""}
-        <div class="cmeta"><span><b>${i + 1}</b> · ${tipoDe(it)}${origen ? " · " + esc(origen) : ""}</span>
+        <div class="cmeta"><span><b>${num}</b> · ${tipoDe(it)}${origen ? " · " + esc(origen) : ""}${chipPrivada(it)}</span>
           ${quieta ? "" : `<button type="button" class="ced" data-ed="${i}">✎ Editar</button>`}</div>
       </div>
     </div>`;
@@ -159,6 +186,13 @@ export function crearBurbujas(contId, cfg) {
       <div class="cedhd"><span class="cnum">${i + 1}</span><b>Nota de voz · mensaje ${i + 1}</b>
         ${n > 1 ? `<button type="button" class="tbtn cquitar" data-quitar style="color:var(--bad)">Quitar mensaje</button>` : ""}</div>
       ${mediaHTML(it.mediaEf, "")}
+      ${cfg.privada?.mostrar() ? `<div class="cquien">
+        <span class="serielbl">¿Quién la puede enviar?</span>
+        <div class="tipoact" role="group" aria-label="Quién puede enviar esta nota de voz">
+          <button type="button" data-priv="0" class="${cfg.privada.es(it.mediaEf) ? "" : "on"}">👥 Todos</button>
+          <button type="button" data-priv="1" class="${cfg.privada.es(it.mediaEf) ? "on" : ""}">🔒 Solo yo</button>
+        </div>
+      </div>` : ""}
       <div class="msgshelp">Una nota de voz no lleva texto. Si quieres escribir algo antes o después, agrégalo como otro mensaje y arrástralo.</div>
       <div class="clisto">
         <button type="button" class="tbtn" data-regrabar>🎤 Volver a grabar</button>
@@ -194,10 +228,14 @@ export function crearBurbujas(contId, cfg) {
     // Un envío nuevo arranca con un único mensaje en blanco: se abre ya en
     // edición, en vez de mostrar una burbuja «vacía» que hay que tocar primero.
     if (!g && b.editando < 0 && !b.eligiendo && its.length === 1 && vacio(its[0])) b.editando = 0;
+    // Lo bloqueado no se edita (no hay nada propio que cambiarle): solo se
+    // reemplaza con «Usar mi voz».
+    if (b.editando >= 0 && bloq(its[b.editando])) b.editando = -1;
+    const nums = numeros(its);
     const cuerpo = its.map((it, i) =>
       g && g.i === i ? burbujaGrabando(i)
       : (!g && i === b.editando) ? (esAudioUrl(it.mediaEf) ? edicionVoz(it, i, its.length) : edicionTexto(it, i, its.length))
-      : burbujaVista(it, i, !!g)).join("")
+      : burbujaVista(it, i, !!g, nums[i])).join("")
       + (g && g.i === its.length ? burbujaGrabando(its.length) : "");
     const cabe = its.length < MAX_MENSAJES && !g;
     el.innerHTML = `<div class="cchat">${cuerpo}</div>
@@ -270,8 +308,10 @@ export function crearBurbujas(contId, cfg) {
       if (b.grab !== g) return;
       const its = items();
       const voz = { textoEf: "", mediaEf: url };
+      const vieja = g.i < its.length ? its[g.i].mediaEf : null;
       if (g.i < its.length) its[g.i] = voz; else its.push(voz);
       guardar(its);
+      cfg.alGrabar?.(url, esAudioUrl(vieja) ? vieja : null);
     } catch (err) {
       toast("⚠ No se pudo subir la nota de voz: " + mensajeErrorAdjunto(err));
     }
@@ -291,6 +331,7 @@ export function crearBurbujas(contId, cfg) {
       delay: 120, delayOnTouchOnly: true,
       onEnd: ev => { if (ev.oldIndex !== ev.newIndex) mover(ev.oldIndex, ev.newIndex); },
     });
+    el.querySelectorAll("[data-mivoz]").forEach(x => x.onclick = () => grabar(+x.dataset.mivoz));
     el.querySelectorAll("[data-ed]").forEach(x => x.onclick = () => {
       b.editando = +x.dataset.ed; b.eligiendo = false; pintar(); enfocar();
     });
@@ -347,6 +388,10 @@ export function crearBurbujas(contId, cfg) {
     });
     ed.querySelector("[data-quitar]")?.addEventListener("click", () => quitar(i));
     ed.querySelector("[data-regrabar]")?.addEventListener("click", () => grabar(i));
+    ed.querySelectorAll("[data-priv]").forEach(x => x.onclick = () => {
+      cfg.privada.poner(it.mediaEf, x.dataset.priv === "1");
+      pintar(); cfg.cambio?.();
+    });
     // Convertir ESTE mensaje en nota de voz, sin tener que agregar otro y
     // borrar este (pedido de Sanviv: sobre todo para el primero). Una nota de
     // voz no lleva texto: si ya había uno escrito a mano, se avisa antes.

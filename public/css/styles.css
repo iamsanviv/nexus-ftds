@@ -2512,6 +2512,18 @@ html[data-tema="claro"] .chatinv{--cb:#d9fdd3;--cfondo:#efe7dc}
 .cmover{min-height:44px}
 .cbub.sortable-ghost{opacity:.35}
 .cbub.sortable-chosen .ccuerpo{outline:2px solid var(--gold)}
+/* Notas de voz «Solo yo / Todos» (12/11/2026). El dueño ve un chip discreto;
+   el agente ve la que no puede enviar apagada, sin número y con su reemplazo. */
+.cpriv{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:1px 7px;border-radius:99px;
+  border:1px solid var(--border);font-size:.66rem;font-weight:600;color:var(--muted);white-space:nowrap}
+.cpriv.solo{color:var(--gold);border-color:var(--gold-dim)}
+.cquien{margin-top:10px}
+.cquien .serielbl{display:block;font-size:.74rem;color:var(--muted);margin-bottom:5px}
+.cquien .tipoact button{white-space:nowrap}
+.cbub.bloq .ccuerpo{background:transparent;border:1px dashed var(--border);box-shadow:none}
+.cbub.bloq .ccuerpo > audio{opacity:.38}
+.cbloq{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;font-size:.7rem;color:var(--muted)}
+.cmine{background:none;border:0;padding:4px 0 4px 8px;font:inherit;font-weight:700;color:var(--gold);cursor:pointer;white-space:nowrap}
 .michatlbl{display:block;font-size:.8rem;font-weight:700;margin:4px 0 8px}
 .michatlbl .opt{font-weight:400}
 #segMiSerieRow{margin:0;padding:0;border:0}
