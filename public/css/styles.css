@@ -2592,3 +2592,32 @@ html[data-tema="claro"] .chatinv{--cb:#d9fdd3;--cfondo:#efe7dc}
 @container etp (min-width:720px){
   .etx .elargo{display:inline}.etx .ecorto{display:none}
 }
+
+/* ---------- pantalla de carga ---------- */
+/* Fija y por encima de todo: auth.js muestra login/app por debajo y luego la
+   desvanece, así no hay un cuadro vacío entre una y otra. */
+#carga{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;
+  flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  transition:opacity .25s ease}
+#carga.saliendo{opacity:0;pointer-events:none}
+.cargalogo{width:76px;height:76px;
+  /* drop-shadow y no box-shadow: el SVG trae margen transparente y una sombra
+     de caja dibujaba un halo cuadrado alrededor del isotipo. */
+  filter:drop-shadow(0 6px 14px rgba(0,0,0,.35));animation:cargalate 1.6s ease-in-out infinite}
+.cargamarca{font-family:'Archivo',system-ui,sans-serif;font-size:1.05rem;font-weight:800;
+  color:var(--text);letter-spacing:.01em}
+.cargamarca span{color:var(--gold);font-weight:700}
+.cargabarra{width:120px;height:3px;border-radius:3px;background:var(--border);overflow:hidden}
+.cargabarra i{display:block;width:40%;height:100%;border-radius:3px;background:var(--gold);
+  animation:cargabarra 1.2s ease-in-out infinite}
+@keyframes cargalate{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes cargabarra{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
+@media (prefers-reduced-motion:reduce){
+  .cargalogo,.cargabarra i{animation:none}
+  .cargabarra i{width:100%;opacity:.6}
+}
+html[data-tema="claro"] .cargalogo{filter:drop-shadow(0 6px 12px rgba(60,40,10,.2))}
+.cargalenta{display:none;margin-top:6px;font-size:.85rem;color:var(--muted);text-align:center}
+.cargalenta button{display:block;margin:10px auto 0;padding:8px 18px;border-radius:10px;
+  border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;cursor:pointer}
+#carga.lenta .cargalenta{display:block}
