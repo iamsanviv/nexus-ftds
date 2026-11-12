@@ -28,6 +28,9 @@
   --ftd-grad:linear-gradient(135deg,rgba(232,184,75,.16) 0%,rgba(232,184,75,.05) 38%,#161C24 78%);
   --ftd-border:rgba(232,184,75,.34);
   --shadow:0 1px 2px rgba(0,0,0,.35);
+  /* Etapas de venta de Comunidad: Básica, Avanzada, Presentación, 1 a 1. */
+  --etp1:#5B9BD5; --etp2:#8E7CF0; --etp3:#E8B84B; --etp4:#4ECB8D;
+  --on-etp:#0E1116; --etp-pend:#222a35; --bad-soft:rgba(242,85,90,.16);
   color-scheme:dark;
 }
 
@@ -61,6 +64,8 @@ html[data-tema="claro"]{
   --ftd-grad:linear-gradient(135deg,rgba(214,166,60,.45) 0%,rgba(214,166,60,.16) 38%,#F6EFE2 78%);
   --ftd-border:rgba(138,98,14,.34);
   --shadow:0 1px 2px rgba(33,27,17,.10);
+  --etp1:#2C628F; --etp2:#5B47C4; --etp3:#9A6D0C; --etp4:#2F7F57;
+  --on-etp:#FFFFFF; --etp-pend:#E4D7C1; --bad-soft:rgba(178,59,63,.13);
   color-scheme:light;
 }
 

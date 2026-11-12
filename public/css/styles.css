@@ -1234,6 +1234,7 @@ body.segwide .tabinner{max-width:1180px}
 .zrow{gap:8px;flex-wrap:wrap}
 .zrow .an{flex:1 1 110px;min-width:0}
 .zrow select{width:auto;flex:0 1 auto;min-width:0;padding:6px 8px;font-size:.8rem}
+.zrow .zbas{flex:0 0 auto;font-size:.8rem;color:var(--muted);padding:6px 8px}
 .zrow input[type=date]{flex:0 1 auto;min-width:0}
 
 .alerta.nueva{background:rgba(78,203,141,.07);border-color:rgba(78,203,141,.38);
@@ -2515,3 +2516,79 @@ html[data-tema="claro"] .chatinv{--cb:#d9fdd3;--cfondo:#efe7dc}
 .michatlbl .opt{font-weight:400}
 #segMiSerieRow{margin:0;padding:0;border:0}
 #segMiInvQuitar{margin-top:10px}
+
+/* ================= Etapas de venta en Comunidad (12/11/2026) =================
+   Flechas encadenadas (una por etapa) + resultado a la derecha. En celular el
+   nombre y el resultado comparten la primera línea y las flechas bajan a todo
+   el ancho, que es lo que deja leer «Membresías» sin cortarse. */
+.b-ciclo{background:var(--etp-pend);color:var(--muted);letter-spacing:.03em;text-transform:none;font-weight:700}
+.cinfo.etpinfo{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;row-gap:10px;align-items:center}
+.cinfo.etpinfo .nombre{grid-column:1;grid-row:1;min-width:0}
+.cinfo.etpinfo .eres{grid-column:2;grid-row:1}
+.cinfo.etpinfo .etp{grid-column:1/-1;grid-row:2}
+.etp{display:flex;gap:3px;min-width:0;container:etp/inline-size}
+.est{flex:1 1 0;min-width:0;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  padding:0 0 0 9px;background:var(--etp-pend);color:var(--dim);
+  clip-path:polygon(0 0,calc(100% - 9px) 0,100% 50%,calc(100% - 9px) 100%,0 100%,9px 50%)}
+.est:first-child{padding:0;border-radius:9px 0 0 9px;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 50%,calc(100% - 9px) 100%,0 100%)}
+.est:last-child{border-radius:0 9px 9px 0;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,9px 50%)}
+.est.solo{border-radius:9px;clip-path:none;padding:0 12px;flex-direction:row;gap:8px}
+.est.ok{background:var(--c);color:var(--on-etp)}
+.est.no{background:var(--bad-soft);color:var(--bad)}
+.est.cur{box-shadow:inset 0 -4px 0 rgba(0,0,0,.22)}
+.etpico{width:13px;height:13px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.etx{display:grid;justify-items:center;min-width:0;line-height:1.15;max-width:100%}
+.est.solo .etx{justify-items:start}
+.etx b{font-size:.62rem;letter-spacing:-.01em;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.etx small{font-size:.6rem;opacity:.85;font-variant-numeric:tabular-nums;white-space:nowrap}
+.etx .elargo{display:none}
+.eres{display:grid;gap:3px;justify-items:end;text-align:right;min-width:0}
+.eres b{font-size:.8rem;white-space:nowrap}
+.eres .esig{font-size:.72rem;color:var(--gold);font-weight:600;white-space:nowrap}
+.eres small{font-size:.7rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rpill{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;padding:3px 9px;border-radius:999px;
+  background:color-mix(in srgb,var(--rc) 18%,transparent);color:var(--rc);white-space:nowrap}
+.rpill .etpico{width:12px;height:12px}
+.rbar{display:block;height:5px;width:84px;border-radius:5px;background:var(--etp-pend);overflow:hidden}
+.rbar i{display:block;height:100%;background:var(--rc)}
+.etpill i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.pill em{font-style:normal;opacity:.7;font-variant-numeric:tabular-nums;margin-left:2px}
+/* En celular las flechas usan TODO el ancho de la tarjeta, también bajo el
+   número del ranking: con 4 flechas en ~240px «Membresías» se cortaba en
+   pantallas de 360px. `display:contents` sube nombre, flechas y resultado a la
+   rejilla de la cabecera. */
+@media (max-width:1039px){
+  .chead:has(> .etpinfo){display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;column-gap:10px;row-gap:10px}
+  .chead:has(> .etpinfo) > .cinfo.etpinfo{display:contents}
+  .chead:has(> .etpinfo) .nombre{grid-column:2;grid-row:1}
+  .chead:has(> .etpinfo) .eres{grid-column:3;grid-row:1}
+  .chead:has(> .etpinfo) .chev{grid-column:4;grid-row:1}
+  .chead:has(> .etpinfo) .etp{grid-column:1/-1;grid-row:2}
+}
+@media (min-width:1040px){
+  .card .cinfo.etpinfo{display:flex;align-items:center;gap:18px}
+  /* La etiqueta de membresía y la de upgrade bajan bajo el nombre: en una sola
+     línea se comían el nombre («Natalia …»). */
+  .card .cinfo.etpinfo .nombre{flex:0 1 230px;flex-wrap:wrap;row-gap:4px}
+  .card .cinfo.etpinfo .nombre .nmlink{flex:1 1 100%;white-space:normal;line-height:1.25}
+  .cinfo.etpinfo .etp{flex:1 1 420px;order:2}
+  .cinfo.etpinfo .eres{flex:0 0 150px;order:3}
+  /* Etapa y Resultado suman más píldoras que el ancho junto al buscador:
+     sin envolver se montaban debajo de él. */
+  .clifiltros #filtros,.clifiltros #filtrosRes{flex-wrap:wrap;row-gap:6px}
+}
+/* Flechas en fila (ícono al lado) solo cuando la fila de flechas tiene ancho
+   de verdad; si no, se apilan como en celular. Se mide la fila y no la
+   pantalla porque el menú lateral y el panel cambian lo que queda. */
+@container etp (min-width:560px){
+  .est{height:46px;flex-direction:row;gap:7px;padding:0 10px 0 20px;
+    clip-path:polygon(0 0,calc(100% - 13px) 0,100% 50%,calc(100% - 13px) 100%,0 100%,13px 50%)}
+  .est:first-child{padding:0 10px 0 12px;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 50%,calc(100% - 13px) 100%,0 100%)}
+  .est:last-child{padding-right:12px;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,13px 50%)}
+  .etx{justify-items:start}
+  .etx b{font-size:.76rem}.etx small{font-size:.64rem}
+  .etpico{width:15px;height:15px}
+}
+@container etp (min-width:720px){
+  .etx .elargo{display:inline}.etx .ecorto{display:none}
+}

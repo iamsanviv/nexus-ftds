@@ -133,6 +133,10 @@ Una actividad puntual puede representar una etapa del embudo mediante `zoom_tipo
 
 Etapas (desde 2026-11-04): `pres` (Zoom Presentación Membresías), `ftds` (Zoom Presentación FTDs), `avanzada` (Clase Avanzada), `uno` (1 a 1), `cierre`. La lista única es `ZOOMS` en `public/js/state.js`: de ahí salen el selector de la actividad puntual, el embudo del perfil y la tarjeta/formulario de Ventas. La clave es lo que se guarda; renombrar una etapa es solo cambiar su texto. Agregar una exige también ampliar `actividades_zoom_tipo_check` (`sql/2026-11-04_60_zooms_ftds_avanzada.sql`).
 
+La lista de Comunidad lee este embudo (y las ventas) para pintar las etapas de venta: ver «Vista de etapas de venta» en `people-followup.md`.
+
+Clases marcadas como Avanzada a posteriori (12/11/2026, elegidas por Sanviv): las dos «Clase Avanzada (Miembros Oro)» del 14/10, «Clase Avanzada» del 19/10, «Nexus Sniper» del 28/10 y «Golden Strategy» del 4/11. Se les puso `zoom_tipo='avanzada'` y se rellenó `zooms.avanzada` solo a quien tiene `puntuales[id].acc`.
+
 Trampa: el guardado del embudo (perfil y formulario de venta) reconstruye `clientes.zooms` recorriendo las etapas conocidas; una clave que no esté en `ZOOMS` se pierde al guardar.
 
 ## Alertas de pago
