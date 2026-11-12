@@ -20,6 +20,7 @@ import { chipTemp, razonLlegada, seguimientoHTML, wireSeguimiento, btnEnviarSeg,
 import { renderHoy } from "./hoy.js";
 import { porBajar, crmDe, marcarBajo, ICO_BAJAR } from "./crm.js";
 import { renderMiDia, tieneMiDia } from "./midia.js";
+import { ETAPAS, RESULTADOS, embudo, compararEmbudo, cumpleResultado } from "./embudo.js";
 
 const NIVELES = ["Lead", "Beca", "VIP", "Platino", "Oro"];
 // Orden de urgencia de la temperatura para ordenar la lista de leads.
@@ -186,7 +187,12 @@ export function render() {
 
   // Bloque de FTD del mes. Import dinámico por lo mismo que ventas.js y
   // repaso.js: ftd.js necesita render() de aquí y no puede haber ciclo.
-  import("./ftd.js").then(m => m.renderBloqueFtd());
+  // Comunidad también usa las ventas (resultado del 1 a 1): al llegar se repinta
+  // toda la vista, salvo que estés escribiendo, igual que en Leads.
+  import("./ftd.js").then(m => m.renderBloqueFtd(isLead ? undefined : () => {
+    const ae = document.activeElement;
+    if (!(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) render();
+  }));
 
   // Las inactivas viven FUERA de la lista normal: no cuentan para membresías ni
   // progreso, y solo se ven con su propio filtro. Es lo mismo que hacen los dos
@@ -196,16 +202,9 @@ export function render() {
   const activas = universo.filter(c => !esInactivo(c));
   const base = state.filtro === "inactivas" ? inactivas : activas;
   const pr = c => progreso(c);
-
-  // Escritorio: las tarjetas de conteo son filtros por membresía (combinables
-  // con el progreso), abre en «En progreso» y hay tira de estado. En móvil NADA
-  // de esto aplica: se mantiene el comportamiento de siempre.
-  // Abre en «En progreso» y las tarjetas de conteo filtran por membresía. Antes
-  // esto era solo de escritorio; ahora móvil se comporta igual, que era el
-  // motivo de tener dos pantallas distintas para el mismo trabajo.
-  if (!isLead && !state.filtroDefDesk && state.filtro === "todos") {
-    state.filtro = "incompletos"; state.filtroDefDesk = true;
-  }
+  // Etapas de venta, una vez por persona y por pintada (ver embudo.js).
+  const emb = new Map();
+  const E = c => { let e = emb.get(c.id); if (!e) { e = embudo(c); emb.set(c.id, e); } return e; };
 
   /* ----- stats ----- */
   if (isLead) {
@@ -242,11 +241,43 @@ export function render() {
   // hay ninguna, nadie descubriría que la opción existe. Lleva el número porque
   // esas personas ya no salen en ningún otro filtro.
   const pillInact = ["inactivas", `😴 Inactivas · ${inactivas.length}`];
-  const defs = isLead
-    ? [["todos", "Todos"], pillInact]
-    : [["incompletos", "⏳ En progreso"], ["completos", "✓ Completos"], ["todos", "Todos"], pillInact];
-  $("filtros").innerHTML = defs.map(([v, l]) => `<button class="pill ${state.filtro === v ? 'on' : ''}" data-f="${v}">${l}</button>`).join("");
-  $("filtros").querySelectorAll(".pill").forEach(b => b.onclick = () => { state.filtro = b.dataset.f; render(); });
+  // Comunidad (12/11/2026): el progreso de servicios (X/29) salió de la lista;
+  // los filtros a la vista son membresía (tarjetas), etapa y resultado. Las
+  // inactivas pasan a «Más filtros».
+  if (!isLead && !["todos", "inactivas"].includes(state.filtro)) state.filtro = "todos";
+  if (isLead) {
+    const defs = [["todos", "Todos"], pillInact];
+    $("filtros").innerHTML = defs.map(([v, l]) => `<button class="pill ${state.filtro === v ? 'on' : ''}" data-f="${v}">${l}</button>`).join("");
+    $("filtros").querySelectorAll(".pill").forEach(b => b.onclick = () => { state.filtro = b.dataset.f; render(); });
+  } else {
+    // Los conteos de cada píldora respetan la membresía elegida: dicen cuántos
+    // verías al tocarla.
+    const pob = base.filter(c => !state.filtroMem || c.mem === state.filtroMem);
+    const nEt = k => pob.filter(c => !E(c).oro && E(c).actual === k).length;
+    const ETS = [...ETAPAS].reverse().map(e => [e.k, e.l, e.c]).concat([["none", "Sin etapas", null]]);
+    $("filtros").innerHTML = `<span class="ejelbl">Etapa</span>`
+      + `<button class="pill ${state.filtroEtapa ? "" : "on"}" data-et="">Todas</button>`
+      + ETS.map(([k, l, col]) => `<button class="pill etpill ${state.filtroEtapa === k ? "on" : ""}" data-et="${k}">`
+        + `${col ? `<i style="background:var(${col})"></i>` : ""}${l} <em>${nEt(k)}</em></button>`).join("");
+    $("filtros").querySelectorAll("[data-et]").forEach(b => b.onclick = () => { state.filtroEtapa = b.dataset.et || null; render(); });
+    const nRes = k => pob.filter(c => cumpleResultado(E(c), k)).length;
+    $("filtrosRes").classList.remove("hidden");
+    $("filtrosRes").innerHTML = `<span class="ejelbl">Resultado</span>`
+      + `<button class="pill ${state.filtroRes ? "" : "on"}" data-res="">Todos</button>`
+      + RESULTADOS.map(([k, l]) => `<button class="pill ${state.filtroRes === k ? "on" : ""}" data-res="${k}">${l} <em>${state.ventasOk ? nRes(k) : "…"}</em></button>`).join("");
+    $("filtrosRes").querySelectorAll("[data-res]").forEach(b => b.onclick = () => { state.filtroRes = b.dataset.res || null; render(); });
+  }
+  if (isLead) { $("filtrosRes").classList.add("hidden"); $("filtrosRes").innerHTML = ""; }
+
+  // Inactivas, en «Más filtros» (solo Comunidad).
+  const inaFila = $("filtrosIna");
+  if (inaFila) {
+    inaFila.classList.toggle("hidden", isLead);
+    inaFila.innerHTML = isLead ? "" : `<span class="ejelbl">Estado</span>`
+      + `<button class="pill ${state.filtro !== "inactivas" ? "on" : ""}" data-ina="todos">Activas</button>`
+      + `<button class="pill ${state.filtro === "inactivas" ? "on" : ""}" data-ina="inactivas">😴 Inactivas · ${inactivas.length}</button>`;
+    inaFila.querySelectorAll("[data-ina]").forEach(b => b.onclick = () => { state.filtro = b.dataset.ina; render(); });
+  }
 
   // Broker: EJE APARTE de la membresía y del progreso, no una píldora más de la
   // misma fila. Se combina con los otros dos, igual que ya pasa con el estado.
@@ -367,8 +398,9 @@ export function render() {
   // están activos para que un filtro escondido nunca recorte la lista en
   // silencio (la tira de estado también lo nombra). Va PRIMERO en la fila: en
   // celular las píldoras se desplazan de lado y al final quedaría fuera de vista.
-  const nMas = [state.filtroLleg, state.filtroBrk, state.filtroDep, state.filtroSrv].filter(Boolean).length;
-  const hayMas = ["filtrosLleg", "filtrosBrk", "filtrosDep", "filtrosSrv"].some(id => $(id) && !$(id).classList.contains("hidden"));
+  const nMas = [state.filtroLleg, state.filtroBrk, state.filtroDep, state.filtroSrv,
+    !isLead && state.filtro === "inactivas"].filter(Boolean).length;
+  const hayMas = ["filtrosLleg", "filtrosBrk", "filtrosDep", "filtrosSrv", "filtrosIna"].some(id => $(id) && !$(id).classList.contains("hidden"));
   $("filtrosMas").classList.toggle("hidden", !hayMas || !state.filtrosMas);
   if (hayMas) {
     $("filtros").insertAdjacentHTML("afterbegin",
@@ -380,7 +412,7 @@ export function render() {
   /* ----- orden ----- */
   const ords = isLead
     ? [["cerca", "🔥 Por temperatura"], ["recientes", "Recientes"], ["az", "A–Z"]]
-    : [["cerca", "🏁 Cerca de completar"], ["membresia", "Membresía"], ["recientes", "Recientes"], ["az", "A–Z"]];
+    : [["cerca", "🏁 Cerca del cierre"], ["membresia", "Membresía"], ["recientes", "Recientes"], ["az", "A–Z"]];
   $("orden").innerHTML = ords.map(([v, l]) => `<button class="oseg ${state.orden === v ? 'on' : ''}" data-o="${v}">${l}</button>`).join("");
   $("orden").querySelectorAll(".oseg").forEach(b => b.onclick = () => { state.orden = b.dataset.o; render(); });
 
@@ -405,6 +437,8 @@ export function render() {
     if (!enRangoLleg(llegada(c), state.filtroLleg)) return false;
     if (state.filtroSrv && !!c.acc[state.filtroSrv.id] !== (state.filtroSrv.modo === "si")) return false;
     if (isLead && state.filtroTemp && temperatura(c) !== state.filtroTemp) return false;
+    if (!isLead && state.filtroEtapa && (E(c).oro || E(c).actual !== state.filtroEtapa)) return false;
+    if (!isLead && state.filtroRes && !cumpleResultado(E(c), state.filtroRes)) return false;
     if (state.filtro === "todos" || state.filtro === "inactivas") return true;
     if (state.filtro === "activos") return pr(c).extra > 0;
     if (state.filtro === "inactivos") return pr(c).extra === 0;
@@ -414,19 +448,15 @@ export function render() {
   });
 
   /* ----- ordenar ----- */
-  if (state.orden === "membresia") vis.sort((a, b) => NIVEL[b.mem] - NIVEL[a.mem] || pr(b).pct - pr(a).pct || a.nombre.localeCompare(b.nombre));
+  if (state.orden === "membresia") vis.sort((a, b) => NIVEL[b.mem] - NIVEL[a.mem] || compararEmbudo(E(a), E(b)) || a.nombre.localeCompare(b.nombre));
   else if (state.orden === "recientes") vis.sort((a, b) => (b.creado || "").localeCompare(a.creado || "") || a.nombre.localeCompare(b.nombre));
   else if (state.orden === "az") vis.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   else if (isLead) vis.sort((a, b) => TEMP_ORD[temperatura(a)] - TEMP_ORD[temperatura(b)] || a.nombre.localeCompare(b.nombre, "es"));
-  else vis.sort((a, b) => {
-    const pa = pr(a), pb = pr(b), da = pa.pct === 100, db = pb.pct === 100;
-    if (da !== db) return da ? 1 : -1;
-    if (da && db) return a.nombre.localeCompare(b.nombre);
-    return pb.pct - pa.pct || (pa.total - pa.done) - (pb.total - pb.done) || a.nombre.localeCompare(b.nombre);
-  });
+  else vis.sort((a, b) => compararEmbudo(E(a), E(b)) || a.nombre.localeCompare(b.nombre, "es"));
 
+  // El puesto se cuenta sobre la lista entera; los Oro no tienen embudo y no llevan número.
   const rankMap = {};
-  if (state.orden === "cerca") { let n = 0; vis.forEach(c => { if (isLead || pr(c).pct < 100) rankMap[c.id] = ++n; }); }
+  if (state.orden === "cerca") { let n = 0; vis.forEach(c => { if (isLead || !E(c).oro) rankMap[c.id] = ++n; }); }
 
   // Tira de estado (solo escritorio): resume qué se está viendo y ofrece
   // «Quitar filtros» cuando hay alguno activo (membresía, progreso o búsqueda).
@@ -440,21 +470,23 @@ export function render() {
         partes.push(r.desde && r.hasta ? `depósito ${fmtF(r.desde)}–${fmtF(r.hasta)}` : r.hasta ? `depósito hasta ${fmtF(r.hasta)}` : `depósito desde ${fmtF(r.desde)}`); }
       if (state.filtroSrv) { const s = todos().find(x => x.id === state.filtroSrv.id);
         if (s) partes.push(`${state.filtroSrv.modo === "si" ? "asistió a" : "no ha ido a"} «${esc(s.n)}»`); }
-      if (state.filtro === "incompletos") partes.push("en progreso");
-      else if (state.filtro === "completos") partes.push("completos");
-      else if (state.filtro === "inactivas") partes.push("inactivas · no reciben mensajes");
+      if (state.filtroEtapa) partes.push(state.filtroEtapa === "none" ? "sin etapas"
+        : `va en ${ETAPAS.find(e => e.k === state.filtroEtapa).l}`);
+      if (state.filtroRes) partes.push(RESULTADOS.find(r => r[0] === state.filtroRes)[1].toLowerCase());
+      if (state.filtro === "inactivas") partes.push("inactivas · no reciben mensajes");
       if (crudo) partes.push(`"${esc(crudo)}"`);
       // Las inactivas no aparecen en ningún otro filtro. Decir cuántas quedaron
       // fuera evita que alguien las dé por perdidas o las vuelva a agregar.
       if (state.filtro !== "inactivas" && inactivas.length)
         partes.push(`${inactivas.length} inactiva${inactivas.length === 1 ? "" : "s"} sin mostrar`);
       const hayFiltro = !!state.filtroMem || !!state.filtroBrk || !!state.filtroDep || !!state.filtroSrv || !!crudo
-        || state.filtro === "completos" || state.filtro === "inactivas";
+        || !!state.filtroEtapa || !!state.filtroRes || state.filtro === "inactivas";
       estadoEl.innerHTML = `<span>${partes.join(" · ")}</span>`
         + (hayFiltro ? ` <button class="quitarf" id="quitarFiltros">Quitar filtros</button>` : "");
       const qf = $("quitarFiltros");
       if (qf) qf.onclick = () => {
         state.filtroMem = null; state.filtroBrk = null; state.filtroDep = null; state.filtroSrv = null; state.filtro = "todos";
+        state.filtroEtapa = null; state.filtroRes = null;
         $("buscar").value = ""; render();
       };
     } else estadoEl.innerHTML = "";
@@ -472,7 +504,7 @@ export function render() {
   }
 
   const dir = state.me.role === "director";
-  $("lista").innerHTML = paginar(vis, isLead).map(c => cardHTML(c, pr(c), rankMap[c.id], isLead, dir)).join("");
+  $("lista").innerHTML = paginar(vis, isLead).map(c => cardHTML(c, pr(c), rankMap[c.id], isLead, dir, isLead ? null : E(c))).join("");
   wireCards();
 }
 
@@ -486,7 +518,7 @@ function paginar(vis, isLead) {
   // Cualquier cambio en lo que se mira devuelve a la página 1: quedarse en la 4
   // de un filtro nuevo que solo tiene 2 mostraría una lista vacía.
   const firma = JSON.stringify([state.filtro, state.filtroMem, state.filtroBrk, state.filtroDep,
-    state.filtroSrv, state.orden, normBusqueda($("buscar").value)]);
+    state.filtroSrv, state.filtroEtapa, state.filtroRes, state.orden, normBusqueda($("buscar").value)]);
   if (firma !== state.paginaFirma) { state.paginaFirma = firma; state.pagina = 1; }
   const tam = state.porPagina, paginas = Math.max(1, Math.ceil(vis.length / tam));
   state.pagina = Math.min(Math.max(1, state.pagina), paginas);
@@ -529,14 +561,70 @@ function stat(cls, n, label) {
   return `<div class="stat ${cls}"><b>${n}</b><span>${label}</span></div>`;
 }
 
-function cardHTML(c, p, rank, isLead, dir) {
+/* ---------- etapas de venta (Comunidad) ----------
+   Flechas encadenadas: una por etapa, con su color al hacerse y la fecha
+   adentro. A la derecha, el resultado del 1 a 1 o el siguiente paso. */
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const fechaEtp = d => { const [, m, dd] = d.slice(0, 10).split("-"); return `${+dd}/${MESES[+m - 1]}`; };
+const ICO_ETP = {
+  b: '<path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2"/><path d="M8 7h7"/>',
+  a: '<path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/>',
+  p: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/>',
+  u: '<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M3 20c0-3 2-5 5-5s5 2 5 5M11 20c0-3 2-5 5-5s5 2 5 5"/>',
+  no: '<path d="M6 6l12 12M18 6 6 18"/>',
+  oro: '<path d="m5 12 5 5 9-10"/>',
+  cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  abo: '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor"/>',
+  sin: '<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>',
+  venc: '<path d="M12 3 2 21h20L12 3Z"/><path d="M12 10v5M12 18h.01"/>',
+};
+const icoEtp = k => `<svg class="etpico" viewBox="0 0 24 24" aria-hidden="true">${ICO_ETP[k]}</svg>`;
+
+function etapasHTML(e) {
+  if (!e) return "";
+  if (e.oro) return `<div class="etp"><div class="est ok solo" style="--c:var(--oro)">${icoEtp("oro")}<span class="etx"><b>Oro · nivel máximo</b><small>Sin embudo de venta</small></span></div></div>`;
+  // La etapa «actual» se marca con un filo abajo: un «No asistió» manda, porque
+  // es lo que toca resolver; si no, la más alta hecha.
+  const cur = e.etapas.find(x => e.est[x.k].no)?.k || e.actual;
+  return `<div class="etp">${e.etapas.map(x => {
+    const st = e.est[x.k], cls = st.f ? "ok" : st.no ? "no" : "";
+    const sub = st.f ? fechaEtp(st.f) : st.no ? "No asistió" : "Pendiente";
+    return `<div class="est ${cls} ${cur === x.k ? "cur" : ""}" style="--c:var(${x.c})" title="${esc(x.largo || x.l)} · ${sub}">`
+      + `${icoEtp(st.no && !st.f ? "no" : x.k)}<span class="etx"><b><span class="elargo">${x.l}</span><span class="ecorto">${x.corto}</span></b><small>${sub}</small></span></div>`;
+  }).join("")}</div>`;
+}
+
+function resultadoHTML(e) {
+  if (!e) return "";
+  if (e.oro) return `<div class="eres"><b>Nivel máximo</b></div>`;
+  const r = e.res;
+  if (r) {
+    const usd = n => "$" + Math.round(n).toLocaleString("en-US");
+    const R = {
+      agp: { t: r.venc ? `Pago vencido ${fechaEtp(r.f || "")}` : `Paga ${fechaEtp(r.f || "")}`, c: r.venc ? "--bad" : "--gold", i: r.venc ? "venc" : "cal" },
+      aga: { t: r.venc ? `Abono vencido ${fechaEtp(r.f || "")}` : `Abona ${fechaEtp(r.f || "")}`, c: r.venc ? "--bad" : "--etp2", i: r.venc ? "venc" : "cal" },
+      abo: { t: `Abonó ${usd(r.ab || 0)}`, c: "--etp1", i: "abo" },
+      sin: { t: "Sin acuerdo", c: "--bad", i: "sin" },
+    }[r.r];
+    const pct = r.valor ? Math.min(100, Math.round((r.ab || 0) / r.valor * 100)) : 0;
+    return `<div class="eres" style="--rc:var(${R.c})"><span class="rpill">${icoEtp(R.i)}${R.t}</span>`
+      + (r.valor ? `<span class="rbar"><i style="width:${pct}%"></i></span><small>${usd(r.ab || 0)} de ${usd(r.valor)}</small>` : `<small>sin venta</small>`)
+      + `</div>`;
+  }
+  const no = e.etapas.find(x => e.est[x.k].no);
+  const sig = no ? `Reagendar ${no.l}` : `Siguiente: ${(e.etapas.find(x => !e.est[x.k].f) || { l: "cierre" }).l}`;
+  const d = e.ultima ? Math.round((new Date(hoyISO()) - new Date(e.ultima.slice(0, 10))) / 864e5) : null;
+  const hace = d == null ? "Sin etapas" : d <= 0 ? "Hoy" : d === 1 ? "Ayer" : `Hace ${d} días`;
+  return `<div class="eres"><b>${hace}</b><span class="esig">${sig}</span></div>`;
+}
+
+function cardHTML(c, p, rank, isLead, dir, emb) {
   const next = siguiente(c), open = state.abiertos.has(c.id);
-  const falta = p.total - p.done;
 
   let rankChip = "";
   if (state.orden === "cerca") {
     if (isLead) rankChip = rank ? `<div class="rank ${rank <= 3 ? 'r' + rank : ''}"><span class="rn">${rank}</span></div>` : "";
-    else rankChip = p.pct === 100 ? `<div class="rank done">✓</div>` : `<div class="rank ${rank <= 3 ? 'r' + rank : ''}"><span class="rn">${rank}</span></div>`;
+    else rankChip = emb?.oro ? `<div class="rank done">✓</div>` : `<div class="rank ${rank <= 3 ? 'r' + rank : ''}"><span class="rn">${rank}</span></div>`;
   }
 
   const ownerBadge = (dir && c.owner_id !== state.me.id) ? `<span class="owner">👤 ${esc(state.perfiles[c.owner_id] || "agente")}</span>` : "";
@@ -558,14 +646,10 @@ function cardHTML(c, p, rank, isLead, dir) {
   const origenTag = !isLead ? "" : porBajar(c)
     ? ` <span class="badge b-hl" title="Lead de HighLevel: todavía no te escribe por WhatsApp">HighLevel</span>`
     : ` <span class="badge b-wa" title="Ya bajó a WhatsApp">Bajado a WA</span>`;
-  const extraTag = p.extra ? ` · <span class="extra">+${p.extra} ✦</span>` : "";
-
-  // En Leads la línea de estado es la temperatura (va en `.lhead`); el conteo de
-  // invitaciones salió de la vista de leads a petición del usuario. Las
-  // invitaciones siguen en Seguimiento masivo y por actividad.
-  const metric = isLead
-    ? ""
-    : `<b>${p.done}/${p.total}</b> · ${p.pct === 100 ? '<span class="falta cero">✓ Completó todo</span>' : `Le falta${falta === 1 ? '' : 'n'} <span class="falta">${falta}</span>`}${extraTag}`;
+  // Ciclo de upgrade: dice desde cuándo cuentan sus etapas (su último pago).
+  const cicloTag = emb?.upgrade
+    ? ` <span class="badge b-ciclo" title="Solo cuenta lo que hizo después de su último pago de membresía">Upgrade${emb.desde ? ` · desde ${fechaEtp(emb.desde)}` : ""}</span>`
+    : "";
 
   const grupos = state.catalogo.map(g => {
     if (!g.items.length) return "";
@@ -587,11 +671,9 @@ function cardHTML(c, p, rank, isLead, dir) {
   return `<div class="card ${open ? 'open' : ''} ${esInactivo(c) ? 'inact' : ''}" data-id="${c.id}">
       <div class="chead">
         ${rankChip || `<div class="cav">${esc(iniciales(c.nombre))}</div>`}
-        <div class="cinfo">
-          <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span>${origenTag}${brkTags}${paisTag}${inactTag} ${ownerBadge}</div>
-          ${isLead || !c.tel ? '' : `<span class="cheadtel" title="${esc(c.tel)}">${esc(c.tel)}</span>`}
-          ${isLead ? `<div class="lhead">${chipTemp(c)}<span class="lwhy">${razonLlegada(c, porBajar(c))}</span></div>` : `<div class="barra"><i style="width:${p.pct}%"></i></div>`}
-          ${metric ? `<div class="pct">${metric}</div>` : ""}
+        <div class="cinfo ${isLead ? "" : "etpinfo"}">
+          <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span>${cicloTag}${origenTag}${brkTags}${paisTag}${inactTag} ${ownerBadge}</div>
+          ${isLead ? `<div class="lhead">${chipTemp(c)}<span class="lwhy">${razonLlegada(c, porBajar(c))}</span></div>` : etapasHTML(emb) + resultadoHTML(emb)}
         </div>
         <div class="chev">▸</div>
       </div>

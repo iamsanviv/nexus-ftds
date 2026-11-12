@@ -26,7 +26,7 @@ WhatsApp ya no muestra el número de quien escribe, así que el agente no puede 
 
 ## Filtros
 
-Los filtros de progreso (`En progreso` / `Completos` / `Todos` / `Inactivas`) y el de membresía son combinables y **funcionan igual en escritorio y en móvil**. La membresía se elige tocando las tarjetas de conteo, que son botones; las píldoras por nivel que existían solo en móvil se eliminaron porque eran un segundo mando para lo mismo. La vista abre en `En progreso` y una tira de estado explica el conjunto visible con un «Quitar filtros».
+En Comunidad los filtros visibles son: **Membresía** (las tarjetas de conteo, que son botones), **Etapa** (`state.filtroEtapa`: 1 a 1 / Presentación / Avanzada / Básica / Sin etapas, por la etapa más alta del ciclo) y **Resultado** (`state.filtroRes`: Agendó pago / Agendó abono / Abonó / Sin acuerdo / Vencidos, solo quien ya hizo 1 a 1). Funcionan igual en escritorio y en móvil, son combinables y una tira de estado explica el conjunto visible con un «Quitar filtros». Activas / Inactivas pasó a «Más filtros» (`#filtrosIna`). Los filtros de progreso (`En progreso` / `Completos`) se quitaron con la vista de etapas (12/11/2026).
 
 En móvil el buscador vive entre los filtros y la lista (`#buscarFila` en `index.html`); en escritorio se reubica por JS a la fila de filtros, junto a «+ Cliente»; en las demás vistas vuelve al encabezado. Es **un solo nodo** que se mueve, no copias: duplicarlo partiría el texto escrito.
 
@@ -51,11 +51,19 @@ El catálogo **no** se quitó: lo usan las actividades de catálogo (imagen, asi
 
 ## Paginación (solo Comunidad)
 
-20 por página por defecto, con 20/50/100 a elegir (el tamaño se recuerda en el navegador, `nx.porPagina`). La página vuelve a 1 cuando cambia cualquier filtro, el orden o la búsqueda. El número de rango de «Cerca de completar» se cuenta sobre la lista entera: la página 2 empieza en 21. Leads no se pagina (su lista de trabajo es «Hoy»).
+20 por página por defecto, con 20/50/100 a elegir (el tamaño se recuerda en el navegador, `nx.porPagina`). La página vuelve a 1 cuando cambia cualquier filtro, el orden o la búsqueda. El número de rango de «Cerca del cierre» se cuenta sobre la lista entera: la página 2 empieza en 21. Leads no se pagina (su lista de trabajo es «Hoy»).
 
-## Filas en escritorio
+## Vista de etapas de venta (desde 12/11/2026)
 
-La fila de cliente fue compactada para mostrar nombre, nivel/indicadores, teléfono, progreso y estado en una línea. Los nombres largos deben ceder con ellipsis sin desplazar insignias/banderas ni romper el layout.
+Sustituye al ranking «X/29 servicios»: Nexus crea clases nuevas a cada rato y ese progreso no se revisaba. Cada fila muestra qué tan cerca está la persona de la venta. Decisiones de Sanviv; lógica en `public/js/embudo.js`, pintado en `etapasHTML` / `resultadoHTML` de `ui.js`.
+
+- **Etapas (4)**, todas derivadas, sin columna propia: Básica = `acc.nivel0` (servicio «Nivel 0 a Avanzado»); Avanzada = `zooms.avanzada`; Presentación Membresías = `zooms.pres`; 1 a 1 = `zooms.uno`. Presentación FTDs y Cierre siguen solo en el perfil. `zooms.*` con `e: "no_asistio"` se pinta en rojo («No asistió»).
+- **Resultado tras el 1 a 1**, leído de la venta de membresía abierta más reciente (`ventas` + `abonos`): sin abonos con `fecha_pago` = Agendó pago; abonos parciales con fecha = Agendó abono; parciales sin fecha = Abonó; sin venta (o sin abono ni fecha) = Sin acuerdo. Vencido = `fecha_pago` < hoy. Mientras las ventas cargan no se inventa «Sin acuerdo» (conteos en «…»).
+- **Upgrade**: cada venta de membresía saldada cierra un ciclo; las etapas solo cuentan con fecha posterior al último pago (si no hay venta registrada, `upgrade_fecha`). El ciclo de upgrade no pide Básica. Etiqueta «Upgrade · desde <fecha>».
+- **Oro** es el nivel máximo: sin flechas, al final («Oro · nivel máximo»).
+- **Orden «Cerca del cierre»** (por defecto): 1 a 1 con fecha de pago/abono (la más próxima arriba, vencidos incluidos), luego Abonó sin fecha, luego Sin acuerdo; después Presentación, Avanzada, Básica y sin etapas, lo más reciente arriba.
+- El progreso X/29 de servicios ya no está en la lista; queda en el perfil y en la ficha expandida.
+- Diseño: flechas encadenadas con ícono, color por etapa (`--etp1..4` en `tema.css`, claro y oscuro) y fecha «10/oct». En celular las flechas ocupan todo el ancho de la tarjeta (también bajo el número del ranking) y usan el nombre corto («Membresías»); en fila con ícono al lado solo si la fila de flechas mide ≥560px (container query), y el nombre largo desde 720px.
 
 ## Móvil
 

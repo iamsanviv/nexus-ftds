@@ -31,7 +31,10 @@ async function asegurarDatos(alTerminar) {
 }
 
 /* ================= BLOQUE EN PERSONAS ================= */
-export function renderBloqueFtd() {
+// `alCargar`: la lista de Comunidad también lee ventas (resultado del 1 a 1), así
+// que cuando llegan se vuelve a pintar todo, no solo el bloque. Solo si llegaron:
+// si la carga falló, volver a pintar reintentaría sin fin.
+export function renderBloqueFtd(alCargar) {
   const cont = $("ftdPanel");
   if (!cont) return;
 
@@ -39,7 +42,7 @@ export function renderBloqueFtd() {
   if (state.modulo !== "comunidad") { cont.innerHTML = ""; return; }
   if (!state.ventasOk) {
     cont.innerHTML = "";
-    asegurarDatos(renderBloqueFtd);
+    asegurarDatos(() => { if (!state.ventasOk) return; alCargar ? alCargar() : renderBloqueFtd(); });
     return;
   }
 

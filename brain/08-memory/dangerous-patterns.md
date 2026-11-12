@@ -414,3 +414,8 @@ la fila `pregunta_link`, el resto de la tanda iba con estado NULL, la base la re
 quedaron 37 seguimientos `activo` sin ningún mensaje (no salió ni la invitación). Regla: si una
 fila del lote lleva una columna con default en la base, ponla explícita en todas. Y si el insert de
 mensajes falla, `programar()` cancela los seguimientos recién creados.
+
+## Contar la invitación a una puntual como asistencia (12/11/2026)
+
+`clientes.puntuales[actividad]` se crea al **invitar** (`conf`); solo `acc` dice que asistió. Al rellenar `zooms.avanzada` de clases pasadas (12/11/2026) se contó la existencia de la clave y se marcó como asistentes a invitados que no fueron; hubo que recalcular desde `puntuales[id].acc`. Regla: cualquier conteo o relleno de asistencia a puntuales filtra por `acc`, nunca por la presencia de la clave.
+

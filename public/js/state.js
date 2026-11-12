@@ -52,7 +52,10 @@ export const state = {
   filtrosMas: false, // ¿desplegados los filtros secundarios (broker, depósito, servicio)?
   filtroSrv: null,   // { id, modo: "si" | "no" } — asistencia a un servicio del catálogo
   filtroTemp: null,  // caliente | tibio | frio — filtro de la lista «Todos los leads»
-  filtroDefDesk: false,  // ¿ya se aplicó el defecto "En progreso"?
+  // Comunidad (12/11/2026): etapa de venta más alta (b | a | p | u | none) y
+  // resultado después del 1 a 1 (agp | aga | abo | sin | venc). Ver embudo.js.
+  filtroEtapa: null,
+  filtroRes: null,
   orden: "cerca",
   vista: "cliente",
   abiertos: new Set(),

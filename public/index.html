@@ -163,6 +163,8 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
            tercer hijo suelto le rompería ese reparto. -->
       <div class="filtroscol">
         <div class="filtros" id="filtros"></div>
+        <!-- Comunidad: resultado de pago después del 1 a 1. Lo pinta ui.js. -->
+        <div class="filtros filtrosbrk hidden" id="filtrosRes"></div>
         <!-- Eje aparte: se combina con la membresía y con el progreso. Lo pinta
              ui.js solo cuando hay más de un broker que distinguir. -->
         <!-- Ejes secundarios plegados tras «Más filtros»: eran demasiados mandos
@@ -172,6 +174,7 @@ if (/^\/i\/?$/.test(location.pathname)) location.replace("/i.html" + location.se
           <div class="filtros filtrosbrk hidden" id="filtrosBrk"></div>
           <div class="filtros filtrosbrk hidden" id="filtrosDep"></div>
           <div class="filtros filtrosbrk hidden" id="filtrosSrv"></div>
+          <div class="filtros filtrosbrk hidden" id="filtrosIna"></div>
         </div>
       </div>
       <div class="clifiltros-r">
