@@ -332,6 +332,25 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   «✎ Mensajes» se muestra el motivo sin botón de reactivar. Lo `retenido` no se toca a mano.
 - No usa el centinela de «❄ Congelar enlace»: «▶ Enviar enlace» lo liberaría para todos.
 
+## Sin confirmación para quien ya entró (12/11/2026, SQL 68)
+
+Pedido de Sanviv: si después del link la persona dice que ya entró o manda una captura del Zoom,
+la confirmación («¿pudiste entrar?») no sale. Vale para **todo** seguimiento, tenga o no pregunta.
+
+- Cron `ya_ingreso` cada minuto → `procesar_ya_ingreso()`: confirmación `pendiente`, enlace
+  `enviado`, seguimiento `activo` y algo entrante después de `enlace.enviado_en`.
+- Decide `ingreso_ia()` (Workers AI, caché propia en `ingresos_ia`, no comparte `respuestas_ia`):
+  SI solo con pasado claro («ya entré», «ya estoy dentro») o una foto sin problema; «ya entro»,
+  «ya ingreso», «ya voy a entrar», «no me deja», «gracias» → NO. Lo que no es SI claro deja la
+  confirmación: preguntar de más es mejor que dejar sin ayuda a quien no pudo entrar.
+- Frases de pasado («ya entre», «ya estoy dentro») cancelan aunque la IA diga NO (leyó «Okey ya entre»
+  como presente); sin IA, también una foto. Nunca si hay texto de problema («no me deja», «error», «ayuda»).
+  Prompt probado con 17 frases reales: «ya estoy» lo lee como SI.
+- Las fotos llegan como `img: 1` en `entrantes_txt` (chats_sync del 12/11). Sin ese chats_sync
+  instalado solo cuentan texto y audios. `transcripcion_pendiente` también lista a estas personas.
+- Motivos: `omitido: ya ingresó (leído por IA)`, `omitido: dijo que ya ingresó`,
+  `omitido: mandó una captura después del link`.
+
 ## Los leads no aparecen de primeras (21/10/2026)
 
 Pedido de Sanviv: al programar una actividad la lista arranca **sin leads**; la casilla

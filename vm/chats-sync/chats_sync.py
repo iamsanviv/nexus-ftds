@@ -151,6 +151,10 @@ def _textos_de(cm):
         m = {"en": f"{ts}+00:00", "t": (txt or "")[:TEXTO_LARGO]}
         if media == "audio" and not txt:
             m["_audio"] = [mid, jid]
+        # Una foto después del link suele ser la captura de que ya está en el
+        # Zoom: la base no le manda la confirmación (12/11/2026, Sanviv).
+        if media == "image":
+            m["img"] = 1
         lst.append(m)
         if len(lst) > TEXTOS_MAX:
             lst.pop(0)
