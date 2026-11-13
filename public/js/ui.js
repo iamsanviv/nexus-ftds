@@ -20,7 +20,8 @@ import { chipTemp, razonLlegada, seguimientoHTML, wireSeguimiento, btnEnviarSeg,
 import { renderHoy } from "./hoy.js";
 import { porBajar, crmDe, marcarBajo, ICO_BAJAR } from "./crm.js";
 import { renderMiDia, tieneMiDia } from "./midia.js";
-import { ETAPAS, RESULTADOS, SERVICIO_BASICA, embudo, compararEmbudo, cumpleResultado } from "./embudo.js";
+import { ETAPAS, RESULTADOS, SERVICIO_BASICA, SERVICIOS_OPERATIVA, fechaServicio, embudo, compararEmbudo, cumpleResultado } from "./embudo.js";
+import { abrirEditorEtapa } from "./etapaeditor.js";
 
 const NIVELES = ["Lead", "Beca", "VIP", "Platino", "Oro"];
 // Orden de urgencia de la temperatura para ordenar la lista de leads.
@@ -568,6 +569,7 @@ const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "o
 const fechaEtp = d => { const [, m, dd] = d.slice(0, 10).split("-"); return `${+dd}/${MESES[+m - 1]}`; };
 const ICO_ETP = {
   b: '<path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2"/><path d="M8 7h7"/>',
+  o: '<path d="M3 17l5-5 4 4 8-8"/><path d="M15 8h5v5"/>',
   a: '<path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/>',
   p: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/>',
   u: '<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M3 20c0-3 2-5 5-5s5 2 5 5M11 20c0-3 2-5 5-5s5 2 5 5"/>',
@@ -586,11 +588,12 @@ function etapasHTML(e) {
   // La etapa «actual» se marca con un filo abajo: un «No asistió» manda, porque
   // es lo que toca resolver; si no, la más alta hecha.
   const cur = e.etapas.find(x => e.est[x.k].no)?.k || e.actual;
+  // Cada flecha es un botón: abre el editor de esa etapa (etapaeditor.js).
   return `<div class="etp">${e.etapas.map(x => {
     const st = e.est[x.k], cls = st.f ? "ok" : st.no ? "no" : "";
     const sub = st.f ? fechaEtp(st.f) : st.no ? "No asistió" : "Pendiente";
-    return `<div class="est ${cls} ${cur === x.k ? "cur" : ""}" style="--c:var(${x.c})" title="${esc(x.largo || x.l)} · ${sub}">`
-      + `${icoEtp(st.no && !st.f ? "no" : x.k)}<span class="etx"><b><span class="elargo">${x.l}</span><span class="ecorto">${x.corto}</span></b><small>${sub}</small></span></div>`;
+    return `<button type="button" class="est ${cls} ${cur === x.k ? "cur" : ""}" data-etp="${x.k}" style="--c:var(${x.c})" title="${esc(x.largo || x.l)} · ${sub} · tocar para editar" aria-label="${esc(x.largo || x.l)}: ${sub}. Editar">`
+      + `${icoEtp(st.no && !st.f ? "no" : x.k)}<span class="etx"><b><span class="elargo">${x.largo || x.l}</span><span class="ecorto">${x.corto}</span></b><small>${sub}</small></span></button>`;
   }).join("")}</div>`;
 }
 
@@ -653,18 +656,33 @@ function cardHTML(c, p, rank, isLead, dir, emb) {
 
   const nota = c.nota ? `<div class="notaimp"><span class="nlbl">Nota</span>${esc(c.nota)}</div>` : "";
 
+  // Comunidad (13/11/2026): la tarjeta ya no se despliega. Lo que había abajo
+  // —WhatsApp, copiar, Perfil, Eliminar— está en el perfil, que se abre
+  // tocando el nombre, y las flechas de etapa se editan tocándolas. Los leads
+  // sí se despliegan: ahí vive su seguimiento.
+  if (!isLead) {
+    return `<div class="card fija ${esInactivo(c) ? 'inact' : ''}" data-id="${c.id}">
+      <div class="chead">
+        ${rankChip || `<div class="cav">${esc(iniciales(c.nombre))}</div>`}
+        <div class="cinfo etpinfo">
+          <div class="nombre"><button type="button" class="nmlink" data-perfil="${c.id}" title="Abrir el perfil">${esc(c.nombre)}</button> <span class="badge b-${c.mem}">${c.mem}</span>${cicloTag}${brkTags}${paisTag}${inactTag} ${ownerBadge}${c.nota ? ` <span class="badge b-nota" title="${esc(c.nota)}">Nota</span>` : ""}</div>
+          ${etapasHTML(emb) + resultadoHTML(emb)}
+        </div>
+      </div>
+    </div>`;
+  }
+
   return `<div class="card ${open ? 'open' : ''} ${esInactivo(c) ? 'inact' : ''}" data-id="${c.id}">
       <div class="chead">
         ${rankChip || `<div class="cav">${esc(iniciales(c.nombre))}</div>`}
-        <div class="cinfo ${isLead ? "" : "etpinfo"}">
+        <div class="cinfo">
           <div class="nombre"><span class="nmlink" data-perfil="${c.id}">${esc(c.nombre)}</span> <span class="badge b-${c.mem}">${c.mem}</span>${cicloTag}${origenTag}${brkTags}${paisTag}${inactTag} ${ownerBadge}</div>
-          ${isLead ? `<div class="lhead">${chipTemp(c)}<span class="lwhy">${razonLlegada(c, porBajar(c))}</span></div>` : etapasHTML(emb) + resultadoHTML(emb)}
+          <div class="lhead">${chipTemp(c)}<span class="lwhy">${razonLlegada(c, porBajar(c))}</span></div>
         </div>
         <div class="chev">▸</div>
       </div>
       <div class="cbody">
-        ${isLead ? (open ? seguimientoHTML(c, { enviar: recibeSegLead(c) }) : "") + nota
-                 : nota}
+        ${(open ? seguimientoHTML(c, { enviar: recibeSegLead(c) }) : "") + nota}
         ${porBajar(c) ? `<div class="lbajar"><button class="lbtn hbajar" data-acc="bajado">${ICO_BAJAR}Bajado a WA</button><span>Lead de HighLevel: márcalo cuando ya te escriba por WhatsApp.</span></div>` : ""}
         <div class="cfoot">
           ${contacto(c)}
@@ -686,27 +704,39 @@ function renderKeepingCard(cardId) {
   if (el) raizScroll().scrollTop += el.getBoundingClientRect().top - antes;
 }
 
+// Borrar a una persona: desde la tarjeta de un lead o desde el perfil.
+async function borrarCliente(c) {
+  if (!confirm(`¿Eliminar a ${c.nombre}?`)) return false;
+  if (!(await dbDelete(c.id))) return false;
+  state.clientes = state.clientes.filter(x => x.id !== c.id);
+  state.abiertos.delete(c.id);
+  // Descuenta el FTD si este cliente lo había sumado este mes (simétrico
+  // a trasCrearCliente). Va después de sacarlo de state.clientes.
+  await (await import("./ftd.js")).trasBorrarCliente(c);
+  render();
+  return true;
+}
+
 function wireCards() {
   $("lista").querySelectorAll(".card").forEach(card => {
     const c = state.clientes.find(x => x.id === card.dataset.id);
-    card.querySelector(".chead").onclick = () => { state.abiertos.has(c.id) ? state.abiertos.delete(c.id) : state.abiertos.add(c.id); renderKeepingCard(c.id); };
     const nml = card.querySelector(".nmlink"); if (nml) nml.onclick = e => { e.stopPropagation(); abrirPerfil(c); };
+    // Comunidad: cada flecha abre el editor de su etapa. La tarjeta no se
+    // despliega, así que no hay más que cablear.
+    if (card.classList.contains("fija")) {
+      card.querySelectorAll("[data-etp]").forEach(b => b.onclick = e => {
+        e.stopPropagation();
+        abrirEditorEtapa(c, b.dataset.etp, embudo(c).desde, () => renderKeepingCard(c.id));
+      });
+      return;
+    }
+    card.querySelector(".chead").onclick = () => { state.abiertos.has(c.id) ? state.abiertos.delete(c.id) : state.abiertos.add(c.id); renderKeepingCard(c.id); };
     wireSeguimiento(card, c, renderKeepingCard);
     card.querySelector('[data-acc="perfil"]').onclick = () => abrirPerfil(c);
     const bj = card.querySelector('[data-acc="bajado"]');
     if (bj) bj.onclick = e => { e.stopPropagation(); marcarBajo(crmDe(c), () => renderKeepingCard(c.id)); };
     const cn = card.querySelector('.copynum'); if (cn) cn.onclick = e => { e.stopPropagation(); copyNum(cn.dataset.num); };
-    card.querySelector('[data-acc="borrar"]').onclick = async () => {
-      if (!confirm(`¿Eliminar a ${c.nombre}?`)) return;
-      if (await dbDelete(c.id)) {
-        state.clientes = state.clientes.filter(x => x.id !== c.id);
-        state.abiertos.delete(c.id);
-        // Descuenta el FTD si este cliente lo había sumado este mes (simétrico
-        // a trasCrearCliente). Va después de sacarlo de state.clientes.
-        await (await import("./ftd.js")).trasBorrarCliente(c);
-        render();
-      }
-    };
+    card.querySelector('[data-acc="borrar"]').onclick = () => borrarCliente(c);
   });
 }
 
@@ -1069,7 +1099,19 @@ function abrirPerfil(c) {
   construirActividades(c);
   pintarBajarPerfil(c);
   pintarSegPerfil(c);
+  pintarContactoPerfil(c);
   $("overlay").classList.add("open");
+}
+
+// WhatsApp, llamar, copiar y Eliminar en el perfil. Salieron de la tarjeta de
+// Comunidad, que ya no se despliega (13/11/2026).
+function pintarContactoPerfil(c) {
+  const box = $("fContacto");
+  box.innerHTML = c?.tel ? `<span class="fclbl">${esc(c.tel)}</span>${contacto(c)}` : "";
+  box.classList.toggle("hidden", !c?.tel);
+  const cn = box.querySelector(".copynum"); if (cn) cn.onclick = () => copyNum(cn.dataset.num);
+  $("fBorrar").classList.toggle("hidden", !c);
+  $("fBorrar").onclick = c ? async () => { if (await borrarCliente(c)) cerrarM(); } : null;
 }
 
 // «Enviar seguimiento» en el Perfil: el modal de envío se abre ENCIMA (va
@@ -1101,15 +1143,22 @@ function construirActividades(c) {
   // otro sitio donde arreglarla.
   const z = c.zooms || {};
   const bas = c.acc?.[SERVICIO_BASICA] || "";
-  const hechos = ZOOMS.filter(([k]) => (z[k] || {}).e === "hecha").length + (bas ? 1 : 0);
+  // Operativa (13/11/2026): cualquiera de las tres operativas con Juan Facundo.
+  const ope = fechaServicio(c, "o") || "";
+  const hechos = ZOOMS.filter(([k]) => (z[k] || {}).e === "hecha").length + (bas ? 1 : 0) + (ope ? 1 : 0);
   $("fActividades").innerHTML = `<details class="punacc zoomacc">
-      <summary><span class="pat">◎ Embudo de venta</span><span class="pcn">${hechos}/${ZOOMS.length + 1}</span></summary>
+      <summary><span class="pat">◎ Embudo de venta</span><span class="pcn">${hechos}/${ZOOMS.length + 2}</span></summary>
       <div class="punbody">
-        <div class="msgshelp">Se marcan solos al ponerle asistencia a la actividad. Aquí se corrigen.</div>
+        <div class="msgshelp">Se marcan solos al ponerle asistencia a la actividad. Aquí se corrigen, o tocando la etapa en la lista de Comunidad.</div>
         <div class="actrow zrow">
           <span class="an">Básica (Nivel 0 a Avanzado)</span>
           <span class="zbas">${bas ? "✓ Asistió" : "Pendiente"}</span>
           <input type="date" data-zbas value="${esc(bas)}">
+        </div>
+        <div class="actrow zrow">
+          <span class="an">Operativa en Vivo (en Vivo, VIP u Oro)</span>
+          <span class="zbas">${ope ? "✓ Asistió" : "Pendiente"}</span>
+          <input type="date" data-zope value="${esc(ope)}">
         </div>
         ${ZOOMS.map(([k, lbl]) => {
           const zz = z[k] || {};
@@ -1148,6 +1197,15 @@ function construirActividades(c) {
     if (v) c.acc[SERVICIO_BASICA] = v; else delete c.acc[SERVICIO_BASICA];
     if (await dbPatch(c, { acc: c.acc })) { toast("Embudo actualizado"); construirActividades(c); render(); }
   };
+  // Operativa: corrige la operativa de la que viene la fecha (o la «en Vivo»
+  // si no había); vaciarla quita la asistencia a las tres.
+  $("fActividades").querySelector("[data-zope]").onchange = async e => {
+    const v = e.target.value;
+    const de = SERVICIOS_OPERATIVA.find(s => c.acc?.[s] && c.acc[s] === ope) || SERVICIOS_OPERATIVA[0];
+    c.acc = { ...(c.acc || {}) };
+    if (v) c.acc[de] = v; else SERVICIOS_OPERATIVA.forEach(s => delete c.acc[s]);
+    if (await dbPatch(c, { acc: c.acc })) { toast("Embudo actualizado"); construirActividades(c); render(); }
+  };
 }
 
 function cerrarM() {
@@ -1162,6 +1220,7 @@ function cerrarM() {
   $("fActividades").innerHTML = "";
   pintarBajarPerfil(null);
   pintarSegPerfil(null);
+  pintarContactoPerfil(null);
 }
 
 // Selector de dueño: solo tiene sentido para un director, que es el único que

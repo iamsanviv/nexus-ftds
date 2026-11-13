@@ -842,6 +842,10 @@ setTimeout(function () { var c = document.getElementById("carga"); if (c) c.clas
           <option value="España">España</option>
         </select></div>
       </div></div>
+      <!-- Accesos al teléfono (WhatsApp, llamar, copiar). Antes vivían al
+           desplegar la tarjeta de Comunidad; desde 13/11/2026 la tarjeta ya no
+           se despliega y quedan aquí. Solo en un perfil existente. -->
+      <div class="fcontacto hidden" id="fContacto"></div>
       <!-- Desfase horario: hace que {hora} llegue en la hora de pared de la
            persona en vez de la de Colombia. Se pone A MANO: el país no sirve para
            deducirlo (México tiene tres husos). Excepción: un número +57 la pone
@@ -871,6 +875,37 @@ setTimeout(function () { var c = document.getElementById("carga"); if (c) c.clas
     <div class="mbtns">
       <button class="cancelar" id="cerrarModal">Cancelar</button>
       <button class="guardar" id="guardarBtn">Guardar</button>
+    </div>
+    <!-- Eliminar también salió de la tarjeta (13/11/2026). Solo en un perfil existente. -->
+    <button type="button" class="pfborrar hidden" id="fBorrar">Eliminar persona</button>
+  </div>
+</div>
+
+<!-- Editor de una etapa de venta (etapaeditor.js): se abre al tocar una
+     flecha de la tarjeta de Comunidad. -->
+<div class="overlay" id="etpOverlay">
+  <div class="modal etpmodal" role="dialog" aria-modal="true" aria-labelledby="etpTit">
+    <div class="etphead" id="etpHead">
+      <span class="etpbadge" id="etpBadge" aria-hidden="true"></span>
+      <div class="etptits"><h2 id="etpTit">Etapa</h2><span id="etpQuien"></span></div>
+      <button class="mclose" id="etpCerrar" type="button" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="etpbody">
+      <div class="etplbl" id="etpEstLbl">Asistencia</div>
+      <div class="etpopts" id="etpOpts" role="radiogroup" aria-labelledby="etpEstLbl"></div>
+      <div class="etpfecha" id="etpFechaRow">
+        <label for="etpFecha">Fecha</label>
+        <div class="etpfechas">
+          <input type="date" id="etpFecha">
+          <button type="button" class="etpquick" data-dia="0">Hoy</button>
+          <button type="button" class="etpquick" data-dia="1">Ayer</button>
+        </div>
+      </div>
+      <div class="msgshelp" id="etpAyuda"></div>
+    </div>
+    <div class="mbtns">
+      <button class="cancelar" id="etpCancelar" type="button">Cancelar</button>
+      <button class="guardar" id="etpGuardar" type="button">Guardar</button>
     </div>
   </div>
 </div>

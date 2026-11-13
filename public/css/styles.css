@@ -2633,3 +2633,57 @@ html[data-tema="claro"] .cargalogo{filter:drop-shadow(0 6px 12px rgba(60,40,10,.
 .cargalenta button{display:block;margin:10px auto 0;padding:8px 18px;border-radius:10px;
   border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;cursor:pointer}
 #carga.lenta .cargalenta{display:block}
+
+/* ---------- etapas como botones y su editor (13/11/2026) ----------
+   Las flechas de Comunidad se tocan para editar la etapa (etapaeditor.js).
+   La tarjeta ya no se despliega: el nombre abre el perfil. */
+button.est{border:0;font:inherit;cursor:pointer;transition:filter .15s,transform .15s}
+button.est:hover{filter:brightness(1.12)}
+button.est:active{transform:scale(.97)}
+button.est:focus-visible{outline:2px solid var(--gold);outline-offset:2px;position:relative;z-index:1}
+.card.fija .chead{cursor:default}
+.card .nombre button.nmlink{background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left}
+.card .nombre button.nmlink:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:3px}
+.badge.b-nota{background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
+
+/* Accesos al teléfono dentro del perfil */
+.fcontacto{display:flex;align-items:center;gap:8px;margin:-4px 0 12px}
+.fcontacto .fclbl{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums;margin-right:2px}
+.pfborrar{display:block;margin:14px auto 0;background:none;border:0;color:var(--bad);font:inherit;font-size:.82rem;
+  font-weight:600;text-decoration:underline;cursor:pointer;padding:6px 10px}
+
+/* Editor de una etapa */
+.etpmodal{max-width:420px;padding:0 0 18px;overflow:hidden}
+.etphead{display:flex;align-items:center;gap:12px;padding:16px 16px 14px;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--c) 30%,var(--surface)) 0%,var(--surface) 75%);
+  border-bottom:1px solid color-mix(in srgb,var(--c) 35%,var(--border))}
+.etpbadge{width:38px;height:38px;border-radius:12px;background:var(--c);color:var(--on-etp);display:grid;place-items:center;
+  font-family:'Archivo',system-ui,sans-serif;font-weight:800;font-size:1.05rem;flex:none}
+.etptits{flex:1;min-width:0;display:grid}
+.etptits h2{margin:0;font-size:1.08rem;text-wrap:balance}
+.etptits span{font-size:.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.etpbody{padding:16px 16px 0;display:flex;flex-direction:column;gap:14px}
+.etplbl,.etpfecha label{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--muted)}
+.etpopts{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:8px;margin-top:-6px}
+.etpopt{min-height:48px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);
+  font:inherit;font-weight:700;font-size:.86rem;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;
+  transition:border-color .15s,background .15s}
+.etpdot{width:14px;height:14px;border-radius:50%;border:2px solid var(--muted);flex:none;transition:all .15s}
+.etpopt[aria-checked="true"].ok{border-color:var(--c, var(--ok));background:color-mix(in srgb,var(--ok) 14%,var(--surface2))}
+.etpopt[aria-checked="true"].ok .etpdot{border-color:var(--ok);background:var(--ok);box-shadow:inset 0 0 0 2px var(--surface2)}
+.etpopt[aria-checked="true"].no{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
+.etpopt[aria-checked="true"].no .etpdot{border-color:var(--bad);background:var(--bad);box-shadow:inset 0 0 0 2px var(--surface2)}
+.etpopt[aria-checked="true"].pend{border-color:var(--muted)}
+.etpopt[aria-checked="true"].pend .etpdot{background:var(--muted);box-shadow:inset 0 0 0 2px var(--surface2)}
+.etpopt:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.etpfecha{display:grid;gap:6px}
+.etpfechas{display:flex;gap:8px;align-items:center}
+.etpfechas input{flex:1;min-width:0}
+.etpquick{flex:none;min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);
+  color:var(--text);font:inherit;font-size:.8rem;font-weight:600;cursor:pointer}
+.etpquick:hover{border-color:var(--gold)}
+.etpbody .msgshelp{margin:0}
+.etpaviso{color:var(--bad);font-weight:600}
+.etpmodal .mbtns{padding:0 16px}
+.etpmodal .guardar:disabled{opacity:.45;cursor:default}
+@media (min-width:768px){ .overlay:has(.etpmodal){align-items:center} .etpmodal{border-radius:18px} }
