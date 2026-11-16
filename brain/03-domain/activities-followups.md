@@ -332,7 +332,12 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   «✎ Mensajes» se muestra el motivo sin botón de reactivar. Lo `retenido` no se toca a mano.
 - No usa el centinela de «❄ Congelar enlace»: «▶ Enviar enlace» lo liberaría para todos.
 
-## Sin confirmación para quien ya entró (12/11/2026, SQL 68)
+- Respondió mientras la pregunta esperaba en la cola (16/11, SQL 70, cron `preguntas_respondidas`):
+  la pregunta `pendiente` se cancela y vuelven rec_15 (si su hora no pasó), enlace y confirmación.
+  Caso Luis Galán 15/11: decidida antes de las 19:00, salió 19:15 con la cola atrasada. Límite:
+  chats_sync de VM1 publica cada ~5 min.
+
+## Sin confirmación para quien ya entró (12/11/2026, SQL 69; aplicado el 13/11)
 
 Pedido de Sanviv: si después del link la persona dice que ya entró o manda una captura del Zoom,
 la confirmación («¿pudiste entrar?») no sale. Vale para **todo** seguimiento, tenga o no pregunta.
