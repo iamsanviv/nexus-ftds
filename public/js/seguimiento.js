@@ -8,7 +8,8 @@ import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom, ZOOMS,
   horaDeCliente, etiquetaZona, etiquetaDia, componerMensaje,
   esInactivo, esLead, nombreMotivo, motivoCorto,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas,
-  normBusqueda, BROKERS, insigniasBroker, cuandoParte, fechaCO, asistioEseDia } from "./state.js";
+  normBusqueda, BROKERS, insigniasBroker, cuandoParte, fechaCO, asistioEseDia,
+  esOtroDia, conSaludo, quitarSaludo } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { porBajar } from "./crm.js";
@@ -2261,6 +2262,11 @@ async function programar() {
         yaInvitados.has(c.tel), invEfectiva, c.tzOff, tInv.toISOString());
       const piso = pisoDe(i);
       let preguntaPuesta = false;
+      // Saludo del nuevo día: lo lleva solo el PRIMER hito que sale (y la
+      // pregunta del link, que va en su lugar), si cae en otro día que el último
+      // mensaje de la invitación —o que el momento de programar, sin invitación—.
+      let primerHito = null, saludar = false;
+      const nombreCorto = c.nombre.trim().split(/\s+/)[0];
       for (const [tipo, cuandoBase] of tiempos()) {
         // La invitación de cada persona sale en SU turno de la serie (con una
         // sola parte, es exactamente `cuandoInv`, como siempre).
@@ -2270,6 +2276,11 @@ async function programar() {
           seguimiento_id: seg.id, tipo, enviar_en: cuando.toISOString(),
           telefono: c.tel, texto: tpl[tipo],
         };
+        if (tipo !== "invitacion" && !primerHito) {
+          primerHito = tipo;
+          saludar = esOtroDia(new Date(piso).toISOString(), fila.enviar_en, c.tzOff);
+          if (saludar) fila.texto = conSaludo(fila.texto, nombreCorto, fila.enviar_en, c.tzOff);
+        }
         // Imagen de la invitación, por orden de precedencia:
         //   0. la que el agente puso para SUS envíos de una actividad ajena.
         //   1. la subida para ESTA actividad → media_url (vía ya probada: hay
@@ -2314,10 +2325,12 @@ async function programar() {
         // serie larga a alguien se le puede caer el de 1 h y quedarle el de 15.
         if ((tipo === "rec_60" || tipo === "rec_15") && preguntar && !preguntaPuesta) {
           preguntaPuesta = true;
+          const texto = aplicar(PREGUNTA_LINK, { nombre: nombreCorto });
           msgs.push({
             seguimiento_id: seg.id, tipo: "pregunta_link", estado: "retenido",
             enviar_en: cuando.toISOString(), telefono: c.tel,
-            texto: aplicar(PREGUNTA_LINK, { nombre: c.nombre.trim().split(/\s+/)[0] }),
+            texto: (saludar && primerHito === tipo)
+              ? conSaludo(texto, nombreCorto, cuando.toISOString(), c.tzOff) : texto,
           });
         }
         // Las partes 2..4 van justo detrás de la invitación. Tipo propio
@@ -2662,13 +2675,13 @@ async function renombrarPendientes(actividadId, antes, ahora) {
 
 async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace, msgInv, serie) {
   const { data: segs } = await SB.from("seguimientos")
-    .select("id, owner_id, clientes(nombre, tz_offset_min)")
+    .select("id, owner_id, created_at, clientes(nombre, tz_offset_min)")
     .eq("actividad_id", actividadId).eq("estado", "activo");
   if (!segs || !segs.length) return { movidos: 0, cancelados: 0 };
 
   const info = new Map(segs.map(s =>
     [s.id, { mio: s.owner_id === state.me.id, nombre: s.clientes?.nombre || "",
-             tzOff: s.clientes?.tz_offset_min ?? null }]));
+             tzOff: s.clientes?.tz_offset_min ?? null, creado: s.created_at }]));
 
   const { data: msgs } = await SB.from("mensajes_programados")
     .select("id, tipo, parte, seguimiento_id, enviar_en, texto")
@@ -2705,6 +2718,41 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
       invInicio.has(id) ? new Date(invInicio.get(id)).toISOString() : nuevoInicioISO));
   }
 
+  // Saludo del nuevo día con la hora nueva (ver `conSaludo`). Lo lleva el
+  // primer hito que todavía va a salir, si ninguno salió ya y cae en otro día
+  // que el último mensaje de la invitación (o que cuando se programó, sin
+  // invitación del sistema). Hace falta ver también lo ya enviado: una
+  // invitación que salió ayer es justo el caso.
+  const saludoDe = new Map();   // seguimiento_id → { tipo, iso } del hito que saluda
+  const pregunta = new Map();   // seguimiento_id → fila de la pregunta del link retenida
+  {
+    const { data: otros } = await SB.from("mensajes_programados")
+      .select("id, tipo, seguimiento_id, estado, enviar_en, enviado_en, texto")
+      .in("seguimiento_id", [...info.keys()]).in("estado", ["enviado", "retenido"]);
+    const ref = new Map(), yaSalio = new Set();
+    for (const m of [...(otros || []), ...msgs]) {
+      const esInv = m.tipo === "invitacion" || m.tipo === "invitacion_parte";
+      if (esInv) {
+        const t = new Date(m.enviado_en || m.enviar_en).getTime();
+        ref.set(m.seguimiento_id, Math.max(ref.get(m.seguimiento_id) ?? 0, t));
+      } else if (m.estado === "enviado") yaSalio.add(m.seguimiento_id);
+      if (m.tipo === "pregunta_link" && m.estado === "retenido") pregunta.set(m.seguimiento_id, m);
+    }
+    for (const m of msgs) {
+      const cuando = nuevaHora[m.tipo];
+      if (!cuando || esCongelado(m.enviar_en) || yaSalio.has(m.seguimiento_id)) continue;
+      if (cuando.getTime() <= Math.max(ahora, invPendiente.get(m.seguimiento_id) ?? 0)) continue;
+      const prev = saludoDe.get(m.seguimiento_id);
+      if (!prev || cuando.getTime() < new Date(prev.iso).getTime())
+        saludoDe.set(m.seguimiento_id, { tipo: m.tipo, iso: cuando.toISOString() });
+    }
+    for (const [id, h] of saludoDe) {
+      const d = info.get(id);
+      const desde = ref.has(id) ? new Date(ref.get(id)).toISOString() : d.creado;
+      if (!desde || !esOtroDia(desde, h.iso, d.tzOff)) saludoDe.delete(id);
+    }
+  }
+
   const aCancelar = [];
   const tareas = [];
   for (const m of msgs) {
@@ -2718,7 +2766,13 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
     // Una invitación SIN texto es una nota de voz (o solo imagen/video) puesta
     // así a propósito: regenerarla le pegaría la plantilla detrás del audio.
     const sinTexto = m.tipo === "invitacion" && !(m.texto || "").trim();
-    if (tpl && tpl[m.tipo] && !sinTexto) campos.texto = tpl[m.tipo];
+    if (tpl && tpl[m.tipo] && !sinTexto) {
+      campos.texto = tpl[m.tipo];
+      const sal = saludoDe.get(m.seguimiento_id);
+      const d0 = info.get(m.seguimiento_id);
+      if (sal && sal.tipo === m.tipo)
+        campos.texto = conSaludo(campos.texto, d0.nombre.trim().split(/\s+/)[0], sal.iso, d0.tzOff);
+    }
     // Las partes de la serie no se mueven (cuelgan de la invitación, no del
     // inicio), pero su `{hora}` sí cambió: se regenera cada una con su texto.
     const pt = m.tipo === "invitacion_parte" && serie?.partes?.[m.parte - 2];
@@ -2734,6 +2788,19 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
     }
     if (Object.keys(campos).length)
       tareas.push(SB.from("mensajes_programados").update(campos).eq("id", m.id));
+  }
+
+  // La pregunta del link sale en lugar del primer recordatorio: lleva el mismo
+  // saludo que él, o ninguno. Solo se retoca el saludo, no la variación sorteada.
+  for (const [id, p] of pregunta) {
+    const d = info.get(id);
+    if (!d?.mio || !d.nombre) continue;
+    const sal = saludoDe.get(id);
+    const nuevo = (sal && (sal.tipo === "rec_60" || sal.tipo === "rec_15"))
+      ? conSaludo(p.texto, d.nombre.trim().split(/\s+/)[0], sal.iso, d.tzOff)
+      : quitarSaludo(p.texto);
+    if (nuevo !== p.texto)
+      tareas.push(SB.from("mensajes_programados").update({ texto: nuevo }).eq("id", p.id));
   }
 
   // En tandas para no abrir cien peticiones a la vez.
