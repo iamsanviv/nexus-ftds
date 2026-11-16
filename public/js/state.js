@@ -273,6 +273,52 @@ export function etiquetaDia(isoEvento, isoEnvio, tzOff) {
   return `el ${ev.getDate()} de ${MESES[ev.getMonth()]}`;
 }
 
+/* ---------- saludo del nuevo día (16/11/2026, pedido de Sanviv) ----------
+   Si la invitación salió un día y el primer recordatorio sale al día siguiente
+   (en la hora de la persona), ese primer mensaje abre con un saludo según la
+   hora: antes de 12 m «Buenos días», de 12 m a 5:59 pm «Buenas tardes», desde
+   6 pm «Buenas noches». Va junto al nombre («Buenas tardes Ana, …») y, si el
+   texto no empieza por el nombre, delante («Buenas noches! …»).
+
+   La hora se calcula con Colombia fija (UTC−5, sin horario de verano) más el
+   desfase de la persona, y no con la zona del navegador: el saludo y el día
+   tienen que salir iguales aunque el agente programe desde otro país. */
+const CO_MIN = -300;
+const paredDe = (iso, tzOff) => new Date(new Date(iso).getTime() + (CO_MIN + (tzOff || 0)) * 60000);
+// Día de pared (número de días desde 1970) para comparar «mismo día» sin horas.
+const diaPared = (iso, tzOff) => Math.floor(paredDe(iso, tzOff).getTime() / 86400000);
+
+export const esOtroDia = (antesISO, despuesISO, tzOff) =>
+  diaPared(despuesISO, tzOff) > diaPared(antesISO, tzOff);
+
+export function saludoPorHora(iso, tzOff) {
+  const h = paredDe(iso, tzOff).getUTCHours();
+  return h < 12 ? "Buenos días" : h < 18 ? "Buenas tardes" : "Buenas noches";
+}
+
+const SALUDO_RE = /^(¡?)(Buenos días|Buenas tardes|Buenas noches)(! | )/;
+
+// Quita un saludo puesto por `conSaludo` (para recalcularlo al cambiar la hora
+// sin re-sortear el resto del texto). Devuelve el texto como si nunca lo hubiera
+// tenido: «Buenas tardes Ana, …» → «Ana, …»; «Buenas noches! Ya…» → «Ya…».
+export function quitarSaludo(texto) {
+  return String(texto || "").replace(SALUDO_RE, "$1");
+}
+
+export function conSaludo(texto, nombreCorto, iso, tzOff) {
+  const limpio = quitarSaludo(texto);
+  if (!limpio.trim()) return limpio;   // nota de voz u otro adjunto sin texto: no se toca
+  const saludo = saludoPorHora(iso, tzOff);
+  const n = (nombreCorto || "").trim();
+  if (n) {
+    const esc = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // El nombre tiene que ser palabra entera: «Ana» no casa con «Anabel».
+    const m = limpio.match(new RegExp(`^(¡?)(${esc})(?=$|[\\s,!.?;:])`, "i"));
+    if (m) return m[1] + saludo + " " + limpio.slice(m[1].length);
+  }
+  return saludo + "! " + limpio;
+}
+
 /* ---------- etiquetas de los mensajes ----------
    Compartido por las plantillas de actividad y por el masivo: los dos escriben
    `{hora} {zona}` y los dos tienen que resolverlo igual.

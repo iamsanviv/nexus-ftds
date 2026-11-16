@@ -390,6 +390,27 @@ Dónde pesa:
 
 Lo que NO cambió: la `invitacion` sigue siendo el primer contacto y la que frena el tope diario, sea texto o voz; las partes 2..4 siguen como `invitacion_parte`; recordatorios, enlace y pregunta del link, igual.
 
+## Saludo del nuevo día (16/11/2026)
+
+Pedido de Sanviv: si la invitación salió un día y el **primer** hito de esa persona sale otro día
+(en su hora de pared), ese primer mensaje abre con un saludo según la hora a la que sale: antes de
+12 m «Buenos días», de 12 m a 5:59 pm «Buenas tardes», desde 6 pm «Buenas noches». Solo el primero
+(rec_60, o rec_15 si no hay de 1 h, o el enlace si no hay recordatorios); la `pregunta_link` lleva el
+mismo saludo que el recordatorio al que reemplaza. Sin invitación del sistema se cuenta desde que se
+programó (como la pregunta del link). Con serie, desde la última parte.
+
+- Va junto al nombre si el texto empieza por él («Buenas tardes Ana, bendiciones!…», «¡Buenas tardes
+  Ana, en 15…»); si no, delante («Buenas noches! Ya empezamos, Ana!…»). Funciona igual con plantillas
+  editadas. `conSaludo` / `quitarSaludo` / `esOtroDia` en `state.js`; la hora se calcula con Colombia
+  fija (UTC−5) + `tz_offset_min`, no con la zona del navegador.
+- Se decide al escribir el texto: `programar()` y `reprogramarPorHora()` (recalcula con la hora nueva,
+  y retoca solo el saludo de la pregunta retenida para no re-sortear su variación). Lo que el panel no
+  reescribe (seguimientos ajenos, trigger `actividades_ajenos_upd`) conserva el saludo viejo, igual que
+  su `{hora}`.
+- Si el rec_15 vuelve tras un «sí» a la pregunta, va sin saludo: la pregunta ya saludó.
+- No mira mensajes de OTRAS actividades del mismo día: si esa mañana ya recibió otro recordatorio,
+  el saludo se repite.
+
 ## Rastreo
 
 Cada seguimiento rastreado tiene su propio `clic_token`. El token identifica a esa persona dentro de esa actividad y debe sobrevivir a reprogramaciones de mensajes.
