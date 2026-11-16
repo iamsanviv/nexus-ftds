@@ -332,6 +332,8 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   «✎ Mensajes» se muestra el motivo sin botón de reactivar. Lo `retenido` no se toca a mano.
 - No usa el centinela de «❄ Congelar enlace»: «▶ Enviar enlace» lo liberaría para todos.
 
+- La pregunta reemplaza al rec_60 solo si la invitación salió ≥15 min antes de él; si no, al rec_15
+  (16/11, SQL 71). El 15/11 se decidió preguntar a 59 de 128 antes de que les llegara la invitación.
 - Respondió mientras la pregunta esperaba en la cola (16/11, SQL 70, cron `preguntas_respondidas`):
   la pregunta `pendiente` se cancela y vuelven rec_15 (si su hora no pasó), enlace y confirmación.
   Caso Luis Galán 15/11: decidida antes de las 19:00, salió 19:15 con la cola atrasada. Límite:
