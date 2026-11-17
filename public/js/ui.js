@@ -962,7 +962,9 @@ function pintarChats() {
   const libres = chatsCache.filter(c => !(c.lid && lids.has(c.lid))
     && (c.telefono ? !registrados.has(soloDigitos(c.telefono)) : true));
   const vis = q
-    ? libres.filter(c => normBusqueda(c.nombre_wa || "").includes(q) || soloDigitos(c.telefono).includes(soloDigitos(q) || "\u0000"))
+    ? libres.filter(c => normBusqueda(c.nombre_wa || "").includes(q) || soloDigitos(c.telefono).includes(soloDigitos(q) || "\u0000")
+      // Muchos sin número tampoco tienen nombre: buscar «sin número» los junta.
+      || (!c.telefono && "sin numero visible".includes(q)))
     : libres;
 
   if (!vis.length) {
@@ -974,7 +976,9 @@ function pintarChats() {
     $("chatLista").innerHTML = `<div class="vacio">${motivo}</div>`;
     return;
   }
-  $("chatLista").innerHTML = vis.slice(0, 120).map(c => `
+  // Sin tope de 120: los sin número suelen ser chats más viejos y quedaban
+  // por debajo del corte. Son a lo sumo 300 + 300 filas, que se pintan sin problema.
+  $("chatLista").innerHTML = vis.map(c => `
     <button type="button" class="chatfila" data-tel="${esc(c.telefono || "")}" data-lid="${esc(c.telefono ? "" : c.lid)}" data-nom="${esc(c.nombre_wa || "")}">
       <span class="chatnom">${esc(c.nombre_wa || "Sin nombre en WhatsApp")}</span>
       <span class="chatmeta">${c.telefono
