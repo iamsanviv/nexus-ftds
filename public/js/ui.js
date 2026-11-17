@@ -955,9 +955,16 @@ function pintarChats() {
   // el módulo abierto. Ofrecer a alguien que ya existe como lead terminaría en
   // un duplicado con otro nivel.
   const registrados = new Set(state.clientes.map(c => soloDigitos(c.tel)).filter(Boolean));
-  const libres = chatsCache.filter(c => !registrados.has(soloDigitos(c.telefono)));
+  // Los sin número se reconocen por su identidad oculta. La de un chat con
+  // número también cuenta: alguien registrado sin número cuyo teléfono se
+  // resolvió después no debe ofrecerse como si fuera nuevo.
+  const lids = new Set(state.clientes.map(c => c.waLid).filter(Boolean));
+  const libres = chatsCache.filter(c => !(c.lid && lids.has(c.lid))
+    && (c.telefono ? !registrados.has(soloDigitos(c.telefono)) : true));
   const vis = q
-    ? libres.filter(c => normBusqueda(c.nombre_wa || "").includes(q) || soloDigitos(c.telefono).includes(soloDigitos(q) || "\u0000"))
+    ? libres.filter(c => normBusqueda(c.nombre_wa || "").includes(q) || soloDigitos(c.telefono).includes(soloDigitos(q) || "\u0000")
+      // Muchos sin número tampoco tienen nombre: buscar «sin número» los junta.
+      || (!c.telefono && "sin numero visible".includes(q)))
     : libres;
 
   if (!vis.length) {
@@ -969,11 +976,30 @@ function pintarChats() {
     $("chatLista").innerHTML = `<div class="vacio">${motivo}</div>`;
     return;
   }
-  $("chatLista").innerHTML = vis.slice(0, 120).map(c => `
-    <button type="button" class="chatfila" data-tel="${esc(c.telefono)}" data-nom="${esc(c.nombre_wa || "")}">
+  // Sin tope de 120: los sin número suelen ser chats más viejos y quedaban
+  // por debajo del corte. Son a lo sumo 300 + 300 filas, que se pintan sin problema.
+  $("chatLista").innerHTML = vis.map(c => `
+    <button type="button" class="chatfila" data-tel="${esc(c.telefono || "")}" data-lid="${esc(c.telefono ? "" : c.lid)}" data-nom="${esc(c.nombre_wa || "")}">
       <span class="chatnom">${esc(c.nombre_wa || "Sin nombre en WhatsApp")}</span>
-      <span class="chatmeta">${esc(c.telefono)} · ${fechaCorta(c.ultimo_en)}</span>
+      <span class="chatmeta">${c.telefono
+        ? `${esc(c.telefono)} · ${fechaCorta(c.ultimo_en)}`
+        // Sin número, la hora es lo único que queda para reconocer el chat
+        // (sobre todo si tampoco hay nombre): «te escribió hoy a las 3:40».
+        : `<span class="chatsintel">Sin número visible</span> · ${fechaCorta(c.ultimo_en)} ${horaCorta(c.ultimo_en)}`}</span>
     </button>`).join("");
+}
+
+function horaCorta(iso) {
+  const d = new Date(iso);
+  return isNaN(d) ? "" : d.toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" });
+}
+
+// Identidad oculta del chat sin número elegido en el selector. Viaja al alta
+// como `wa_lid`; se limpia al abrir y cerrar el formulario.
+let chatLid = null;
+function ponerChatLid(lid) {
+  chatLid = lid || null;
+  $("fLidAyuda").classList.toggle("hidden", !chatLid);
 }
 
 // «hoy» / «ayer» / «12 ago» — la fecha exacta no aporta para reconocer un chat.
@@ -1011,7 +1037,10 @@ $("chatBuscar").oninput = pintarChats;
 $("chatLista").onclick = e => {
   const fila = e.target.closest(".chatfila");
   if (!fila) return;
+  // Elegir otro chat reemplaza al anterior: el número y el vínculo sin número
+  // nunca pueden quedar de dos personas distintas.
   $("fTel").value = fila.dataset.tel;
+  ponerChatLid(fila.dataset.lid);
   paisDesdeTel();
   // El nombre de WhatsApp es un punto de partida, no la verdad: el agente lo
   // corrige si hace falta. Por eso no se pisa un nombre ya escrito.
@@ -1084,6 +1113,7 @@ function abrirPerfil(c) {
   state.cliEdit = c.id;
   $("cliTitulo").textContent = "Perfil de " + c.nombre;
   $("btnDesdeChat").classList.add("hidden");
+  ponerChatLid(null);
   $("fNombre").value = c.nombre; $("fPais").value = c.pais || ""; $("fTel").value = c.tel || "";
   pintarSelectorTz(c.tzOff);
   pintarSelectorEstado(c);
@@ -1210,6 +1240,7 @@ function construirActividades(c) {
 
 function cerrarM() {
   $("overlay").classList.remove("open"); state.cliEdit = null;
+  ponerChatLid(null);
   ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fUpgrade"].forEach(i => $(i).value = "");
   refrescarPh($("fCreado"));
   fichaFtds = {};
@@ -1240,6 +1271,7 @@ $("abrirModal").onclick = () => {
   state.cliEdit = null;
   $("cliTitulo").textContent = state.modulo === "leads" ? "Nuevo lead" : "Nuevo cliente";
   $("btnDesdeChat").classList.remove("hidden");
+  ponerChatLid(null);
   ["fNombre", "fPais", "fTel", "fNota", "fCreado", "fUpgrade"].forEach(i => $(i).value = "");
   refrescarPh($("fCreado"));
   // Un cliente nuevo de comunidad viene de un FTD, así que la fila del broker
@@ -1350,6 +1382,13 @@ async function guardarCliente() {
       return;
     }
   }
+  // Mismo chat sin número: bloquea igual que un número repetido (la base lo
+  // sostiene con un índice único). Solo al crear: editar no toca el vínculo.
+  const lid = state.cliEdit ? null : chatLid;
+  if (lid) {
+    const dupLid = suyos.find(x => x.waLid === lid);
+    if (dupLid) { toast(`⚠ Ese chat ya está registrado como ${dupLid.nombre}`); return; }
+  }
   const dupNom = suyos.find(x => norm(x.nombre) === norm(nombre));
   if (dupNom && !confirm(ajeno
     ? `${deQuien} ya tiene un contacto llamado «${dupNom.nombre}». ¿Guardar de todas formas?`
@@ -1393,7 +1432,7 @@ async function guardarCliente() {
     Object.assign(c, datos);
     if (await dbPatch(c, mapAEditar(c))) toast("Perfil actualizado ✓");
   } else {
-    const nuevo = await dbInsert({ ...datos, acc: {} });
+    const nuevo = await dbInsert({ ...datos, acc: {}, ...(lid ? { waLid: lid } : {}) });
     if (nuevo) {
       state.clientes.push(nuevo);
       // Si el cliente NO estaba en los FTD ya declarados, sube el declarado.

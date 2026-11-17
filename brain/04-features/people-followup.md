@@ -24,6 +24,15 @@ WhatsApp ya no muestra el número de quien escribe, así que el agente no puede 
 - Los duplicados se descartan comparando **solo dígitos**: la tabla guarda `+57300…` y hay clientes viejos guardados con espacios.
 - El nombre de WhatsApp no pisa un nombre ya escrito: es punto de partida, no verdad.
 
+### Chats sin número visible (SQL 69, 17/11/2026)
+
+`chats_sync` descartaba los chats `@lid` cuyo teléfono whatsmeow no conoce: ~8% de los chats recientes (326 en las dos VM el 17/11/2026), gente que escribió y no se podía registrar. Ahora van a `chats_sin_numero` (misma RLS que `chats_recientes`: solo los propios, sin escritura para `authenticated`) y el selector los mezcla por fecha con «Sin número visible» y la hora, que es lo único para reconocer un chat sin nombre.
+
+- Tabla aparte y no `telefono` NULL en `chats_recientes`: todo lo que lee esa tabla (te escribió, temperatura, push, pregunta del link, audios) cruza por teléfono.
+- Al registrar uno, `clientes.wa_lid` guarda su identidad oculta. Sirve para no volver a ofrecerlo (también si después su LID se resuelve a número) y un índice único `(owner_id, wa_lid)` impide registrarlo dos veces.
+- **Sin número no recibe mensajes**: `mios()` y `pool()` ya exigen teléfono. El formulario lo dice al elegir el chat. Enviarle por su LID (el bridge acepta `…@lid` como destinatario; el worker hoy solo manda dígitos) sería el siguiente paso, y toca los dos cuellos de envío.
+- `mapAEditar` solo manda `wa_lid` cuando tiene valor: editar una ficha no lo borra.
+
 ## Filtros
 
 En Comunidad los filtros visibles son: **Membresía** (las tarjetas de conteo, que son botones), **Etapa** (`state.filtroEtapa`: 1 a 1 / Presentación / Avanzada / Básica / Sin etapas, por la etapa más alta del ciclo) y **Resultado** (`state.filtroRes`: Agendó pago / Agendó abono / Abonó / Sin acuerdo / Vencidos, solo quien ya hizo 1 a 1). Funcionan igual en escritorio y en móvil, son combinables y una tira de estado explica el conjunto visible con un «Quitar filtros». Activas / Inactivas pasó a «Más filtros» (`#filtrosIna`). Los filtros de progreso (`En progreso` / `Completos`) se quitaron con la vista de etapas (12/11/2026).
