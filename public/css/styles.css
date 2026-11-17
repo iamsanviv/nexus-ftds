@@ -223,6 +223,7 @@
   .chatfila:active{background:var(--hover)}
   .chatnom{font-weight:700;font-size:.9rem;color:var(--text)}
   .chatmeta{font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums}
+  .chatsintel{font-weight:600;color:var(--text)}
   #chatLista{max-height:52vh;overflow-y:auto}
   #chatOverlay .buscar{margin-bottom:6px}
 

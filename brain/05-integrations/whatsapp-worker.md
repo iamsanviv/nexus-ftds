@@ -160,6 +160,8 @@ Medido el 26/08/2026 en los doce bridges: 9.157 chats `@lid` frente a 967 con n�
 
 **No existe forma de escribirle a alguien conociendo solo su nombre de usuario.** Verificado en whatsmeow: no hay servidor de JID para usernames, `IsOnWhatsApp()` solo acepta teléfonos y no hay función que resuelva un handle a una identidad enviable. Lo único disponible es leer el username de alguien cuyo JID ya se conoce. Lo que sí se puede es registrar a quien **ya escribió**, resolviendo su LID.
 
+Re-verificado el 17/11/2026 contra la última whatsmeow (`v0.0.0-20261116172437-19d61352436f`): sigue igual. Baileys tampoco lo tiene, y en la API oficial de Meta solo se puede enviar a un BSUID que llega por webhook cuando la persona escribe primero; tampoco a un `@username`. Los `whatsapp.db` de los bridges no guardan usernames (`whatsmeow_contacts` solo tiene `push_name`/`full_name`).
+
 ## Sincronización de chats recientes
 
 El worker corre además `chats_sync.py`, que cada `SYNC_CHATS` ciclos (15, ~5 min) lee los SQLite de los bridges en **solo lectura** y publica en `chats_recientes` los chats 1:1 de los últimos 30 días con su teléfono ya resuelto.
@@ -173,6 +175,10 @@ Decisiones que conviene no deshacer:
 - **Abre las bases con `nolock=1`, no solo con `mode=ro`.** Los SQLite de los bridges están en `journal_mode=delete`, donde un lector toma candado compartido y **bloquea al escritor**. Con solo `mode=ro` se vio al bridge de Santiago Viveros fallar al guardar una clave de remitente con «database is locked», y ese mensaje se quedó sin descifrar (26/08/2026). Enviar y recibir es lo que no puede fallar; esta sincronización es accesoria. El precio de `nolock=1` es leer a mitad de una escritura: por eso cada bridge va en su propio `try/except` y una lectura corrupta solo salta a ese agente hasta el ciclo siguiente.
 
 `WA_OWNER` del archivo `env` de cada bridge es lo que mapea directorio → agente.
+
+Desde el 17/11/2026 los chats `@lid` sin teléfono conocido no se descartan: van a `chats_sin_numero` en una petición aparte por agente (ver [[../04-features/people-followup]]). Si esa tabla no existe, solo falla esa subida y `chats_recientes` entra igual.
+
+La versión de `chats_sync.py` que corría en las VM el 17/11/2026 (sha256 `c94cd215…`, con la marca de fotos `img`) venía de la rama `claude/project-thread-8sv046`, sin fusionar en `main`. La de la rama `chats-sin-numero` parte de esa.
 
 ### `entrante_en`: último mensaje entrante (Leads F4, 2026-10-05)
 

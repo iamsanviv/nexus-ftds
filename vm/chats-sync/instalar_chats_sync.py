@@ -18,12 +18,15 @@
 # sql/2026-10-29_52_transcripcion_audios.sql (sin ella solo se avisa en el log
 # y no se transcribe nada) y sql/2026-11-03_59_pregunta_link_conversacion.sql
 # (columna `salientes_txt`: misma regla que `entrantes_txt`).
+# sql/2026-11-17_69_chats_sin_numero.sql: sin ella solo falla (en el log) la
+# subida de los chats sin número; lo demás entra igual.
 import ast, hashlib, os, shutil, sys, time
 
 # La primera es la de una pasada (instalada en VM1 y VM2 el 28/10/2026). Las
 # otras dos, la de `entrante_en` (la de VM1 sin el comentario de cabecera,
 # diff revisado), previas a `primer_entrante_dia`.
 ANTERIORES = {
+    "c94cd2158e8d3cf901a13514d1f04d5487523b3653f0942d9e0af776cdedf5c6",  # fotos `img` (VM1 y VM2, 12/11/2026)
     "ecab64b6421f60a6d1739082d9b158833b320d9196d928f5e1949607331b584d",  # audios con recorte (VM1 y VM2, 29/10/2026)
     "9aa59656d44a7f697cc79989ab2d25d9659cc3d332a8f740adf1ef9ee945340d",  # audios, sin recorte (VM1, 29/10/2026)
     "ad0489f3ae41ab8b9b4648a1a90ced26228fb37cbb8d186c2b1b6ba00a581b47",  # entrantes_txt (28/10/2026)
