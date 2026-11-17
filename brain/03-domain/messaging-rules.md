@@ -64,7 +64,17 @@ Todo mensaje a un cliente sale por una de dos funciones, y **solo dos**:
 - `mios()` en `public/js/seguimiento.js` — actividades: alimenta `elegibles()`, la aplicación de segmentos guardados y la programación;
 - `pool()` en `public/js/masivo.js` — campañas: alimenta lista, filtros, segmentos, conteo y el envío final.
 
-Cualquier regla sobre **a quién se le puede escribir** va en esas dos funciones, no en cada pantalla. Hoy filtran por propiedad (`owner_id`), por tener teléfono y por estado.
+Cualquier regla sobre **a quién se le puede escribir** va en esas dos funciones, no en cada pantalla. Hoy filtran por propiedad (`owner_id`), por ser `escribible()` (teléfono o chat sin número, `state.js`) y por estado.
+
+### Destinatarios sin número (SQL 70, 17/11/2026)
+
+Quien se registró desde un chat sin número visible (`clientes.wa_lid`) recibe mensajes por su identidad oculta:
+
+- el panel encola con `telefono` NULL; **la base** (trigger `mensajes_destino_lid`) deriva `mensajes_programados.destino_lid` de la ficha, por `cliente_id` o por el seguimiento, y pisa lo que venga del panel. Solo si el cliente es del mismo `owner_id` que el mensaje. Sin teléfono ni identidad la fila se rechaza;
+- el worker manda `<lid>@lid` entero al bridge (`vm/worker/destino_lid.py`). **Nunca** convertir la identidad en número: sus dígitos serían el teléfono de otra persona. El reintento de México (52↔521) no se aplica a un JID;
+- en un masivo, `cliente_id` va **solo** cuando no hay teléfono: con él, «Mi día» cuenta el masivo como «le escribiste» a un lead;
+- **sin pregunta antes del link**: la respuesta se lee de `chats_recientes`, que cruza por teléfono; sin un «sí» visible le cancelaría el link del Zoom. El panel no la crea y la base la cancela si llega. Tampoco funcionan para ellos «respondió», temperatura por mensajes ni avisos de «te escribió».
+- orden de despliegue: migración → worker → panel. Un worker viejo con mensajes sin teléfono falla esos envíos (TypeError → `error`), no los manda a otro lado.
 
 Las personas inactivas quedan fuera por defecto en las dos, y en las dos se pueden incluir a propósito con un interruptor que **nace apagado**: en Masivo al abrir el panel, en actividades al elegir cada actividad. Incluirlas es una decisión de esa tanda, nunca una preferencia que sobrevive.
 

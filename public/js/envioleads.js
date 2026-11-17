@@ -417,7 +417,7 @@ async function enviarSinCandado() {
   const rows = [];
   lista.forEach((c, i) => d.mensajes.forEach((m, k) => {
     rows.push({
-      campana_id: camp.id, cliente_id: c.id, telefono: c.tel,
+      campana_id: camp.id, cliente_id: c.id, telefono: c.tel || null,
       tipo: k === 0 ? "masivo" : "masivo_parte",
       enviar_en: new Date(cuandoParte(serie, base.getTime(), i, k, n)).toISOString(),
       // Cada lead recibe su propia redacción: {nombre}, {hora}/{zona} en su

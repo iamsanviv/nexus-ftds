@@ -178,7 +178,7 @@ async function escribirleSinCandado(c, btn) {
   // Inactivas incluidas a propósito: aquí el agente eligió a esta persona, y la
   // confirmación de abajo se lo recuerda.
   if (!destinatariosMasivo(true).some(x => x.id === c.id)) {
-    toast(c.tel ? "Solo puedes escribirle a tus propios clientes" : "Esta persona no tiene teléfono");
+    toast(c.tel || c.waLid ? "Solo puedes escribirle a tus propios clientes" : "Esta persona no tiene teléfono");
     return;
   }
   // Se vuelve a comprobar al enviar: el canal pudo caerse con el repaso abierto.
@@ -198,7 +198,7 @@ async function escribirleSinCandado(c, btn) {
 
   btn.textContent = "Enviando…";
   const { error } = await SB.from("mensajes_programados").insert({
-    tipo: "masivo", cliente_id: c.id, telefono: c.tel, texto,
+    tipo: "masivo", cliente_id: c.id, telefono: c.tel || null, texto,
     enviar_en: new Date().toISOString(),
   });
   if (error) { toast("⚠ " + error.message); return false; }
@@ -317,9 +317,9 @@ function abrir(items, marcarHecho, canal) {
         <div style="font-size:.95rem">¿<b>${esc(c.nombre)}</b> <span class="badge b-${c.mem}">${c.mem}</span> asistió a <b>${esc(s.n)}</b>?
           <span class="sfecha">invitado el ${fmtF(f)}</span>
         </div>
-        ${!c.tel ? "" : `<div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${!(c.tel || c.waLid) ? "" : `<div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="pmark off mini" data-escribir ${canal ? "" : `disabled title="Vincula tu WhatsApp en «Más → Mi WhatsApp» para enviarlo automáticamente"`}>⚡ Preguntarle en automático</button>
-          <a class="pmark off mini" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="${esc(enlaceWa(c))}">↗ Ir al chat</a>
+          ${c.tel ? `<a class="pmark off mini" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="${esc(enlaceWa(c))}">↗ Ir al chat</a>` : ""}
         </div>`}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="pmark" data-r="si">✓ Sí asistió</button>

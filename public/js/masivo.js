@@ -3,7 +3,7 @@
 // que no llegue idéntico (más seguro). Crea una "campaña" y N mensajes en cola.
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
-  esInactivo, esLead, nombreMotivo, motivoCorto, BROKERS, insigniasBroker,
+  esInactivo, escribible, esLead, nombreMotivo, motivoCorto, BROKERS, insigniasBroker,
   MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto,
   componerMensaje, horaDeCliente, etiquetaZona, todos, cuandoParte,
   asistioEseDia, fechaCO, fmtF } from "./state.js";
@@ -98,7 +98,7 @@ const resolverMensaje = (tpl, nombre, iso, tzOff, crudo = false) =>
 // Un lead de HighLevel que no ha bajado a WhatsApp no recibe envíos automáticos:
 // no te ha escrito por WhatsApp y su seguimiento es desde el CRM (crm.js).
 const esDestinatario = (c, incInact = false) =>
-  c.tel && c.owner_id === state.me.id && (incInact || !esInactivo(c)) && !porBajar(c);
+  escribible(c) && c.owner_id === state.me.id && (incInact || !esInactivo(c)) && !porBajar(c);
 export const destinatariosMasivo = (incInact = false) => state.clientes.filter(c => esDestinatario(c, incInact));
 // El botón «Enviar seguimiento» de UN lead (tarjeta, «Hoy», Perfil) solo se
 // muestra si ese lead entraría en el modal: el modal marca al lead únicamente
@@ -349,7 +349,7 @@ function renderLista() {
 // (DP-001). Se dice cuántas salieron; nunca se descarta gente en silencio.
 function pintarIncInact() {
   const n = state.clientes.filter(c =>
-    c.tel && c.owner_id === state.me.id && esInactivo(c)).length;
+    escribible(c) && c.owner_id === state.me.id && esInactivo(c)).length;
   const b = $("masIncInact");
   b.textContent = `😴 Incluir inactivas · ${n}`;
   b.classList.toggle("on", masIncInact);
@@ -743,9 +743,12 @@ async function enviarSinCandado(btn) {
   const base = enviarEn.getTime(), n = sel.length;
   const rows = [];
   sel.forEach((c, i) => mensajes.forEach((m, k) => rows.push({
-    campana_id: camp.id, tipo: k === 0 ? "masivo" : "masivo_parte",
+    // Sin teléfono, `cliente_id` le dice a la base a quién va (SQL 70). Solo
+    // entonces: en un masivo, `cliente_id` también lo leen «Mi día» (cuenta
+    // como «le escribiste» a un lead) y las plantillas de leads.
+    campana_id: camp.id, cliente_id: c.tel ? null : c.id, tipo: k === 0 ? "masivo" : "masivo_parte",
     enviar_en: new Date(cuandoParte(serie, base, i, k, n)).toISOString(),
-    telefono: c.tel,
+    telefono: c.tel || null,
     texto: m.texto ? resolverMensaje(m.texto, c.nombre, isoRef, c.tzOff) : null,
     media_url: m.media,
   })));

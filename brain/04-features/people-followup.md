@@ -30,7 +30,7 @@ WhatsApp ya no muestra el número de quien escribe, así que el agente no puede 
 
 - Tabla aparte y no `telefono` NULL en `chats_recientes`: todo lo que lee esa tabla (te escribió, temperatura, push, pregunta del link, audios) cruza por teléfono.
 - Al registrar uno, `clientes.wa_lid` guarda su identidad oculta. Sirve para no volver a ofrecerlo (también si después su LID se resuelve a número) y un índice único `(owner_id, wa_lid)` impide registrarlo dos veces.
-- **Sin número no recibe mensajes**: `mios()` y `pool()` ya exigen teléfono. El formulario lo dice al elegir el chat. Enviarle por su LID (el bridge acepta `…@lid` como destinatario; el worker hoy solo manda dígitos) sería el siguiente paso, y toca los dos cuellos de envío.
+- **Desde SQL 70 sí recibe mensajes** por su identidad oculta: ver «Destinatarios sin número» en [[../03-domain/messaging-rules]]. Lo que no tiene: «Ir al chat» (`wa.me` exige número) ni pregunta antes del link.
 - `mapAEditar` solo manda `wa_lid` cuando tiene valor: editar una ficha no lo borra.
 
 ## Filtros

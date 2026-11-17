@@ -6,7 +6,7 @@
 import { SB } from "./supabase.js";
 import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom, ZOOMS,
   horaDeCliente, etiquetaZona, etiquetaDia, componerMensaje,
-  esInactivo, esLead, nombreMotivo, motivoCorto,
+  esInactivo, escribible, esLead, nombreMotivo, motivoCorto,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas,
   normBusqueda, BROKERS, insigniasBroker, cuandoParte, fechaCO, asistioEseDia,
   esOtroDia, conSaludo, quitarSaludo } from "./state.js";
@@ -1329,7 +1329,7 @@ async function cargarActividades() {
 // Los leads, igual que las inactivas, salen aquí y no solo de la lista: un
 // segmento guardado puede traerlos y quedarían marcados sin verse.
 const mios = () => state.clientes.filter(c =>
-  c.tel && c.owner_id === state.me.id && (segIncInact || !esInactivo(c))
+  escribible(c) && c.owner_id === state.me.id && (segIncInact || !esInactivo(c))
   && (segIncLeads || !esLead(c)) && !porBajar(c));
 
 // Universo elegible para programar: los que faltan, y —si el toggle está
@@ -1517,7 +1517,7 @@ function pintarIncInact() {
   const el = $("segIncInact");
   if (!el) return;
   const n = state.clientes.filter(c =>
-    c.tel && c.owner_id === state.me.id && esInactivo(c)).length;
+    escribible(c) && c.owner_id === state.me.id && esInactivo(c)).length;
   el.checked = segIncInact;
   el.disabled = n === 0;
   const txt = el.parentElement.querySelector(".segtoggle-n");
@@ -1546,7 +1546,7 @@ function pintarIncLeads() {
   const el = $("segIncLeads");
   if (!el) return;
   const n = state.clientes.filter(c =>
-    c.tel && c.owner_id === state.me.id && esLead(c) && !porBajar(c)
+    escribible(c) && c.owner_id === state.me.id && esLead(c) && !porBajar(c)
     && (segIncInact || !esInactivo(c))).length;
   el.checked = segIncLeads;
   el.disabled = n === 0 && !segIncLeads;
@@ -1717,7 +1717,7 @@ function renderFaltan() {
   const sinTel = state.clientes.filter(c =>
     c.owner_id === state.me.id && (segIncInact || !esInactivo(c))
     && (segIncLeads || !esLead(c))
-    && (!sid || !c.acc[sid] || segIncAsis) && !c.tel).length;
+    && (!sid || !c.acc[sid] || segIncAsis) && !escribible(c)).length;
 
   // Chips de filtro: "Todos" + solo las membresías presentes en la lista.
   const presentes = MEMS.filter(m => lista.some(c => c.mem === m));
@@ -2221,7 +2221,7 @@ async function programar() {
     // Si no se va a invitar, esta consulta no hace falta.
     const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
     const finDia = new Date(); finDia.setHours(23, 59, 59, 999);
-    const tels = [...new Set(seleccion.map(c => c.tel))];
+    const tels = [...new Set(seleccion.map(c => c.tel).filter(Boolean))];
     let yaInvitados = new Set();
     if (tels.length && !segSinInvitacion) {
       const { data: previas } = await SB.from("mensajes_programados")
@@ -2273,8 +2273,10 @@ async function programar() {
         const cuando = tipo === "invitacion" ? tInv : cuandoBase;
         if (tipo !== "invitacion" && cuando.getTime() <= piso) continue;
         const fila = {
+          // Sin teléfono va NULL: la base pone el destino desde la ficha del
+          // cliente (SQL 70), nunca el panel.
           seguimiento_id: seg.id, tipo, enviar_en: cuando.toISOString(),
-          telefono: c.tel, texto: tpl[tipo],
+          telefono: c.tel || null, texto: tpl[tipo],
         };
         if (tipo !== "invitacion" && !primerHito) {
           primerHito = tipo;
@@ -2323,12 +2325,15 @@ async function programar() {
         // esa persona y `retenido`: la base la activa (y cancela el
         // recordatorio) solo si no respondió. Por persona, porque con una
         // serie larga a alguien se le puede caer el de 1 h y quedarle el de 15.
-        if ((tipo === "rec_60" || tipo === "rec_15") && preguntar && !preguntaPuesta) {
+        // Sin teléfono no hay pregunta: su respuesta no se puede leer (la
+        // base cruza las respuestas por teléfono) y, sin un «sí», le
+        // cancelaría el link. Recibe los recordatorios normales.
+        if ((tipo === "rec_60" || tipo === "rec_15") && preguntar && !preguntaPuesta && c.tel) {
           preguntaPuesta = true;
           const texto = aplicar(PREGUNTA_LINK, { nombre: nombreCorto });
           msgs.push({
             seguimiento_id: seg.id, tipo: "pregunta_link", estado: "retenido",
-            enviar_en: cuando.toISOString(), telefono: c.tel,
+            enviar_en: cuando.toISOString(), telefono: c.tel || null,
             texto: (saludar && primerHito === tipo)
               ? conSaludo(texto, nombreCorto, cuando.toISOString(), c.tzOff) : texto,
           });
@@ -2341,7 +2346,7 @@ async function programar() {
             const t = new Date(tParte(i, j + 1));
             const parte = {
               seguimiento_id: seg.id, tipo: "invitacion_parte", parte: j + 2,
-              enviar_en: t.toISOString(), telefono: c.tel,
+              enviar_en: t.toISOString(), telefono: c.tel || null,
               texto: textoParte(pt.texto, c.nombre, nombreParaPersonas(actSel), actSel.inicio, actSel.enlace, c.tzOff, t.toISOString()),
             };
             if (pt.media) parte.media_url = pt.media;
@@ -3105,13 +3110,15 @@ async function abrirCampana(c) {
   const [{ data: camp }, { data: msgs, error }] = await Promise.all([
     SB.from("campanas").select("texto, media_url, total, enviar_en").eq("id", c.id).maybeSingle(),
     SB.from("mensajes_programados")
-      .select("id, telefono, estado, texto, error, enviado_en, enviar_en")
+      .select("id, cliente_id, telefono, estado, texto, error, enviado_en, enviar_en")
       .eq("campana_id", c.id).order("estado"),
   ]);
   if (error) { $("repBody").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
 
   const porTel = new Map();
   for (const cl of state.clientes) if (cl.tel) porTel.set(cl.tel, cl.nombre);
+  // Sin teléfono (SQL 70) el mensaje solo se reconoce por su cliente.
+  const porId = new Map(state.clientes.map(cl => [cl.id, cl.nombre]));
 
   const pintar = (filas) => {
     // Primero lo que pide acción y último lo que ya es historia: los que
@@ -3125,7 +3132,7 @@ async function abrirCampana(c) {
       ["cancelado", "Cancelados"],
     ];
     const fila = m => {
-      const nombre = porTel.get(m.telefono) || m.telefono;
+      const nombre = porId.get(m.cliente_id) || porTel.get(m.telefono) || m.telefono || "Sin número";
       const cuando = m.enviado_en || m.enviar_en;
       return `<div class="prow">
         <div class="pl"><span class="pn">${esc(nombre)}</span>
@@ -3174,7 +3181,7 @@ async function abrirCampana(c) {
     // en vez de voltear la fila a mano: así se ven esas otras cancelaciones.
     $("repBody").querySelectorAll("[data-cancelmsg]").forEach(b => b.onclick = async () => {
       const m0 = filas.find(x => x.id === b.dataset.cancelmsg);
-      const quien = m0 ? (porTel.get(m0.telefono) || m0.telefono) : "esta persona";
+      const quien = m0 ? (porId.get(m0.cliente_id) || porTel.get(m0.telefono) || m0.telefono || "esta persona") : "esta persona";
       if (!confirm(`¿Cancelar el envío a ${quien}?\n\n`
                  + `Si forma parte de una serie, se cancela también el resto de su secuencia. `
                  + `Lo que ya se envió no se puede recoger.`)) return;
@@ -3190,7 +3197,7 @@ async function abrirCampana(c) {
 
   async function recargar() {
     const { data: m2 } = await SB.from("mensajes_programados")
-      .select("id, telefono, estado, texto, error, enviado_en, enviar_en")
+      .select("id, cliente_id, telefono, estado, texto, error, enviado_en, enviar_en")
       .eq("campana_id", c.id).order("estado");
     pintar(m2 || []);
   }
@@ -3700,7 +3707,7 @@ const LOG_BADGE = {
 
 async function renderLogs() {
   const { data, error } = await SB.from("mensajes_programados")
-    .select("tipo, telefono, estado, enviar_en, enviado_en, error, seguimientos(clientes(nombre))")
+    .select("tipo, cliente_id, telefono, estado, enviar_en, enviado_en, error, seguimientos(clientes(nombre))")
     .order("enviar_en", { ascending: false })
     .limit(60);
   if (error) { $("segLogs").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
@@ -3732,9 +3739,10 @@ async function renderLogs() {
   // (que no tienen seguimiento_id → clientes asociados).
   const porTel = new Map();
   for (const c of state.clientes) if (c.tel) porTel.set(c.tel, c.nombre);
+  const porId = new Map(state.clientes.map(c => [c.id, c.nombre]));
 
   $("segLogs").innerHTML = filas.map(m => {
-    const nombre = m.seguimientos?.clientes?.nombre || porTel.get(m.telefono) || m.telefono;
+    const nombre = m.seguimientos?.clientes?.nombre || porId.get(m.cliente_id) || porTel.get(m.telefono) || m.telefono || "Sin número";
     const cuando = m.enviado_en || m.enviar_en;
     const [cls, txt] = LOG_BADGE[m.estado] || ["pend", m.estado];
     // El motivo se muestra también para los CANCELADOS: el tope diario deja los

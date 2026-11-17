@@ -458,6 +458,9 @@ export const MOTIVOS_INACTIVO = [
   ["otro",        "Otra razón",                       "Otra razón"],
 ];
 export const esInactivo = c => !!(c && c.inactivoDesde);
+// ¿Se le puede escribir por WhatsApp? Con teléfono, o sin él si se registró
+// desde un chat sin número (`waLid`, SQL 69/70): la base pone el destino.
+export const escribible = c => !!(c && (c.tel || c.waLid));
 export const nombreMotivo = m => (MOTIVOS_INACTIVO.find(([v]) => v === m) || [, "Inactiva"])[1];
 export const motivoCorto  = m => (MOTIVOS_INACTIVO.find(([v]) => v === m) || [, , "Inactiva"])[2];
 
