@@ -472,8 +472,13 @@ def _sin_marcas(chats):
             m.pop("_audio", None)
 
 
-def sincronizar(rest, headers, log, dry_run=False):
-    """Recorre los bridges y publica sus chats recientes en Supabase."""
+def sincronizar(rest, headers, log, dry_run=False, solo=None):
+    """Recorre los bridges y publica sus chats recientes en Supabase.
+
+    `solo`: conjunto de owner_id; si viene, lee únicamente esos bridges. Lo usa
+    la vuelta urgente de `correr.py --urgente` (22/11/2026): un minuto antes de
+    que la base decida algo con la respuesta de alguien (pregunta del link,
+    soltar el link, confirmación), se relee solo a esos agentes."""
     if not os.path.isdir(BRIDGES_DIR):
         return
     porAgente, total, ok = {}, 0, 0
@@ -491,6 +496,8 @@ def sincronizar(rest, headers, log, dry_run=False):
             continue
         owner = _owner_de(base)
         if not owner:
+            continue
+        if solo is not None and owner not in solo:
             continue
         sin = []
         try:

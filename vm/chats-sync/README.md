@@ -25,4 +25,21 @@ Código **del lado de la VM**, no servido por Cloudflare. Despliegue manual.
 6. Verificar: `journalctl -u nexus-chats-sync -n 20` y en la base
    `select count(*) from chats_recientes r join canales_wa c using (owner_id) where c.host='10.0.0.23'` > 0.
 
-**No instalar en VM1**: allí ya lo corre el worker.
+**No instalar en VM1** el timer de 5 min: allí ya lo corre el worker.
+
+## Vuelta urgente cada minuto (VM1 y VM2, 22/11/2026)
+
+`nexus-chats-urgente.{service,timer}` corre `correr.py --urgente` cada minuto a
+los :30. Pregunta a la base (`sync_urgente`, sql/2026-11-22_72) qué agentes
+tienen una decisión en los próximos minutos (pregunta del link, soltar el link,
+confirmación) y relee solo esos bridges; sin nada urgente no abre ningún bridge.
+Requiere el SQL 72 aplicado (sin él solo registra un error en el journal).
+
+- VM2: ya tiene `~/nexus-chats-sync`; copiar el `correr.py` nuevo, los dos
+  archivos `nexus-chats-urgente.*` a `/etc/systemd/system/`, `daemon-reload` y
+  `enable --now nexus-chats-urgente.timer`.
+- VM1: crear `~/nexus-chats-sync` como en VM2 (pasos 1–3 de arriba, con el
+  `.env` copiado del worker o de un bridge) y luego lo mismo que en VM2. Aquí
+  solo se instala el timer **urgente**: la vuelta completa la sigue haciendo el worker.
+- Verificar: `journalctl -u nexus-chats-urgente -n 20` (solo escribe cuando
+  hay algo urgente: «urgente: N agente(s)»).

@@ -14,10 +14,20 @@ consumidor de la cola).
 En VM1 NO se instala: allí ya lo hace el worker y subirían dos veces lo mismo.
 
 Uso:  python3 correr.py [--simulacro]
+      python3 correr.py --urgente
+
+`--urgente` (22/11/2026, pedido de Sanviv): la vuelta completa es cada 5 min,
+y una respuesta de las 7:58 podía no llegar a la decisión de las 7:59. Esta
+vuelta corre cada minuto (timer `nexus-chats-urgente`), pregunta a la base qué
+agentes tienen una decisión en los próximos minutos (`sync_urgente`) y relee
+solo esos bridges. Sin nada urgente no lee ningún bridge. Va en VM1 y VM2:
+sube con la misma clave que la vuelta completa, así que repetir no duplica.
 """
 
 import os
 import sys
+
+import requests
 from pathlib import Path
 
 AQUI = Path(__file__).resolve().parent
@@ -58,7 +68,20 @@ def main():
     seco = "--simulacro" in sys.argv or "--dry-run" in sys.argv
     url, key = credenciales()
     cab = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json"}
-    res = chats_sync.sincronizar(f"{url}/rest/v1", cab, log, dry_run=seco)
+    rest = f"{url}/rest/v1"
+    solo = None
+    if "--urgente" in sys.argv:
+        try:
+            r = requests.post(f"{rest}/rpc/sync_urgente", headers=cab, json={}, timeout=20)
+            r.raise_for_status()
+            solo = set(r.json() or [])
+        except Exception as e:
+            log(f"ERROR: no pude preguntar qué es urgente: {e}")
+            sys.exit(1)
+        if not solo:
+            return
+        log(f"urgente: {len(solo)} agente(s)")
+    res = chats_sync.sincronizar(rest, cab, log, dry_run=seco, solo=solo)
     if seco and res:
         for nombre, filas in res.items():
             hoy = sum(1 for f in filas if f.get("primer_entrante_dia"))

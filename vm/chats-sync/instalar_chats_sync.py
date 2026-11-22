@@ -26,6 +26,7 @@ import ast, hashlib, os, shutil, sys, time
 # otras dos, la de `entrante_en` (la de VM1 sin el comentario de cabecera,
 # diff revisado), previas a `primer_entrante_dia`.
 ANTERIORES = {
+    "104da8e837896f06974a9c91ab399ddda26f3f7a034ead6e024e867d895dca66",  # chats sin número (17/11/2026)
     "c94cd2158e8d3cf901a13514d1f04d5487523b3653f0942d9e0af776cdedf5c6",  # fotos `img` (VM1 y VM2, 12/11/2026)
     "abcbc30e9b7a49b9e06dd63745c4ae98d33b61ba8d9cc19a7e086fb588d5c1ff",  # salientes, comentarios del 10/11/2026
     "f64dbbb1a252c21ac671b671f48a9eb6512a353fd49b99318195a20fb2483696",  # salientes_txt (03/11/2026)

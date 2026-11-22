@@ -1,0 +1,12 @@
+[Unit]
+Description=Nexus — relee cada minuto solo los chats con una decisión próxima (VM1 y VM2)
+Documentation=https://github.com/iamsanviv/nexus-ftds
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/nexus-chats-sync
+ExecStart=/usr/bin/python3 /home/ubuntu/nexus-chats-sync/correr.py --urgente
+TimeoutStartSec=50
