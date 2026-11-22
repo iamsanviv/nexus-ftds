@@ -338,7 +338,7 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   la pregunta `pendiente` se cancela y vuelven rec_15 (si su hora no pasó), enlace y confirmación.
   Caso Luis Galán 15/11: decidida antes de las 19:00, salió 19:15 con la cola atrasada. Límite:
   chats_sync de VM1 publica cada ~5 min.
-- **Sí limpio = corto y sin excusa** (22/11, `sql/2026-11-22_73_si_limpio_lista_palabras.sql`):
+- **Sí limpio = corto y sin excusa** (22/11, `sql/2026-11-22_73_si_limpio_lista_palabras.sql`, aplicado el 22/11):
   `respuesta_link_de` da `si` solo con un mensaje de sí de ≤4 palabras y ningún mensaje con excusa o
   condición (pena, pero, viajando, luego, tarde, «voy a…»…); si hay palabras de sí pero no es limpio da
   `probable_si`: decide la IA y solo sin IA vale como sí. Caso Edgar Barrios 18/11: «qué pena voy
