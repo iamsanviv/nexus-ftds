@@ -37,6 +37,9 @@ export const mapDesdeDB = r => ({
   posibleEn: r.posible_en || null, posibleFecha: r.posible_fecha || null,
   caidoEn: r.caido_en || null,
   tempManual: r.temp_manual || null, tempManualEn: r.temp_manual_en || null,
+  // Identidad oculta del chat del que se registró a alguien sin número visible
+  // (SQL 69). Se escribe solo al crear desde «Traer de un chat reciente».
+  waLid: r.wa_lid || null,
 });
 export const mapAEditar = c => ({
   nombre: c.nombre, telefono: c.tel || null, pais: c.pais || null,
@@ -57,6 +60,9 @@ export const mapAEditar = c => ({
   // sus agentes). Si no va, la base pone auth.uid() por defecto. El RLS valida
   // que el dueño elegido sea de su equipo: no se puede regalar a un ajeno.
   ...(c.owner_id ? { owner_id: c.owner_id } : {}),
+  // Solo cuando hay valor: así guardar a cualquier otra persona no depende de
+  // que la columna exista, y editar una ficha nunca borra el vínculo.
+  ...(c.waLid ? { wa_lid: c.waLid } : {}),
 });
 
 export async function cargarTodo() {
@@ -294,13 +300,27 @@ export async function guardarHistorialSegmento({ clienteIds, nombre, clave }) {
    de filas que la mayoría de las sesiones no va a mirar nunca. El RLS ya
    limita esto a los chats propios, así que no hay filtro por dueño acá. */
 export async function cargarChatsRecientes() {
-  const { data, error } = await SB
-    .from("chats_recientes")
-    .select("telefono,nombre_wa,ultimo_en")
-    .order("ultimo_en", { ascending: false })
-    .limit(300);
-  if (error) throw error;
-  return data || [];
+  const [con, sin] = await Promise.all([
+    SB.from("chats_recientes")
+      .select("telefono,nombre_wa,ultimo_en,lid")
+      .order("ultimo_en", { ascending: false })
+      .limit(300),
+    // Quien escribió y WhatsApp no deja ver su número (SQL 69). Si la tabla
+    // todavía no existe, el selector sigue funcionando con los que sí tienen.
+    SB.from("chats_sin_numero")
+      .select("lid,nombre_wa,ultimo_en")
+      .order("ultimo_en", { ascending: false })
+      .limit(300),
+  ]);
+  if (con.error) throw con.error;
+  const conTel = con.data || [];
+  // Un LID que ya se resolvió a teléfono puede seguir en la tabla de sin
+  // número hasta que la poda lo saque: se ofrece una sola vez, con número.
+  const resueltos = new Set(conTel.map(c => c.lid).filter(Boolean));
+  const sinTel = (sin.error ? [] : sin.data || [])
+    .filter(c => !resueltos.has(c.lid))
+    .map(c => ({ ...c, telefono: null }));
+  return [...conTel, ...sinTel].sort((a, b) => (b.ultimo_en || "").localeCompare(a.ultimo_en || ""));
 }
 
 export async function cargarVentas() {

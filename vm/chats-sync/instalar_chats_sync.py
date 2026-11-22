@@ -17,14 +17,16 @@
 # la sincronización de chats de todos los agentes de esa VM) y
 # sql/2026-10-29_52_transcripcion_audios.sql (sin ella solo se avisa en el log
 # y no se transcribe nada) y sql/2026-11-03_59_pregunta_link_conversacion.sql
-# (columna `salientes_txt`: misma regla que `entrantes_txt`). La marca `img` de
-# las fotos (12/11/2026) no necesita migración: va dentro del jsonb.
+# (columna `salientes_txt`: misma regla que `entrantes_txt`).
+# sql/2026-11-17_69_chats_sin_numero.sql: sin ella solo falla (en el log) la
+# subida de los chats sin número; lo demás entra igual.
 import ast, hashlib, os, shutil, sys, time
 
 # La primera es la de una pasada (instalada en VM1 y VM2 el 28/10/2026). Las
 # otras dos, la de `entrante_en` (la de VM1 sin el comentario de cabecera,
 # diff revisado), previas a `primer_entrante_dia`.
 ANTERIORES = {
+    "c94cd2158e8d3cf901a13514d1f04d5487523b3653f0942d9e0af776cdedf5c6",  # fotos `img` (VM1 y VM2, 12/11/2026)
     "abcbc30e9b7a49b9e06dd63745c4ae98d33b61ba8d9cc19a7e086fb588d5c1ff",  # salientes, comentarios del 10/11/2026
     "f64dbbb1a252c21ac671b671f48a9eb6512a353fd49b99318195a20fb2483696",  # salientes_txt (03/11/2026)
     "ecab64b6421f60a6d1739082d9b158833b320d9196d928f5e1949607331b584d",  # audios con recorte (VM1 y VM2, 29/10/2026)

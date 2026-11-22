@@ -4,20 +4,36 @@
 //
 // Etapas (decisión de Sanviv, 12/11/2026):
 //   Básica       = asistencia al servicio «Nivel 0 a Avanzado» (acc.nivel0)
+//   Operativa    = asistencia a CUALQUIERA de las tres operativas con Juan
+//                  Facundo: en Vivo, VIP u Oro (la fecha más reciente). Desde
+//                  el 13/11/2026, entre la Básica y la Avanzada.
 //   Avanzada     = zooms.avanzada  (actividades puntuales con zoom_tipo «avanzada»)
 //   Presentación = zooms.pres      (Zoom Presentación Membresías)
 //   1 a 1        = zooms.uno
 // «Presentación FTDs» y «Cierre» siguen en el perfil pero no aquí.
+//
+// Básica y Operativa son ASISTENCIA A UN SERVICIO del catálogo (`acc`): solo
+// asistió o no. Las otras tres son zooms (`zooms`): asistió, no asistió o
+// pendiente. El editor de la tarjeta (ui.js) escribe en el mismo sitio.
 import { state, hoyISO, estaSaldada, pagado, fechaSaldo } from "./state.js";
 
 export const ETAPAS = [
   { k: "b", l: "Básica",       corto: "Básica",     c: "--etp1" },
+  { k: "o", l: "Operativa",    corto: "Operativa",  c: "--etp5", largo: "Operativa en Vivo" },
   { k: "a", l: "Avanzada",     corto: "Avanzada",   c: "--etp2" },
   { k: "p", l: "Presentación", corto: "Membresías", c: "--etp3", largo: "Presentación Membresías" },
   { k: "u", l: "1 a 1",        corto: "1 a 1",      c: "--etp4" },
 ];
 const ZOOM_DE = { a: "avanzada", p: "pres", u: "uno" };
 export const SERVICIO_BASICA = "nivel0";
+// La primera es la que se marca al poner la asistencia desde la tarjeta.
+export const SERVICIOS_OPERATIVA = ["opJuan", "opJuanVip", "smtc006mh2nl1"];
+// Servicios de las etapas que son asistencia (las demás son zooms).
+export const SERVICIOS_DE = { b: [SERVICIO_BASICA], o: SERVICIOS_OPERATIVA };
+export const zoomDe = k => ZOOM_DE[k] || null;
+// Fecha de la etapa-servicio: la más reciente de sus servicios.
+export const fechaServicio = (c, k) =>
+  (SERVICIOS_DE[k] || []).map(s => c.acc?.[s]).filter(Boolean).sort().pop() || null;
 // Días que un pago vencido sigue arriba. Pasado esto ya se parece a un «Sin
 // acuerdo» y baja, para que los vencidos viejos no tapen lo que sí se cobra
 // (decisión de Sanviv, 12/11/2026).
@@ -70,13 +86,13 @@ export function embudo(c) {
   if (c.mem === "Oro") return { oro: true, etapas: [], nivel: -1, actual: null, rango: 99 };
   const upgrade = c.mem !== "Beca" && c.mem !== "Lead";
   const desde = upgrade ? inicioCiclo(c) : null;
-  // En el ciclo de upgrade la Básica no se vuelve a pedir.
-  const etapas = upgrade ? ETAPAS.slice(1) : ETAPAS;
+  // En el ciclo de upgrade la Básica y la Operativa no se vuelven a pedir.
+  const etapas = upgrade ? ETAPAS.filter(e => !SERVICIOS_DE[e.k]) : ETAPAS;
   const z = c.zooms || {};
   const est = {};
   for (const e of etapas) {
     let f = null, no = false;
-    if (e.k === "b") f = c.acc?.[SERVICIO_BASICA] || null;
+    if (SERVICIOS_DE[e.k]) f = fechaServicio(c, e.k);
     else {
       const x = z[ZOOM_DE[e.k]];
       if (x?.e === "hecha") f = x.f || null;
@@ -88,13 +104,14 @@ export function embudo(c) {
   }
   const hechas = etapas.filter(e => est[e.k].f);
   const top = hechas[hechas.length - 1] || null;
-  const nivel = top ? ETAPAS.indexOf(top) + 1 : 0;   // 0 = sin etapas … 4 = 1 a 1
+  const nivel = top ? ETAPAS.indexOf(top) + 1 : 0;   // 0 = sin etapas … 5 = 1 a 1
+  const MAX = ETAPAS.length;
   const res = est.u?.f ? resultado(c, desde) : null;
   // Rango del orden: primero quien hizo 1 a 1 y tiene fecha de pago (la más
   // próxima arriba, con los vencidos recientes), luego «Abonó», luego los
   // vencidos viejos, luego «Sin acuerdo»; después el resto por la etapa más alta.
   const viejo = !!res?.f && res.f < restarDias(hoyISO(), DIAS_VENCIDO_ARRIBA);
-  const rango = nivel === 4 ? (viejo ? 1.5 : res?.f ? 0 : res?.r === "abo" ? 1 : 2) : 7 - nivel;
+  const rango = nivel === MAX ? (viejo ? 1.5 : res?.f ? 0 : res?.r === "abo" ? 1 : 2) : MAX + 3 - nivel;
   const fechas = Object.values(est).map(x => x.f).filter(Boolean).sort();
   return {
     oro: false, upgrade, desde, etapas, est, nivel, res, rango,

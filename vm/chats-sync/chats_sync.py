@@ -161,8 +161,11 @@ def _textos_de(cm):
     return por_jid, nuestros
 
 
-def _chats_de(dirbase):
-    """Chats 1:1 recientes de UN bridge, con el teléfono ya resuelto."""
+def _chats_de(dirbase, sin_numero=None):
+    """Chats 1:1 recientes de UN bridge, con el teléfono ya resuelto.
+
+    Si se pasa la lista `sin_numero`, ahí van los chats por identidad oculta
+    cuyo teléfono whatsmeow todavía no conoce (ver `chats_sin_numero`)."""
     mdb = os.path.join(dirbase, "store", "messages.db")
     wdb = os.path.join(dirbase, "store", "whatsapp.db")
     if not (os.path.exists(mdb) and os.path.exists(wdb)):
@@ -249,6 +252,14 @@ def _chats_de(dirbase):
         # LID resolvía a "0": sin este filtro esa sola fila rompía el CHECK de
         # la tabla y se perdía la sincronización de TODO ese agente.
         if not pn or not pn.isdigit() or not (7 <= len(pn) <= 15) or pn.startswith("0"):
+            # Antes se descartaban en silencio: ~8% de los chats recientes
+            # (326 en las dos VM el 17/11/2026), gente que escribió y que el
+            # agente no tenía cómo registrar. Van aparte, sin tocar
+            # `chats_recientes`, donde todo lo que cruza lo hace por teléfono.
+            if sin_numero is not None and lid and lid.isdigit() and 6 <= len(lid) <= 20:
+                sin_numero.append({"lid": lid, "nombre_wa": nombres.get(usuario),
+                                   "ultimo_en": str(ts),
+                                   "entrante_en": str(ent) if ent else None})
             continue
         tel = "+" + pn
         nom = nombres.get(usuario) or nombres.get(pn)
@@ -466,6 +477,7 @@ def sincronizar(rest, headers, log, dry_run=False):
     if not os.path.isdir(BRIDGES_DIR):
         return
     porAgente, total, ok = {}, 0, 0
+    sinNumero, total_sin, ok_sin = {}, 0, 0
     # Un fallo de la transcripción nunca puede cortar la sincronización.
     ia = None if dry_run else _pendientes_audio(rest, headers, log)
     cache = _cache_leer() if ia else {}
@@ -480,8 +492,9 @@ def sincronizar(rest, headers, log, dry_run=False):
         owner = _owner_de(base)
         if not owner:
             continue
+        sin = []
         try:
-            chats = _chats_de(base)
+            chats = _chats_de(base, sin)
         except Exception as e:
             log(f"    ⚠ chats de {nombre}: {e}")
             continue
@@ -497,6 +510,11 @@ def sincronizar(rest, headers, log, dry_run=False):
         if chats:
             porAgente[nombre] = chats
             total += len(chats)
+        if sin:
+            for c in sin:
+                c["owner_id"] = owner
+            sinNumero[nombre] = sin
+            total_sin += len(sin)
 
     if ia:
         try:
@@ -507,7 +525,10 @@ def sincronizar(rest, headers, log, dry_run=False):
             log(f"  🎤 {transcritos} audio(s) transcrito(s)")
 
     if dry_run:
-        log(f"  [dry-run] {total} chat(s) en {len(porAgente)} agente(s)")
+        log(f"  [dry-run] {total} chat(s) en {len(porAgente)} agente(s), "
+            f"{total_sin} sin número visible")
+        for nombre, filas in sinNumero.items():
+            log(f"    {nombre}: {len(filas)} sin número")
         return porAgente
 
     # Se sube UN AGENTE POR PETICIÓN, no todo junto. Un bridge cuyo dueño ya
@@ -529,6 +550,24 @@ def sincronizar(rest, headers, log, dry_run=False):
             detalle = getattr(getattr(e, "response", None), "text", "") or str(e)
             log(f"    ⚠ no pude subir los chats de {nombre}: {detalle[:200]}")
 
+    # Los chats sin número van a SU tabla, también un agente por petición. Si la
+    # migración aún no está aplicada, esto falla en el log y lo de arriba ya
+    # entró: nada de lo que existía depende de esta tabla.
+    for nombre, filas in sinNumero.items():
+        try:
+            r = requests.post(
+                f"{rest}/chats_sin_numero",
+                headers={**headers, "Prefer": "resolution=merge-duplicates"},
+                params={"on_conflict": "owner_id,lid"},
+                json=filas,
+                timeout=45,
+            )
+            r.raise_for_status()
+            ok_sin += len(filas)
+        except Exception as e:
+            detalle = getattr(getattr(e, "response", None), "text", "") or str(e)
+            log(f"    ⚠ no pude subir los chats sin número de {nombre}: {detalle[:200]}")
+
     # Poda: lo que salió de la ventana deja de ofrecerse. El corte se calcula
     # explícitamente y no a partir de lo sincronizado: si un bridge está caído
     # y no aportó filas, deducirlo de los datos daría un corte equivocado.
@@ -543,6 +582,17 @@ def sincronizar(rest, headers, log, dry_run=False):
         )
     except Exception as e:
         log(f"    ⚠ no pude podar los chats viejos: {e}")
+    if ok_sin:
+        try:
+            requests.delete(
+                f"{rest}/chats_sin_numero",
+                headers=headers,
+                params={"ultimo_en": f"lt.{corte}"},
+                timeout=30,
+            )
+        except Exception as e:
+            log(f"    ⚠ no pude podar los chats sin número viejos: {e}")
 
     if ok:
-        log(f"  ↻ {ok} chat(s) recientes de {len(porAgente)} agente(s)")
+        log(f"  ↻ {ok} chat(s) recientes de {len(porAgente)} agente(s)"
+            + (f", {ok_sin} sin número" if ok_sin else ""))

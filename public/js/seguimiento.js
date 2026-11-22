@@ -8,7 +8,8 @@ import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom, ZOOMS,
   horaDeCliente, etiquetaZona, etiquetaDia, componerMensaje,
   esInactivo, esLead, nombreMotivo, motivoCorto,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, rellenarEtiquetas,
-  normBusqueda, BROKERS, insigniasBroker, cuandoParte, fechaCO, asistioEseDia } from "./state.js";
+  normBusqueda, BROKERS, insigniasBroker, cuandoParte, fechaCO, asistioEseDia,
+  esOtroDia, conSaludo, quitarSaludo } from "./state.js";
 import { render } from "./ui.js";
 import { canalVinculado } from "./canal.js";
 import { porBajar } from "./crm.js";
@@ -386,8 +387,40 @@ const esLibre = a => !a || !a.servicio_id;
 // panel, pensado para los agentes; `nombre_publico` nulo = el mismo.
 const nombreParaPersonas = a => (a?.nombre_publico || "").trim() || a?.nombre || "";
 
+// Notas de voz de `a` que YO no puedo enviar: las que quien la creó marcó
+// «Solo yo». Al dueño no se le bloquea nada.
+const audiosBloqueados = a =>
+  new Set(a && state.me && a.owner_id !== state.me.id ? (a.audios_privados || []) : []);
+
+// Lo que de verdad sale en una actividad ajena: la serie sin las notas de voz
+// bloqueadas. `serie` es la que se ve en el editor y `mediaM1` el adjunto
+// efectivo del mensaje 1. Si el bloqueado ERA el mensaje 1 (nota de voz sola),
+// el siguiente mensaje pasa a ser el primero; sin siguiente, sale la plantilla
+// sin adjunto. Devuelve { serie, m1Fuera, promovido }.
+function sinBloqueados(a, serie, mediaM1) {
+  const bloq = audiosBloqueados(a);
+  if (!bloq.size || serie === false) return { serie, m1Fuera: false, promovido: null };
+  const partes = (serie?.partes || []).filter(x => !bloq.has(x.media));
+  const m1 = m1De(serie);
+  const m1Fuera = !!mediaM1 && bloq.has(mediaM1);
+  let promovido = null, sinTexto = m1.sinTexto;
+  if (m1Fuera && m1.sinTexto) {
+    if (partes.length) promovido = partes.shift();
+    else sinTexto = false;   // sin nada más: la plantilla, que es lo seguro
+  }
+  const marca = sinTexto || m1.sinMedia || m1Fuera;
+  if (!partes.length && !marca) return { serie: null, m1Fuera, promovido };
+  return { serie: { ...(serie || { modo: "usuario", espera_min: 0 }), partes,
+    m1: { sin_texto: !!sinTexto, sin_media: !!(m1.sinMedia || m1Fuera) } }, m1Fuera, promovido };
+}
+
 let segTipoAct = "cat";   // "cat" (del catálogo) | "libre" (puntual)
 let segImg = null;
+// Notas de voz de esta actividad que solo envía quien la creó (pedido de
+// Sanviv, 12/11/2026). Por URL y no por posición: la marca viaja con el audio
+// al reordenar, y la base la puede comprobar al encolar (ver
+// `sql/2026-11-12_68_audios_privados.sql`).
+let segAudiosPriv = new Set();
 // URL del adjunto subido para esta actividad (imagen o video)
 let segImgTipo = null;    // "imagen" | "video" — solo decide qué previsualización se ve
 // Editores de burbujas (burbujas.js). Se crean más abajo, junto a los de la
@@ -460,6 +493,7 @@ function renderForm() {
   setImgActividad(null);
   setMsgInvitacion(null);
   serieForm.set(null);
+  segAudiosPriv = new Set();
   burbujasForm?.reset();
   $("segImgEstado").textContent = "";
   // Compartir solo aplica si hay a quién: es cosa de directores.
@@ -763,7 +797,23 @@ burbujasForm = crearBurbujas("segChat", {
   setMedia: url => setImgActividad(url),
   setPartes: arr => serieForm.setPartes(arr),
   setFlags: f => serieForm.setM1(f),
+  // «Solo yo / Todos» se ofrece donde hay alguien más que programe: actividad
+  // del director para su equipo o del admin para todos.
+  privada: {
+    mostrar: () => (state.me?.role === "director" && $("segCompartir").checked)
+      || (state.me?.role === "admin" && $("segParaTodos").checked),
+    es: url => segAudiosPriv.has(url),
+    poner: (url, priv) => { if (priv) segAudiosPriv.add(url); else segAudiosPriv.delete(url); },
+  },
+  // Una nota de voz nace «Solo yo» (decisión de Sanviv: es su voz, olvidarse
+  // de marcarla no debe ponerla en el WhatsApp de otros). Regrabarla conserva
+  // lo que tenía la anterior.
+  alGrabar: (url, vieja) => {
+    if (!vieja || segAudiosPriv.has(vieja)) segAudiosPriv.add(url);
+  },
 });
+$("segCompartir").addEventListener("change", () => burbujasForm.pintar());
+$("segParaTodos").addEventListener("change", () => burbujasForm.pintar());
 
 // Panel de programación, actividad ajena: el mensaje 1 es la invitación propia
 // del agente; sin ella, la de la actividad o su plantilla. La imagen, la suya o
@@ -786,6 +836,10 @@ burbujasMia = crearBurbujas("segMiChat", {
   setPartes: arr => serieMia.setPartes(arr),
   setFlags: f => serieMia.setM1(f),
   cambio: () => { pintarBtnMiInv(); renderHitos(); },
+  bloqueado: url => audiosBloqueados(actSel).has(url),
+  // Su voz en lugar de la del dueño: se guarda YA, no al programar. Si cierra
+  // el panel sin programar, la próxima tanda de esta actividad la encuentra.
+  alGrabar: () => { if (actSel) guardarMiInvitacion(actSel.id, serieMia.leerSilencioso()); },
 });
 
 // Vista previa con datos de ejemplo, igual que la de la invitación.
@@ -819,12 +873,16 @@ function entrarEdicion(a) {
   setImgActividad(a.imagen);
   setMsgInvitacion(a.msg_invitacion);
   serieForm.set(a.serie_invitacion);
+  segAudiosPriv = new Set(a.audios_privados || []);
   burbujasForm?.reset();
   $("segImgEstado").textContent = "";
   $("segCompartirRow").classList.toggle("hidden", state.me.role !== "director");
   $("segCompartir").checked = !!a.compartida;
   $("segParaTodosRow").classList.toggle("hidden", state.me.role !== "admin");
   $("segParaTodos").checked = !!a.para_todos;
+  // El chip «Solo yo / Todos» depende de si está compartida: se repinta ya
+  // marcada la casilla (el reset de arriba pinta antes).
+  burbujasForm?.pintar();
   $("segFecha").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   $("segHora").value = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   $("segLink").value = a.enlace;
@@ -891,6 +949,10 @@ async function guardarActividad() {
       // La serie sí vale en las dos: es «qué más se le manda», no un texto que
       // reemplace la plantilla del agente.
       serie_invitacion: serie,
+      // Solo las que siguen en la invitación: una nota borrada o regrabada no
+      // tiene por qué seguir en la lista.
+      audios_privados: [segImg, ...(serie?.partes || []).map(x => x.media)]
+        .filter(u => u && segAudiosPriv.has(u)),
       // Igual que la invitación propia: solo en las puntuales, y se limpia al
       // cambiar de tipo para no dejar una del catálogo marcada como zoom.
       zoom_tipo: libre ? ($("segZoom").value || null) : null,
@@ -1073,7 +1135,7 @@ async function renderPasadas() {
 
 async function cargarActividades() {
   const { data, error } = await SB.from("actividades")
-    .select("id, servicio_id, nombre, nombre_publico, inicio, enlace, estado, imagen, compartida, para_todos, msg_invitacion, serie_invitacion, zoom_tipo, imagen_enlace, owner_id")
+    .select("id, servicio_id, nombre, nombre_publico, inicio, enlace, estado, imagen, compartida, para_todos, msg_invitacion, serie_invitacion, zoom_tipo, imagen_enlace, audios_privados, owner_id")
     .eq("estado", "activa")
     .order("inicio", { ascending: true });
   if (error) {
@@ -1783,7 +1845,11 @@ function renderHitos() {
   const inicio = new Date(actSel.inicio);
   const { ahora, cuandoInv, primerContacto } = primerContactoAhora();
   // En una ajena, la serie que va a salir es la del editor propio.
-  const serieVista = puedoPersonalizarInvitacion(actSel) ? serieMia.leerSilencioso() : actSel.serie_invitacion;
+  // Sin las notas de voz bloqueadas: el resumen cuenta lo que sí sale.
+  const serieVista = puedoPersonalizarInvitacion(actSel)
+    ? sinBloqueados(actSel, serieMia.leerSilencioso(), miMedia
+        || (actSel.imagen && !m1De(serieMia.leerSilencioso()).sinMedia ? actSel.imagen : null)).serie
+    : actSel.serie_invitacion;
 
   // La invitación es una casilla más, no una fila fija: tenía su propio
   // «No enviar invitación» en otro sitio de la pantalla, y dos controles para
@@ -1998,6 +2064,14 @@ async function programar() {
     serieElegida = serieMia.leer();
     if (serieElegida === false) return;   // leer() ya dijo qué falta
   }
+  // Las notas de voz «Solo yo» de quien creó la actividad se ven en el editor
+  // pero no salen: desde aquí todo trabaja con la serie que de verdad se manda.
+  const ajenaP = puedoPersonalizarInvitacion(actSel);
+  const { serie: serieSale, m1Fuera, promovido } = ajenaP
+    ? sinBloqueados(actSel, serieElegida,
+        miMedia || (actSel.imagen && !m1De(serieElegida).sinMedia ? actSel.imagen : null))
+    : { serie: serieElegida, m1Fuera: false, promovido: null };
+  serieElegida = serieSale;
   const serie = (!segSinInvitacion && serieElegida?.partes?.length) ? serieElegida : null;
   // Cómo va el mensaje 1: sin la plantilla (nota de voz, o solo imagen/video) o
   // sin la imagen heredada. Vale aunque no haya mensajes 2..4.
@@ -2188,6 +2262,11 @@ async function programar() {
         yaInvitados.has(c.tel), invEfectiva, c.tzOff, tInv.toISOString());
       const piso = pisoDe(i);
       let preguntaPuesta = false;
+      // Saludo del nuevo día: lo lleva solo el PRIMER hito que sale (y la
+      // pregunta del link, que va en su lugar), si cae en otro día que el último
+      // mensaje de la invitación —o que el momento de programar, sin invitación—.
+      let primerHito = null, saludar = false;
+      const nombreCorto = c.nombre.trim().split(/\s+/)[0];
       for (const [tipo, cuandoBase] of tiempos()) {
         // La invitación de cada persona sale en SU turno de la serie (con una
         // sola parte, es exactamente `cuandoInv`, como siempre).
@@ -2197,6 +2276,11 @@ async function programar() {
           seguimiento_id: seg.id, tipo, enviar_en: cuando.toISOString(),
           telefono: c.tel, texto: tpl[tipo],
         };
+        if (tipo !== "invitacion" && !primerHito) {
+          primerHito = tipo;
+          saludar = esOtroDia(new Date(piso).toISOString(), fila.enviar_en, c.tzOff);
+          if (saludar) fila.texto = conSaludo(fila.texto, nombreCorto, fila.enviar_en, c.tzOff);
+        }
         // Imagen de la invitación, por orden de precedencia:
         //   0. la que el agente puso para SUS envíos de una actividad ajena.
         //   1. la subida para ESTA actividad → media_url (vía ya probada: hay
@@ -2210,13 +2294,20 @@ async function programar() {
         // traerla del catálogo ni de la actividad ajena.
         if (tipo === "invitacion") {
           const ajena = puedoPersonalizarInvitacion(actSel);
-          if (miMediaEf) fila.media_url = miMediaEf;
+          if (m1Fuera) {
+            // El 1 era una nota de voz que no se puede enviar: va el siguiente
+            // en su lugar, o la plantilla sola (sin adjunto de nadie).
+            if (promovido) {
+              fila.texto = textoParte(promovido.texto, c.nombre, nombreParaPersonas(actSel), actSel.inicio, actSel.enlace, c.tzOff, tInv.toISOString());
+              if (promovido.media) fila.media_url = promovido.media;
+            }
+          } else if (miMediaEf) fila.media_url = miMediaEf;
           else if (actSel.imagen && !(ajena && m1.sinMedia)) fila.media_url = actSel.imagen;
           else if (actSel.servicio_id && !m1.sinMedia) fila.servicio_id = actSel.servicio_id;
           // Mensaje 1 sin plantilla (nota de voz, o solo imagen/video). Solo si
           // de verdad lleva un adjunto propio: sin él saldría un mensaje vacío,
           // y entonces manda la plantilla, que es lo seguro.
-          if (m1.sinTexto && fila.media_url) fila.texto = "";
+          if (!m1Fuera && m1.sinTexto && fila.media_url) fila.texto = "";
         }
         // El enlace se resuelve al enviar (el texto conserva el token {enlace}).
         // Con rastreo, cada persona recibe SU url puente en vez de la de Zoom:
@@ -2234,10 +2325,12 @@ async function programar() {
         // serie larga a alguien se le puede caer el de 1 h y quedarle el de 15.
         if ((tipo === "rec_60" || tipo === "rec_15") && preguntar && !preguntaPuesta) {
           preguntaPuesta = true;
+          const texto = aplicar(PREGUNTA_LINK, { nombre: nombreCorto });
           msgs.push({
             seguimiento_id: seg.id, tipo: "pregunta_link", estado: "retenido",
             enviar_en: cuando.toISOString(), telefono: c.tel,
-            texto: aplicar(PREGUNTA_LINK, { nombre: c.nombre.trim().split(/\s+/)[0] }),
+            texto: (saludar && primerHito === tipo)
+              ? conSaludo(texto, nombreCorto, cuando.toISOString(), c.tzOff) : texto,
           });
         }
         // Las partes 2..4 van justo detrás de la invitación. Tipo propio
@@ -2582,13 +2675,13 @@ async function renombrarPendientes(actividadId, antes, ahora) {
 
 async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace, msgInv, serie) {
   const { data: segs } = await SB.from("seguimientos")
-    .select("id, owner_id, clientes(nombre, tz_offset_min)")
+    .select("id, owner_id, created_at, clientes(nombre, tz_offset_min)")
     .eq("actividad_id", actividadId).eq("estado", "activo");
   if (!segs || !segs.length) return { movidos: 0, cancelados: 0 };
 
   const info = new Map(segs.map(s =>
     [s.id, { mio: s.owner_id === state.me.id, nombre: s.clientes?.nombre || "",
-             tzOff: s.clientes?.tz_offset_min ?? null }]));
+             tzOff: s.clientes?.tz_offset_min ?? null, creado: s.created_at }]));
 
   const { data: msgs } = await SB.from("mensajes_programados")
     .select("id, tipo, parte, seguimiento_id, enviar_en, texto")
@@ -2625,6 +2718,41 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
       invInicio.has(id) ? new Date(invInicio.get(id)).toISOString() : nuevoInicioISO));
   }
 
+  // Saludo del nuevo día con la hora nueva (ver `conSaludo`). Lo lleva el
+  // primer hito que todavía va a salir, si ninguno salió ya y cae en otro día
+  // que el último mensaje de la invitación (o que cuando se programó, sin
+  // invitación del sistema). Hace falta ver también lo ya enviado: una
+  // invitación que salió ayer es justo el caso.
+  const saludoDe = new Map();   // seguimiento_id → { tipo, iso } del hito que saluda
+  const pregunta = new Map();   // seguimiento_id → fila de la pregunta del link retenida
+  {
+    const { data: otros } = await SB.from("mensajes_programados")
+      .select("id, tipo, seguimiento_id, estado, enviar_en, enviado_en, texto")
+      .in("seguimiento_id", [...info.keys()]).in("estado", ["enviado", "retenido"]);
+    const ref = new Map(), yaSalio = new Set();
+    for (const m of [...(otros || []), ...msgs]) {
+      const esInv = m.tipo === "invitacion" || m.tipo === "invitacion_parte";
+      if (esInv) {
+        const t = new Date(m.enviado_en || m.enviar_en).getTime();
+        ref.set(m.seguimiento_id, Math.max(ref.get(m.seguimiento_id) ?? 0, t));
+      } else if (m.estado === "enviado") yaSalio.add(m.seguimiento_id);
+      if (m.tipo === "pregunta_link" && m.estado === "retenido") pregunta.set(m.seguimiento_id, m);
+    }
+    for (const m of msgs) {
+      const cuando = nuevaHora[m.tipo];
+      if (!cuando || esCongelado(m.enviar_en) || yaSalio.has(m.seguimiento_id)) continue;
+      if (cuando.getTime() <= Math.max(ahora, invPendiente.get(m.seguimiento_id) ?? 0)) continue;
+      const prev = saludoDe.get(m.seguimiento_id);
+      if (!prev || cuando.getTime() < new Date(prev.iso).getTime())
+        saludoDe.set(m.seguimiento_id, { tipo: m.tipo, iso: cuando.toISOString() });
+    }
+    for (const [id, h] of saludoDe) {
+      const d = info.get(id);
+      const desde = ref.has(id) ? new Date(ref.get(id)).toISOString() : d.creado;
+      if (!desde || !esOtroDia(desde, h.iso, d.tzOff)) saludoDe.delete(id);
+    }
+  }
+
   const aCancelar = [];
   const tareas = [];
   for (const m of msgs) {
@@ -2638,7 +2766,13 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
     // Una invitación SIN texto es una nota de voz (o solo imagen/video) puesta
     // así a propósito: regenerarla le pegaría la plantilla detrás del audio.
     const sinTexto = m.tipo === "invitacion" && !(m.texto || "").trim();
-    if (tpl && tpl[m.tipo] && !sinTexto) campos.texto = tpl[m.tipo];
+    if (tpl && tpl[m.tipo] && !sinTexto) {
+      campos.texto = tpl[m.tipo];
+      const sal = saludoDe.get(m.seguimiento_id);
+      const d0 = info.get(m.seguimiento_id);
+      if (sal && sal.tipo === m.tipo)
+        campos.texto = conSaludo(campos.texto, d0.nombre.trim().split(/\s+/)[0], sal.iso, d0.tzOff);
+    }
     // Las partes de la serie no se mueven (cuelgan de la invitación, no del
     // inicio), pero su `{hora}` sí cambió: se regenera cada una con su texto.
     const pt = m.tipo === "invitacion_parte" && serie?.partes?.[m.parte - 2];
@@ -2654,6 +2788,19 @@ async function reprogramarPorHora(actividadId, nuevoInicioISO, nombreAct, enlace
     }
     if (Object.keys(campos).length)
       tareas.push(SB.from("mensajes_programados").update(campos).eq("id", m.id));
+  }
+
+  // La pregunta del link sale en lugar del primer recordatorio: lleva el mismo
+  // saludo que él, o ninguno. Solo se retoca el saludo, no la variación sorteada.
+  for (const [id, p] of pregunta) {
+    const d = info.get(id);
+    if (!d?.mio || !d.nombre) continue;
+    const sal = saludoDe.get(id);
+    const nuevo = (sal && (sal.tipo === "rec_60" || sal.tipo === "rec_15"))
+      ? conSaludo(p.texto, d.nombre.trim().split(/\s+/)[0], sal.iso, d.tzOff)
+      : quitarSaludo(p.texto);
+    if (nuevo !== p.texto)
+      tareas.push(SB.from("mensajes_programados").update({ texto: nuevo }).eq("id", p.id));
   }
 
   // En tandas para no abrir cien peticiones a la vez.
