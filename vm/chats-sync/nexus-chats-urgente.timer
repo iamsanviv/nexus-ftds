@@ -1,0 +1,11 @@
+[Unit]
+Description=Nexus — vuelta urgente de chats recientes cada minuto
+
+[Timer]
+OnBootSec=2min
+OnCalendar=*-*-* *:*:30
+AccuracySec=5s
+Unit=nexus-chats-urgente.service
+
+[Install]
+WantedBy=timers.target

@@ -119,11 +119,10 @@ const PREGUNTA_LINK = `{nombre}, {¿deseas que te envíe el link?|¿deseas asist
 // Hasta cuándo cuenta una respuesta, desde el inicio (igual en la base, que
 // además da 15 min desde la pregunta si salió tarde).
 const PREGUNTA_PLAZO_MIN = 15;
-// En prueba (28/10/2026): Sanviv la valida con sus propios envíos antes de
-// abrirla a todos. Solo el admin ve la casilla; al resto nunca se le encola
-// una pregunta, así que su secuencia no cambia. Para lanzarla: `false`.
-// PREGUNTA_PRUEBA: agentes que Sanviv sumó a la prueba (por id de usuario).
-const PREGUNTA_SOLO_ADMIN = true;
+// Abierta a todos desde el 22/11/2026 (pedido de Sanviv, tras la prueba con
+// él, Evelin y Leonardo). Con `true` vuelve a verla solo el admin y quien esté
+// en PREGUNTA_PRUEBA.
+const PREGUNTA_SOLO_ADMIN = false;
 const PREGUNTA_PRUEBA = [
   "85bf65bc-1cf2-4216-ab37-6e9da96cbce3",   // Evelin Gómez (03/11/2026)
   "a46e1b7b-f688-462d-a4b1-79fc97c087fb",   // Leonardo Angarita (10/11/2026)
