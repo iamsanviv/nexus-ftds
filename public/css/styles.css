@@ -2779,3 +2779,62 @@ button.est:focus-visible{outline:2px solid var(--gold);outline-offset:2px;positi
 .msgfijanota{font-size:.72rem;color:var(--muted);margin-top:4px}
 .msgspend{font-size:.78rem;font-weight:700;color:var(--gold);margin-bottom:8px}
 .msgschat .cbub.edit .tplprev{margin-top:6px}
+
+/* ===== Comunidad · vista Tabla (comtabla.js, 23/11/2026) =====
+   Filas tipo Excel. La caja se desliza de lado (en celular y en pantallas
+   angostas) con la columna del nombre fija, como pidió Sanviv; la página no.
+   El «Orden» se esconde: la tabla se ordena tocando sus encabezados. */
+#vistaCliente.comtabla .ordwrap{display:none}
+.vistacom{margin-left:auto;display:inline-flex;gap:4px;flex:0 0 auto}
+.vistacom .oseg{padding:4px 10px}
+.ctbox{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.cttabla{border-collapse:separate;border-spacing:0;width:100%;min-width:960px;font-size:.8rem}
+.cttabla .ctnum{width:1%;padding-left:6px;padding-right:8px}
+.cttabla th,.cttabla td{padding:9px 10px;border-bottom:1px solid var(--surface2);text-align:left;vertical-align:top}
+.cttabla tbody tr:last-child td{border-bottom:0}
+.cttabla th{background:var(--surface2);white-space:nowrap;font-size:.64rem;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted);font-weight:700}
+.cttabla tbody tr:hover td{background:var(--hover)}
+.ctord{display:inline-flex;gap:4px;align-items:center;font:inherit;letter-spacing:inherit;
+  text-transform:inherit;color:inherit;padding:0;cursor:pointer}
+.ctord span{opacity:.4}
+.ctord.on{color:var(--gold)}
+.ctord.on span{opacity:1}
+.ctfija{position:sticky;left:0;z-index:1;background:var(--surface);box-shadow:1px 0 0 var(--border);
+  min-width:130px;max-width:170px}
+.cttabla th.ctfija{z-index:2;background:var(--surface2)}
+.cttabla tbody tr:hover td.ctfija{background:var(--hover)}
+.ctnom{display:block;font:inherit;font-size:.88rem;font-weight:700;color:var(--text);
+  text-align:left;padding:0;margin-bottom:4px;cursor:pointer;overflow-wrap:anywhere}
+.ctnom:hover{color:var(--gold)}
+.ctown{display:block;margin-top:3px;font-size:.68rem;color:var(--muted)}
+.cttabla .ctnum{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.ctnum{font-size:.95rem;font-weight:700}
+td.ctnum small{display:block;font-size:.66rem;font-weight:500;color:var(--muted)}
+td.ctnum.cero{color:var(--dim);font-weight:500}
+.ctvacio{color:var(--dim);font-style:italic;font-weight:400;font-size:.78rem}
+.ctetp{display:flex;gap:3px}
+.ctest{width:26px;height:24px;border-radius:6px;display:grid;place-items:center;padding:0;
+  font:700 .7rem 'Inter',system-ui,sans-serif;background:var(--etp-pend);color:var(--dim);cursor:pointer}
+.ctest.ok{background:var(--c);color:var(--on-etp)}
+.ctest.no{background:var(--bad-soft);color:var(--bad)}
+.ctres{display:block;margin-top:5px;font-size:.7rem;font-weight:700;white-space:nowrap}
+.ctres.venc{color:var(--bad)} .ctres.pend{color:var(--gold)} .ctres.max{color:var(--oro)} .ctres.sin{color:var(--muted)}
+.ctnota{min-width:120px;max-width:170px}
+.ctntxt{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;color:var(--text)}
+.ctnota small{display:block;margin-top:2px;font-size:.68rem;color:var(--muted)}
+.ctedit{min-width:160px;width:24%}
+.ctedit textarea{display:block;width:100%;min-height:2.4em;resize:none;overflow:hidden;font:inherit;line-height:1.4;
+  color:var(--text);background:transparent;border:1px solid transparent;border-radius:6px;padding:4px 6px;margin:-4px -6px}
+.ctedit textarea:hover{background:var(--surface2)}
+.ctedit textarea:focus{outline:none;background:var(--surface2);border-color:var(--gold-dim)}
+.ctedit textarea::placeholder{color:var(--dim);font-style:italic}
+/* Sin recomendación propia, la sugerida se lee como texto (no como pista gris). */
+.ctedit textarea.esauto::placeholder{color:var(--muted);font-style:normal}
+.ctauto{display:inline-block;margin-bottom:4px;font-size:.6rem;font-weight:800;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--muted);background:var(--surface2);padding:1px 6px;border-radius:4px}
+@media (max-width:640px){
+  .ctfija{min-width:118px;max-width:132px}
+  .ctnom{font-size:.82rem}
+}
+#fVentaRow textarea{margin-bottom:10px}

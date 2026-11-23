@@ -22,6 +22,7 @@ import { porBajar, crmDe, marcarBajo, ICO_BAJAR } from "./crm.js";
 import { renderMiDia, tieneMiDia } from "./midia.js";
 import { ETAPAS, RESULTADOS, SERVICIO_BASICA, SERVICIOS_OPERATIVA, fechaServicio, embudo, compararEmbudo, cumpleResultado } from "./embudo.js";
 import { abrirEditorEtapa } from "./etapaeditor.js";
+import { tablaHTML, wireTabla, ordenarTabla, recomendacionAuto, guardarCampo } from "./comtabla.js";
 
 const NIVELES = ["Lead", "Beca", "VIP", "Platino", "Oro"];
 // Orden de urgencia de la temperatura para ordenar la lista de leads.
@@ -454,10 +455,14 @@ export function render() {
   else if (state.orden === "az") vis.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   else if (isLead) vis.sort((a, b) => TEMP_ORD[temperatura(a)] - TEMP_ORD[temperatura(b)] || a.nombre.localeCompare(b.nombre, "es"));
   else vis.sort((a, b) => compararEmbudo(E(a), E(b)) || a.nombre.localeCompare(b.nombre, "es"));
+  // La tabla se ordena por sus encabezados, no por los botones de «Orden».
+  const enTabla = !isLead && state.vistaCom === "tabla";
+  if (enTabla) vis = ordenarTabla(vis, E);
+  $("vistaCliente").classList.toggle("comtabla", enTabla);
 
   // El puesto se cuenta sobre la lista entera; los Oro no tienen embudo y no llevan número.
   const rankMap = {};
-  if (state.orden === "cerca") { let n = 0; vis.forEach(c => { if (isLead || !E(c).oro) rankMap[c.id] = ++n; }); }
+  if (state.orden === "cerca" && !enTabla) { let n = 0; vis.forEach(c => { if (isLead || !E(c).oro) rankMap[c.id] = ++n; }); }
 
   // Tira de estado (solo escritorio): resume qué se está viendo y ofrece
   // «Quitar filtros» cuando hay alguno activo (membresía, progreso o búsqueda).
@@ -483,7 +488,16 @@ export function render() {
       const hayFiltro = !!state.filtroMem || !!state.filtroBrk || !!state.filtroDep || !!state.filtroSrv || !!crudo
         || !!state.filtroEtapa || !!state.filtroRes || state.filtro === "inactivas";
       estadoEl.innerHTML = `<span>${partes.join(" · ")}</span>`
-        + (hayFiltro ? ` <button class="quitarf" id="quitarFiltros">Quitar filtros</button>` : "");
+        + (hayFiltro ? ` <button class="quitarf" id="quitarFiltros">Quitar filtros</button>` : "")
+        // Selector de vista: va en la tira de estado porque es lo único que
+        // está a la vista en escritorio Y en celular (el «Orden» no sale en móvil).
+        + `<span class="vistacom" role="group" aria-label="Vista">${[["flechas", "Flechas"], ["tabla", "Tabla"]].map(([v, l]) =>
+          `<button type="button" class="oseg ${state.vistaCom === v ? "on" : ""}" data-vcom="${v}" aria-pressed="${state.vistaCom === v}">${l}</button>`).join("")}</span>`;
+      estadoEl.querySelectorAll("[data-vcom]").forEach(b => b.onclick = () => {
+        state.vistaCom = b.dataset.vcom;
+        try { localStorage.setItem("nx.vistaCom", state.vistaCom); } catch {}
+        render();
+      });
       const qf = $("quitarFiltros");
       if (qf) qf.onclick = () => {
         state.filtroMem = null; state.filtroBrk = null; state.filtroDep = null; state.filtroSrv = null; state.filtro = "todos";
@@ -505,6 +519,15 @@ export function render() {
   }
 
   const dir = state.me.role === "director";
+  if (enTabla) {
+    $("lista").innerHTML = tablaHTML(paginar(vis, isLead), E, dir);
+    wireTabla($("lista"), {
+      abrirPerfil,
+      editarEtapa: (c, k) => abrirEditorEtapa(c, k, embudo(c).desde, render),
+      repintar: render,
+    });
+    return;
+  }
   $("lista").innerHTML = paginar(vis, isLead).map(c => cardHTML(c, pr(c), rankMap[c.id], isLead, dir, isLead ? null : E(c))).join("");
   wireCards();
 }
@@ -519,7 +542,7 @@ function paginar(vis, isLead) {
   // Cualquier cambio en lo que se mira devuelve a la página 1: quedarse en la 4
   // de un filtro nuevo que solo tiene 2 mostraría una lista vacía.
   const firma = JSON.stringify([state.filtro, state.filtroMem, state.filtroBrk, state.filtroDep,
-    state.filtroSrv, state.filtroEtapa, state.filtroRes, state.orden, normBusqueda($("buscar").value)]);
+    state.filtroSrv, state.filtroEtapa, state.filtroRes, state.orden, state.vistaCom, state.ordTabla, normBusqueda($("buscar").value)]);
   if (firma !== state.paginaFirma) { state.paginaFirma = firma; state.pagina = 1; }
   const tam = state.porPagina, paginas = Math.max(1, Math.ceil(vis.length / tam));
   state.pagina = Math.min(Math.max(1, state.pagina), paginas);
@@ -1130,7 +1153,21 @@ function abrirPerfil(c) {
   pintarBajarPerfil(c);
   pintarSegPerfil(c);
   pintarContactoPerfil(c);
+  pintarVentaPerfil(c);
   $("overlay").classList.add("open");
+}
+
+// Necesidad y recomendación (las celdas de la vista Tabla). Solo al editar:
+// se guardan campo por campo y una ficha nueva todavía no tiene fila.
+function pintarVentaPerfil(c) {
+  const ver = !!c && !esLead(c);
+  $("fVentaRow").classList.toggle("hidden", !ver);
+  const nec = $("fNecesidad"), rec = $("fRecomendacion");
+  nec.value = ver ? c.necesidad || "" : "";
+  rec.value = ver ? c.recomendacion || "" : "";
+  rec.placeholder = ver ? recomendacionAuto(embudo(c)) || "Escribe la recomendación" : "";
+  nec.onchange = ver ? () => guardarCampo(c, "necesidad", nec.value, render) : null;
+  rec.onchange = ver ? () => guardarCampo(c, "recomendacion", rec.value, render) : null;
 }
 
 // WhatsApp, llamar, copiar y Eliminar en el perfil. Salieron de la tarjeta de
@@ -1252,6 +1289,7 @@ function cerrarM() {
   pintarBajarPerfil(null);
   pintarSegPerfil(null);
   pintarContactoPerfil(null);
+  pintarVentaPerfil(null);
 }
 
 // Selector de dueño: solo tiene sentido para un director, que es el único que

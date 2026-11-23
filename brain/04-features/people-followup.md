@@ -76,6 +76,15 @@ Sustituye al ranking «X/29 servicios»: Nexus crea clases nuevas a cada rato y 
 - **La tarjeta ya no se despliega (13/11/2026).** Desplegarla solo mostraba WhatsApp, copiar número, Perfil y Eliminar, y Sanviv lo veía como un paso de más. Ahora el nombre abre el perfil, y ahí están WhatsApp, llamar, copiar (bajo el teléfono) y «Eliminar persona» (al pie). La nota se ve como insignia «Nota» con el texto al pasar el cursor. Solo en Comunidad: la tarjeta de un **lead** sí se despliega, porque ahí vive su seguimiento.
 - **Cada flecha es un botón que edita su etapa** (`public/js/etapaeditor.js`). Básica y Operativa: «Asistió» o «Pendiente» (asistencia a un servicio, `acc`); Avanzada, Presentación y 1 a 1: «Asistió», «No asistió» o «Pendiente» (`zooms`; Pendiente borra el zoom, igual que en el perfil). Fecha con atajos Hoy/Ayer. Marcar la Operativa escribe en la operativa de la que venía la fecha, o en «en Vivo» si no había; Pendiente quita la asistencia a las tres. En un ciclo de upgrade avisa si la fecha es anterior al último pago (no contaría).
 
+## Vista Tabla de Comunidad (desde 23/11/2026)
+
+Pedido de Sanviv: alternar Comunidad entre «Flechas» (la vista de etapas) y «Tabla» (filas tipo Excel). El selector va en la tira de estado (`#cliEstado`), que es lo único visible en escritorio y en celular; la elección y el orden se recuerdan en el navegador (`nx.vistaCom`, `nx.ordTabla`). Código: `public/js/comtabla.js`; ui.js le pasa la misma población, filtros, búsqueda (nombre o teléfono) y paginación.
+
+- Columnas: Cliente (fija al deslizar de lado), **Días en Nexus desde el primer FTD** (`comunidad_desde`; por defecto ordena de más días a menos), Etapas (las mismas de `embudo.js`, tocables para editar) con el resultado de pago, **Serv.** (servicios distintos de `acc` sin operativas: `acc` guarda la última fecha por servicio, no cada asistencia), **Oper.** (de las 3 operativas), **Punt.** (puntuales con `acc`), Última nota (`notas_cliente` más reciente), Necesidad y Recomendación de venta. Los zooms de venta no se cuentan aparte: ya son etapas (decisión de Sanviv).
+- `clientes.necesidad` y `clientes.recomendacion` (SQL 75) se editan en la celda (Enter guarda, Shift+Enter salto) o en el perfil, **campo por campo** con `dbPatch`; no viajan en `mapAEditar` para que guardar el perfil no pise lo que escriba la IA. `recomendacion` NULL = se muestra la derivada de la etapa y del pago (`recomendacionAuto`), marcada «Según etapa».
+- Las celdas son `<textarea>`: el repintado al llegar las ventas ya respeta un TEXTAREA con foco; un `contenteditable` perdería lo tecleado.
+- Pendiente (decisión 23/11/2026): la IA llenará necesidad/recomendación leyendo los chats de WhatsApp, **solo para los clientes de Sanviv**. Supabase solo tiene los entrantes de 12 h; el historial completo está en la base del bridge en la VM.
+
 ## Móvil
 
 No asumir que la composición de escritorio aplica a móvil. Varias mejoras recientes se diseñaron explícitamente para dejar móvil intacto.
