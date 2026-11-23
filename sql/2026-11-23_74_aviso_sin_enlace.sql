@@ -1,8 +1,8 @@
 -- =====================================================================
 --  Aviso push «Falta el enlace» (pedido de Sanviv, 23/11/2026)
---  SIN APLICAR hasta que Sanviv lo apruebe. Aplicar ANTES de fusionar el
+--  Aplicado el 23/11/2026 con aprobación de Sanviv. Va antes de fusionar el
 --  panel: apagar el tipo inserta `sin_enlace` en notif_apagadas y sin
---  este CHECK nuevo fallaría.
+--  este CHECK fallaría.
 --
 --  10 minutos antes de que empiece una actividad activa sin enlace, se
 --  avisa a quien la creó (actividades.owner_id). Solo al creador: es el
@@ -21,14 +21,18 @@
 --  nuevo. Se puede apagar en Más › Notificaciones (tipo `sin_enlace`).
 --
 --  generar_notificaciones() se reescribe entera a partir de la versión de
---  producción del 23/11/2026; lo único nuevo es el bloque «Sin enlace».
+--  producción del 23/11/2026, que ya incluye el aviso de hora de depósito
+--  (sql/2026-11-23_73_aviso_hora_deposito.sql, aplicado 4 s después de la
+--  primera versión de esta y que la pisó). Lo único nuevo es «Sin enlace».
+--  OJO: quien vuelva a reescribirla debe partir de pg_get_functiondef de
+--  producción, no de un archivo de sql/.
 --  Mecánica de entrega: sql/2026-10-14_34_notificaciones_push.sql.
 -- =====================================================================
 
 alter table public.notificaciones drop constraint notificaciones_tipo_check,
-  add constraint notificaciones_tipo_check check (tipo in ('respondio','escribio_hoy','temperatura','zoom','canal','sin_respuesta','lead_hl','aviso','prueba','envio','sin_enlace'));
+  add constraint notificaciones_tipo_check check (tipo in ('respondio','escribio_hoy','temperatura','zoom','canal','sin_respuesta','lead_hl','aviso','prueba','envio','deposito','sin_enlace'));
 alter table public.notif_apagadas drop constraint notif_apagadas_tipo_check,
-  add constraint notif_apagadas_tipo_check check (tipo in ('respondio','escribio_hoy','temperatura','zoom','canal','sin_respuesta','lead_hl','envio','sin_enlace'));
+  add constraint notif_apagadas_tipo_check check (tipo in ('respondio','escribio_hoy','temperatura','zoom','canal','sin_respuesta','lead_hl','envio','deposito','sin_enlace'));
 
 create or replace function public.generar_notificaciones()
  returns void
@@ -62,7 +66,7 @@ begin
              greatest(1, round(extract(epoch from r.inicio - now()) / 60))::int));
   end loop;
 
-  -- Sin enlace: 10 min antes, al creador. Ver sql/2026-11-23_73_aviso_sin_enlace.sql
+  -- Sin enlace: 10 min antes, al creador. Ver sql/2026-11-23_74_aviso_sin_enlace.sql
   for r in
     select a.owner_id as owner, a.id, a.nombre, a.inicio
       from public.actividades a
@@ -99,6 +103,27 @@ begin
     end if;
   end loop;
 
+  -- Hora de depósito. Ver sql/2026-11-23_73_aviso_hora_deposito.sql
+  for r in
+    select c.id, c.owner_id, c.nombre, c.promesa_en
+      from public.clientes c
+     where c.promesa_en is not null
+       and c.caido_en is null and c.inactivo_desde is null
+       and (c.membresia = 'Lead' or c.promesa_broker is not null)
+       and public.deposito_aviso_en(c.promesa_en) <= now()
+       and public.deposito_aviso_en(c.promesa_en) > now() - interval '15 minutes'
+  loop
+    perform public.notificar(r.owner_id, 'deposito',
+      'deposito:' || r.id || ':' || extract(epoch from r.promesa_en)::bigint,
+      'Hora de depósito: ' || coalesce(nullif(trim(r.nombre), ''), 'sin nombre'),
+      case when (r.promesa_en at time zone 'America/Bogota')::time = time '00:00:01'
+           then 'Prometió depositar hoy. Escríbele para confirmar.'
+           else 'Prometió depositar a las '
+                || lower(replace(replace(to_char(r.promesa_en at time zone 'America/Bogota', 'FMHH12:MI AM'), 'AM', 'a. m.'), 'PM', 'p. m.'))
+                -- «p. m.» ya cierra con punto: no agregar otro.
+                || ' Escríbele para confirmar.' end);
+  end loop;
+
   for r in
     select owner_id, actualizado from public.canales_wa
      where estado = 'vinculado' and baja_en is null
@@ -132,3 +157,4 @@ begin
     perform public.disparar_push();
   end if;
 end $function$;
+revoke all on function public.generar_notificaciones() from public, anon, authenticated;
