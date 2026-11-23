@@ -28,6 +28,7 @@ cron «notificaciones» (pg_cron, cada minuto) → generar_notificaciones() + re
 | `canal` | trigger `canales_wa`: `vinculado` → otro estado, sin `comando`/baja | por hora |
 | `canal` | cron: `vinculado` pero sin latido >10 min (y <1 día) | último `actualizado` |
 | `canal` | cron: ≥3 errores en 30 min y ≥ enviados | por día (Bogotá) |
+| `deposito` | cron: promesa de depósito propia (`promesa_en`) que llega a su hora; sin hora (00:00:01) → 9:00 Bogotá de ese día (`deposito_aviso_en`). Leads activos y becados con promesa de 2º depósito; sin Caídos. Ventana de 15 min hacia atrás. SQL: `sql/2026-11-23_73_aviso_hora_deposito.sql` | cliente + `promesa_en` (reagendar vuelve a avisar) |
 | `lead_hl` | trigger `crm_leads` AFTER INSERT (lead nuevo de HighLevel; reasignar es UPDATE y no avisa). SQL: `sql/2026-10-19_41_notificar_lead_hl.sql` | id del lead |
 | `respondio` / `temperatura` / `escribio_hoy` | trigger `chats_recientes` al cambiar `entrante_en` | cliente + `entrante_en` |
 | `envio` | trigger `mensajes_programados`: el worker cancela o falla un mensaje (`error` no nulo, sin `omitido:`). Ver [[../03-domain/messaging-rules]] «Tope diario» | causa + campaña/actividad + día |
