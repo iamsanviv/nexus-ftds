@@ -22,6 +22,7 @@ import { subirImagenMensaje, guardarHistorialSegmento, cargarCola, simularCupo, 
 import { BASE_URL, NIVEL } from "./config.js";
 import { crearBurbujas } from "./burbujas.js";
 import { esAudioUrl } from "./grabadora.js";
+import { enfocarUnaVez } from "./enfoque.js";
 
 /* ---------- plantillas ---------- */
 // Tipos de mensaje programado (5 por persona). NO incluye invitacion_extra:
@@ -1892,6 +1893,16 @@ function renderHitos() {
   });
   const preg = cont.querySelector("[data-preg]");
   if (preg) preg.onchange = e => { segPreguntar = e.target.checked; renderHitos(); };
+  // Solo si la casilla se puede usar: enfocar una apagada («sin enlace no
+  // aplica») explicaría algo que en esa tanda no pasa.
+  if (preg && !preg.disabled) enfocarUnaVez(preg.closest("label"), {
+    clave: `nexus.enfoque.${state.me.id}.pregunta-link`,
+    selector: "#segHitos label:has([data-preg]:not(:disabled))",
+    titulo: "Pregunta antes de enviar el link",
+    texto: `A quien no te escribió desde la invitación le llega <b>«¿deseas que te envíe el link?»</b>
+      en lugar del recordatorio. <b>El link solo sale si contesta que sí</b>; si dice que no, no le
+      llega nada más. Viene encendida: apágala si en esta tanda no la quieres.`,
+  });
   const inv = cont.querySelector("[data-inv]");
   if (inv) inv.onchange = e => alternarInvitacion(!e.target.checked);
   // Los botones viven dentro del <label> de la fila: sin preventDefault el
@@ -3240,6 +3251,13 @@ function pintarFiltrosAsis(activos) {
   caja.querySelectorAll("[data-asis]").forEach(b => b.onclick = () => {
     segActAsis = segActAsis === b.dataset.asis ? "todos" : b.dataset.asis;
     pintarActivos();
+  });
+  enfocarUnaVez(caja, {
+    clave: `nexus.enfoque.${state.me.id}.filtros-asistencia`,
+    titulo: "Mira quién va y quién no",
+    texto: `Cuántos te dijeron que <b>van</b>, que <b>no van</b> y quiénes <b>no te han escrito</b>.
+      Toca uno para ver solo a esas personas. Si el sistema leyó mal una respuesta,
+      corrígela en <b>«✎ Mensajes»</b>.`,
   });
 }
 

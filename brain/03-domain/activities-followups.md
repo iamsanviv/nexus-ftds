@@ -246,6 +246,14 @@ Agrupan la etiqueta de `respuestas_de` (`GRUPO_RESP`): `si` → Van; `no` → No
   ve un director solo están en «Todos».
 - Sin ninguna respuesta cargada las píldoras no se muestran y el filtro vuelve a «Todos».
 
+**Enfoque de función nueva** (`enfoque.js`, 23/11/2026): Sanviv notó que el aviso verde de novedad
+se ignora. `enfocarUnaVez(el, …)` desenfoca todo menos el elemento cuando queda a la vista y quieto,
+con explicación y «Entendido»; una vez por persona y función (`nexus.enfoque.<uid>.<id>` en
+localStorage). Se usa en la casilla «Si no respondió, preguntar» (solo si está habilitada) y en
+estas píldoras. El velo son cuatro paneles alrededor (no z-index: un ancestro con contexto de
+apilamiento lo dejaría debajo), se re-mide cada cuadro y no bloquea el scroll con `overflow:hidden`
+(correría el contenido).
+
 ## Pregunta antes del link (28/10/2026)
 
 **En prueba:** solo el admin (Sanviv) ve la casilla (`PREGUNTA_SOLO_ADMIN` en `seguimiento.js`);
