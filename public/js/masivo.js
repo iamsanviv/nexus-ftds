@@ -2,6 +2,7 @@
 // Cada persona recibe un texto ya resuelto: {nombre} + snippets {a|b|c} para
 // que no llegue idéntico (más seguro). Crea una "campaña" y N mensajes en cola.
 import { SB } from "./supabase.js";
+import { formatoWa } from "./formatowa.js";
 import { state, $, esc, toast, norm, normBusqueda, resolverSnippets,
   esInactivo, esLead, nombreMotivo, motivoCorto, BROKERS, insigniasBroker,
   MAX_ADJUNTO_MB, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto,
@@ -118,8 +119,8 @@ function renderPrev() {
   $("masPrevBox").classList.toggle("hidden", !t);
   // La previa usa una persona SIN desfase, que es el caso de casi todos: así
   // muestra el texto que verá la mayoría. Por eso {zona} sale vacía acá.
-  $("masPrev").textContent = t
-    ? resolverMensaje(t, "Ana Bermúdez", instanteReferencia(), null, true)
+  $("masPrev").innerHTML = t
+    ? formatoWa(resolverMensaje(t, "Ana Bermúdez", instanteReferencia(), null, true))
     : "";
 }
 
@@ -568,8 +569,8 @@ function renderPartes() {
     const i = +el.dataset.i, x = masSerie.partes[i];
     const txt = el.querySelector("[data-txt]"), pv = el.querySelector("[data-prev]");
     const pintarPrev = () => {
-      pv.textContent = x.texto.trim()
-        ? resolverMensaje(x.texto, "Ana Bermúdez", instanteReferencia(), null, true) : "";
+      pv.innerHTML = x.texto.trim()
+        ? formatoWa(resolverMensaje(x.texto, "Ana Bermúdez", instanteReferencia(), null, true)) : "";
     };
     pintarPrev();
     txt.oninput = () => { x.texto = txt.value; pintarPrev(); renderPrev(); renderCount(); };
