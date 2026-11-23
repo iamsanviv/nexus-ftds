@@ -274,6 +274,25 @@ let segOrdenDesc = true;
 const esLeadMem = m => m === "Lead";
 
 /* ================= PLANTILLAS (editor) ================= */
+// El panel muestra la secuencia como la conversación que recibe la persona
+// (23/11/2026, opción «como chat» que eligió Sanviv). Lo que se edita vive en
+// `borrador` hasta «Guardar mensajes»: así el chat se puede repintar (otro
+// ejemplo, abrir otro mensaje) sin perder lo escrito.
+let borrador = { ...PLANTILLAS_DEF };
+let editandoTpl = null;   // clave de CLAVES_TPL abierta para editar, o null
+
+// Orden y momento de cada mensaje. `sep` es el separador que va antes; la
+// invitación extra no lleva momento propio porque REEMPLAZA a la invitación.
+const SECUENCIA_TPL = [
+  { sep: "Al programar", k: "invitacion", nom: "Invitación" },
+  { sep: "O, si ya la invitaste hoy a otra actividad", k: "invitacion_extra", nom: "Invitación extra · sin saludo" },
+  { sep: "1 hora antes", k: "rec_60", nom: "Recordatorio 1 hora" },
+  { k: "pregunta", nom: "Pregunta del link · solo si no respondió" },
+  { sep: "15 minutos antes", k: "rec_15", nom: "Recordatorio 15 minutos" },
+  { sep: "A la hora de inicio", k: "enlace", nom: "Enlace" },
+  { sep: "10 minutos después", k: "confirmacion", nom: "Confirmación" },
+];
+
 async function cargarPlantillas() {
   const { data, error } = await SB.from("plantillas_seguimiento")
     .select("data").eq("owner_id", state.me.id).maybeSingle();
@@ -286,29 +305,79 @@ async function cargarPlantillas() {
 }
 
 function volcarPlantillasAlForm() {
-  for (const t of CLAVES_TPL) { const el = $("tpl_" + t); if (el) el.value = plantillasUsuario[t]; }
+  borrador = { ...plantillasUsuario };
+  editandoTpl = null;
   renderPrevPlantillas();
 }
 
-// Vista previa de cada plantilla ya resuelta: los snippets {a|b|c} se eligen al
-// azar (como al enviar) y las etiquetas se llenan con datos de ejemplo. Así el
-// agente ve el mensaje tal como le llegará a una persona antes de guardar.
+// Ejemplo con una persona SIN desfase: es el caso mayoritario y así se ve el
+// mismo texto que verá casi todo el mundo. Las variantes {a|b|c} se sortean en
+// cada repintado, como al enviar.
+const EJ_TPL = () => ({ nombre: "Ana", actividad: "Operativa", hora: "7:00 p. m.",
+  dia: "hoy", zona: etiquetaZona(null), enlace: "https://comunidadnexus.com.co/en-vivo?clase=…" });
+
+// Texto que de verdad saldría: vacío = la plantilla por defecto (así guarda
+// guardarPlantillas), para que el chat nunca muestre un mensaje que no va a salir.
+const textoTpl = k => (borrador[k] || "").trim() || PLANTILLAS_DEF[k];
+
+const hayCambiosTpl = () => CLAVES_TPL.some(k => textoTpl(k) !== plantillasUsuario[k]);
+
 function renderPrevPlantillas() {
-  // El ejemplo usa una persona SIN desfase: es el caso mayoritario y así la
-  // vista previa muestra el mismo texto que verá casi todo el mundo.
-  const ej = { nombre: "Ana", actividad: "Operativa", hora: "7:00 p. m.",
-    dia: "hoy", zona: etiquetaZona(null), enlace: "https://…" };
-  for (const t of CLAVES_TPL) {
-    const ta = $("tpl_" + t), prev = $("prev_" + t);
-    if (!ta || !prev) continue;
-    const txt = (ta.value || "").trim();
-    prev.innerHTML = txt ? formatoWa(aplicar(txt, ej)) : "";
+  const chat = $("segMsgsChat");
+  if (!chat) return;
+  const ej = EJ_TPL();
+  chat.innerHTML = SECUENCIA_TPL.map(({ sep, k, nom }) => {
+    const s = sep ? `<span class="msgsep${k === "invitacion_extra" ? " alt" : ""}">${esc(sep)}</span>` : "";
+    if (k === "pregunta") {
+      // Fija: la base lee la respuesta esperando justo esta pregunta (ver
+      // PREGUNTA_LINK). Se muestra para que se entienda la secuencia completa.
+      if (!preguntaHabilitada()) return "";
+      return s + `<div class="cbub msgfija"><div class="ccuerpo">
+        <div class="ctxt">${formatoWa(aplicar(PREGUNTA_LINK, ej))}</div>
+        <div class="cmeta"><span>${esc(nom)}</span><span title="No se edita: de su respuesta depende que se envíe el link">🔒 Fija</span></div>
+        <div class="msgfijanota">Sale en lugar del recordatorio a quien no respondió la invitación. El link solo se envía si dice que sí.</div>
+      </div></div>`;
+    }
+    if (k === editandoTpl) {
+      return s + `<div class="cbub edit" data-tpl="${k}">
+        <div class="cedhd"><b>${esc(nom)}</b></div>
+        <textarea id="tplEd" rows="4" aria-label="${esc(nom)}">${esc(borrador[k] || "")}</textarea>
+        <div class="tplprev" id="tplEdPrev"></div>
+        <div class="clisto"><button type="button" class="tbtn" data-tpl-listo>Listo</button></div>
+      </div>`;
+    }
+    const cambiado = textoTpl(k) !== plantillasUsuario[k];
+    return s + `<div class="cbub" data-tpl="${k}"><div class="ccuerpo">
+      <div class="ctxt">${formatoWa(aplicar(textoTpl(k), ej))}</div>
+      <div class="cmeta"><span>${esc(nom)}${cambiado ? " · <b>sin guardar</b>" : ""}</span><button type="button" class="ced" data-tpl-ed="${k}">✎ Editar</button></div>
+    </div></div>`;
+  }).join("");
+  const ta = $("tplEd");
+  if (ta) {
+    const pintar = () => {
+      const t = ta.value.trim();
+      $("tplEdPrev").innerHTML = formatoWa(aplicar(t || PLANTILLAS_DEF[editandoTpl], ej));
+    };
+    ta.oninput = () => { borrador[editandoTpl] = ta.value; pintar(); pintarPendientesTpl(); };
+    pintar();
   }
+  pintarPendientesTpl();
+}
+
+function pintarPendientesTpl() {
+  $("segMsgsPend").classList.toggle("hidden", !hayCambiosTpl());
+}
+
+function abrirTpl(k) {
+  editandoTpl = k;
+  renderPrevPlantillas();
+  const ta = $("tplEd");
+  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
 }
 
 async function guardarPlantillas() {
   const nuevas = {};
-  for (const t of CLAVES_TPL) nuevas[t] = ($("tpl_" + t).value || "").trim() || PLANTILLAS_DEF[t];
+  for (const t of CLAVES_TPL) nuevas[t] = textoTpl(t);
   const btn = $("segMsgsGuardar");
   btn.disabled = true; btn.textContent = "Guardando…";
   try {
@@ -326,7 +395,8 @@ async function guardarPlantillas() {
 }
 
 function resetPlantillas() {
-  for (const t of CLAVES_TPL) { const el = $("tpl_" + t); if (el) el.value = PLANTILLAS_DEF[t]; }
+  borrador = { ...PLANTILLAS_DEF };
+  editandoTpl = null;
   renderPrevPlantillas();
   toast("Restaurado. Toca «Guardar mensajes» para aplicar.");
 }
@@ -3919,4 +3989,13 @@ $("segMsgsReset").onclick = resetPlantillas;
 // La vista previa se recalcula al escribir y al pedir "otro ejemplo" (vuelve a
 // sortear los snippets, para comprobar que todas las variantes suenan bien).
 $("segMsgsDado").onclick = renderPrevPlantillas;
-for (const t of CLAVES_TPL) { const el = $("tpl_" + t); if (el) el.oninput = renderPrevPlantillas; }
+$("segMsgsAyudaBtn").onclick = () => {
+  const abierta = $("segMsgsAyuda").classList.toggle("hidden") === false;
+  $("segMsgsAyudaBtn").setAttribute("aria-expanded", String(abierta));
+};
+$("segMsgsChat").onclick = e => {
+  if (e.target.closest("[data-tpl-listo]")) { editandoTpl = null; renderPrevPlantillas(); return; }
+  if (e.target.closest(".cbub.edit")) return;
+  const b = e.target.closest("[data-tpl]");
+  if (b) abrirTpl(b.dataset.tpl);
+};
