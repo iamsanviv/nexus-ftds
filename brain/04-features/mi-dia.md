@@ -82,6 +82,13 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
 - El teléfono llega en formato **nacional** cuando es colombiano («318 5506790», sin +57):
   la función le antepone +57 a móviles de 10 dígitos que empiezan por 3. Sin eso no cruza
   con WhatsApp y la ficha lo guarda como «+318…» (pasó el 15/10/2026). `payload` queda crudo.
+- País automático (23/11/2026): HighLevel solo manda `name`, `phone`, `id` (ningún campo de
+  país), así que la función deduce `pais` del indicativo (`PREFIJO_PAIS`, nombres como ya están
+  en la base: «México», «Perú»…). Exige «+» y 10–15 dígitos; el «1» a secas no se asigna
+  (EE. UU./Canadá/Caribe). Colombia pone además `tz_offset_min = 0`; los demás no tocan la hora.
+  A una persona que ya existía solo se le completa si no tenía país.
+  Relleno de los existentes el 23/11/2026 (605 personas; `sql/2026-11-23_pais_leads_highlevel.sql`,
+  respaldo en `_respaldo_pais_hl_20261123`). Quedaron 88 sin país: sin teléfono o con prefijo fuera de la tabla.
 - En la guía: asignados hoy o ayer, o con `vuelve_en`/`siguiente_en` hoy. «Hecho» = resultado
   de llamada de hoy + «Le escribí» (`escribi_en`, manual).
 - No contestó / Buzón: 1.er intento vuelve en 2 h, 2.º mañana, 3.º → `fuera`.
