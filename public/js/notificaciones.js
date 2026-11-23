@@ -15,6 +15,7 @@ const TIPOS = [
   ["respondio",    "Te respondió un cliente", "Te escribió después de un mensaje tuyo de seguimiento o masivo."],
   ["escribio_hoy", "Te escribió hoy",         "El primer mensaje del día de un lead o un pendiente de depósito."],
   ["temperatura",  "Subió de temperatura",    "Un lead volvió a escribir y subió de nivel."],
+  ["deposito",     "Hora de depósito",        "A la hora que un lead prometió depositar. Si no dejaste hora, a las 9 a. m. de ese día."],
   ["zoom",         "Tu zoom empieza pronto",  "Una hora antes de una actividad tuya o con invitados tuyos."],
   ["sin_enlace",   "Falta el enlace",          "10 min antes de una actividad que creaste, si todavía no tiene enlace."],
   ["sin_respuesta", "Invitados sin contestar", "15 min antes del recordatorio de 1 h, si hay invitados tuyos que no te contestaron (para cancelarles el seguimiento)."],
