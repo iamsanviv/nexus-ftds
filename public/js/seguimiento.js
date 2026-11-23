@@ -340,7 +340,7 @@ function resetPlantillas() {
 //
 // La clave lleva versión: para anunciar lo siguiente se sube el número y el
 // aviso reaparece, sin tocar nada más.
-const NOVEDAD = "enlace-rastreado-v1";
+const NOVEDAD = "pregunta-link-v1";
 const claveNovedad = () => `nexus.novedad.${state.me.id}.${NOVEDAD}`;
 
 function renderNovedad() {
@@ -351,16 +351,16 @@ function renderNovedad() {
   cont.innerHTML = `
     <div class="alerta nueva">
       <button class="alertax" id="segNovedadX" title="Entendido, no mostrar más">✕</button>
-      <div class="at">✨ Nuevo: sabes quién entró, sin preguntar</div>
+      <div class="at">✨ Nuevo: pregunta antes de enviar el link</div>
       <div class="ax">
-        Al programar los mensajes verás la casilla <b>«Saber quién entra al
-        enlace»</b>, ya encendida. Cada quien recibe un enlace propio a la misma
-        sala, y <b>quien lo abra queda marcado como asistente</b>.
+        Al programar verás la casilla <b>«Si no respondió, preguntar»</b>, ya
+        encendida. A quien no te escribió desde la invitación le llega
+        <b>«¿deseas que te envíe el link?»</b> en lugar del recordatorio, y
+        <b>el link solo sale si contesta que sí</b>. Si dice que no, no le llega nada más.
         <div class="axnota">
-          Verán un enlace nuestro, no el de Zoom — apaga la casilla si prefieres
-          el de Zoom. Solo cuenta <b>dentro de la hora</b> siguiente al inicio.
-          Un clic dice que entró, no que se quedó. Y si abres el enlace de
-          alguien para probar, <b>le marcas su asistencia</b>.
+          Las respuestas las lee el sistema (también los audios) y las ves en
+          «Seguimientos activos»: filtra por quién va, quién no y quién no escribió.
+          Si se equivocó, corrígelo en <b>«✎ Mensajes»</b> con «Sí va» o «No va».
         </div>
       </div>
     </div>`;

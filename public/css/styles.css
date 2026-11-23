@@ -479,7 +479,7 @@
    otros que el filtro esconde. */
 .segactconteo{font-size:.76rem;color:var(--muted);margin:-4px 0 8px 2px;
   font-variant-numeric:tabular-nums}
-.segactfiltros{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.segactfiltros{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 12px}
 .segactfiltros .pill b{font-variant-numeric:tabular-nums;margin-left:2px}
 /* Misma trampa que con `.chkline`: `.frow label` (0,1,1) le gana a `.segtoggle`
    (0,1,0), y dentro del formulario de actividad las casillas salían en
