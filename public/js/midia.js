@@ -35,13 +35,14 @@ const URGENTE_ANTES_MS = HORA_MS;
 const HORA_CIERRE = 21;
 const VIGENCIA_MS = 2 * 60 * 1000;
 
+// `c`: nombre corto para las pastillas de pasos (diseño «Foco», 23/11/2026).
 const BLOQUES = [
-  { k: "cal", n: "En la mira" },
-  { k: "tib", n: "Recuperar tibios" },
-  { k: "fri", n: "Recuperar fríos" },
-  { k: "hl", n: "Leads de HighLevel" },
-  { k: "ven", n: "Posibles ventas" },
-  { k: "cla", n: "Clase de hoy" },
+  { k: "cal", n: "En la mira", c: "En la mira" },
+  { k: "tib", n: "Recuperar tibios", c: "Tibios" },
+  { k: "fri", n: "Recuperar fríos", c: "Fríos" },
+  { k: "hl", n: "Leads de HighLevel", c: "HighLevel" },
+  { k: "ven", n: "Posibles ventas", c: "Ventas" },
+  { k: "cla", n: "Clase de hoy", c: "Clase" },
 ];
 // Leads de WhatsApp por temperatura (decisión del usuario, 16/10/2026): los
 // calientes entran todos («en la mira»); de tibios y fríos, solo un tope diario,
@@ -363,53 +364,54 @@ const verLeadsHTML = it => `<button class="lbtn mdbtn" data-md="lead" data-id="$
 const pasarHTML = it => `<button class="lbtn mdbtn mdpasar" data-md="despues" data-id="${it.id}" title="Pasar al siguiente: vuelve en 30 min" aria-label="Pasar al siguiente, vuelve en 30 minutos">Pasar${ICO_SIG}</button>`;
 const siguienteHTML = it => `<div class="mdacts mdsig">${pasarHTML(it)}</div>`;
 
-// «Lo que Nexus hizo»: a la vista solo el total; el detalle, plegado.
+// «Lo que Nexus hizo»: una sola línea con el total y los dos tipos que más
+// pesan; el desglose, plegado. Como tarjeta con su lista competía con el trabajo
+// del día y el usuario la sentía larga y desordenada (23/11/2026).
 function sistemaHTML() {
   if (!extra) return "";
   const cuenta = tipos => extra.msgs.filter(m => tipos.includes(m.tipo)).length;
   const escribieron = state.clientes.filter(c => esMio(c) && esLead(c)
     && entranteDe(c) && dias(entranteDe(c)) === 0).length;
   const auto = [
-    [cuenta(["invitacion"]), "Invitaciones a clases"],
-    [cuenta(["rec_60", "rec_15", "confirmacion"]), "Recordatorios y confirmaciones"],
-    [cuenta(["enlace"]), "Enlaces de clase"],
-    [cuenta(["masivo"]), "Mensajes masivos"],
+    [cuenta(["invitacion"]), "invitaciones a clases", "invitaciones"],
+    [cuenta(["rec_60", "rec_15", "confirmacion"]), "recordatorios y confirmaciones", "recordatorios"],
+    [cuenta(["enlace"]), "enlaces de clase", "enlaces"],
+    [cuenta(["masivo"]), "mensajes masivos", "masivos"],
   ];
   const total = auto.reduce((s, [n]) => s + n, 0);
   const filas = [...auto,
-    [escribieron, `Lead${escribieron === 1 ? "" : "s"} que te escribi${escribieron === 1 ? "ó" : "eron"} (su temperatura sube un nivel)`],
-    [(state.crm || []).filter(l => l.estado === "bajo" && esHoy(l.resultado_en)).length, "Leads de HighLevel que pasaron a WhatsApp"],
+    [escribieron, `lead${escribieron === 1 ? "" : "s"} que te escribi${escribieron === 1 ? "ó" : "eron"} (su temperatura sube un nivel)`],
+    [(state.crm || []).filter(l => l.estado === "bajo" && esHoy(l.resultado_en)).length, "leads de HighLevel que pasaron a WhatsApp"],
   ].filter(([n]) => n > 0);
-  return `<details class="mdtile mdsis"><summary>
-      <span class="mdtile-l">Nexus hizo hoy</span>
-      <b>${total}</b><span class="mdtile-s">mensaje${total === 1 ? "" : "s"} automático${total === 1 ? "" : "s"}</span>
-      <span class="mdlink">${filas.length ? "Ver detalle" : ""}</span></summary>
-    ${filas.length ? `<ul>${filas.map(([n, t]) => `<li><span>${t}</span><b>${n}</b></li>`).join("")}</ul>`
-      : ""}</details>`;
+  if (!filas.length) return "";
+  const top = auto.filter(([n]) => n > 0).sort((x, y) => y[0] - x[0]).slice(0, 2).map(([n, , c]) => `${n} ${c}`).join(" · ");
+  return `<details class="mdnx"><summary>${ICO_NX}
+      <span>${total ? `Nexus envió <b>${total} mensaje${total === 1 ? "" : "s"}</b> por ti hoy${top ? `<em> · ${top}</em>` : ""}` : "Nexus trabajó por ti hoy"}</span>
+      <span class="mdnx-ver">Ver</span></summary>
+    <ul>${filas.map(([n, t]) => `<li><b>${n}</b><span>${t}</span></li>`).join("")}</ul></details>`;
 }
 
-function corteHTML(r) {
-  if (!r) return "";
-  const pc = r.corte.meta ? Math.min(100, Math.round(r.corte.llevas / r.corte.meta * 100)) : 100;
-  return `<div class="mdtile"><span class="mdtile-l">Corte día ${r.corte.dia}</span>
-    <b>${r.corte.llevas} <em>/ ${r.corte.meta}</em></b>
-    <div class="mdbar oro"><i style="width:${pc}%"></i></div>
-    <span class="mdtile-s">${r.corte.faltan ? `Faltan ${r.corte.faltan} en ${r.corte.dias} día${r.corte.dias === 1 ? "" : "s"}` : "Corte cumplido ✓"}</span></div>`;
-}
-
-// La meta de hoy en una línea: es la cifra que el agente mueve hoy, pero la
-// tarjeta grande competía con «Ahora» por la atención.
-function metaHTML(r) {
-  if (!r) return "";
-  const { hechos, meta } = r.hoy;
-  return `<div class="mdmeta ${hechos >= meta ? "ok" : ""}">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
-    <span class="mdmeta-l">Meta de hoy</span>
-    <b>${hechos} de ${meta} FTD</b>
-    <span class="mdmeta-s">${hechos >= meta ? "cumplida ✓" : `te faltan ${meta - hechos}`}</span>
-    <button type="button" class="infoi" aria-label="Cómo se calcula la meta de hoy"
-      data-info="Lo que te falta para el corte, repartido en los días que quedan. El fin de semana pide menos. Si te prometieron depositar hoy, cuenta esas promesas."></button>
-  </div>`;
+// Meta, corte y avance del día: tres cifras de apoyo. En escritorio van en la
+// columna derecha; en el teléfono, en una fila compacta encima de los pasos.
+function statsHTML(r, listos, total) {
+  const pct = (a, b) => b ? Math.min(100, Math.round(a / b * 100)) : 100;
+  const stat = (cls, l, v, de, sub, pc, info = "") => `<div class="mdstat ${cls}">
+      <span class="mdstat-l">${l}${info}</span>
+      <b>${v}<em>${de}</em></b>
+      <span class="mdbar"><i style="width:${pc}%"></i></span>
+      <span class="mdstat-s">${sub}</span></div>`;
+  let h = "";
+  if (r) {
+    const { hechos, meta } = r.hoy;
+    h += stat(`oro ${hechos >= meta ? "ok" : ""}`, "Meta de hoy", hechos, ` / ${meta} FTD`,
+      hechos >= meta ? "Cumplida ✓" : `Te faltan ${meta - hechos}`, pct(hechos, meta),
+      `<button type="button" class="infoi" aria-label="Cómo se calcula la meta de hoy"
+        data-info="Lo que te falta para el corte, repartido en los días que quedan. El fin de semana pide menos. Si te prometieron depositar hoy, cuenta esas promesas."></button>`);
+    h += stat("oro", `Corte día ${r.corte.dia}`, r.corte.llevas, ` / ${r.corte.meta}`,
+      r.corte.faltan ? `Faltan ${r.corte.faltan} en ${r.corte.dias} día${r.corte.dias === 1 ? "" : "s"}` : "Corte cumplido ✓", pct(r.corte.llevas, r.corte.meta));
+  }
+  h += stat("", "Tu día", listos, ` / ${total}`, `${listos} de ${total} tareas hechas`, pct(listos, total));
+  return `<aside class="mdstats">${h}</aside>`;
 }
 
 function cierreHTML(items) {
@@ -457,7 +459,21 @@ const NOTA = {
 let pasoSel = null, filaSel = null;
 
 const ICO_SIG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>`;
-const ICO_CHEV = `<svg class="mdchev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
+
+const ICO_CHEV_D = `<svg class="mdchev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>`;
+const ICO_OK = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`;
+const ICO_NX = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/></svg>`;
+const ICO_CLASE = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>`;
+
+// Círculo con iniciales a la izquierda de cada persona; ventas y clases llevan
+// un signo propio porque no son una persona del embudo.
+function avatarHTML(x, grande) {
+  const cls = `mdav ${grande ? "big" : ""} ${x.b === "hl" ? "hl" : ""}`;
+  if (x.b === "cla") return `<span class="${cls}" aria-hidden="true">${ICO_CLASE}</span>`;
+  if (x.b === "ven") return `<span class="${cls}" aria-hidden="true">$</span>`;
+  const ini = (x.t || "").replace(/\(.*?\)/g, "").trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+  return `<span class="${cls}" aria-hidden="true">${esc(ini || "·")}</span>`;
+}
 
 let reloj = null;
 
@@ -508,38 +524,49 @@ export function renderMiDia(cont, render) {
     top += `<div class="mdalday"><b>Estás al día</b><span>No tienes nada pendiente ahora. A las 9 pm verás el cierre del día.</span></div>`;
   }
 
+  // Pasos como pastillas: nombre corto + avance (pedido del usuario: las cinco
+  // tarjetas grandes pesaban demasiado, 23/11/2026).
   const pasosHTML = pasos.map(p => {
     const ok = p.ls.filter(x => x.hecho).length, n = p.ls.length;
     const completo = n > 0 && ok === n, actual = foco && foco.b === p.k;
     const cls = [p === paso ? "on" : "", completo ? "ok" : "", actual ? "ahora" : ""].join(" ");
-    return `<button type="button" class="mdpaso-b ${cls}" data-paso-k="${p.k}" aria-pressed="${p === paso}">
-      <span class="mdpaso-top"><i>${completo ? "✓" : p.num}</i><em>${n ? `${ok}/${n}` : "—"}</em></span>
-      <span class="mdpaso-n">${p.n}</span>
-      <span class="mdbar"><i style="width:${n ? Math.round(ok / n * 100) : 0}%"></i></span>
-    </button>`;
+    return `<button type="button" class="mdpaso-b ${cls}" data-paso-k="${p.k}" aria-pressed="${p === paso}" title="${p.num} · ${p.n}">
+      ${completo ? ICO_OK : actual ? `<i class="mdpaso-dot"></i>` : ""}<span class="mdpaso-n">${p.c}</span><em>${n ? `${ok}/${n}` : "—"}</em></button>`;
   }).join("");
 
+  const subHTML = x => {
+    const e = etiqueta(x);
+    return `<span class="mdit-s"><i class="mddot ${e.tono || "neutro"}"></i><span>${e.tag ? `<b class="mdtag-t ${e.tono}">${e.tag}</b>` : ""}${e.tag && e.det ? " · " : ""}${esc(e.det || "")}</span></span>`;
+  };
+
+  // La fila abierta se vuelve la tarjeta grande de arriba («Foco»).
+  const heroHTML = x => {
+    const e = etiqueta(x), u = urgente(x, ahora) || (x.nuevo && !x.hecho);
+    const falta = urgente(x, ahora) ? Math.max(0, Math.round((x.at - ahora) / 60000)) : null;
+    const pre = falta == null ? "" : falta > 0 ? `Faltan ${falta} min: por eso subió al frente. ` : "Ya es la hora. ";
+    const et = [x === foco ? "Ahora" : x.hecho ? "Listo" : "", paso.n, x.at != null && !x.hecho ? horaTxt(x.at) : ""].filter(Boolean).join(" · ");
+    return `<article class="mdit mdhero abierta ${u ? "urg" : ""} ${x.hecho ? "hecho" : ""}" data-paso="${x.id}">
+      <div class="mdhero-et">${esc(et)}</div>
+      <div class="mdhero-p">${avatarHTML(x, true)}<div class="mdhero-t"><h3>${esc(x.t)}</h3>
+        <span class="mdhero-s">${e.tag ? `<span class="mdtag ${e.tono}">${e.tag}</span>` : ""}<span>${esc(e.det || "")}</span></span></div></div>
+      ${x.why ? `<p class="mdwhy">${pre}${x.why}</p>` : ""}
+      ${x.posp ? `<div class="mdacts"><button class="btn-oro mdbtn" data-md="retomar" data-id="${x.id}">Atender ahora</button></div>` : accionesHTML(x)}
+    </article>`;
+  };
+
   const filaHTML = x => {
-    const e = etiqueta(x), abre = x === abierta, u = urgente(x, ahora) || (x.nuevo && !x.hecho);
-    const cls = [x.hecho ? "hecho" : "", abre ? "abierta" : "", u ? "urg" : "", x.espera ? "espera" : ""].join(" ");
-    let cuerpo = "";
-    if (abre) {
-      const falta = urgente(x, ahora) ? Math.max(0, Math.round((x.at - ahora) / 60000)) : null;
-      const pre = falta == null ? "" : falta > 0 ? `Faltan ${falta} min: por eso subió al frente. ` : "Ya es la hora. ";
-      cuerpo = `<div class="mdit-c">
-        ${x.why ? `<p class="mdwhy">${pre}${x.why}</p>` : ""}
-        ${x.posp ? `<div class="mdacts"><button class="lbtn mdbtn" data-md="retomar" data-id="${x.id}">Atender ahora</button></div>` : accionesHTML(x)}
-      </div>`;
-    }
+    const u = urgente(x, ahora) || (x.nuevo && !x.hecho);
+    const cls = [x.hecho ? "hecho" : "", u ? "urg" : "", x.espera ? "espera" : ""].join(" ");
     return `<div class="mdit ${cls}" data-paso="${x.id}">
-      <button type="button" class="mdit-h" data-fila="${x.id}" aria-expanded="${abre}">
+      <button type="button" class="mdit-h" data-fila="${x.id}" aria-expanded="false">
+        ${avatarHTML(x)}
         <span class="mdit-t">
           <span class="mdit-n"><b>${esc(x.t)}</b>${x === foco ? `<span class="mdya">Ahora</span>` : ""}</span>
-          <span class="mdit-s">${e.tag ? `<span class="mdtag ${e.tono}">${e.tag}</span>` : ""}<span>${esc(e.det || "")}</span></span>
+          ${subHTML(x)}
         </span>
         ${x.at != null && !x.hecho ? `<span class="mdhora">${horaTxt(x.at)}</span>` : ""}
-        ${ICO_CHEV}
-      </button>${cuerpo}</div>`;
+        ${ICO_CHEV_D}
+      </button></div>`;
   };
 
   let lista = "";
@@ -550,28 +577,46 @@ export function renderMiDia(cont, render) {
       ? `<button class="mdlink" data-con="abrir">${extra?.token ? "Enlace del webhook" : "Conectar HighLevel"}</button>`
       : `<span>${NOTA[paso.k] || ""}</span>`;
     const sig = pasos.slice(pasos.indexOf(paso) + 1).find(p => p.ls.some(x => !x.hecho));
-    const pend = sig ? sig.ls.filter(x => !x.hecho).length : 0;
+    const pendSig = sig ? sig.ls.filter(x => !x.hecho).length : 0;
+    const resto = porHacer(paso.ls.filter(x => x !== abierta));
+    const abiertos = resto.filter(x => !x.hecho), hechos = resto.filter(x => x.hecho);
+    const nPend = paso.ls.filter(x => !x.hecho).length;
     lista = `<section class="mdlista">
       ${foco && foco.b !== paso.k ? `<button type="button" class="mdvolver" data-md="ahora">
         <span><em>Ahora</em> ${esc(foco.t)} · ${BLOQUES[idxBloque(foco)].n}</span>${ICO_SIG}</button>` : ""}
-      <div class="mdlista-h"><h2>${paso.n}</h2>${nota}</div>
+      ${abierta ? heroHTML(abierta) : ""}
       ${paso.k === "hl" ? conexionHTML() : ""}${vacioHl}
-      ${paso.ls.length ? `<div class="mdits">${porHacer(paso.ls).map(filaHTML).join("")}</div>`
-        : paso.k === "hl" ? "" : `<div class="mdvacio">Cargando…</div>`}
+      ${resto.length || !abierta ? `<div class="mdlista-h"><h2>${abierta ? "Después" : esc(paso.n)}</h2>
+        <span>${nPend ? `${nPend} pendiente${nPend === 1 ? "" : "s"}` : "Todo listo"}${nota ? " · " : ""}${nota}</span></div>` : ""}
+      ${abiertos.length ? `<div class="mdits">${abiertos.map(filaHTML).join("")}</div>` : ""}
+      ${hechos.length ? `<details class="mdhechos"${!abiertos.length && !abierta ? " open" : ""}><summary>${ICO_OK}<b>${hechos.length} listo${hechos.length === 1 ? "" : "s"} hoy</b>
+          <span>${esc(hechos.slice(0, 2).map(x => x.t).join(", "))}${hechos.length > 2 ? "…" : ""}</span></summary>
+        <div class="mdits">${hechos.map(filaHTML).join("")}</div></details>` : ""}
+      ${!paso.ls.length && paso.k !== "hl" ? `<div class="mdvacio">Cargando…</div>` : ""}
       ${sig ? `<button type="button" class="mdluego" data-paso-k="${sig.k}">
-        <span><small>Después</small>Paso ${sig.num} · ${sig.n} · ${pend} pendiente${pend === 1 ? "" : "s"}</span>${ICO_SIG}</button>` : ""}
+        <span><small>Siguiente paso</small>${sig.n} · ${pendSig} pendiente${pendSig === 1 ? "" : "s"}</span>${ICO_SIG}</button>` : ""}
     </section>`;
   }
 
   cont.innerHTML = `
     ${top}
-    ${metaHTML(meta)}
-    <div class="mdpasos-h"><span>Tus ${pasos.length} pasos de hoy</span><span><b>${listos}</b> de ${items.length} tareas hechas</span></div>
-    <div class="mdpasos" style="--n:${pasos.length}">${pasosHTML}</div>
-    <div class="mdgrid"><div class="mdcol">${lista}</div>
-      <div class="mdcol mdlado">${corteHTML(meta)}${sistemaHTML()}</div></div>
+    <div class="mdgrid">
+      ${statsHTML(meta, listos, items.length)}
+      <div class="mdcol">
+        <div class="mdpasos" role="group" aria-label="Pasos de hoy">${pasosHTML}</div>
+        ${lista}
+        ${sistemaHTML()}
+      </div>
+    </div>
     ${extra?.error ? `<p class="mderr">Parte de la guía no cargó: ${esc(extra.error.message || String(extra.error))}</p>` : ""}`;
 
+  // En el teléfono las pastillas se desplazan de lado: la elegida queda a la
+  // vista. Se mueve solo la fila (scrollLeft), nunca la página.
+  const fila = cont.querySelector(".mdpasos"), on = fila?.querySelector(".mdpaso-b.on");
+  if (fila && on && fila.scrollWidth > fila.clientWidth) {
+    const izq = on.offsetLeft - fila.offsetLeft - 12, der = izq + on.offsetWidth + 24;
+    if (izq < fila.scrollLeft || der > fila.scrollLeft + fila.clientWidth) fila.scrollLeft = Math.max(0, izq);
+  }
   detectarBajadas(render);
   cont.querySelectorAll("[data-paso-k]").forEach(b => b.onclick = () => {
     pasoSel = b.dataset.pasoK; filaSel = null; sinSalto(cont, render);

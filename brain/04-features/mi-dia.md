@@ -9,22 +9,30 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
 - Bloques («pasos») en el orden del usuario: leads de WhatsApp →
   leads de HighLevel → posibles ventas (cobros) → clase de hoy. «Lo que Nexus hizo por ti hoy» siempre visible (total + detalle plegado).
 
-## Diseño «paso a paso» (20/10/2026, alternativa B elegida por el usuario)
-- Reemplazó la barra de puntos («16 de 41 listos», un punto por tarea sin decir de
-  qué bloque era: el usuario no la entendía) y la tarjeta «Ahora» con cinco botones.
-- Arriba: meta de hoy en una línea (`metaHoyDatos`, `ftd.js`) y los pasos visibles
-  como pestañas con `hechos/total` y barra; numerados 1..N en el orden en que se ven.
-  En escritorio caben todos en una fila; en el teléfono se desplazan.
-- Abajo: solo la lista del paso elegido. Cada fila = nombre + etiqueta de color +
-  dato corto (`razonCorta`, `leads.js`, mismas reglas que `razon`). Orden en la
-  lista: pendientes → en espera → hechos. Una fila abierta a la vez con sus acciones;
-  por defecto la de «Ahora» (`cola`). Lead de WhatsApp: «Abrir chat» y «Seguimiento»
-  a la vista; embudo, «Ver en Leads» y «Pasar» en una fila secundaria.
+## Diseño «Foco» (23/11/2026, alternativa A elegida por el usuario)
+- Reemplazó al «paso a paso» del 20/10/2026, que el usuario veía recargado y sin
+  diseño (cinco tarjetas de pasos, filas en caja, dos tarjetas laterales). Se eligió
+  sobre un mockup de tres direcciones (Foco, Bandeja, Tablero).
+- Pasos: pastillas con nombre corto (`BLOQUES[].c`) y `hechos/total`; la elegida va
+  rellena y la del foco lleva un punto dorado. En el teléfono se desplazan de lado y la
+  elegida se mantiene a la vista moviendo solo `scrollLeft` de la fila.
+- La fila abierta (por defecto la de «Ahora», `cola`) se pinta como **tarjeta grande**
+  arriba de la lista (`heroHTML`, clase `.mdit.mdhero.abierta`): avatar con iniciales,
+  nombre, etiqueta, por qué y sus acciones (las de siempre, `accionesHTML`). Las
+  secundarias del lead (embudo, Ver en Leads, Pasar) se ven como enlaces discretos.
+- El resto del paso: filas sin caja (avatar + nombre + punto de color + etiqueta · dato).
+  Lo hecho queda plegado en «N listos hoy». Tocar una fila la sube a la tarjeta grande.
+- Meta de hoy, corte y avance del día (`statsHTML`): columna derecha en escritorio
+  (con barra) y fila de tres cifras arriba en el teléfono.
+- «Nexus hizo hoy» (`sistemaHTML`): una sola línea al pie con el total y los dos tipos
+  que más pesan; el desglose se abre al tocarla. El usuario dijo que la tarjeta con su
+  lista se veía larga y desordenada.
+
+## Orden y foco (desde el diseño «paso a paso» del 20/10/2026)
+- Orden en la lista: pendientes → en espera → hechos. Una sola fila abierta a la vez.
 - Estado de vista solo en memoria (`pasoSel`, `filaSel`): tocar otro paso se queda
   ahí; un aviso «Ahora …» devuelve al foco. La fila elegida a mano se suelta cuando
   cambia de pendiente a hecha, para que la guía avance sola.
-- Corte de la semana y «Nexus hizo» van en dos tarjetas pequeñas (abajo en el
-  teléfono, columna derecha en escritorio).
 - Urgencias: lo que tiene hora (promesa de hoy con hora, clase de hoy sin invitados)
   sube al frente 1 hora antes. Cierre del día a las 21:00.
 - **Lead de HighLevel recién llegado** (asignado hoy, sin intentos, resultado ni

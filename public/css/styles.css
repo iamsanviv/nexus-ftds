@@ -2118,118 +2118,154 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .notifacc .tbtn{width:auto;flex:0 0 auto;padding:10px 14px}
 
 /* ================= MI DÍA (guía del agente · midia.js) =================
-   «Paso a paso» (20/10/2026, alternativa B elegida por el usuario): arriba los
-   pasos del día como pestañas con su avance; abajo solo la lista del paso
-   elegido, con la fila de «Ahora» abierta. Se pasó de una pila de texto a
-   tarjetas separadas: cada fila es un nombre + una etiqueta de color + un dato. */
+   Diseño «Foco» (23/11/2026, alternativa A elegida por el usuario sobre un
+   mockup de tres): la vista anterior pesaba igual en todo (cinco tarjetas de
+   pasos, filas en caja, dos tarjetas laterales). Ahora: pasos como pastillas,
+   la persona de «Ahora» en una tarjeta grande con sus acciones, el resto del
+   paso como lista limpia (sin cajas) y «Nexus hizo» en una sola línea. Meta,
+   corte y avance van a la derecha en escritorio y en fila arriba en el teléfono. */
 #vistaMiDia{display:flex;flex-direction:column;gap:14px}
 .mdeb{display:flex;justify-content:space-between;gap:8px;font-family:'Archivo';font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
 
-/* Meta de hoy en una línea */
-.mdmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;border-radius:12px;
-  background:color-mix(in srgb,var(--gold) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--gold) 32%,transparent);font-size:.84rem}
-.mdmeta svg{width:16px;height:16px;color:var(--gold);flex:0 0 auto}
-.mdmeta-l{font-family:'Archivo';font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
-.mdmeta b{font-family:'Archivo';font-weight:800;font-variant-numeric:tabular-nums}
-.mdmeta-s{color:var(--muted)}
-.mdmeta.ok .mdmeta-s{color:var(--ok);font-weight:600}
-/* El globo de la «i» se ancla a la franja entera (como en .segtoggle): centrado
-   sobre la «i», pegada al borde derecho, se salía y metía scroll horizontal. */
-.mdmeta{position:relative}
-.mdmeta .infoi{margin-left:auto;position:static}
-.mdmeta .infoi::after{left:0;right:0;transform:none;width:auto;max-width:none}
+.mdgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px 28px;align-items:start}
+.mdcol{min-width:0;display:flex;flex-direction:column;gap:18px}
 
-/* Pasos: reemplazan la barra de puntos. Cada uno dice qué es y cuánto lleva. */
-.mdpasos-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:.76rem;color:var(--muted);margin-bottom:-6px}
-.mdpasos-h span:first-child{font-family:'Archivo';font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
-.mdpasos-h b{color:var(--text);font-variant-numeric:tabular-nums}
-.mdpasos{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;margin:0 -12px;padding:2px 12px 4px;scrollbar-width:none}
+/* Meta, corte y avance: en el teléfono, tres cifras compactas en fila. */
+.mdstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:8px;position:relative}
+.mdstat{background:var(--surface);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.mdstat-l{display:flex;align-items:center;font-size:.68rem;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mdstat b{font-family:'Archivo';font-weight:800;font-size:1.15rem;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mdstat b em{font-style:normal;font-size:.78rem;font-weight:600;color:var(--muted)}
+.mdstat.ok b{color:var(--ok)}
+.mdstat-s,.mdstat .mdbar{display:none}
+/* El globo de la «i» se ancla a la fila de cifras: anclado a la «i» se salía de la pantalla. */
+.mdstat .infoi{position:static;margin-left:4px}
+.mdstat .infoi::after{left:0;right:0;transform:none;width:auto;max-width:none}
+.mdbar{display:block;height:5px;border-radius:9px;background:var(--track);overflow:hidden}
+.mdbar i{display:block;height:100%;background:var(--ok);border-radius:9px}
+.mdstat.oro .mdbar i{background:var(--gold-fill)}
+
+/* Pasos: pastillas con nombre corto y avance. La elegida, rellena. */
+.mdpasos{display:flex;gap:8px;overflow-x:auto;margin:0 -12px;padding:2px 12px;scrollbar-width:none}
 .mdpasos::-webkit-scrollbar{display:none}
-.mdpaso-b{flex:1 0 116px;min-height:96px;scroll-snap-align:start;display:flex;flex-direction:column;justify-content:space-between;gap:6px;
-  padding:10px;border-radius:14px;background:var(--surface);border:1px solid var(--border);text-align:left;color:var(--text)}
-.mdpaso-b:hover{background:var(--hover)}
-.mdpaso-b.on{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 9%,var(--surface));box-shadow:0 0 0 1px var(--gold)}
-.mdpaso-top{display:flex;align-items:center;justify-content:space-between}
-.mdpaso-top i{font-style:normal;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:.72rem;font-weight:800;background:var(--surface2)}
-.mdpaso-b.ahora .mdpaso-top i{background:var(--gold-fill);color:var(--on-gold)}
-.mdpaso-b.ok .mdpaso-top i{background:var(--ok);color:var(--on-ok)}
-.mdpaso-top em{font-style:normal;font-size:.74rem;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
-.mdpaso-n{font-size:.8rem;font-weight:600;line-height:1.25}
-.mdbar{display:block;height:3px;border-radius:2px;background:var(--track);overflow:hidden}
-.mdbar i{display:block;height:100%;background:var(--ok);border-radius:2px}
-.mdbar.oro i{background:var(--gold-fill)}
+.mdpaso-b{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:0 14px;border-radius:999px;
+  font-size:.82rem;font-weight:600;color:var(--muted);box-shadow:inset 0 0 0 1px var(--border);white-space:nowrap}
+.mdpaso-b:hover{background:var(--hover);color:var(--text)}
+.mdpaso-b em{font-style:normal;font-weight:500;color:var(--dim);font-variant-numeric:tabular-nums}
+.mdpaso-b svg{color:var(--ok)}
+.mdpaso-dot{width:7px;height:7px;border-radius:50%;background:var(--gold-fill);flex:0 0 auto}
+.mdpaso-b.ok{color:var(--ok)}
+.mdpaso-b.on{background:var(--text);color:var(--bg);box-shadow:none}
+.mdpaso-b.on em{color:var(--bg);opacity:.7}
+.mdpaso-b.on svg{color:var(--bg)}
 
 /* Lista del paso elegido */
-.mdgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px 24px;align-items:start}
-.mdcol{min-width:0;display:flex;flex-direction:column;gap:10px}
-.mdlista{display:flex;flex-direction:column;gap:10px}
-.mdlista-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
-.mdlista-h h2{font-size:1.15rem;font-weight:800}
+.mdlista{display:flex;flex-direction:column;gap:12px}
+.mdlista-h{display:flex;justify-content:space-between;align-items:baseline;gap:6px 12px;flex-wrap:wrap;margin-top:4px}
+.mdlista-h h2{font-family:'Archivo';font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
 .mdlista-h>span{font-size:.76rem;color:var(--muted)}
 .mdvolver{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;padding:0 14px;border-radius:12px;
-  background:color-mix(in srgb,var(--gold) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--gold) 40%,transparent);color:var(--text);font-size:.84rem;text-align:left}
+  background:var(--gold-soft);color:var(--text);font-size:.84rem;text-align:left}
 .mdvolver span{min-width:0;overflow-wrap:anywhere}
 .mdvolver em{font-style:normal;font-family:'Archivo';font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-right:6px}
 .mdvolver svg{color:var(--gold);flex:0 0 auto}
-.mdits{display:flex;flex-direction:column;gap:8px}
-.mdit{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
-.mdit.abierta{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
-.mdit.abierta.urg{border-color:var(--bad);box-shadow:0 0 0 3px color-mix(in srgb,var(--bad) 16%,transparent)}
-.mdit.espera{opacity:.7}
-.mdit-h{width:100%;min-height:58px;display:flex;align-items:center;gap:10px;padding:11px 14px;text-align:left;color:var(--text)}
-.mdit-h:hover{background:var(--hover)}
-.mdit-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
-.mdit-n{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.mdit-n b{font-weight:600;font-size:.92rem;overflow-wrap:anywhere}
-.mdit.hecho .mdit-n b{color:var(--muted)}
-.mdya{font-family:'Archivo';font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--on-gold);background:var(--gold-fill);padding:2px 6px;border-radius:6px}
-.mdit.urg .mdya{background:var(--bad);color:#fff}
-.mdit-s{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:.76rem;color:var(--muted)}
-.mdit-s>span:last-child{min-width:0;overflow-wrap:anywhere}
-.mdtag{font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap;background:var(--surface2);color:var(--muted)}
-.mdtag.ok{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
-.mdtag.bad{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
-.mdtag.oro{background:color-mix(in srgb,var(--gold) 16%,transparent);color:var(--gold)}
-.mdhora{font-size:.74rem;font-weight:600;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
-.mdit.urg .mdhora{color:var(--bad)}
-.mdchev{flex:0 0 auto;color:var(--muted);transition:transform .15s ease}
-.mdit.abierta .mdchev{transform:rotate(180deg)}
-.mdit-c{padding:0 14px 14px;display:flex;flex-direction:column}
+
+/* Avatar con iniciales */
+.mdav{width:36px;height:36px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;font-family:'Archivo';font-weight:700;font-size:.8rem;
+  background:var(--surface2);color:var(--muted)}
+.mdav.big{width:52px;height:52px;font-size:1.1rem;background:var(--gold-soft);color:var(--gold)}
+.mdav.hl{background:color-mix(in srgb,#E8833A 15%,transparent);color:#E8833A}
+
+/* La persona de «Ahora» (o la fila que se eligió): tarjeta grande. */
+.mdhero{background:var(--ftd-grad);border:1px solid var(--ftd-border);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.08),0 10px 28px -16px rgba(0,0,0,.45)}
+.mdhero.urg{border-color:color-mix(in srgb,var(--bad) 55%,transparent)}
+.mdhero.hecho{background:var(--surface);border-color:var(--border);box-shadow:none}
+.mdhero-et{font-family:'Archivo';font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
+.mdhero.urg .mdhero-et{color:var(--bad)}
+.mdhero.hecho .mdhero-et{color:var(--ok)}
+.mdhero-p{display:flex;align-items:center;gap:14px;min-width:0}
+.mdhero-t{min-width:0;display:flex;flex-direction:column;gap:6px}
+.mdhero-t h3{font-family:'Archivo';font-size:1.3rem;font-weight:700;line-height:1.2;overflow-wrap:anywhere}
+.mdhero-s{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.mdhero .mdwhy{font-size:.88rem;color:var(--text);opacity:.85;background:none;padding:0;border-radius:0}
+.mdhero .mdprim,.mdhero .mdacts,.mdhero .mdsec{margin-top:0}
+/* Acciones secundarias (embudo, Ver en Leads, Pasar): discretas, como enlaces. */
+.mdhero .mdsec{border-top:0;padding-top:0;gap:4px 16px;align-items:center}
+.mdhero .mdsec .lbtn{min-height:32px;padding:0;border:0;background:none;color:var(--muted);font-size:.82rem;font-weight:500;
+  text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border)}
+.mdhero .mdsec .lbtn:hover{color:var(--text)}
+.mdhero .mdsec .btn-ok{min-height:34px;padding:0 14px}
+.mdhero .crmg{border-top-color:color-mix(in srgb,var(--border) 70%,transparent)}
+
 .mdwhy{font-size:.8rem;color:var(--muted);background:var(--surface2);border-radius:10px;padding:8px 11px}
 .mdacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .mdbtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;align-self:auto}
 /* Las dos acciones principales, mitad y mitad. */
-.mdprim{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
-.mdprim .mdbtn{min-height:46px;border-radius:12px;font-size:.88rem}
+.mdprim{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.mdprim .mdbtn{min-height:48px;border-radius:12px;font-size:.9rem}
 .mdprim .hsegenv{margin-left:0;font-family:'Archivo';font-weight:800}
-/* Embudo + Ver en Leads + Pasar: una fila secundaria, separada por una línea. */
 .mdsec{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
 .mdsec .mdbtn{min-height:40px}
 .mdpasar{margin-left:auto;color:var(--muted)}
 .mdsig .mdpasar{margin-left:0}
 .mdemb .lform{width:100%}
-.mdluego{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px;padding:0 14px;border-radius:14px;
-  background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:.88rem;font-weight:600;text-align:left}
+
+/* Resto del paso: filas sin caja, separadas por una línea fina. */
+.mdits{display:flex;flex-direction:column}
+.mdits .mdit + .mdit{border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)}
+.mdit-h{width:100%;min-height:60px;display:flex;align-items:center;gap:12px;padding:10px 6px;text-align:left;color:var(--text);border-radius:12px}
+.mdit-h:hover{background:var(--hover)}
+.mdit.espera{opacity:.65}
+.mdit-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.mdit-n{display:flex;align-items:center;gap:7px;min-width:0}
+.mdit-n b{font-weight:600;font-size:.92rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mdit.hecho .mdit-n b{color:var(--muted)}
+.mdya{font-family:'Archivo';font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--on-gold);background:var(--gold-fill);padding:2px 6px;border-radius:6px;flex:0 0 auto}
+.mdit.urg .mdya{background:var(--bad);color:#fff}
+.mdit-s{display:flex;align-items:center;gap:7px;min-width:0;font-size:.78rem;color:var(--muted)}
+.mdit-s>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mdtag-t{font-weight:600;color:var(--text)}
+.mdtag-t.bad{color:var(--bad)} .mdtag-t.ok{color:var(--ok)} .mdtag-t.oro{color:var(--gold)}
+.mddot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:var(--dim)}
+.mddot.ok{background:var(--ok)} .mddot.bad{background:var(--bad)} .mddot.oro{background:var(--gold-fill)}
+.mdtag{font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap;background:var(--surface2);color:var(--muted)}
+.mdtag.ok{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+.mdtag.bad{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.mdtag.oro{background:color-mix(in srgb,var(--gold) 16%,transparent);color:var(--gold)}
+.mdhora{font-size:.76rem;font-weight:600;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.mdit.urg .mdhora{color:var(--bad)}
+.mdchev{flex:0 0 auto;color:var(--dim)}
+
+/* Lo ya hecho del paso: plegado en una línea. */
+.mdhechos summary{list-style:none;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 6px;cursor:pointer;font-size:.84rem;color:var(--muted);
+  border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)}
+.mdhechos summary::-webkit-details-marker{display:none}
+.mdhechos summary svg{color:var(--ok);flex:0 0 auto}
+.mdhechos summary b{color:var(--ok);font-weight:600;white-space:nowrap}
+.mdhechos summary span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mdhechos[open] summary span{display:none}
+
+.mdluego{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:52px;padding:0 14px;border-radius:14px;
+  background:var(--surface);color:var(--text);font-size:.86rem;font-weight:600;text-align:left}
 .mdluego:hover{background:var(--hover)}
-.mdluego small{display:block;font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.mdluego small{display:block;font-size:.64rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .mdluego svg{color:var(--muted);flex:0 0 auto}
 .mdvacio{font-size:.82rem;color:var(--muted);padding:18px 14px;text-align:center;border:1px dashed var(--border);border-radius:14px}
 
-/* Corte y «Nexus hizo»: datos de apoyo, en dos tarjetas pequeñas lado a lado. */
-.mdlado{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start}
-.mdtile{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px;min-width:0}
-.mdtile-l{font-size:.66rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
-.mdtile>b,.mdsis summary>b{font-family:'Archivo';font-weight:800;font-size:1.25rem;font-variant-numeric:tabular-nums;line-height:1.1}
-.mdtile b em{font-style:normal;font-size:.85rem;color:var(--muted)}
-.mdtile-s{font-size:.75rem;color:var(--muted)}
-.mdsis summary{list-style:none;display:flex;flex-direction:column;gap:6px;cursor:pointer}
-.mdsis summary::-webkit-details-marker{display:none}
-.mdsis[open] .mdlink{display:none}
-.mdsis ul{list-style:none;display:flex;flex-direction:column;margin-top:4px;font-size:.78rem;color:var(--muted)}
-.mdsis li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--border)}
-.mdsis li b{color:var(--text);font-variant-numeric:tabular-nums}
-/* Abierto, el detalle necesita el ancho completo. */
-.mdsis[open]{grid-column:1/-1}
+/* «Nexus hizo hoy»: una línea; el desglose se abre al tocarla. */
+.mdnx{background:var(--surface2);border-radius:12px;font-size:.82rem;color:var(--muted)}
+.mdnx summary{list-style:none;display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+.mdnx summary::-webkit-details-marker{display:none}
+.mdnx summary>svg{color:var(--gold);flex:0 0 auto}
+.mdnx summary>span:first-of-type{flex:1;min-width:0}
+.mdnx summary b{color:var(--text);font-variant-numeric:tabular-nums}
+.mdnx summary em{font-style:normal}
+.mdnx-ver{color:var(--gold);font-weight:600;white-space:nowrap}
+.mdnx[open] .mdnx-ver{display:none}
+.mdnx ul{list-style:none;display:flex;flex-direction:column;padding:0 14px 10px 40px}
+.mdnx li{display:flex;gap:10px;padding:6px 0;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)}
+.mdnx li b{min-width:28px;color:var(--text);font-variant-numeric:tabular-nums}
 
 .mdalday{display:flex;flex-direction:column;gap:3px;padding:14px;border-radius:var(--r);background:var(--surface);border:1px solid var(--ok)}
 .mdalday b{font-family:'Archivo';font-size:1rem;color:var(--ok)}
@@ -2242,18 +2278,26 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 .mdnums b{font-family:'Archivo';font-size:1.1rem;display:block;font-variant-numeric:tabular-nums}
 .mdnums small{font-size:.7rem;color:var(--muted)}
 .mdsubl{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-top:6px}
-.mdit-c .mdsubl{margin-top:12px}
+.mdit-c .mdsubl,.mdhero .mdsubl{margin-top:12px}
 .mdcierre ul{padding-left:1.1em;font-size:.82rem;color:var(--muted)}
 .mdcierre p{font-size:.82rem;color:var(--muted)}
 .mderr{font-size:.78rem;color:var(--bad)}
 @media (min-width:1040px){
-  /* Escritorio: los pasos caben todos en una fila (sin desplazar) y la lista
-     ocupa la columna ancha; corte y «Nexus hizo» van a la derecha, apilados. */
+  /* Escritorio: lista ancha a la izquierda; meta, corte y avance a la derecha,
+     cada uno con su barra. */
   #vistaMiDia{max-width:none}
-  .mdpasos{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));overflow:visible;margin:0;padding:2px 0 4px}
-  .mdpaso-b{min-height:88px}
-  .mdgrid{grid-template-columns:minmax(0,1fr) 300px}
-  .mdlado{grid-template-columns:minmax(0,1fr);position:sticky;top:16px}
+  .mdgrid{grid-template-columns:minmax(0,1fr) 264px}
+  .mdstats{grid-column:2;grid-row:1;grid-template-columns:minmax(0,1fr);gap:12px;position:sticky;top:16px}
+  .mdcol{grid-column:1;grid-row:1}
+  .mdstat{padding:16px;border-radius:16px;gap:8px}
+  .mdstat-l{font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);overflow:visible}
+  .mdstat b{font-size:1.75rem}
+  .mdstat b em{font-size:.95rem}
+  .mdstat-s,.mdstat .mdbar{display:block}
+  .mdstat-s{font-size:.78rem;color:var(--muted)}
+  .mdpasos{flex-wrap:wrap;overflow:visible;margin:0;padding:0}
+  .mdhero{padding:24px}
+  .mdhero-t h3{font-size:1.45rem}
 }
 /* Mi día · HighLevel (fase 2) */
 .mdlink{color:var(--gold);font-size:.72rem;font-weight:600;text-decoration:underline;text-underline-offset:2px}
