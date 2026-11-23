@@ -419,3 +419,11 @@ mensajes falla, `programar()` cancela los seguimientos recién creados.
 
 `clientes.puntuales[actividad]` se crea al **invitar** (`conf`); solo `acc` dice que asistió. Al rellenar `zooms.avanzada` de clases pasadas (12/11/2026) se contó la existencia de la clave y se marcó como asistentes a invitados que no fueron; hubo que recalcular desde `puntuales[id].acc`. Regla: cualquier conteo o relleno de asistencia a puntuales filtra por `acc`, nunca por la presencia de la clave.
 
+
+## Dos hilos reescribiendo `generar_notificaciones()` a la vez (23/11/2026)
+
+La función del cron de avisos se reemplaza **entera** (`create or replace`) y los CHECK de tipos se
+redefinen completos. Dos hilos la reescribieron con 4 s de diferencia partiendo de la misma versión
+vieja: la segunda migración borró el aviso `sin_enlace` y su tipo en los CHECK, aunque ambas dijeron
+«success». Regla: justo antes de aplicar, leer `pg_get_functiondef` y los CHECK de producción (y
+`supabase_migrations.schema_migrations` reciente), y verificar después que el bloque propio sigue ahí.
