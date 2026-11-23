@@ -13,6 +13,10 @@
 #    3. transcribe los audios nuevos de esos clientes (Whisper, Workers AI);
 #    4. le pasa a la IA la conversación completa (texto + audios transcritos)
 #       y escribe `clientes.necesidad` y `clientes.recomendacion`.
+#    Además entran, después de quienes escribieron, los que quedaron
+#    pendientes de una vuelta anterior y los que nunca tuvieron resumen.
+#    Cada vuelta tiene un presupuesto de neuronas (`NEURONAS_POR_NOCHE`) y se
+#    detiene al primer 429: la cuota es compartida con chats_sync.
 #
 #  Decisiones de Sanviv (23/11/2026): cada noche y solo quien escribió; la IA
 #  REEMPLAZA siempre lo que haya, aunque se haya editado a mano; los audios
@@ -58,6 +62,14 @@ MODELO = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 MAX_CHARS = 45000
 COMIENZO_CHARS = 8000
 AUDIOS_POR_NOCHE = 60      # tope de transcripciones por vuelta
+# La cuota gratis de Workers AI (10.000 neuronas al día, se reinicia a las
+# 00:00 UTC) es la MISMA que usa chats_sync para transcribir los audios de la
+# pregunta del link de TODOS los agentes. La primera carga del 23/11/2026 la
+# agotó con 67 resúmenes. Por eso cada vuelta gasta como mucho este
+# presupuesto (estimado antes de llamar) y se detiene al primer 429.
+NEURONAS_POR_NOCHE = int(os.environ.get("NEXUS_RESUMEN_NEURONAS", "4000"))
+# Precio de Llama 3.3 70B fp8-fast en neuronas por token (entrada / salida).
+NEURONAS_ENTRADA, NEURONAS_SALIDA = 26668 / 1e6, 204805 / 1e6
 LARGO_CAMPO = 600          # la base acepta 1000; la celda se lee mejor corta
 
 INSTRUCCIONES = (
@@ -170,6 +182,17 @@ def mensajes(base, jids):
         cm.close()
 
 
+def escribio_desde(base, jids, desde):
+    cm = chats_sync._abrir_ro(os.path.join(base, "store", "messages.db"))
+    try:
+        marcas = ",".join("?" * len(jids))
+        return cm.execute(
+            f"SELECT 1 FROM messages WHERE chat_jid IN ({marcas}) AND NOT is_from_me "
+            f"AND datetime(timestamp) >= ? LIMIT 1", [*jids, desde]).fetchone() is not None
+    finally:
+        cm.close()
+
+
 def transcribir_nuevos(base, owner, filas, desde, ia, audios, cupo):
     """Transcribe los audios del CLIENTE posteriores a `desde`. Los resultados
     quedan en caché por id: la noche siguiente el audio ya no se puede bajar,
@@ -186,6 +209,8 @@ def transcribir_nuevos(base, owner, filas, desde, ia, audios, cupo):
             e["t"] = chats_sync._transcribir(base, mid, jid, ia)
             hechos += 1
         except Exception as ex:
+            if "respondió 429" in str(ex):
+                raise SinCuota(str(ex)) from ex
             e["intentos"] = e.get("intentos", 0) + 1
             log(f"    ⚠ audio sin transcribir: {str(ex)[:160]}")
         audios[k] = e
@@ -229,6 +254,18 @@ def contexto(c):
             f"Hoy es {(datetime.now(timezone.utc) - timedelta(hours=5)).strftime('%d/%m/%Y')}.")
 
 
+class SinCuota(RuntimeError):
+    """Workers AI respondió 429: se acabó la cuota del día. Seguir solo
+    quitaría transcripciones a los demás agentes."""
+
+
+def costo(c, texto):
+    """Neuronas estimadas de un resumen (≈3,3 caracteres por token en español,
+    y el máximo de salida)."""
+    entrada = (len(INSTRUCCIONES) + len(contexto(c)) + len(texto)) / 3.3
+    return entrada * NEURONAS_ENTRADA + 400 * NEURONAS_SALIDA
+
+
 def preguntar_ia(ia, c, texto):
     r = requests.post(
         f"https://api.cloudflare.com/client/v4/accounts/{ia['cuenta']}/ai/run/{MODELO}",
@@ -237,6 +274,8 @@ def preguntar_ia(ia, c, texto):
                            {"role": "user", "content": contexto(c) + "\n\nConversación:\n" + texto}],
               "max_tokens": 400, "temperature": 0.2},
         timeout=120)
+    if r.status_code == 429:
+        raise SinCuota(f"Workers AI respondió 429: {r.text[:200]}")
     if r.status_code != 200:
         raise RuntimeError(f"Workers AI respondió {r.status_code}: {r.text[:200]}")
     res = (r.json() or {}).get("result") or {}
@@ -284,14 +323,20 @@ def main():
         por_owner.setdefault(c["owner_id"], []).append(c)
 
     cupo = AUDIOS_POR_NOCHE
+    gastado = 0.0
+    sin_cuota = False
+    pendientes = estado.setdefault("pendientes", {})
     for owner, clientes in por_owner.items():
         base = bridge_de(owner)
         if not base:
             log(f"{owner}: no tiene bridge en esta VM")
             continue
         desde = estado.get(owner) or (ahora - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+        # Quien quedó sin resumen en una vuelta anterior (tope, 429 o error) y
+        # quien nunca tuvo uno entran aunque no hayan vuelto a escribir.
+        deuda = set(pendientes.get(owner) or []) | nunca_resumidos(rest, cab, owner)
         idx = chats_por_tel(base)
-        hechos = fallos = 0
+        candidatos = []
         for c in clientes:
             tel = chats_sync._clave_tel(c.get("telefono"))
             if solo_tel and tel != chats_sync._clave_tel(solo_tel):
@@ -299,15 +344,32 @@ def main():
             jids = idx.get(tel)
             if not jids:
                 continue
+            escribio = escribio_desde(base, jids, desde)
+            if todos or solo_tel or escribio or c["id"] in deuda:
+                # Primero quien escribió (lo más fresco), luego la deuda. La
+                # conversación se lee después, de a una: VM1 tiene poca RAM.
+                candidatos.append((0 if escribio else 1, c, jids))
+        candidatos.sort(key=lambda x: x[0])
+        hechos = fallos = 0
+        quedan = []
+        for i, (_, c, jids) in enumerate(candidatos):
+            if sin_cuota:
+                quedan.append(c["id"])
+                continue
             try:
                 filas = mensajes(base, jids)
-                escribio = any(not mio and ts >= desde for _, _, _, ts, mio, _ in filas)
-                if not (todos or solo_tel or escribio):
-                    continue
                 cupo -= transcribir_nuevos(base, owner, filas, desde, ia, audios, cupo)
                 texto = conversacion(owner, filas, audios)
                 if not texto.strip():
                     continue
+                n = costo(c, texto)
+                if gastado + n > NEURONAS_POR_NOCHE:
+                    log(f"  presupuesto de la noche alcanzado ({gastado:.0f} neuronas): "
+                        f"{len(candidatos) - i} cliente(s) quedan para la próxima")
+                    sin_cuota = True
+                    quedan.append(c["id"])
+                    continue
+                gastado += n
                 nec, rec = preguntar_ia(ia, c, texto)
                 if seco:
                     log(f"  {c['nombre']}\n    necesidad: {nec}\n    recomendación: {rec}")
@@ -316,16 +378,32 @@ def main():
                                        json={"necesidad": nec, "recomendacion": rec}, timeout=20)
                     p.raise_for_status()
                 hechos += 1
+            except SinCuota as ex:
+                log(f"  ⛔ sin cuota de Workers AI, me detengo: {str(ex)[:160]}")
+                sin_cuota = True
+                quedan.append(c["id"])
             except Exception as ex:
                 fallos += 1
+                quedan.append(c["id"])
                 log(f"  ⚠ {c['nombre']}: {str(ex)[:200]}")
-        log(f"{os.path.basename(base)}: {hechos} resumen(es), {fallos} fallo(s)")
+        log(f"{os.path.basename(base)}: {hechos} resumen(es), {fallos} fallo(s), "
+            f"{len(quedan)} pendiente(s), ~{gastado:.0f} neuronas")
         if not seco and not solo_tel:
             estado[owner] = ahora.strftime("%Y-%m-%d %H:%M:%S")
+            pendientes[owner] = quedan
     if not seco:
         _guardar_json(AUDIOS, audios)
         if not solo_tel:
             _guardar_json(ESTADO, estado)
+
+
+def nunca_resumidos(rest, cab, owner):
+    """Ids de los clientes del agente sin necesidad guardada: la primera carga
+    de cada uno va con todo su historial, repartida en varias noches."""
+    r = requests.get(f"{rest}/clientes", headers=cab, timeout=30,
+                     params={"select": "id", "owner_id": f"eq.{owner}", "necesidad": "is.null"})
+    r.raise_for_status()
+    return {x["id"] for x in r.json() or []}
 
 
 if __name__ == "__main__":

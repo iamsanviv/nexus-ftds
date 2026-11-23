@@ -17,5 +17,10 @@ Va en la VM donde vive el bridge del agente (Sanviv: VM1, slug `santiago_viveros
 6. Primera carga (todos los clientes, con todo su historial): `python3 resumir.py --todos`.
 7. `sudo cp nexus-resumen-ia.{service,timer} /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now nexus-resumen-ia.timer`.
 
+Presupuesto por vuelta: `NEXUS_RESUMEN_NEURONAS` (por defecto 4000 de las 10.000
+neuronas diarias gratis, que comparte con `chats_sync`). Quien no alcanza queda en
+`pendientes` (`~/.nexus-resumen-ia.json`) para la vuelta siguiente; los clientes sin
+necesidad guardada también entran solos, así que no hace falta repetir `--todos`.
+
 Activar a otro agente = una fila en `resumen_ia_agentes` (solo service_role).
 Desactivar: `sudo systemctl disable --now nexus-resumen-ia.timer`.
