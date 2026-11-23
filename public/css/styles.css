@@ -2761,3 +2761,21 @@ button.est:focus-visible{outline:2px solid var(--gold);outline-offset:2px;positi
 .wamono,.wacod{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em}
 .wacod{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:0 4px}
 .wacita{display:inline-block;border-left:3px solid var(--gold-dim);padding-left:8px;color:var(--muted)}
+
+/* ---------- ✎ Mensajes automáticos como conversación (23/11/2026) ----------
+   Reusa las burbujas de .chatinv; aquí solo lo propio: separadores de momento
+   (se leen como los de fecha en WhatsApp) y la pregunta del link, fija. */
+.msgshd{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.msgshd .pstitle{margin:4px 0}
+.msgshd .tbtn{flex:0 0 auto;width:auto;padding:6px 12px}
+.msgsayuda{border-left:2px solid var(--gold-dim);padding-left:10px;margin-bottom:10px}
+.msgschat{margin-bottom:10px}
+.msgschat .cbub[data-tpl]:not(.edit){cursor:pointer}
+.msgschat .cbub[data-tpl]:not(.edit):hover .ccuerpo{outline:1px solid var(--gold-dim)}
+.msgsep{align-self:center;max-width:92%;text-align:center;font-size:.7rem;font-weight:700;color:var(--muted);
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:3px 10px;margin-top:4px}
+.msgsep.alt{font-weight:600;font-style:italic;background:none;border-style:dashed}
+.msgfija .ccuerpo{background:none;border:1.5px dashed var(--muted);box-shadow:none}
+.msgfijanota{font-size:.72rem;color:var(--muted);margin-top:4px}
+.msgspend{font-size:.78rem;font-weight:700;color:var(--gold);margin-bottom:8px}
+.msgschat .cbub.edit .tplprev{margin-top:6px}

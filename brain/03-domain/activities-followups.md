@@ -256,14 +256,17 @@ apilamiento lo dejaría debajo), se re-mide cada cuadro y no bloquea el scroll c
 
 ## Pregunta antes del link (28/10/2026)
 
-**En prueba:** solo el admin (Sanviv) ve la casilla (`PREGUNTA_SOLO_ADMIN` en `seguimiento.js`);
-para lanzarla a todos se pone en `false`. La base no distingue: actúa sobre cualquier fila
-`pregunta_link`, y solo el panel las crea.
+**Abierta a todos desde el 22/11/2026** (`PREGUNTA_SOLO_ADMIN = false` en `seguimiento.js`; con
+`true` vuelve a verla solo el admin y `PREGUNTA_PRUEBA`). La base no distingue: actúa sobre cualquier
+fila `pregunta_link`, y solo el panel las crea.
 
 Pedido de Sanviv. Casilla «Si no respondió, preguntar» bajo el recordatorio de 1 h en el selector
 de hitos (`segPreguntar`, **encendida** por defecto y por tanda; requiere rec_60 y enlace). Al
 programar se encola una fila `pregunta_link` en estado **`retenido`** (el worker solo toma
-`pendiente`) con una de cuatro variaciones al azar por persona (`PREGUNTA_LINK`, no editable).
+`pendiente`) con una de cuatro variaciones al azar por persona (`PREGUNTA_LINK`, no editable). Desde el
+23/11/2026 el panel «✎ Mensajes automáticos» muestra la secuencia como chat y la pregunta aparece
+ahí, entre el recordatorio de 1 h y el de 15 min, marcada «🔒 Fija»: se ve para entender la
+secuencia, pero no se edita porque la base clasifica la respuesta esperando esa pregunta.
 
 La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
 `sql/2026-10-28_48_pregunta_link.sql`):
