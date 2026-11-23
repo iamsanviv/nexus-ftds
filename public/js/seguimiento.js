@@ -331,45 +331,12 @@ function resetPlantillas() {
 }
 
 /* ================= AVISO DE NOVEDAD ================= */
-// Un aviso que NO se puede cerrar termina como el de Majo: se queda ahí para
-// siempre y deja de mirarse, y de paso tapa los avisos que sí importan (canal
-// caído, mensajes fallando). Este se cierra y no vuelve.
-//
-// La marca va en localStorage y no en la base: es una preferencia de lectura,
-// no un dato del negocio. No merece una tabla, ni una migración, ni RLS. Lo
-// peor que pasa si alguien entra desde otro navegador es que lo lea dos veces.
-//
-// La clave lleva versión: para anunciar lo siguiente se sube el número y el
-// aviso reaparece, sin tocar nada más.
-const NOVEDAD = "pregunta-link-v1";
-const claveNovedad = () => `nexus.novedad.${state.me.id}.${NOVEDAD}`;
-
+// Sin novedad que anunciar: las funciones nuevas se explican con el enfoque
+// sobre el control (enfoque.js), que sí se lee (Sanviv, 23/11/2026). Para
+// volver a usar el aviso, recuperar de Git la versión con clave por novedad.
 function renderNovedad() {
   const cont = $("segNovedad");
-  if (localStorage.getItem(claveNovedad())) {
-    cont.classList.add("hidden"); cont.innerHTML = ""; return;
-  }
-  cont.innerHTML = `
-    <div class="alerta nueva">
-      <button class="alertax" id="segNovedadX" title="Entendido, no mostrar más">✕</button>
-      <div class="at">✨ Nuevo: pregunta antes de enviar el link</div>
-      <div class="ax">
-        Al programar verás la casilla <b>«Si no respondió, preguntar»</b>, ya
-        encendida. A quien no te escribió desde la invitación le llega
-        <b>«¿deseas que te envíe el link?»</b> en lugar del recordatorio, y
-        <b>el link solo sale si contesta que sí</b>. Si dice que no, no le llega nada más.
-        <div class="axnota">
-          Las respuestas las lee el sistema (también los audios) y las ves en
-          «Seguimientos activos»: filtra por quién va, quién no y quién no escribió.
-          Si se equivocó, corrígelo en <b>«✎ Mensajes»</b> con «Sí va» o «No va».
-        </div>
-      </div>
-    </div>`;
-  cont.classList.remove("hidden");
-  $("segNovedadX").onclick = () => {
-    localStorage.setItem(claveNovedad(), new Date().toISOString());
-    renderNovedad();
-  };
+  cont.classList.add("hidden"); cont.innerHTML = "";
 }
 
 /* ================= FORMULARIO crear / editar actividad ================= */
@@ -1898,10 +1865,8 @@ function renderHitos() {
   if (preg && !preg.disabled) enfocarUnaVez(preg.closest("label"), {
     clave: `nexus.enfoque.${state.me.id}.pregunta-link`,
     selector: "#segHitos label:has([data-preg]:not(:disabled))",
-    titulo: "Pregunta antes de enviar el link",
-    texto: `A quien no te escribió desde la invitación le llega <b>«¿deseas que te envíe el link?»</b>
-      en lugar del recordatorio. <b>El link solo sale si contesta que sí</b>; si dice que no, no le
-      llega nada más. Viene encendida: apágala si en esta tanda no la quieres.`,
+    titulo: "Pregunta antes del link",
+    texto: `Si no te escribió, le preguntamos si quiere el link. <b>Solo le llega si dice que sí.</b>`,
   });
   const inv = cont.querySelector("[data-inv]");
   if (inv) inv.onchange = e => alternarInvitacion(!e.target.checked);
@@ -3254,10 +3219,8 @@ function pintarFiltrosAsis(activos) {
   });
   enfocarUnaVez(caja, {
     clave: `nexus.enfoque.${state.me.id}.filtros-asistencia`,
-    titulo: "Mira quién va y quién no",
-    texto: `Cuántos te dijeron que <b>van</b>, que <b>no van</b> y quiénes <b>no te han escrito</b>.
-      Toca uno para ver solo a esas personas. Si el sistema leyó mal una respuesta,
-      corrígela en <b>«✎ Mensajes»</b>.`,
+    titulo: "Quién va y quién no",
+    texto: `Toca un filtro para ver solo a esas personas.`,
   });
 }
 
