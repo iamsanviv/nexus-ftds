@@ -51,6 +51,40 @@ const conIndicativo = (t?: string) => {
   return /^3\d{9}$/.test(d) ? "+57" + d : t;
 };
 
+// País a partir del indicativo, porque HighLevel solo manda nombre, teléfono e
+// id (ningún campo de país). Nombres escritos como ya los usa la base
+// («México», «Perú»…) para que filtros y banderas los reconozcan.
+// De más largo a más corto: «1809» (Rep. Dominicana) le gana a «1». El «1» a
+// secas NO se asigna: es Estados Unidos, Canadá o el Caribe, y un país
+// equivocado es peor que ninguno (el agente lo completa).
+// Solo Colombia fija la diferencia horaria (0): tiene un único huso. México y
+// los demás no, por lo mismo que en la ficha (ver `paisDesdeTel` en ui.js).
+const PREFIJO_PAIS: [string, string][] = [
+  ["1809", "República Dominicana"], ["1829", "República Dominicana"], ["1849", "República Dominicana"],
+  ["1787", "Puerto Rico"], ["1939", "Puerto Rico"],
+  ["501", "Belice"], ["502", "Guatemala"], ["503", "El Salvador"], ["504", "Honduras"],
+  ["505", "Nicaragua"], ["506", "Costa Rica"], ["507", "Panamá"], ["509", "Haití"],
+  ["591", "Bolivia"], ["593", "Ecuador"], ["595", "Paraguay"], ["598", "Uruguay"], ["351", "Portugal"],
+  ["33", "Francia"], ["34", "España"], ["39", "Italia"], ["44", "Reino Unido"], ["49", "Alemania"],
+  ["51", "Perú"], ["52", "México"], ["53", "Cuba"], ["54", "Argentina"], ["55", "Brasil"],
+  ["56", "Chile"], ["57", "Colombia"], ["58", "Venezuela"],
+];
+// Exige el «+» (o el 57 que añadió `conIndicativo`) y un largo internacional
+// plausible: un número nacional sin indicativo («0414…», «55…») empezaría
+// igual que un prefijo y daría un país falso.
+const paisDeTel = (t?: string) => {
+  if (!t || !t.trim().startsWith("+")) return null;
+  const d = t.replace(/\D/g, "");
+  if (d.length < 10 || d.length > 15) return null;
+  const hit = PREFIJO_PAIS.find(([p]) => d.startsWith(p));
+  return hit ? hit[1] : null;
+};
+const datosPais = (t?: string) => {
+  const pais = paisDeTel(t);
+  if (!pais) return {};
+  return pais === "Colombia" ? { pais, tz_offset_min: 0 } : { pais };
+};
+
 // La persona en Nexus: la que ya tenga ese número (no se duplica) o una nueva.
 async function personaPara(owner: string, nombre: string | undefined, telefono: string | undefined) {
   const k = claveTel(telefono);
@@ -61,10 +95,23 @@ async function personaPara(owner: string, nombre: string | undefined, telefono: 
   }
   const { data, error } = await sb.from("clientes").insert({
     owner_id: owner, nombre: nombre || telefono || "Lead de HighLevel", telefono: telefono || null,
-    membresia: "Lead", creado: hoyCO(),
+    membresia: "Lead", creado: hoyCO(), ...datosPais(telefono),
   }).select("id").single();
   if (error) throw error;
   return { id: data.id as string, existia: false };
+}
+
+// A una persona que ya existía solo se le pone país si no tenía: el que
+// escribió el agente manda. La diferencia horaria tampoco se pisa.
+async function completarPais(id: string, telefono?: string) {
+  const { pais, tz_offset_min } = datosPais(telefono) as { pais?: string; tz_offset_min?: number };
+  if (!pais) return;
+  const { data } = await sb.from("clientes").update({ pais }).eq("id", id)
+    .or("pais.is.null,pais.eq.").select("id");
+  // La hora solo acompaña a un país que se acaba de poner aquí; si el agente ya
+  // había escrito otro país, un 0 de Colombia lo contradiría.
+  if (data?.length && tz_offset_min !== undefined)
+    await sb.from("clientes").update({ tz_offset_min }).eq("id", id).is("tz_offset_min", null);
 }
 
 Deno.serve(async req => {
@@ -96,12 +143,15 @@ Deno.serve(async req => {
     if (error) return json(500, { error: error.message });
     // Si la primera vez llegó sin teléfono, la persona lo recibe ahora (solo si
     // no tenía uno: el que puso el agente manda).
-    if (telefono && previo.cliente_id)
+    if (telefono && previo.cliente_id) {
       await sb.from("clientes").update({ telefono }).eq("id", previo.cliente_id).is("telefono", null);
+      await completarPais(previo.cliente_id, telefono);
+    }
     return json(200, { ok: true, nuevo: false });
   }
   try {
     const p = await personaPara(tok.owner_id, nombre, telefono);
+    if (p.existia) await completarPais(p.id, telefono);
     // Si ya estaba en Nexus con ese número, ya es un lead de WhatsApp: no queda
     // «por bajar» (no se le quitan los envíos automáticos que ya recibía).
     const { error } = await sb.from("crm_leads").insert({ ...datos, owner_id: tok.owner_id, ghl_id: ghlId,
