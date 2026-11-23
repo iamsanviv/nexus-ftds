@@ -23,7 +23,7 @@ import { subirImagenMensaje, guardarHistorialSegmento, cargarCola, simularCupo, 
 import { BASE_URL, NIVEL } from "./config.js";
 import { crearBurbujas } from "./burbujas.js";
 import { esAudioUrl } from "./grabadora.js";
-import { enfocarUnaVez, claveEnfoque } from "./enfoque.js";
+import { enfocarUnaVez } from "./enfoque.js";
 
 /* ---------- plantillas ---------- */
 // Tipos de mensaje programado (5 por persona). NO incluye invitacion_extra:
@@ -1934,7 +1934,7 @@ function renderHitos() {
   // Solo si la casilla se puede usar: enfocar una apagada («sin enlace no
   // aplica») explicaría algo que en esa tanda no pasa.
   if (preg && !preg.disabled) enfocarUnaVez(preg.closest("label"), {
-    clave: claveEnfoque(state.me.id, "pregunta-link"),
+    id: "pregunta-link",
     selector: "#segHitos label:has([data-preg]:not(:disabled))",
     titulo: "Pregunta antes del link",
     texto: `Si no te escribió, le preguntamos si quiere el link. <b>Solo le llega si dice que sí.</b>`,
@@ -3289,7 +3289,7 @@ function pintarFiltrosAsis(activos) {
     pintarActivos();
   });
   enfocarUnaVez(caja, {
-    clave: claveEnfoque(state.me.id, "filtros-asistencia"),
+    id: "filtros-asistencia",
     titulo: "Quién va y quién no",
     texto: `Toca un filtro para ver solo a esas personas.`,
   });
