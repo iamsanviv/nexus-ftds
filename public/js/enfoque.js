@@ -3,24 +3,56 @@
 // de novedad en la parte de arriba se cierra sin leerlo (Sanviv, 23/11/2026):
 // explicar la función EN el control, en el momento en que se va a usar, sí se lee.
 //
-// Sale UNA vez por persona y función (marca en localStorage, como el aviso de
-// novedad: es preferencia de lectura, no dato del negocio). Si se borra el
-// navegador, lo verá otra vez; nada se rompe.
+// Sale UNA vez por cuenta y función (ver `marcar`).
 //
 // El desenfoque se arma con cuatro paneles alrededor del elemento y no subiendo
 // el elemento por encima de un velo: con z-index, cualquier ancestro que cree
 // su propio contexto de apilamiento (transform, overflow, z-index) lo dejaría
 // debajo del velo, desenfocado justo lo que se quería mostrar.
 
-// Claves de cada enfoque. Viven aquí porque las usan dos lados: seguimiento.js
-// (donde se muestran) y novedades.js (que los vuelve a armar desde la campana).
-export const ENFOQUES = ["pregunta-link", "filtros-asistencia"];
-export const claveEnfoque = (uid, id) => `nexus.enfoque.${uid}.${id}`;
-// Borra la marca de visto: el enfoque vuelve a salir la próxima vez que se vea.
-export const rearmarEnfoque = clave => { try { localStorage.removeItem(clave); } catch { /* sin almacenamiento */ } };
+import { SB } from "./supabase.js";
+import { state } from "./state.js";
 
-const visto = clave => { try { return !!localStorage.getItem(clave); } catch { return true; } };
-const marcar = clave => { try { localStorage.setItem(clave, new Date().toISOString()); } catch { /* sin almacenamiento */ } };
+// Identificadores de cada enfoque. Viven aquí porque los usan dos lados:
+// seguimiento.js (donde se muestran) y novedades.js (que los repite desde la campana).
+export const ENFOQUES = ["pregunta-link", "filtros-asistencia"];
+
+// «Visto» va por CUENTA, en `novedades_vistas` (clave `enfoque-<id>`), y no solo
+// en el navegador: con localStorage solo, salía de nuevo en cada dispositivo o
+// navegador donde se entraba (Sanviv, 23/11/2026: «me aparece cada vez que
+// entro»). localStorage queda de respaldo si la tabla no responde.
+const claveCuenta = id => `enfoque-${id}`;
+const claveLocal = id => `nexus.enfoque.${state.me?.id}.${id}`;
+let vistos = null;          // Set de ids vistos por la cuenta; null = sin cargar
+let cargando = null;
+const forzados = new Set(); // repetir a pedido desde la campana, solo en esta sesión
+
+function cargarVistos() {
+  if (!cargando) cargando = (async () => {
+    const set = new Set();
+    for (const id of ENFOQUES) { try { if (localStorage.getItem(claveLocal(id))) set.add(id); } catch { /* sin almacenamiento */ } }
+    const { data, error } = await SB.from("novedades_vistas").select("clave").like("clave", "enfoque-%");
+    if (!error) for (const r of data || []) set.add(r.clave.slice(8));
+    vistos = set;
+  })();
+  return cargando;
+}
+
+const visto = id => !forzados.has(id) && (!vistos || vistos.has(id));
+
+// Se marca AL MOSTRARLO, no al cerrar: si se recarga o se cambia de pantalla
+// sin tocar «Entendido», igual ya se vio y no debe repetirse.
+function marcar(id) {
+  forzados.delete(id);
+  vistos?.add(id);
+  try { localStorage.setItem(claveLocal(id), new Date().toISOString()); } catch { /* sin almacenamiento */ }
+  SB.from("novedades_vistas").upsert({ clave: claveCuenta(id) }, { ignoreDuplicates: true })
+    .then(({ error }) => { if (error) console.warn("enfoque:", error.message); });
+}
+
+// Desde la campana: que vuelva a salir la próxima vez que se vea, aunque ya se
+// haya visto. No borra la marca (la tabla no deja borrar): solo esta sesión.
+export const repetirEnfoque = id => forzados.add(id);
 
 const vigilando = new Map();   // id → IntersectionObserver
 let abierto = false;
@@ -29,28 +61,32 @@ let abierto = false;
 // cada repintado: el elemento suele reemplazarse y se vuelve a vigilar el nuevo.
 // `selector` (opcional) reencuentra el elemento si un repintado lo reemplaza
 // mientras el enfoque está abierto.
-export function enfocarUnaVez(el, { clave, titulo, texto, selector }) {
-  vigilando.get(clave)?.disconnect();
-  vigilando.delete(clave);
-  if (!el || visto(clave) || typeof IntersectionObserver === "undefined") return;
+export async function enfocarUnaVez(el, { id, titulo, texto, selector }) {
+  vigilando.get(id)?.disconnect();
+  vigilando.delete(id);
+  if (!state.me || typeof IntersectionObserver === "undefined") return;
+  if (!vistos) await cargarVistos();
+  if (!el || !el.isConnected || visto(id)) return;
   const io = new IntersectionObserver(es => {
     if (abierto || !es.some(e => e.isIntersecting)) return;
     // Espera a que el scroll se asiente: enfocar algo que pasa de largo marea.
     // Y que esté quieto: abrir un panel suele venir con un scroll suave, y un
     // enfoque medido a mitad de camino queda corrido.
     setTimeout(() => {
-      if (abierto || visto(clave) || !el.isConnected || !aLaVista(el)) return;
+      if (abierto || visto(id) || !el.isConnected || !aLaVista(el)) return;
       const y = el.getBoundingClientRect().top;
       setTimeout(() => {
-        if (abierto || visto(clave) || !el.isConnected || !aLaVista(el)) return;
+        if (abierto || visto(id) || !el.isConnected || !aLaVista(el)) return;
         if (Math.abs(el.getBoundingClientRect().top - y) > 1) return;   // sigue moviéndose: la próxima vez
-        io.disconnect(); vigilando.delete(clave);
-        mostrar(el, { clave, titulo, texto, selector });
+        io.disconnect(); vigilando.delete(id);
+        mostrar(el, { id, titulo, texto, selector });
       }, 200);
     }, 700);
   }, { threshold: 0.95 });
+  // Otra llamada pudo empezar a vigilar mientras se cargaban los vistos.
+  vigilando.get(id)?.disconnect();
   io.observe(el);
-  vigilando.set(clave, io);
+  vigilando.set(id, io);
 }
 
 function aLaVista(el) {
@@ -58,8 +94,9 @@ function aLaVista(el) {
   return r.width > 0 && r.top >= 0 && r.bottom <= window.innerHeight;
 }
 
-function mostrar(el, { clave, titulo, texto, selector }) {
+function mostrar(el, { id, titulo, texto, selector }) {
   abierto = true;
+  marcar(id);
   const raiz = document.createElement("div");
   raiz.className = "enfoque";
   raiz.setAttribute("role", "dialog");
@@ -115,7 +152,6 @@ function mostrar(el, { clave, titulo, texto, selector }) {
   seguir();
 
   const cerrar = () => {
-    marcar(clave);
     cancelAnimationFrame(cuadro);
     document.removeEventListener("keydown", tecla);
     raiz.classList.add("saliendo");

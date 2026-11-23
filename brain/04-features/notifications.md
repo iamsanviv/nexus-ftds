@@ -56,7 +56,7 @@ Para anunciar una funcionalidad nueva con un tutorial. Distinto de los avisos: n
 - Se abre **después** del repaso diario y del aviso del equipo, y solo si ninguno de los dos quedó abierto: dos ventanas apiladas al entrar no las lee nadie. Si esa vez no le tocó, sale en la próxima entrada.
 - **Novedad sin tutorial** (23/11/2026, «Pregunta antes del link»): entrada sin `url`. No se abre sola
   al entrar (solo enciende el punto); al tocarla marca visto y ejecuta `ir()`, que lleva a su lugar
-  y vuelve a armar los enfoques de `enfoque.js` (ver [[../03-domain/activities-followups]]).
+  y repite en esa sesión los enfoques de `enfoque.js` (ver [[../03-domain/activities-followups]]).
 - La **campana** (`#novInd`) va en el header junto al indicador de asistencias pendientes. Punto dorado = hay una novedad sin ver. Al tocarla vuelve a abrir el tutorial (con varias novedades, primero la lista).
 
 ## Regla de temperatura duplicada

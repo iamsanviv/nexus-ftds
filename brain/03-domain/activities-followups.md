@@ -248,8 +248,10 @@ Agrupan la etiqueta de `respuestas_de` (`GRUPO_RESP`): `si` → Van; `no` → No
 
 **Enfoque de función nueva** (`enfoque.js`, 23/11/2026): reemplaza al aviso verde de novedad (quitado:
 se ignora). Textos de una o dos frases, Sanviv los quiere cortos. `enfocarUnaVez(el, …)` desenfoca todo menos el elemento cuando queda a la vista y quieto,
-con explicación y «Entendido»; una vez por persona y función (`nexus.enfoque.<uid>.<id>` en
-localStorage). Se usa en la casilla «Si no respondió, preguntar» (solo si está habilitada) y en
+con explicación y «Entendido»; **una vez por cuenta** y función: se marca al MOSTRARSE (no al cerrar) en
+`novedades_vistas` (clave `enfoque-<id>`) y en localStorage de respaldo. Antes, solo localStorage y al cerrar:
+reaparecía en cada dispositivo o recarga (Sanviv, 23/11). La campana lo repite solo en esa sesión (`repetirEnfoque`).
+Se usa en la casilla «Si no respondió, preguntar» (solo si está habilitada) y en
 estas píldoras. El velo son cuatro paneles alrededor (no z-index: un ancestro con contexto de
 apilamiento lo dejaría debajo), se re-mide cada cuadro y no bloquea el scroll con `overflow:hidden`
 (correría el contenido).

@@ -14,7 +14,7 @@
 // con `ir()`. Se explica allí con el enfoque (enfoque.js), que sí se lee.
 import { SB } from "./supabase.js";
 import { state, $, esc } from "./state.js";
-import { ENFOQUES, claveEnfoque, rearmarEnfoque } from "./enfoque.js";
+import { ENFOQUES, repetirEnfoque } from "./enfoque.js";
 
 const NOVEDADES = [
   {
@@ -25,7 +25,7 @@ const NOVEDADES = [
     // Vuelve a armar los enfoques: quien ya los cerró y toca la novedad
     // quiere que se lo muestren otra vez.
     ir() {
-      for (const id of ENFOQUES) rearmarEnfoque(claveEnfoque(state.me.id, id));
+      ENFOQUES.forEach(repetirEnfoque);
       $("btnSeg").click();
     },
   },
