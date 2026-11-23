@@ -8,10 +8,27 @@
 //
 // Para anunciar otra: agregarla ARRIBA en NOVEDADES con una `clave` nueva. Las
 // claves no se reutilizan: la marca de visto va por clave.
+//
+// Una novedad SIN `url` no tiene tutorial: no se abre sola al entrar (solo
+// enciende el punto de la campana) y, al tocarla, lleva a su lugar en el panel
+// con `ir()`. Se explica allí con el enfoque (enfoque.js), que sí se lee.
 import { SB } from "./supabase.js";
 import { state, $, esc } from "./state.js";
+import { ENFOQUES, claveEnfoque, rearmarEnfoque } from "./enfoque.js";
 
 const NOVEDADES = [
+  {
+    clave: "pregunta-link-2026-11",
+    fecha: "2026-11-23",
+    titulo: "Pregunta antes del link",
+    texto: "Si no te escribió, le preguntamos si quiere el link: solo le llega si dice que sí. En Seguimientos activos ves quién va, quién no y quién no escribió.",
+    // Vuelve a armar los enfoques: quien ya los cerró y toca la novedad
+    // quiere que se lo muestren otra vez.
+    ir() {
+      for (const id of ENFOQUES) rearmarEnfoque(claveEnfoque(state.me.id, id));
+      $("btnSeg").click();
+    },
+  },
   {
     clave: "notas-de-voz-2026-11",
     fecha: "2026-11-11",
@@ -58,6 +75,7 @@ function pintarCampana() {
 }
 
 function abrirTutorial(n) {
+  if (!n.url) { cerrar(); marcarVista(n.clave); n.ir?.(); return; }
   $("novLista").classList.add("hidden");
   $("novTit").textContent = n.titulo;
   // ?auto: arranca solo. El parámetro de versión evita que el navegador
@@ -79,7 +97,7 @@ function abrirLista() {
       <span class="novtag">${vistas.has(n.clave) ? "Novedad" : "Nuevo"}</span>
       <b>${esc(n.titulo)}</b>
       <span class="novtxt">${esc(n.texto)}</span>
-      <span class="novver">▶ Ver el tutorial</span>
+      <span class="novver">${n.url ? "▶ Ver el tutorial" : "→ Ver en Seguimiento"}</span>
     </button>`).join("");
   $("novLista").querySelectorAll(".novitem").forEach(b => b.onclick = () => abrirTutorial(NOVEDADES[+b.dataset.i]));
   $("novLista").classList.remove("hidden");
@@ -101,7 +119,7 @@ export async function revisarNovedades() {
   if ($("novOverlay").classList.contains("open")) return;
   // No encima de otro aviso: el del equipo manda y la novedad espera.
   if (document.querySelector(".overlay.open")) return;
-  const nueva = NOVEDADES.find(n => !vistas.has(n.clave));
+  const nueva = NOVEDADES.find(n => !vistas.has(n.clave) && n.url);
   if (nueva) abrirTutorial(nueva);
 }
 

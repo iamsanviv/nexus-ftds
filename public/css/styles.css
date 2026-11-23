@@ -257,8 +257,6 @@
   .prow .pn{font-family:'Archivo';font-weight:700;font-size:.92rem}
   .prow .pr{flex:0 0 auto;display:flex;align-items:center;gap:8px}
   /* Fila marcable de «Sin respuesta»: el input global ocupa 100% de ancho. */
-  .prow.srfila{cursor:pointer}
-  .prow.srfila input{width:auto;flex:0 0 auto;accent-color:var(--gold)}
   .pdate{font-size:.7rem;color:var(--ok);font-variant-numeric:tabular-nums}
   .wabtn{font-size:.7rem;font-weight:700;color:#3ddc84;border:1px solid rgba(61,220,132,.35);border-radius:8px;padding:5px 9px;text-decoration:none}
   .pmark{font-size:.72rem;font-weight:700;color:var(--gold);border:1px solid var(--gold-dim);border-radius:8px;padding:6px 10px}
@@ -481,6 +479,8 @@
    otros que el filtro esconde. */
 .segactconteo{font-size:.76rem;color:var(--muted);margin:-4px 0 8px 2px;
   font-variant-numeric:tabular-nums}
+.segactfiltros{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 12px}
+.segactfiltros .pill b{font-variant-numeric:tabular-nums;margin-left:2px}
 /* Misma trampa que con `.chkline`: `.frow label` (0,1,1) le gana a `.segtoggle`
    (0,1,0), y dentro del formulario de actividad las casillas salían en
    MAYÚSCULAS DIMINUTAS, como si fueran el título de un campo en vez de algo que
@@ -2688,3 +2688,25 @@ button.est:focus-visible{outline:2px solid var(--gold);outline-offset:2px;positi
 .etpmodal .mbtns{padding:0 16px}
 .etpmodal .guardar:disabled{opacity:.45;cursor:default}
 @media (min-width:768px){ .overlay:has(.etpmodal){align-items:center} .etpmodal{border-radius:18px} }
+
+/* Enfoque de función nueva (enfoque.js). Cuatro paneles desenfocan todo menos
+   el elemento; el aro dorado late para llevar la vista ahí. El aro también
+   tapa los clics: hasta que no se lea y se cierre, no se toca lo de debajo. */
+.enfoque{position:fixed;inset:0;z-index:10000}
+.enfpanel{position:fixed;background:rgba(12,10,6,.55);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:enfVelo .45s ease both}
+.enfaro{position:fixed;border-radius:12px;box-shadow:0 0 0 2px var(--gold),0 0 0 6px var(--gold-soft);
+  animation:enfAro 1.8s ease-in-out .45s infinite}
+.enfcaja{position:fixed;background:var(--surface);color:var(--text);border:1px solid var(--border);
+  border-radius:14px;padding:14px 16px;box-shadow:0 18px 40px rgba(0,0,0,.35);
+  animation:enfCaja .4s ease .25s both}
+.enfnuevo{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
+.enftit{font-family:'Archivo',sans-serif;font-weight:800;font-size:1.02rem;margin-bottom:6px}
+.enftxt{font-size:.86rem;line-height:1.45}
+.enfok{margin-top:12px;background:var(--gold);color:var(--surface);border:0;border-radius:9px;
+  padding:8px 16px;font:inherit;font-weight:700;font-size:.85rem;cursor:pointer}
+.enfoque.saliendo{opacity:0;transition:opacity .2s ease}
+@keyframes enfVelo{from{opacity:0;-webkit-backdrop-filter:blur(0);backdrop-filter:blur(0)}}
+@keyframes enfCaja{from{opacity:0;transform:translateY(8px)}}
+@keyframes enfAro{50%{box-shadow:0 0 0 2px var(--gold),0 0 0 12px transparent}}
+@media (prefers-reduced-motion:reduce){.enfpanel,.enfaro,.enfcaja{animation:none}}

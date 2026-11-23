@@ -52,6 +52,9 @@ Para anunciar una funcionalidad nueva con un tutorial. Distinto de los avisos: n
 - Cada tutorial es una página propia en `public/novedades/` que se abre en un `iframe` del mismo sitio dentro de la ventana de novedades. El de notas de voz es copia del artefacto publicado en claude.ai: si se cambia uno, cambiar el otro.
 - **Una sola vez por cuenta:** al entrar, si hay una novedad sin ver, su tutorial se abre solo y queda marcado en `novedades_vistas` (por cuenta, `sql/2026-11-11_67_novedades_vistas.sql`). Sin la tabla, recuerda el visto solo en ese navegador (`localStorage`).
 - Se abre **después** del repaso diario y del aviso del equipo, y solo si ninguno de los dos quedó abierto: dos ventanas apiladas al entrar no las lee nadie. Si esa vez no le tocó, sale en la próxima entrada.
+- **Novedad sin tutorial** (23/11/2026, «Pregunta antes del link»): entrada sin `url`. No se abre sola
+  al entrar (solo enciende el punto); al tocarla marca visto y ejecuta `ir()`, que lleva a su lugar
+  y vuelve a armar los enfoques de `enfoque.js` (ver [[../03-domain/activities-followups]]).
 - La **campana** (`#novInd`) va en el header junto al indicador de asistencias pendientes. Punto dorado = hay una novedad sin ver. Al tocarla vuelve a abrir el tutorial (con varias novedades, primero la lista).
 
 ## Regla de temperatura duplicada
