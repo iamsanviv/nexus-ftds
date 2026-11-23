@@ -19,6 +19,7 @@
 import Sortable from "https://esm.sh/sortablejs@1.15.3";
 import { $, esc, toast, ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto } from "./state.js";
 import { subirImagenMensaje, subirAudioMensaje } from "./data.js";
+import { formatoWa } from "./formatowa.js";
 import { iniciarGrabacion, puedeGrabar, fmtSeg, esAudioUrl } from "./grabadora.js";
 
 const MAX_MENSAJES = 4;
@@ -148,7 +149,7 @@ export function crearBurbujas(contId, cfg) {
       <button type="button" class="cmover" aria-label="Arrastrar para cambiar el orden" title="Mantén presionado y arrastra">⠿</button>
       <div class="ccuerpo">
         ${mediaHTML(it.mediaEf, "cmedia")}
-        ${txt ? `<div class="ctxt">${esc(cfg.previa(it.textoEf))}</div>` : ""}
+        ${txt ? `<div class="ctxt">${formatoWa(cfg.previa(it.textoEf))}</div>` : ""}
         ${vacio(it) ? `<div class="ctxt vacio">Mensaje vacío</div>` : ""}
         <div class="cmeta"><span><b>${num}</b> · ${tipoDe(it)}${origen ? " · " + esc(origen) : ""}${chipPrivada(it)}</span>
           ${quieta ? "" : `<button type="button" class="ced" data-ed="${i}">✎ Editar</button>`}</div>

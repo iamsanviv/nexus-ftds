@@ -11,6 +11,7 @@
 //     `masivo_parte` (el tope no los corta). Si uno no sale, la base cancela
 //     los siguientes de ese lead: o llega la serie entera o nada.
 import { SB } from "./supabase.js";
+import { formatoWa } from "./formatowa.js";
 import { state, $, esc, toast, normBusqueda, esLead, componerMensaje,
   ACCEPT_ADJUNTO, validarAdjunto, mensajeErrorAdjunto, cuandoParte,
   horaDeCliente, etiquetaZona } from "./state.js";
@@ -220,7 +221,7 @@ function pintarMsgs() {
   cont.querySelectorAll(".seriep").forEach(el => {
     const i = +el.dataset.i, m = bor.mensajes[i];
     const txt = el.querySelector("[data-txt]"), pv = el.querySelector("[data-prev]");
-    const pintarPrev = () => { pv.textContent = m.texto.trim() ? prev(m.texto) : ""; };
+    const pintarPrev = () => { pv.innerHTML = m.texto.trim() ? formatoWa(prev(m.texto)) : ""; };
     pintarPrev();
     txt.oninput = () => { m.texto = txt.value; pintarPrev(); $("ldHoraRow").classList.toggle("hidden", !serieUsaHora()); };
     const q = el.querySelector("[data-quitar]");

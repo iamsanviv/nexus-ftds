@@ -2754,3 +2754,10 @@ button.est:focus-visible{outline:2px solid var(--gold);outline-offset:2px;positi
 @keyframes enfCaja{from{opacity:0;transform:translateY(8px)}}
 @keyframes enfAro{50%{box-shadow:0 0 0 2px var(--gold),0 0 0 12px transparent}}
 @media (prefers-reduced-motion:reduce){.enfpanel,.enfaro,.enfcaja{animation:none}}
+
+/* Formato de WhatsApp en las vistas previas (formatowa.js). Las cajas usan
+   white-space:pre-wrap, así que la cita va inline-block: un bloque sumaría
+   un salto a los que ya trae el texto. */
+.wamono,.wacod{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em}
+.wacod{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:0 4px}
+.wacita{display:inline-block;border-left:3px solid var(--gold-dim);padding-left:8px;color:var(--muted)}

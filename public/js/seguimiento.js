@@ -4,6 +4,7 @@
 // Las plantillas de mensajes son editables por agente (tabla plantillas_seguimiento).
 // Tablas: actividades, seguimientos, mensajes_programados, plantillas_seguimiento.
 import { SB } from "./supabase.js";
+import { formatoWa } from "./formatowa.js";
 import { state, $, esc, toast, todos, hoyISO, resolverSnippets, syncZoom, ZOOMS,
   horaDeCliente, etiquetaZona, etiquetaDia, componerMensaje,
   esInactivo, esLead, nombreMotivo, motivoCorto,
@@ -301,7 +302,7 @@ function renderPrevPlantillas() {
     const ta = $("tpl_" + t), prev = $("prev_" + t);
     if (!ta || !prev) continue;
     const txt = (ta.value || "").trim();
-    prev.textContent = txt ? aplicar(txt, ej) : "";
+    prev.innerHTML = txt ? formatoWa(aplicar(txt, ej)) : "";
   }
 }
 
@@ -569,9 +570,9 @@ function renderPrevInvitacion() {
   const hora = $("segHora").value
     ? horaCO(new Date(`2026-01-01T${$("segHora").value}:00`).toISOString())
     : "7:00 p. m.";
-  prev.textContent = txt
-    ? aplicar(txt, { nombre: "Ana", actividad: nombreAct, hora, dia: diaDelForm(),
-        zona: etiquetaZona(null), enlace: "" })
+  prev.innerHTML = txt
+    ? formatoWa(aplicar(txt, { nombre: "Ana", actividad: nombreAct, hora, dia: diaDelForm(),
+        zona: etiquetaZona(null), enlace: "" }))
     : "";
 }
 
@@ -699,7 +700,7 @@ function crearEditorSerie(p, preview, alPintar) {
     cont.querySelectorAll(".seriep").forEach(el => {
       const i = +el.dataset.i, x = st.partes[i];
       const txt = el.querySelector("[data-txt]"), prev = el.querySelector("[data-prev]");
-      const pintarPrev = () => { prev.textContent = x.texto.trim() ? preview(x.texto) : ""; };
+      const pintarPrev = () => { prev.innerHTML = x.texto.trim() ? formatoWa(preview(x.texto)) : ""; };
       pintarPrev();
       // Escribir no re-pinta la lista: perdería el foco y el cursor.
       txt.oninput = () => { x.texto = txt.value; pintarPrev(); };
@@ -1435,7 +1436,7 @@ function renderPrevMiInvitacion() {
   const prev = $("segMiInvPrev");
   if (!prev || !actSel) return;
   const txt = ($("segMiInv").value || "").trim();
-  prev.textContent = txt ? previewMiTexto(txt) : "";
+  prev.innerHTML = txt ? formatoWa(previewMiTexto(txt)) : "";
 }
 
 // Se guarda al PROGRAMAR, no al escribir: así lo que queda guardado es

@@ -62,6 +62,8 @@ Tres reglas que pidió Sanviv:
 
 `burbujas.js` **no guarda nada propio**: es una vista sobre el estado que ya existía (mensaje 1 + arreglo de los mensajes 2..4), así que la cola y el worker no cambiaron. Una nota de voz es un mensaje con el audio en `media` (`a_<ts>.webm|m4a|ogg` en el bucket `mensajes`, subida al terminar de grabar) y `texto` vacío. El worker decide que es audio por la extensión.
 
+**Formato de WhatsApp en las vistas previas (23/11/2026).** Toda vista previa de un mensaje (burbujas, «✎ Mensajes» de Seguimiento, invitación, plantillas de leads, partes de la serie) pasa por `formatoWa()` de `public/js/formatowa.js`: muestra *negrita*, _cursiva_, ~tachado~, ```monoespaciado```, `código`, citas `> ` y viñetas `* `/`- ` como se ven en el teléfono. Solo afecta la previa: el texto encolado lleva los símbolos y WhatsApp los interpreta. `formatoWa` escapa antes de insertar etiquetas; una previa nueva debe usarla con `innerHTML` en vez de `textContent`/`esc()`, nunca meter el texto crudo en `innerHTML`.
+
 - **Masivo**: el `textarea`, la imagen y la lista de partes siguen en el DOM dentro de un `hidden`; son el estado que lee `enviarSinCandado()`.
 - **Leads**: escribe en `bor.mensajes`. La nota de voz queda **dentro de la plantilla** (`plantillas_lead.mensajes[].media`): quien use una plantilla ajena envía la voz de quien la grabó.
 - **Invitación**: el mensaje 1 tiene respaldos (plantilla del agente, imagen del catálogo o de la actividad). Ver «El mensaje 1 de la invitación» en [[../03-domain/activities-followups]].
