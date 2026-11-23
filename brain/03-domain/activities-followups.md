@@ -228,23 +228,23 @@ WhatsApp DESPUÉS del primer mensaje enviado de su seguimiento (`mensajes_progra
 mínimo con `estado='enviado'`), y el subtítulo cuenta cuántos. Solo seguimientos propios: los
 chats visibles son los de tu WhatsApp. Usa `entrantes.js`, el mismo cruce que Leads.
 
-## Cancelar a quien no contestó la invitación (14/10/2026)
+## Filtro por asistencia en «Seguimientos activos» (23/11/2026)
 
-En la tarjeta de la actividad, **«🔕 Sin respuesta»** (`abrirSinRespuesta`, `seguimiento.js`)
-aparece si hay seguimientos MÍOS activos y la actividad aún no empieza. Lista a quienes no
-contestaron, todos marcados (se puede desmarcar a quien se sabe que va), y cancela esos
-seguimientos con sus mensajes pendientes.
+El botón «🔕 Sin respuesta» de la tarjeta de la actividad (`abrirSinRespuesta`, 14/10/2026) se
+**quitó** a pedido de Sanviv: con la pregunta del link y la lectura de respuestas ya no era útil.
+Su regla sigue en SQL (`sin_respuesta_de`) para el aviso push de 15 min antes del rec_60
+(ver [[../04-features/notifications]]).
 
-«No contestó» = su primer mensaje ya salió (`enviado`) y no te escribió por WhatsApp
-después (`escribioTras`, la misma regla que «💬 respondió»). Quedan fuera quien todavía no
-recibe nada y quien abrió su enlace. **No se mira la asistencia**: en catálogo `acc` es por
-servicio y sacaría a quien fue a una clase anterior aunque a esta no conteste.
+En su lugar, «Seguimientos activos» muestra píldoras con totales que también filtran
+(`pintarFiltrosAsis`, `seguimiento.js`): **Todos · ✓ Van · ✕ No van · No escribieron · ? Con duda**.
+Agrupan la etiqueta de `respuestas_de` (`GRUPO_RESP`): `si` → Van; `no` → No van;
+`sin_respuesta` y `en_cola` → No escribieron; `duda`, `leyendo`, `sin_texto` → Con duda.
 
-- Solo `owner_id = me`: los chats visibles son los de mi WhatsApp; un director no poda la
-  lista de su agente.
-- La persona queda «invitada» (`conf` no se toca).
-- La regla está duplicada en SQL (`sin_respuesta_de`) para el aviso push de 15 min antes
-  del recordatorio de 1 h (ver [[../04-features/notifications]]). Cambiar las dos juntas.
+- Los totales son de toda la lista en curso, no de lo que deja el buscador; buscador y filtro se
+  combinan y «N de M en curso» aparece con cualquiera de los dos.
+- Solo cuentan seguimientos propios (`respuestas_de` solo responde al dueño): los de un agente que
+  ve un director solo están en «Todos».
+- Sin ninguna respuesta cargada las píldoras no se muestran y el filtro vuelve a «Todos».
 
 ## Pregunta antes del link (28/10/2026)
 
@@ -264,7 +264,7 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   estado); si la tanda no lo lleva (apagado o no cabe), el rec_15. El panel pone la casilla bajo ese
   recordatorio y la fila de la pregunta a su hora. SQL: `sql/2026-10-29_49_pregunta_link_rec15.sql`.
 - **2 min antes de ese recordatorio**: si te escribió después del primer mensaje enviado (misma regla que
-  «🔕 Sin respuesta»), sale el recordatorio normal y la pregunta se cancela. Si no: la pregunta
+  `sin_respuesta_de`), sale el recordatorio normal y la pregunta se cancela. Si no: la pregunta
   pasa a `pendiente` a la hora del rec_60, el rec_60 y el rec_15 se cancelan, y el enlace y la
   confirmación pasan a `retenido`.
 - **Después**: lee lo que escribió desde el **primer mensaje enviado** del seguimiento, no desde

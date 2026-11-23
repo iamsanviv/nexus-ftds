@@ -556,6 +556,9 @@ setTimeout(function () { var c = document.getElementById("carga"); if (c) c.clas
         <input type="search" id="segActBuscar" placeholder="🔎 Buscar por nombre o teléfono…" autocomplete="off">
         <button id="segActBuscarX" class="masbuscarx hidden" title="Limpiar">✕</button>
       </div>
+      <!-- Totales y filtro por lo que respondió cada invitado (van / no van /
+           no escribieron). Solo cuenta los propios: los chats son de cada dueño. -->
+      <div id="segActFiltros" class="segactfiltros hidden"></div>
       <div id="segActConteo" class="segactconteo hidden"></div>
       <div id="segActivos" class="acts"></div>
     </section>

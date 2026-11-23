@@ -257,8 +257,6 @@
   .prow .pn{font-family:'Archivo';font-weight:700;font-size:.92rem}
   .prow .pr{flex:0 0 auto;display:flex;align-items:center;gap:8px}
   /* Fila marcable de «Sin respuesta»: el input global ocupa 100% de ancho. */
-  .prow.srfila{cursor:pointer}
-  .prow.srfila input{width:auto;flex:0 0 auto;accent-color:var(--gold)}
   .pdate{font-size:.7rem;color:var(--ok);font-variant-numeric:tabular-nums}
   .wabtn{font-size:.7rem;font-weight:700;color:#3ddc84;border:1px solid rgba(61,220,132,.35);border-radius:8px;padding:5px 9px;text-decoration:none}
   .pmark{font-size:.72rem;font-weight:700;color:var(--gold);border:1px solid var(--gold-dim);border-radius:8px;padding:6px 10px}
@@ -481,6 +479,8 @@
    otros que el filtro esconde. */
 .segactconteo{font-size:.76rem;color:var(--muted);margin:-4px 0 8px 2px;
   font-variant-numeric:tabular-nums}
+.segactfiltros{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.segactfiltros .pill b{font-variant-numeric:tabular-nums;margin-left:2px}
 /* Misma trampa que con `.chkline`: `.frow label` (0,1,1) le gana a `.segtoggle`
    (0,1,0), y dentro del formulario de actividad las casillas salían en
    MAYÚSCULAS DIMINUTAS, como si fueran el título de un campo en vez de algo que

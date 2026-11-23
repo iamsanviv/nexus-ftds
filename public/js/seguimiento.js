@@ -1166,7 +1166,7 @@ async function cargarActividades() {
   // actividad con el rastreo apagado) no tienen nada que informar, y meterlos en
   // el denominador diría «0 de 30 entraron» de algo que nunca se midió.
   const entradas = await contarEntradas(actividades.map(a => a.id));
-  const { enlace: estadoEnl, conMios } = await estadoEnlace(actividades.map(a => a.id));
+  const { enlace: estadoEnl } = await estadoEnlace(actividades.map(a => a.id));
   // Imagen propia que puse en actividades ajenas: con ella, para mí, la
   // invitación ya no sale sin imagen. Si la consulta falla, la etiqueta se
   // calcula solo con la actividad y el catálogo.
@@ -1222,9 +1222,6 @@ async function cargarActividades() {
           : enl === "congelable"
             ? `<button class="pmark off" data-cong="${a.id}" title="Retener el enlace y la confirmación hasta que los liberes (útil si la actividad se demora)">❄ Congelar enlace</button>`
             : ""}
-        ${conMios.has(a.id) && new Date(a.inicio) > new Date()
-          ? `<button class="pmark off" data-sinresp="${a.id}" title="Cancelar el seguimiento de quienes no te contestaron la invitación">🔕 Sin respuesta</button>`
-          : ""}
         <button class="pmark" data-prog="${a.id}">📨 Programar</button>
         ${mia ? `
         <button class="pmark" data-edit="${a.id}" title="Editar actividad">✎</button>
@@ -1258,11 +1255,6 @@ async function cargarActividades() {
     toast(`${cancelados} seguimiento(s) cancelado(s)`);
     renderActivos(); renderLogs();
     b.disabled = false;
-  });
-
-  $("segActividades").querySelectorAll("[data-sinresp]").forEach(b => b.onclick = () => {
-    const a = actividades.find(x => x.id === b.dataset.sinresp);
-    if (a) abrirSinRespuesta(a);
   });
 
   $("segActividades").querySelectorAll("[data-cong]").forEach(b => b.onclick = async () => {
@@ -2615,17 +2607,14 @@ async function descongelarEnlace(actividadId) {
 // hay un enlace mío pendiente en el centinela, "congelable" si hay uno pendiente
 // a su hora normal. Sin entrada = no hay enlace mío que congelar (ya salió o no
 // programé). Dos consultas, como `contarEntradas`.
-// `conMios` = actividades con algún seguimiento mío activo: decide si se
-// ofrece «Sin respuesta», sin gastar otra consulta.
 async function estadoEnlace(actIds) {
-  const res = new Map(), conMios = new Set();
-  if (!actIds.length) return { enlace: res, conMios };
+  const res = new Map();
+  if (!actIds.length) return { enlace: res };
   const { data: segs } = await SB.from("seguimientos")
     .select("id, actividad_id").in("actividad_id", actIds)
     .eq("estado", "activo").eq("owner_id", state.me.id);
   const porSeg = new Map((segs || []).map(s => [s.id, s.actividad_id]));
-  for (const a of porSeg.values()) conMios.add(a);
-  if (!porSeg.size) return { enlace: res, conMios };
+  if (!porSeg.size) return { enlace: res };
   const { data: msgs } = await SB.from("mensajes_programados")
     .select("seguimiento_id, enviar_en")
     .in("seguimiento_id", [...porSeg.keys()]).eq("tipo", "enlace").eq("estado", "pendiente");
@@ -2634,7 +2623,7 @@ async function estadoEnlace(actIds) {
     if (esCongelado(m.enviar_en)) res.set(act, "congelado");
     else if (res.get(act) !== "congelado") res.set(act, "congelable");
   }
-  return { enlace: res, conMios };
+  return { enlace: res };
 }
 
 /* ================= CAMBIO DE HORA ================= */
@@ -3223,6 +3212,37 @@ let segActBuscarTxt = "";
 // Por debajo de esto la lista entra de un vistazo y un buscador solo estorba.
 const MIN_PARA_BUSCAR = 5;
 
+/* ---------- filtro por asistencia ---------- */
+// Agrupa la etiqueta de `respuestas_de` en lo que el agente decide al mirar la
+// lista: quién va, quién no y a quién todavía hay que escribirle. «En cola»
+// (su invitación aún no sale) cuenta como «no escribió»: es verdad, y separarlo
+// sería un filtro más para un estado que dura minutos. Sin fila de
+// `respuestas_de` no hay grupo: son seguimientos de un agente (los chats son
+// privados de cada dueño), y solo aparecen en «Todos».
+const GRUPO_RESP = { si: "van", no: "novan", sin_respuesta: "sinesc", en_cola: "sinesc",
+  duda: "duda", leyendo: "duda", sin_texto: "duda" };
+const FILTROS_ASIS = [["van", "✓ Van"], ["novan", "✕ No van"], ["sinesc", "No escribieron"], ["duda", "? Con duda"]];
+let segActAsis = "todos";
+const grupoAsis = s => GRUPO_RESP[respuestas.get(s.id)?.respuesta] || null;
+
+function pintarFiltrosAsis(activos) {
+  const caja = $("segActFiltros");
+  const n = { todos: activos.length };
+  for (const s of activos) { const g = grupoAsis(s); if (g) n[g] = (n[g] || 0) + 1; }
+  const hay = FILTROS_ASIS.some(([g]) => n[g]);
+  // Sin respuestas cargadas (todavía, o son todos de agentes) los filtros no
+  // dirían nada; y uno puesto que se quedó sin nadie no debe esconder la lista.
+  if (!hay) segActAsis = "todos";
+  caja.classList.toggle("hidden", !hay);
+  if (!hay) return;
+  caja.innerHTML = [["todos", "Todos"], ...FILTROS_ASIS].map(([g, l]) =>
+    `<button class="pill ${segActAsis === g ? "on" : ""}" data-asis="${g}">${l} <b>${n[g] || 0}</b></button>`).join("");
+  caja.querySelectorAll("[data-asis]").forEach(b => b.onclick = () => {
+    segActAsis = segActAsis === b.dataset.asis ? "todos" : b.dataset.asis;
+    pintarActivos();
+  });
+}
+
 /* ---------- qué respondió cada invitado ---------- */
 // seguimiento_id → fila de `respuestas_de`. La base solo devuelve los propios:
 // los chats son privados de cada agente, y solo el dueño puede corregir.
@@ -3305,6 +3325,7 @@ async function renderActivos() {
   if (!activos.length) {
     $("segActBuscarWrap").classList.add("hidden");
     $("segActConteo").classList.add("hidden");
+    $("segActFiltros").classList.add("hidden");
     $("segActivos").innerHTML = `<div class="segempty">
       <div class="eh">Nada en curso ahora mismo</div>
       <p>Cuando programes mensajes para una actividad, aquí ves a quién le están saliendo y puedes cancelar.</p>
@@ -3337,16 +3358,22 @@ function pintarActivos() {
     const tel = (s.clientes?.telefono || "").replace(/\D/g, "");
     return (!!q && nom.includes(q)) || (!!digitos && tel.includes(digitos));
   };
-  const visibles = activos.filter(coincide);
+  // Los totales son de toda la lista, no de lo que deja el buscador: son
+  // el resumen de la tanda, y cambiarían con cada letra.
+  pintarFiltrosAsis(activos);
+  const visibles = activos.filter(s => coincide(s) && (segActAsis === "todos" || grupoAsis(s) === segActAsis));
 
   // El conteo importa: filtrando, «cancelar» actúa sobre lo que se ve, y hay
   // que saber que detrás quedan otros que el filtro esconde.
+  const filtrando = !!segActBuscarTxt || segActAsis !== "todos";
   const cont = $("segActConteo");
-  cont.classList.toggle("hidden", !segActBuscarTxt);
-  if (segActBuscarTxt) cont.textContent = `${visibles.length} de ${activos.length} en curso`;
+  cont.classList.toggle("hidden", !filtrando);
+  if (filtrando) cont.textContent = `${visibles.length} de ${activos.length} en curso`;
 
   if (!visibles.length) {
-    $("segActivos").innerHTML = `<div class="naplica">Nadie en curso coincide con «${esc(segActBuscarTxt)}».</div>`;
+    $("segActivos").innerHTML = segActBuscarTxt
+      ? `<div class="naplica">Nadie en curso coincide con «${esc(segActBuscarTxt)}»${segActAsis !== "todos" ? " en este filtro" : ""}.</div>`
+      : `<div class="naplica">Nadie en este filtro.</div>`;
     return;
   }
 
@@ -3496,108 +3523,6 @@ async function primerosEnvios(segIds) {
     if (!p || m.enviado_en < p) primer.set(m.seguimiento_id, m.enviado_en);
   }
   return primer;
-}
-
-/* ================= CANCELAR A QUIEN NO CONTESTÓ ================= */
-// Antes del recordatorio de 1 h, el agente poda a quien no le contestó la
-// invitación, para no seguir escribiéndole a gente que no va a ir.
-//
-// «No contestó» = su primer mensaje ya salió y no te escribió por WhatsApp
-// después (la misma regla que «💬 respondió» en «Quiénes entraron»). Quedan
-// fuera a quien todavía no le sale nada (no ha tenido cómo contestar) y quien
-// abrió su enlace. La asistencia NO se mira: en catálogo es por servicio, y
-// sacaría a quien fue a una clase anterior aunque a esta no conteste.
-//
-// Solo MIS seguimientos: los chats que se ven son los de mi WhatsApp, y un
-// director no le poda la lista a su agente. La persona queda «invitada»
-// (`conf` no se toca), como la opción por defecto del cancelar individual.
-//
-// La misma regla está en SQL (`sin_respuesta_de`) para el aviso de 15 min
-// antes del recordatorio: si se cambia aquí, cambiarla allá.
-async function abrirSinRespuesta(a) {
-  $("repTit").textContent = "Sin respuesta a la invitación";
-  $("repSub").textContent = a.nombre;
-  $("repBody").innerHTML = `<div class="naplica">Un momento…</div>`;
-  $("repOverlay").classList.add("open");
-  const cerrar = () => $("repOverlay").classList.remove("open");
-  $("repCerrar").onclick = cerrar;
-  $("repOverlay").onclick = e => { if (e.target.id === "repOverlay") cerrar(); };
-
-  const { data, error } = await SB.from("seguimientos")
-    .select("id, cliente_id, clic_en, clics, clientes(nombre)")
-    .eq("actividad_id", a.id).eq("estado", "activo").eq("owner_id", state.me.id);
-  if (error) { $("repBody").innerHTML = `<div class="naplica">⚠ ${esc(error.message)}</div>`; return; }
-  const segs = data || [];
-  const [primerEnvio] = await Promise.all([primerosEnvios(segs.map(s => s.id)), asegurarEntrantes()]);
-
-  let sinEnviar = 0, contestaron = 0;
-  const lista = [];
-  for (const s of segs) {
-    const c = state.clientes.find(x => x.id === s.cliente_id);
-    const p = primerEnvio.get(s.id);
-    if (!p) { sinEnviar++; continue; }
-    if (escribioTras(c, p) || s.clic_en || s.clics) { contestaron++; continue; }
-    lista.push({ s, nombre: s.clientes?.nombre || "(cliente)", desde: p });
-  }
-  lista.sort((x, y) => x.nombre.localeCompare(y.nombre, "es"));
-  // Todos marcados: es lo que se pidió al abrir esto. Se puede desmarcar a
-  // quien se sabe que va aunque no haya escrito (te llamó, te habló por otro lado).
-  const sel = new Set(lista.map(x => x.s.id));
-
-  const pie = `<div class="msgshelp" style="margin-top:12px">«Contestar» = te escribió por WhatsApp
-    después de su invitación (se ve con unos 5 min de demora). Quedan como «invitadas»: no vuelven a «por invitar».
-    ${contestaron ? `<br>${contestaron} ya te contestaron o abrieron su enlace.` : ""}
-    ${sinEnviar ? `<br>${sinEnviar} todavía no reciben su invitación y no se cuentan.` : ""}</div>`;
-
-  const pintar = () => {
-    if (!lista.length) {
-      $("repBody").innerHTML = `<div class="naplica">Todos a quienes ya invitaste te contestaron 🎉</div>` + pie;
-      return;
-    }
-    const n = sel.size;
-    $("repBody").innerHTML = `
-      <div class="pstitle">No han contestado (${lista.length})</div>
-      ${lista.map(({ s, nombre, desde }) => `
-        <label class="prow srfila">
-          <input type="checkbox" data-sr="${s.id}" ${sel.has(s.id) ? "checked" : ""}>
-          <div class="pl"><span class="pn">${esc(nombre)}</span>
-            <span class="pdate">invitada ${esc(fechaHoraCO(desde))}</span></div>
-        </label>`).join("")}
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-        <button class="pmark off" data-srok ${n ? "" : "disabled"}>✕ Cancelar ${n} seguimiento${n === 1 ? "" : "s"}</button>
-        <button class="tbtn" data-srno>No cancelar</button>
-      </div>` + pie;
-    $("repBody").querySelectorAll("[data-sr]").forEach(i => i.onchange = () => {
-      i.checked ? sel.add(i.dataset.sr) : sel.delete(i.dataset.sr);
-      pintar();
-    });
-    $("repBody").querySelector("[data-srno]").onclick = cerrar;
-    $("repBody").querySelector("[data-srok]").onclick = async e => {
-      const ids = [...sel];
-      if (!ids.length) return;
-      e.target.disabled = true;
-      try {
-        // Mensajes primero: un seguimiento cancelado con mensajes pendientes
-        // vivos es justo el huérfano que el worker igual mandaría.
-        for (let i = 0; i < ids.length; i += 100) {
-          const t = ids.slice(i, i + 100);
-          const r1 = await SB.from("mensajes_programados").update({ estado: "cancelado" })
-            .in("seguimiento_id", t).eq("estado", "pendiente");
-          if (r1.error) throw r1.error;
-          const r2 = await SB.from("seguimientos").update({ estado: "cancelado" })
-            .in("id", t).eq("estado", "activo");
-          if (r2.error) throw r2.error;
-        }
-        cerrar();
-        toast(`${ids.length} seguimiento(s) cancelado(s) · quedan como «invitadas» ✓`);
-        await cargarActividades(); renderActivos(); renderLogs();
-      } catch (err) {
-        toast("⚠ " + err.message);
-        e.target.disabled = false;
-      }
-    };
-  };
-  pintar();
 }
 
 // Diálogo de cancelación: además de cancelar los mensajes pendientes, deja
