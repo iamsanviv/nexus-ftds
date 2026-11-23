@@ -9,6 +9,7 @@
 // El uso sale de `uso_plantillas_lead()` (solo conteos: las campañas de otros
 // no se leen) y el autor de `autores_plantillas_publicas()`.
 import { SB } from "./supabase.js";
+import { formatoWa } from "./formatowa.js";
 import { state, esc, toast, normBusqueda, rellenarEtiquetas } from "./state.js";
 import { TIPOS, nombreTipo } from "./leads.js";
 
@@ -70,7 +71,7 @@ function tarjeta(p) {
       ${conVariaciones(p) ? `<span class="plvar" title="Cada lead recibe una versión al azar; aquí ves una de ellas">Con variaciones</span>` : ""}
     </div>
     <ol class="plmsgs">${msgs.map(m => `
-      <li>${m.texto ? `<span class="pltxt">${esc(previa(m.texto))}</span>` : ""}${
+      <li>${m.texto ? `<span class="pltxt">${formatoWa(previa(m.texto))}</span>` : ""}${
         m.media ? `<span class="pladj">${esVideo(m.media) ? "🎬 Video"
           : /\.(webm|m4a|ogg|oga|opus|mp3|aac|wav)(\?|$)/i.test(m.media) ? "🎤 Nota de voz" : "🖼 Imagen"}</span>` : ""}</li>`).join("")}
     </ol>
