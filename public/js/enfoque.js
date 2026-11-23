@@ -12,6 +12,13 @@
 // su propio contexto de apilamiento (transform, overflow, z-index) lo dejaría
 // debajo del velo, desenfocado justo lo que se quería mostrar.
 
+// Claves de cada enfoque. Viven aquí porque las usan dos lados: seguimiento.js
+// (donde se muestran) y novedades.js (que los vuelve a armar desde la campana).
+export const ENFOQUES = ["pregunta-link", "filtros-asistencia"];
+export const claveEnfoque = (uid, id) => `nexus.enfoque.${uid}.${id}`;
+// Borra la marca de visto: el enfoque vuelve a salir la próxima vez que se vea.
+export const rearmarEnfoque = clave => { try { localStorage.removeItem(clave); } catch { /* sin almacenamiento */ } };
+
 const visto = clave => { try { return !!localStorage.getItem(clave); } catch { return true; } };
 const marcar = clave => { try { localStorage.setItem(clave, new Date().toISOString()); } catch { /* sin almacenamiento */ } };
 
