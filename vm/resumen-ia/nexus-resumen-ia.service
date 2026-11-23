@@ -1,0 +1,15 @@
+[Unit]
+Description=Nexus — necesidad y recomendación de venta leídas de WhatsApp (resumen nocturno con IA)
+Documentation=https://github.com/iamsanviv/nexus-ftds
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/nexus-resumen-ia
+ExecStart=/usr/bin/python3 /home/ubuntu/nexus-resumen-ia/resumir.py
+# VM1 tiene poca RAM y el worker es lo que no puede fallar: este proceso cede.
+Nice=10
+MemoryMax=200M
+TimeoutStartSec=3600
