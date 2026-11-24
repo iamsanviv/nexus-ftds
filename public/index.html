@@ -881,6 +881,15 @@ setTimeout(function () { var c = document.getElementById("carga"); if (c) c.clas
         <div class="msgshelp" id="fEstadoAyuda"></div>
       </div>
       <div class="frow"><label>Nota</label><textarea id="fNota" rows="3" placeholder="Contexto, acuerdos, resumen…"></textarea></div>
+      <!-- Necesidad y recomendación de venta: las mismas celdas de la vista Tabla
+           de Comunidad. Se guardan solas al salir del campo, no con «Guardar». -->
+      <div class="frow hidden" id="fVentaRow">
+        <label for="fNecesidad">Necesidad</label>
+        <textarea id="fNecesidad" rows="2" maxlength="1000" placeholder="¿Qué quiere lograr? ¿Qué lo frena?"></textarea>
+        <label for="fRecomendacion">Recomendación de venta</label>
+        <textarea id="fRecomendacion" rows="2" maxlength="1000"></textarea>
+        <div class="msgshelp">Se guardan al salir del campo. Si dejas la recomendación vacía, se usa la que sugiere su etapa.</div>
+      </div>
     </div>
 
     <div class="profsec" id="fActividades"></div>

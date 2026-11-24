@@ -57,6 +57,11 @@ export const state = {
   filtroEtapa: null,
   filtroRes: null,
   orden: "cerca",
+  // Comunidad: «flechas» (etapas encadenadas) o «tabla» (filas tipo Excel, ver
+  // comtabla.js). La vista y el orden de la tabla se recuerdan en este navegador.
+  vistaCom: (() => { try { return localStorage.getItem("nx.vistaCom") === "tabla" ? "tabla" : "flechas"; } catch { return "flechas"; } })(),
+  // Por defecto, más días en Nexus arriba (pedido de Sanviv, 23/11/2026).
+  ordTabla: (() => { try { const o = JSON.parse(localStorage.getItem("nx.ordTabla")); if (o && o.k && (o.dir === 1 || o.dir === -1)) return o; } catch {} return { k: "dias", dir: -1 }; })(),
   vista: "cliente",
   abiertos: new Set(),
   cliEdit: null,

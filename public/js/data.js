@@ -40,6 +40,9 @@ export const mapDesdeDB = r => ({
   // Identidad oculta del chat del que se registró a alguien sin número visible
   // (SQL 69). Se escribe solo al crear desde «Traer de un chat reciente».
   waLid: r.wa_lid || null,
+  // Vista tabla de Comunidad (SQL 75). Se guardan campo por campo desde la
+  // tabla o el perfil; NO van en mapAEditar (la IA también las escribe).
+  necesidad: r.necesidad || null, recomendacion: r.recomendacion || null,
 });
 export const mapAEditar = c => ({
   nombre: c.nombre, telefono: c.tel || null, pais: c.pais || null,

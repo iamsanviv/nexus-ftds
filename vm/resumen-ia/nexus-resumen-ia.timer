@@ -1,0 +1,10 @@
+[Unit]
+Description=Nexus — resumen con IA cada noche a las 23:00 de Colombia
+
+[Timer]
+OnCalendar=*-*-* 04:00:00 UTC
+Persistent=true
+Unit=nexus-resumen-ia.service
+
+[Install]
+WantedBy=timers.target
