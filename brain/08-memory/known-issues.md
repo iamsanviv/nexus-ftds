@@ -111,6 +111,10 @@ El worker ya incorporó un reintento alternando el `1` después del código 52 c
 
 No implementar "el reintento" otra vez sin revisar el worker: ya existía. Diagnosticar por qué no cubre todos los casos.
 
+**Causa confirmada (23/11/2026).** WhatsApp registra los móviles de México como `521` + 10 dígitos: en el `whatsapp.db` del bridge de Santiago había 311 `pn` con `521` y solo 24 sin el 1, y los clientes que fallaban solo existían con el 1. Con `52` + 10 whatsmeow no tiene caché, consulta usync por cada envío y en masivos WhatsApp responde `429 rate-overlimit` (60 fallos históricos en `+52`, 0 en `+521`). El reintento solo saltaba con `no LID found`.
+
+Arreglo aplicado en `worker.py` (VM1) el 24/11/2026: `enviar_whatsapp` convierte `52`+10 → `521`+10 antes de enviar, y `_enviar_con_reintento` también reintenta con `rate-overlimit`. La ficha sigue guardando `+52`; no hace falta corregir datos. Verificar en los próximos envíos a México que no reaparezcan los 429 y cerrar este punto.
+
 ---
 
 ## KI-008 — CSV y asistencias puntuales
