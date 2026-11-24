@@ -307,6 +307,13 @@ La decide la base, cron `preguntas_link` cada minuto (`procesar_preguntas_link`,
   sistema se quitan por texto). Decide por lo que dijo la persona; si la persona no escribió nada,
   no se llama a la IA. Motivo: Asael («Ok mándame el link» y luego «No aun no») quedó sin link
   porque la IA no veía a qué respondía el «no».
+- **La IA solo se vuelve a llamar si la persona escribió algo nuevo** (24/11/2026,
+  `sql/2026-11-24_77_pregunta_link_ia_solo_si_escribe.sql`, aplicado): si todas las líneas
+  «Persona:» ya iban en `respuestas_ia.entrada`, se reusa el veredicto (o la llamada en curso, o el
+  error) aunque haya mensajes nuevos del asesor o del sistema. Se compara contra `entrada` y no
+  contra la hora de la llamada porque chats_sync sube mensajes con retraso. Motivo: el 22/11 había
+  ~3,2 llamadas por seguimiento (~5.700 neuronas, 57 % de la cuota gratis compartida con audios y
+  resumen IA). `ingreso_ia` (confirmación «ya entré») sigue con la regla anterior.
 - **Quien respondió y dijo que no** (30/10/2026, caso Luis Gudiño, `sql/2026-10-30_53_…`): paso
   d), antes del a). En tandas con la casilla, a quien escribió desde la invitación y no espera la
   pregunta se le lee lo que dijo; con un «no» de la IA (o de las palabras si la IA no está) se le
