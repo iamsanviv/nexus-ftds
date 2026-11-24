@@ -554,3 +554,16 @@ camino.
 - [[../03-domain/messaging-rules]]
 - [[../08-memory/dangerous-patterns]]
 - [[../08-memory/known-issues]]
+
+## Versión de whatsmeow y error «Client outdated (405)»
+
+El 23/11/2026 a las 18:04 (Colombia) WhatsApp empezó a rechazar la whatsmeow de julio (`Client outdated (405)`) en todos los bridges de VM1 y VM2. El proceso seguía `active (running)` y `canales_wa.estado` seguía en `vinculado`, así que nada lo delataba salvo los `Not connected to WhatsApp` en `mensajes_programados.error`. **«vinculado» no prueba que el canal esté conectado.**
+
+Arreglo: `go get go.mau.fi/whatsmeow@latest && go mod tidy`, compilar `whatsapp-bridge-mt` y reiniciar `nexus-bridge@*`. Compiló sin tocar `main.go` (quedó en `v0.0.0-20261116172437-19d61352436f`).
+
+- Go está en `/usr/local/go/bin`, que no está en el `PATH` de `ubuntu`.
+- El código del bridge solo está en VM1 (`~/whatsapp-mcp/whatsapp-bridge`). VM2 tiene solo el binario: se copia el de VM1 (ambas x86_64) con la llave `~/.ssh/vm1_a_vm2`, autorizada en VM2 para eso.
+- Respaldos del binario viejo: `whatsapp-bridge-mt.bak-20261124` en las dos VMs. Volver a él deja todo desconectado otra vez.
+- Algunos bridges pidieron QR tras el reinicio; no se arreglan reiniciando.
+
+Al cerrar el día, reenviar solo lo que sigue teniendo sentido. Cuando falla una invitación, el worker cancela sus recordatorios, links y confirmaciones con `omitido: la invitación no salió`: si se reenvía la invitación, hay que reactivar también esas filas futuras.
