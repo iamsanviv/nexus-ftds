@@ -2861,3 +2861,55 @@ td.ctnum.cero{color:var(--dim);font-weight:500}
   .ctnom{font-size:.82rem}
 }
 #fVentaRow textarea{margin-bottom:10px}
+
+/* ---------------- Filtros de Comunidad como selectores (26/11/2026) ----------------
+   Etapa, Resultado y «Más filtros» son tres botones en una fila. En celular
+   reparten el ancho en tercios y no se desplazan de lado; en PC van juntos a la
+   izquierda del buscador. El botón dice lo elegido; la lista abre aparte. */
+#filtros.fselfila{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;overflow:visible;padding-bottom:0;margin-bottom:10px}
+.fsel{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;height:38px;padding:0 10px;
+  border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);
+  font-size:.8rem;font-weight:600;white-space:nowrap}
+.fsel::after{content:"";flex:0 0 auto;border-left:4px solid transparent;border-right:4px solid transparent;
+  border-top:5px solid var(--muted);margin-left:1px}
+.fsel.abierto::after{border-top:0;border-bottom:5px solid var(--muted)}
+.fsel .fk{color:var(--muted);font-weight:500}
+.fsel .fv{min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* Celular: sin elegir dice solo «Etapa»; elegido dice solo el valor. */
+.fsel[data-menu]:not(.act) .fv{display:none}
+.fsel[data-menu]:not(.act) .fk{color:var(--text);font-weight:600}
+.fsel.act .fk{display:none}
+.fsel.act{border-color:var(--gold);background:var(--gold-soft)}
+.fbadge{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--gold-fill);color:var(--on-gold);
+  font-size:11px;font-weight:800;display:inline-grid;place-items:center;font-variant-numeric:tabular-nums}
+.fdot{flex:0 0 auto;width:8px;height:8px;border-radius:50%;display:inline-block}
+.fdot.fdot0{border:1.5px solid var(--dim);background:transparent}
+
+.fscrim{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45)}
+.fscrim.claro{background:transparent}
+.fmenu{position:fixed;z-index:61;background:var(--surface);border:1px solid var(--border);color:var(--text)}
+.fmenu.pop{width:250px;padding:6px;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.28)}
+.fmenu.hoja{left:0;right:0;bottom:0;padding:10px 12px calc(14px + env(safe-area-inset-bottom,0px));
+  border-radius:18px 18px 0 0;border-bottom:0;max-height:80vh;overflow-y:auto}
+.fgrab{width:38px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 10px}
+.ftit{font-size:.66rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:6px 10px 6px}
+.fmenu.hoja .ftit{font-size:1rem;letter-spacing:0;text-transform:none;color:var(--text);font-family:'Archivo',sans-serif}
+.fop{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border-radius:8px;font-size:.84rem;font-weight:500;text-align:left;color:var(--text)}
+.fmenu.hoja .fop{padding:12px 10px;font-size:.92rem}
+.fop:hover,.fop:focus-visible{background:var(--hover);outline:none}
+.fop.on{background:var(--gold-soft);font-weight:700}
+.fop .fchk{width:14px;flex:0 0 auto;color:var(--gold);font-weight:800;font-size:.75rem}
+.fop .fl{flex:1;min-width:0}
+.fop em{font-style:normal;color:var(--muted);font-size:.78rem;font-variant-numeric:tabular-nums}
+
+@media (min-width:1040px){
+  #filtros.fselfila{display:flex;gap:8px;margin-bottom:10px}
+  .fsel{padding:0 12px;font-size:13px;flex:0 0 auto}
+  /* En PC caben etiqueta y valor: «Etapa: Todas». */
+  .fsel[data-menu] .fk::after{content:":"}
+  .fsel[data-menu]:not(.act) .fk{color:var(--muted);font-weight:500}
+  .fsel[data-menu]:not(.act) .fv,.fsel.act .fk{display:inline}
+  /* Con la fila de selectores, los filtros y el buscador vuelven a una sola línea. */
+  .clifiltros:has(.fselfila){align-items:flex-start}
+  .clifiltros:has(.fselfila) .clifiltros-r{margin-bottom:10px}
+}
