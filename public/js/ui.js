@@ -57,6 +57,40 @@ const contacto = c => c.tel
     + `<button class="copynum" data-num="${esc(c.tel)}" title="Copiar ${esc(c.tel)}" aria-label="Copiar el número"></button>`
   : '';
 
+/* ----- Selector desplegable de filtro (Comunidad: Etapa y Resultado) -----
+   El menú vive en <body> y no dentro del botón: render() reconstruye la fila
+   en cada cambio y la fila de filtros recorta lo que se le sale. En PC es un
+   menú bajo el botón; en celular, una hoja desde abajo (dedo y pantalla chica). */
+const fdot = col => col === false ? `<i class="fdot fdot0"></i>` : col ? `<i class="fdot" style="background:var(${col})"></i>` : "";
+function cerrarMenuFiltro() {
+  document.querySelectorAll(".fmenu,.fscrim").forEach(n => n.remove());
+  document.removeEventListener("keydown", escMenuFiltro);
+}
+function escMenuFiltro(e) { if (e.key === "Escape") cerrarMenuFiltro(); }
+function abrirMenuFiltro(btn, titulo, items, actual, elegir) {
+  cerrarMenuFiltro();
+  const desk = window.matchMedia("(min-width:1040px)").matches;
+  const scrim = document.createElement("div");
+  scrim.className = "fscrim" + (desk ? " claro" : "");
+  scrim.onclick = cerrarMenuFiltro;
+  const m = document.createElement("div");
+  m.className = "fmenu " + (desk ? "pop" : "hoja");
+  m.setAttribute("role", "menu");
+  m.innerHTML = (desk ? "" : `<div class="fgrab"></div>`) + `<div class="ftit">${titulo}</div>`
+    + items.map(it => `<button class="fop ${it.k === actual ? "on" : ""}" role="menuitemradio" aria-checked="${it.k === actual}" data-k="${it.k}">`
+      + `<span class="fchk">${it.k === actual ? "✓" : ""}</span>${it.col !== undefined ? fdot(it.col) : ""}`
+      + `<span class="fl">${esc(it.l)}</span>${it.n !== undefined ? `<em>${it.n}</em>` : ""}</button>`).join("");
+  m.querySelectorAll(".fop").forEach(b => b.onclick = () => { cerrarMenuFiltro(); elegir(b.dataset.k); });
+  document.body.append(scrim, m);
+  if (desk) {
+    const r = btn.getBoundingClientRect();
+    m.style.top = `${Math.round(r.bottom + 6)}px`;
+    m.style.left = `${Math.round(Math.min(r.left, window.innerWidth - m.offsetWidth - 12))}px`;
+  }
+  document.addEventListener("keydown", escMenuFiltro);
+  (m.querySelector(".fop.on") || m.querySelector(".fop"))?.focus({ preventScroll: true });
+}
+
 /* ================= RENDER PRINCIPAL ================= */
 export function render() {
   $("abrirModal").textContent = state.modulo === "leads" ? "+ Lead" : "+ Cliente";
@@ -252,23 +286,30 @@ export function render() {
     $("filtros").innerHTML = defs.map(([v, l]) => `<button class="pill ${state.filtro === v ? 'on' : ''}" data-f="${v}">${l}</button>`).join("");
     $("filtros").querySelectorAll(".pill").forEach(b => b.onclick = () => { state.filtro = b.dataset.f; render(); });
   } else {
-    // Los conteos de cada píldora respetan la membresía elegida: dicen cuántos
-    // verías al tocarla.
+    // Etapa y Resultado eran 13 píldoras que se partían en cuatro filas en PC y
+    // se salían de la pantalla en celular (26/11/2026). Ahora cada eje es UN
+    // botón que dice lo elegido y abre su lista; los conteos viven en la lista
+    // y respetan la membresía elegida: dicen cuántos verías al tocar.
     const pob = base.filter(c => !state.filtroMem || c.mem === state.filtroMem);
     const nEt = k => pob.filter(c => !E(c).oro && E(c).actual === k).length;
-    const ETS = [...ETAPAS].reverse().map(e => [e.k, e.l, e.c]).concat([["none", "Sin etapas", null]]);
-    $("filtros").innerHTML = `<span class="ejelbl">Etapa</span>`
-      + `<button class="pill ${state.filtroEtapa ? "" : "on"}" data-et="">Todas</button>`
-      + ETS.map(([k, l, col]) => `<button class="pill etpill ${state.filtroEtapa === k ? "on" : ""}" data-et="${k}">`
-        + `${col ? `<i style="background:var(${col})"></i>` : ""}${l} <em>${nEt(k)}</em></button>`).join("");
-    $("filtros").querySelectorAll("[data-et]").forEach(b => b.onclick = () => { state.filtroEtapa = b.dataset.et || null; render(); });
     const nRes = k => pob.filter(c => cumpleResultado(E(c), k)).length;
-    $("filtrosRes").classList.remove("hidden");
-    $("filtrosRes").innerHTML = `<span class="ejelbl">Resultado</span>`
-      + `<button class="pill ${state.filtroRes ? "" : "on"}" data-res="">Todos</button>`
-      + RESULTADOS.map(([k, l]) => `<button class="pill ${state.filtroRes === k ? "on" : ""}" data-res="${k}">${l} <em>${state.ventasOk ? nRes(k) : "…"}</em></button>`).join("");
-    $("filtrosRes").querySelectorAll("[data-res]").forEach(b => b.onclick = () => { state.filtroRes = b.dataset.res || null; render(); });
+    const ETS = [...ETAPAS].reverse().map(e => [e.k, e.l, e.c]).concat([["none", "Sin etapas", null]]);
+    const et = ETS.find(x => x[0] === state.filtroEtapa);
+    const rs = RESULTADOS.find(r => r[0] === state.filtroRes);
+    $("filtros").innerHTML =
+        `<button class="fsel ${et ? "act" : ""}" data-menu="et" aria-haspopup="true"><span class="fk">Etapa</span>`
+      + `${et ? fdot(et[2]) : ""}<span class="fv">${et ? et[1] : "Todas"}</span></button>`
+      + `<button class="fsel ${rs ? "act" : ""}" data-menu="res" aria-haspopup="true"><span class="fk">Resultado</span>`
+      + `<span class="fv">${rs ? rs[1] : "Todos"}</span></button>`;
+    $("filtros").querySelector('[data-menu="et"]').onclick = e => abrirMenuFiltro(e.currentTarget, "Etapa",
+      [{ k: "", l: "Todas", n: pob.length }, ...ETS.map(([k, l, col]) => ({ k, l, n: nEt(k), col: col ?? false }))],
+      state.filtroEtapa || "", k => { state.filtroEtapa = k || null; render(); });
+    $("filtros").querySelector('[data-menu="res"]').onclick = e => abrirMenuFiltro(e.currentTarget, "Resultado",
+      [{ k: "", l: "Todos" }, ...RESULTADOS.map(([k, l]) => ({ k, l, n: state.ventasOk ? nRes(k) : "…" }))],
+      state.filtroRes || "", k => { state.filtroRes = k || null; render(); });
+    $("filtrosRes").classList.add("hidden"); $("filtrosRes").innerHTML = "";
   }
+  $("filtros").classList.toggle("fselfila", !isLead);
   if (isLead) { $("filtrosRes").classList.add("hidden"); $("filtrosRes").innerHTML = ""; }
 
   // Inactivas, en «Más filtros» (solo Comunidad).
@@ -405,9 +446,13 @@ export function render() {
   const hayMas = ["filtrosLleg", "filtrosBrk", "filtrosDep", "filtrosSrv", "filtrosIna"].some(id => $(id) && !$(id).classList.contains("hidden"));
   $("filtrosMas").classList.toggle("hidden", !hayMas || !state.filtrosMas);
   if (hayMas) {
-    $("filtros").insertAdjacentHTML("afterbegin",
-      `<button class="pill masfiltros ${state.filtrosMas ? "abierto" : ""} ${nMas ? "on" : ""}" id="btnFiltrosMas" aria-expanded="${state.filtrosMas}">`
-      + `${state.filtrosMas ? "▴" : "▾"} Más filtros${nMas ? ` · ${nMas}` : ""}</button>`);
+    // En Comunidad va al final de la fila de selectores y con su mismo aspecto
+    // (ahí la fila ya no se desplaza de lado, así que no se pierde de vista).
+    $("filtros").insertAdjacentHTML(isLead ? "afterbegin" : "beforeend", isLead
+      ? `<button class="pill masfiltros ${state.filtrosMas ? "abierto" : ""} ${nMas ? "on" : ""}" id="btnFiltrosMas" aria-expanded="${state.filtrosMas}">`
+        + `${state.filtrosMas ? "▴" : "▾"} Más filtros${nMas ? ` · ${nMas}` : ""}</button>`
+      : `<button class="fsel ${nMas ? "act" : ""} ${state.filtrosMas ? "abierto" : ""}" id="btnFiltrosMas" aria-expanded="${state.filtrosMas}">`
+        + `<span class="fv">Más filtros</span>${nMas ? `<b class="fbadge">${nMas}</b>` : ""}</button>`);
     $("btnFiltrosMas").onclick = () => { state.filtrosMas = !state.filtrosMas; render(); };
   }
 
