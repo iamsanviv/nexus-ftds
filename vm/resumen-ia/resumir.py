@@ -12,14 +12,18 @@
 #       ESCRIBIERON desde la vuelta anterior;
 #    3. transcribe los audios nuevos de esos clientes (Whisper, Workers AI);
 #    4. le pasa a la IA la conversación completa (texto + audios transcritos)
-#       y escribe `clientes.necesidad` y `clientes.recomendacion`.
+#       y los datos del panel (etapas, asistencias, venta abierta), y escribe
+#       `clientes.necesidad`, `clientes.recomendacion` y la propensión a
+#       comprar (`propension` alta/media/baja + `propension_motivo`, SQL 77).
 #    Además entran, después de quienes escribieron, los que quedaron
 #    pendientes de una vuelta anterior y los que nunca tuvieron resumen.
 #    Cada vuelta tiene un presupuesto de neuronas (`NEURONAS_POR_NOCHE`) y se
 #    detiene al primer 429: la cuota es compartida con chats_sync.
 #
 #  Decisiones de Sanviv (23/11/2026): cada noche y solo quien escribió; la IA
-#  REEMPLAZA siempre lo que haya, aunque se haya editado a mano; los audios
+#  REEMPLAZA siempre necesidad y recomendación, aunque se hayan editado a mano.
+#  La propensión no (26/11/2026): si el agente la corrigió, su corrección gana
+#  hasta que el cliente vuelva a escribir (`propension_manual_en`). Los audios
 #  viejos no se transcriben (la URL de WhatsApp caduca a las semanas), los
 #  nuevos sí, y quedan en caché para las noches siguientes.
 #
@@ -54,11 +58,14 @@ import chats_sync  # noqa: E402
 BRIDGES_DIR = os.environ.get("BRIDGES_DIR", "/home/ubuntu/nexus-bridges")
 ESTADO = Path(os.environ.get("NEXUS_RESUMEN_ESTADO", os.path.expanduser("~/.nexus-resumen-ia.json")))
 AUDIOS = Path(os.environ.get("NEXUS_RESUMEN_AUDIOS", os.path.expanduser("~/.nexus-resumen-ia-audios.json")))
-MODELO = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
-# Llama 3.3 en Workers AI acepta ~24k tokens. En español son ~3,3 caracteres
-# por token: 45k caracteres de conversación dejan sitio a las instrucciones y
-# a la respuesta. Si no cabe, se guarda el COMIENZO (cómo llegó, qué buscaba)
-# y sobre todo el FINAL (lo que está pasando ahora).
+# Gemma 4 desde el 26/11/2026 (decisión de Sanviv): unas 3 veces más barato
+# que Llama 3.3 70B. Probado ese día con 10 clientes del piloto: mejor que
+# Llama en 6, igual en 3, peor en 1. Con Llama el tope de la noche alcanzaba
+# para ~15 clientes y quedaban ~42 en espera.
+MODELO = "@cf/google/gemma-4-26b-a4b-it"
+# Gemma acepta mucho más contexto, pero cada carácter cuesta: el tope sigue
+# siendo por presupuesto. Si no cabe, se guarda el COMIENZO (cómo llegó, qué
+# buscaba) y sobre todo el FINAL (lo que está pasando ahora).
 MAX_CHARS = 45000
 COMIENZO_CHARS = 8000
 AUDIOS_POR_NOCHE = 60      # tope de transcripciones por vuelta
@@ -67,9 +74,15 @@ AUDIOS_POR_NOCHE = 60      # tope de transcripciones por vuelta
 # pregunta del link de TODOS los agentes. La primera carga del 23/11/2026 la
 # agotó con 67 resúmenes. Por eso cada vuelta gasta como mucho este
 # presupuesto (estimado antes de llamar) y se detiene al primer 429.
-NEURONAS_POR_NOCHE = int(os.environ.get("NEXUS_RESUMEN_NEURONAS", "4000"))
-# Precio de Llama 3.3 70B fp8-fast en neuronas por token (entrada / salida).
-NEURONAS_ENTRADA, NEURONAS_SALIDA = 26668 / 1e6, 204805 / 1e6
+# Con Gemma la demanda real de Sanviv ronda 4.500 por noche y la pregunta del
+# link gasta ~2.500 al día: 6.000 deja margen dentro de las 10.000.
+NEURONAS_POR_NOCHE = int(os.environ.get("NEXUS_RESUMEN_NEURONAS", "6000"))
+# Precio de Gemma 4 26B en neuronas por token (entrada / salida).
+NEURONAS_ENTRADA, NEURONAS_SALIDA = 9091 / 1e6, 27273 / 1e6
+# Gemma parte el español en tokens más cortos que Llama: medido el 26/11/2026,
+# ~2,1 caracteres por token (con 3,3 el costo real salió 1,38 veces lo estimado).
+CHARS_POR_TOKEN = 2.1
+MAX_SALIDA = 500
 LARGO_CAMPO = 600          # la base acepta 1000; la celda se lee mejor corta
 
 INSTRUCCIONES = (
@@ -79,15 +92,27 @@ INSTRUCCIONES = (
     "Presentación de Membresías, 1 a 1 con el asesor y pago.\n"
     "Abajo está la conversación de WhatsApp entre el asesor y un cliente, del más viejo al más nuevo. "
     "Los audios transcritos van marcados con 🎤; [audio], [imagen] y [video] son adjuntos sin texto.\n"
-    "Responde SOLO un objeto JSON con dos campos, en español, concretos y sin inventar:\n"
+    "Responde SOLO un objeto JSON con cuatro campos, en español, concretos y sin inventar:\n"
     '  "necesidad": qué quiere lograr el cliente (en sus palabras cuando se pueda) y qué lo frena '
     "(dinero, tiempo, confianza, pareja, salud…), en máximo 2 frases;\n"
     '  "recomendacion": el siguiente paso concreto que debe dar el asesor para venderle o '
     "acompañarlo, con fecha si hay algo pendiente, en máximo 2 frases. Si el cliente pasa por un "
-    "problema serio, la recomendación es no presionar.\n"
-    "Si la conversación no da para saberlo, escribe \"No aparece en el chat\". "
-    "NUNCA copies contraseñas, correos, números de documento, datos bancarios ni detalles médicos: "
-    "a lo sumo di «por salud» o «por dinero»."
+    "problema serio, la recomendación es no presionar;\n"
+    '  "propension": qué tan cerca está de COMPRAR (una membresía nueva, un upgrade o pagar lo que '
+    'debe), uno de "alta", "media" o "baja":\n'
+    "    alta = intención concreta y reciente: pidió precio o forma de pago, prometió pagar o abonar "
+    "con fecha, tiene una venta abierta que sigue en pie, o dijo que sí y falta cerrar;\n"
+    "    media = interesado y avanzando (asiste, pregunta, vio la Presentación) pero sin intención "
+    "concreta de pagar, o con una objeción que se puede resolver;\n"
+    "    baja = no responde hace semanas, dijo que no, no tiene dinero o tiempo ahora, pasa por un "
+    "problema serio, o es Oro (no hay membresía superior) y no pidió comprar nada;\n"
+    '  "motivo": por qué ese nivel, en UNA frase con lo concreto (qué dijo, fecha, etapa o monto).\n'
+    "Usa también los datos del panel que van antes de la conversación (etapas, asistencias y venta "
+    "abierta). Si la conversación no da para saber la necesidad o la recomendación, escribe "
+    "\"No aparece en el chat\".\n"
+    "PRIVACIDAD, sin excepción: NUNCA escribas contraseñas, correos, números de documento, datos "
+    "bancarios ni NINGÚN detalle médico (ni enfermedades, ni lesiones, ni fracturas, ni "
+    "tratamientos, ni de quién es). Escribe solo «por salud», «por un tema familiar» o «por dinero»."
 )
 
 
@@ -245,12 +270,21 @@ def conversacion(owner, filas, audios):
 
 
 def contexto(c):
-    z = c.get("zooms") or {}
-    hechas = [n for k, n in (("avanzada", "Avanzada"), ("pres", "Presentación"), ("uno", "1 a 1"))
-              if (z.get(k) or {}).get("e") == "hecha"]
+    """Datos del panel que la IA no ve en el chat (SQL 77): etapas con fecha,
+    asistencias a la Básica y a las operativas, y la venta de membresía abierta."""
+    z, acc = c.get("zooms") or {}, c.get("acc") or {}
+    hechas = [f"{n} ({acc[k]})" for k, n in (("basica", "Básica"), ("operativa", "Operativa en Vivo")) if acc.get(k)]
+    hechas += [f"{n} ({(z.get(k) or {}).get('f') or 'sin fecha'})"
+               for k, n in (("avanzada", "Avanzada"), ("pres", "Presentación"), ("uno", "1 a 1"))
+               if (z.get(k) or {}).get("e") == "hecha"]
+    v = c.get("venta")
+    venta = (f"Venta abierta: {v.get('producto')} por {v.get('valor')} USD, abonado {v.get('abonado')} USD"
+             f"{', fecha de pago ' + v['fecha_pago'] if v.get('fecha_pago') else ', sin fecha de pago'}. "
+             if v else "Sin venta de membresía abierta. ")
     return (f"Cliente: {c['nombre']}. Membresía actual: {c['membresia']}. "
             f"En la comunidad desde: {c.get('comunidad_desde') or 'sin dato'}. "
-            f"Etapas de venta hechas: {', '.join(hechas) or 'ninguna registrada'}. "
+            f"Etapas y asistencias hechas (fecha): {', '.join(hechas) or 'ninguna registrada'}. "
+            f"{venta}"
             f"Hoy es {(datetime.now(timezone.utc) - timedelta(hours=5)).strftime('%d/%m/%Y')}.")
 
 
@@ -262,8 +296,8 @@ class SinCuota(RuntimeError):
 def costo(c, texto):
     """Neuronas estimadas de un resumen (≈3,3 caracteres por token en español,
     y el máximo de salida)."""
-    entrada = (len(INSTRUCCIONES) + len(contexto(c)) + len(texto)) / 3.3
-    return entrada * NEURONAS_ENTRADA + 400 * NEURONAS_SALIDA
+    entrada = (len(INSTRUCCIONES) + len(contexto(c)) + len(texto)) / CHARS_POR_TOKEN
+    return entrada * NEURONAS_ENTRADA + MAX_SALIDA * NEURONAS_SALIDA
 
 
 def preguntar_ia(ia, c, texto):
@@ -272,7 +306,10 @@ def preguntar_ia(ia, c, texto):
         headers={"Authorization": f"Bearer {ia['token']}"},
         json={"messages": [{"role": "system", "content": INSTRUCCIONES},
                            {"role": "user", "content": contexto(c) + "\n\nConversación:\n" + texto}],
-              "max_tokens": 400, "temperature": 0.2},
+              "max_tokens": MAX_SALIDA, "temperature": 0.2,
+              # Sin esto Gemma gasta toda la salida «pensando» y responde vacío
+              # (prueba del 26/11/2026).
+              "chat_template_kwargs": {"enable_thinking": False}},
         timeout=120)
     if r.status_code == 429:
         raise SinCuota(f"Workers AI respondió 429: {r.text[:200]}")
@@ -292,9 +329,11 @@ def preguntar_ia(ia, c, texto):
         d = json.loads(m.group(0))
     nec = str(d.get("necesidad") or "").strip()[:LARGO_CAMPO]
     rec = str(d.get("recomendacion") or d.get("recomendación") or "").strip()[:LARGO_CAMPO]
-    if not nec or not rec:
+    prop = str(d.get("propension") or d.get("propensión") or "").strip().lower()
+    mot = str(d.get("motivo") or "").strip()[:LARGO_CAMPO]
+    if not nec or not rec or prop not in ("alta", "media", "baja") or not mot:
         raise RuntimeError("respuesta incompleta de la IA")
-    return nec, rec
+    return nec, rec, prop, mot
 
 
 def main():
@@ -370,12 +409,20 @@ def main():
                     quedan.append(c["id"])
                     continue
                 gastado += n
-                nec, rec = preguntar_ia(ia, c, texto)
+                nec, rec, prop, mot = preguntar_ia(ia, c, texto)
+                campos = {"necesidad": nec, "recomendacion": rec}
+                # La corrección a mano del nivel gana hasta que el cliente
+                # vuelva a escribir (decisión de Sanviv, 26/11/2026).
+                manual = c.get("propension_manual_en")
+                if not manual or escribio_desde(base, jids, _utc_sqlite(manual)):
+                    campos.update(propension=prop, propension_motivo=mot, propension_manual_en=None)
                 if seco:
-                    log(f"  {c['nombre']}\n    necesidad: {nec}\n    recomendación: {rec}")
+                    log(f"  {c['nombre']}\n    necesidad: {nec}\n    recomendación: {rec}\n"
+                        f"    propensión: {prop}{'' if 'propension' in campos else ' (NO se guarda: corregida a mano)'}"
+                        f" · {mot}")
                 else:
                     p = requests.patch(f"{rest}/clientes?id=eq.{c['id']}", headers=cab,
-                                       json={"necesidad": nec, "recomendacion": rec}, timeout=20)
+                                       json=campos, timeout=20)
                     p.raise_for_status()
                 hechos += 1
             except SinCuota as ex:
@@ -397,11 +444,20 @@ def main():
             _guardar_json(ESTADO, estado)
 
 
+def _utc_sqlite(ts):
+    """Fecha ISO de Supabase → «AAAA-MM-DD HH:MM:SS» en UTC, el formato de
+    `datetime(timestamp)` del SQLite del bridge."""
+    d = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+    return d.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
 def nunca_resumidos(rest, cab, owner):
-    """Ids de los clientes del agente sin necesidad guardada: la primera carga
-    de cada uno va con todo su historial, repartida en varias noches."""
+    """Ids de los clientes del agente sin necesidad o sin propensión guardada:
+    la primera carga de cada uno va con todo su historial, repartida en varias
+    noches (el 26/11/2026 entraron así los 107 por la propensión nueva)."""
     r = requests.get(f"{rest}/clientes", headers=cab, timeout=30,
-                     params={"select": "id", "owner_id": f"eq.{owner}", "necesidad": "is.null"})
+                     params={"select": "id", "owner_id": f"eq.{owner}",
+                             "or": "(necesidad.is.null,propension.is.null)"})
     r.raise_for_status()
     return {x["id"] for x in r.json() or []}
 

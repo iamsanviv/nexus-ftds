@@ -2372,6 +2372,15 @@ button.ltemp{cursor:pointer;border:0;font-family:inherit}
 /* «Mi día», lead de WhatsApp con número de Colombia: Llamar va de ícono. */
 .mdprim.contel{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 46px}
 .mdprim .mdtel{padding:0}
+/* Paso «Cerrar» (propensión a comprar): Abrir chat + Llamar con texto, y abajo
+   el nivel corregible en el sitio. */
+.mdprim.solo{grid-template-columns:minmax(0,1fr)}
+.mdprim .mdllamar{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-family:'Archivo';font-weight:800;border:1px solid var(--gold-dim);color:var(--gold);background:transparent}
+.mdprop{align-items:center}
+.mdprop-l{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted)}
+.mdprop-l select{width:auto;min-height:36px;padding:4px 10px;font-size:.85rem;font-weight:600}
+.mdprop-n{font-size:.78rem;color:var(--dim)}
 
 /* «Bajado a WA»: el lead de HighLevel pasa a WhatsApp (ícono de descargar). */
 .hbajar{display:inline-flex;align-items:center;justify-content:center;gap:6px;color:#25D366;border-color:rgba(37,211,102,.45)}
@@ -2833,6 +2842,20 @@ td.ctnum.cero{color:var(--dim);font-weight:500}
 .ctedit textarea.esauto::placeholder{color:var(--muted);font-style:normal}
 .ctauto{display:inline-block;margin-bottom:4px;font-size:.6rem;font-weight:800;letter-spacing:.05em;
   text-transform:uppercase;color:var(--muted);background:var(--surface2);padding:1px 6px;border-radius:4px}
+/* Propensión a comprar (SQL 77): pastilla que es un select, para corregirla
+   en el sitio. El ✎ marca una corrección propia (vale hasta que te escriba). */
+.ctpropc{white-space:nowrap}
+.ctprop{position:relative;display:inline-flex;align-items:center;gap:4px;border-radius:999px;
+  background:var(--surface2);color:var(--muted)}
+.ctprop select{appearance:none;-webkit-appearance:none;width:auto;font:700 .72rem 'Inter',system-ui,sans-serif;
+  color:inherit;background:transparent;border:1px solid transparent;border-radius:999px;padding:4px 10px;cursor:pointer}
+.ctprop select:focus-visible{outline:2px solid var(--gold-dim);outline-offset:1px}
+.ctprop.ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.ctprop.oro{background:color-mix(in srgb,var(--gold) 17%,transparent);color:var(--gold)}
+.ctprop.sin{background:transparent;color:var(--dim)}
+.ctprop.manual select{border-style:dashed;border-color:currentColor;padding-right:22px}
+.ctprop-m{position:absolute;right:8px;font-size:.66rem;pointer-events:none}
+.ctmot{min-width:150px;max-width:220px;font-size:.82rem;color:var(--text)}
 @media (max-width:640px){
   .ctfija{min-width:118px;max-width:132px}
   .ctnom{font-size:.82rem}

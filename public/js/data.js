@@ -43,6 +43,11 @@ export const mapDesdeDB = r => ({
   // Vista tabla de Comunidad (SQL 75). Se guardan campo por campo desde la
   // tabla o el perfil; NO van en mapAEditar (la IA también las escribe).
   necesidad: r.necesidad || null, recomendacion: r.recomendacion || null,
+  // Propensión a comprar (SQL 77): la escribe la IA cada noche; el agente la
+  // corrige y su corrección gana hasta que el cliente vuelva a escribir.
+  // Tampoco va en mapAEditar.
+  propension: r.propension || null, propensionMotivo: r.propension_motivo || null,
+  propensionManualEn: r.propension_manual_en || null,
 });
 export const mapAEditar = c => ({
   nombre: c.nombre, telefono: c.tel || null, pais: c.pais || null,
