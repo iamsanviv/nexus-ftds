@@ -28,6 +28,11 @@ Especificación: entrevista con el usuario del 14/10/2026 (36 preguntas, hilo «
   que más pesan; el desglose se abre al tocarla. El usuario dijo que la tarjeta con su
   lista se veía larga y desordenada.
 
+## Paso «Cerrar» (26/11/2026, pedido de Sanviv)
+- Después de «Posibles ventas»: las **5** personas de Comunidad propias más propensas a comprar según la IA nocturna (`clientes.propension`, SQL 77) o según la corrección del agente. Solo alta y media; alta primero y, dentro del nivel, el orden «cerca del cierre» de `embudo.js`. Quien ya está en «Posibles ventas» por un cobro de hoy no se repite.
+- Tarjeta: nivel, motivo de la IA, «Qué hacer» (`recomendacion` o la derivada de la etapa), Abrir chat, Llamar (solo números de Colombia) y un select para corregir el nivel.
+- Hecho = hoy le escribiste por WhatsApp (sin contar automáticos), anotaste un contacto o registraste un abono. Lo hecho sigue en la lista: el tope no se rellena durante el día.
+
 ## Orden y foco (desde el diseño «paso a paso» del 20/10/2026)
 - Orden en la lista: pendientes → en espera → hechos. Una sola fila abierta a la vez.
 - Estado de vista solo en memoria (`pasoSel`, `filaSel`): tocar otro paso se queda

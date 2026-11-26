@@ -27,6 +27,8 @@ import { categoria, razon, razonCorta, temperatura, contactosDe, esMio, sinHora,
 import { irAEtapa } from "./hoy.js";
 import { metaHoyDatos } from "./ftd.js";
 import { cargarAvisoEnvios, avisoEnviosHTML } from "./envios.js";
+import { embudo, compararEmbudo } from "./embudo.js";
+import { PROPENSION, guardarPropension, recomendacionAuto } from "./comtabla.js";
 
 const HORA_MS = 60 * 60 * 1000;
 // Lo que tiene hora sube al frente una hora antes (respuesta del usuario).
@@ -42,6 +44,7 @@ const BLOQUES = [
   { k: "fri", n: "Recuperar fríos", c: "Fríos" },
   { k: "hl", n: "Leads de HighLevel", c: "HighLevel" },
   { k: "ven", n: "Posibles ventas", c: "Ventas" },
+  { k: "cer", n: "Para cerrar", c: "Cerrar" },
   { k: "cla", n: "Clase de hoy", c: "Clase" },
 ];
 // Leads de WhatsApp por temperatura (decisión del usuario, 16/10/2026): los
@@ -50,6 +53,7 @@ const BLOQUES = [
 // los de movimiento más reciente, que son los más fáciles de recuperar.
 const BLOQUE_T = { caliente: "cal", tibio: "tib", frio: "fri" };
 const TOPE_T = { tibio: 10, frio: 5 };
+const TOPE_CERRAR = 5;   // Sanviv eligió ver las 5 más propensas (26/11/2026)
 const WHY_T = {
   caliente: "Caliente: está en la mira, atiéndelo hoy.",
   tibio: "Tibio: recupéralo antes de que se enfríe.",
@@ -187,7 +191,7 @@ function itemsDelDia() {
         const c = state.clientes.find(x => x.id === v.cliente_id);
         const abonoHoy = (v.abonos || []).filter(a => a.fecha === hoy).reduce((s, a) => s + a.monto, 0);
         const vencida = v.fecha_pago < hoy;
-        items.push({ b: "ven", id: "v" + v.id, t: c?.nombre || "Venta", acc: "venta", rec: ts(v.fecha_pago + "T00:00:00-05:00"),
+        items.push({ b: "ven", id: "v" + v.id, c, t: c?.nombre || "Venta", acc: "venta", rec: ts(v.fecha_pago + "T00:00:00-05:00"),
           s: `Cobro pendiente · saldo ${usd(saldo(v))}${vencida ? " · vencido" : ""}`,
           tag: vencida ? "Cobro vencido" : "Cobro hoy", tono: vencida ? "bad" : "oro", det: `saldo ${usd(saldo(v))}`,
           hecho: abonoHoy > 0 || estaSaldada(v), ok: `Abono de ${usd(abonoHoy)} registrado hoy`,
@@ -195,7 +199,33 @@ function itemsDelDia() {
       });
   }
 
-  // 4 · Clase de hoy: todos los días hay clase. Si no hay ninguna (propia ni
+  // 4 · Para cerrar (26/11/2026, pedido de Sanviv): las 5 personas de Comunidad
+  // más propensas a comprar según la IA nocturna (o según tu corrección). Alta
+  // antes que media; dentro del nivel, la más cerca del cierre (mismo orden
+  // que Comunidad). Queda hecha si hoy le escribiste, anotaste un contacto o
+  // registraste un abono. Lo hecho sigue en la lista: el tope no se rellena.
+  // Quien ya está en «Posibles ventas» por un cobro de hoy no se repite aquí.
+  const enCobro = new Set(items.filter(i => i.b === "ven" && i.c).map(i => i.c.id));
+  state.clientes
+    .filter(c => !esInactivo(c) && esMio(c) && !esLead(c) && !enCobro.has(c.id) && (PROPENSION[c.propension]?.n || 0) >= 2)
+    .map(c => ({ c, n: PROPENSION[c.propension].n, e: embudo(c) }))
+    .sort((a, b) => b.n - a.n || compararEmbudo(a.e, b.e) || a.c.nombre.localeCompare(b.c.nombre, "es"))
+    .slice(0, TOPE_CERRAR)
+    .forEach(({ c, e }, i) => {
+      const p = PROPENSION[c.propension];
+      const abonoHoy = state.ventas.some(v => v.cliente_id === c.id && (v.abonos || []).some(a => a.fecha === hoy));
+      const porWa = escribisteHoy(c), aMano = contactoHoy(c);
+      const hacer = c.recomendacion || recomendacionAuto(e);
+      items.push({ b: "cer", id: "ce" + c.id, c, t: c.nombre, acc: "cerrar", rec: TOPE_CERRAR - i,
+        tag: p.l + (c.propensionManualEn ? " ✎" : ""), tono: p.tono, det: c.propensionMotivo || "", s: c.propensionMotivo || "",
+        hecho: porWa || aMano || abonoHoy,
+        ok: abonoHoy ? "Abono registrado hoy" : porWa ? "Le escribiste hoy por WhatsApp" : "Contacto registrado hoy",
+        // `why` se pinta como HTML: todo lo que viene de la IA va escapado.
+        why: `${c.propensionMotivo ? esc(c.propensionMotivo) : "La IA la marcó como " + p.l.toLowerCase() + "."}`
+          + (hacer ? `<br><b>Qué hacer:</b> ${esc(hacer)}` : "") });
+    });
+
+  // 5 · Clase de hoy: todos los días hay clase. Si no hay ninguna (propia ni
   // compartida), se pide crearla; si existe, invitar al menos una tanda.
   if (extra) {
     if (!extra.clases.length) {
@@ -344,6 +374,18 @@ function accionesHTML(it) {
         ${co ? `<a class="lbtn mdbtn mdtel" href="tel:+${co}" title="Llamar al +${co}" aria-label="Llamar al +${co}">${ICO_TEL}</a>` : ""}</div>` : ""}
       ${embudoHTML(it)}`;
   }
+  if (it.acc === "cerrar") {
+    const c = it.c, tel = digitos(c.tel), co = telColombia(c.tel);
+    return `${tel ? `<div class="mdprim${co ? "" : " solo"}">
+        <a class="btn-oro mdbtn" href="https://wa.me/${tel}" target="_blank" rel="noopener">${ICO_WA}Abrir chat</a>
+        ${co ? `<a class="lbtn mdbtn mdllamar" href="tel:+${co}">${ICO_TEL}Llamar</a>` : ""}</div>` : ""}
+      <div class="mdsec mdprop">
+        <label class="mdprop-l">Nivel <select data-prop="${c.id}" aria-label="Corregir el nivel de ${esc(c.nombre)}">
+          ${Object.entries(PROPENSION).map(([k, x]) => `<option value="${k}" ${k === c.propension ? "selected" : ""}>${x.l}</option>`).join("")}
+        </select></label>
+        <span class="mdprop-n">${c.propensionManualEn ? "Corregido por ti" : "Según la IA, anoche"}</span>
+        ${pasarHTML(it)}</div>`;
+  }
   const L = { venta: "Ir a Ventas", seg: it.id === "cla-crear" ? "Crear en Seguimiento" : "Programar invitados" };
   return `<div class="mdacts"><button class="btn-oro mdbtn" data-md="${it.acc}">${L[it.acc]}</button></div>${siguienteHTML(it)}`;
 }
@@ -449,6 +491,7 @@ const NOTA = {
   tib: `Hasta ${TOPE_T.tibio} por día`,
   fri: `Hasta ${TOPE_T.frio} por día`,
   ven: "Cobros con fecha de pago hoy o vencida",
+  cer: `Las ${TOPE_CERRAR} más propensas a comprar según la IA`,
   cla: "Invita al menos una tanda",
 };
 
@@ -548,7 +591,7 @@ export function renderMiDia(cont, render) {
     return `<article class="mdit mdhero abierta ${u ? "urg" : ""} ${x.hecho ? "hecho" : ""}" data-paso="${x.id}">
       <div class="mdhero-et">${esc(et)}</div>
       <div class="mdhero-p">${avatarHTML(x, true)}<div class="mdhero-t"><h3>${esc(x.t)}</h3>
-        <span class="mdhero-s">${e.tag ? `<span class="mdtag ${e.tono}">${e.tag}</span>` : ""}<span>${esc(e.det || "")}</span></span></div></div>
+        <span class="mdhero-s">${e.tag ? `<span class="mdtag ${e.tono}">${e.tag}</span>` : ""}<span>${esc(x.b === "cer" && !x.hecho ? "Propensión a comprar según la IA" : e.det || "")}</span></span></div></div>
       ${x.why ? `<p class="mdwhy">${pre}${x.why}</p>` : ""}
       ${x.posp ? `<div class="mdacts"><button class="btn-oro mdbtn" data-md="retomar" data-id="${x.id}">Atender ahora</button></div>` : accionesHTML(x)}
     </article>`;
@@ -632,6 +675,10 @@ export function renderMiDia(cont, render) {
     accionCrm(abierta.l, b.dataset.crm, render, cont);
   });
   manejarNotas(cont);
+  cont.querySelectorAll("[data-prop]").forEach(sel => sel.onchange = () => {
+    const c = state.clientes.find(x => x.id === sel.dataset.prop);
+    if (c) guardarPropension(c, sel.value, render);
+  });
   cont.querySelectorAll("[data-con]").forEach(b => b.onclick = () => {
     const a = b.dataset.con;
     if (a === "abrir") { verConexion = true; render(); asegurarToken(render); return; }

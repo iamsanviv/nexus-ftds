@@ -27,6 +27,35 @@ export const clases = c => ({
 
 const ultimaNota = c => (state.notas?.[c.id] || [])[0] || null;
 
+/* ---------------------------------------------------- propensión a comprar */
+// La pone la IA cada noche (SQL 77). Aquí y en Mi día el agente la corrige; la
+// corrección gana hasta que el cliente vuelva a escribir (lo decide la IA en
+// la VM, que es la que ve los mensajes).
+export const PROPENSION = {
+  alta:  { l: "Alta",  n: 3, tono: "ok" },
+  media: { l: "Media", n: 2, tono: "oro" },
+  baja:  { l: "Baja",  n: 1, tono: "" },
+};
+
+export function propensionHTML(c) {
+  const p = PROPENSION[c.propension];
+  const tit = c.propensionManualEn ? "Corregido por ti: vale hasta que te vuelva a escribir" : "Nivel puesto por la IA anoche";
+  return `<label class="ctprop ${p ? p.tono : "sin"} ${c.propensionManualEn ? "manual" : ""}" title="${tit}">
+    <select data-prop="${c.id}" aria-label="Propensión a comprar de ${esc(c.nombre)}">
+      ${p ? "" : `<option value="" selected>Sin analizar</option>`}
+      ${Object.entries(PROPENSION).map(([k, x]) => `<option value="${k}" ${k === c.propension ? "selected" : ""}>${x.l}</option>`).join("")}
+    </select>${c.propensionManualEn ? `<span class="ctprop-m" aria-hidden="true">✎</span>` : ""}</label>`;
+}
+
+export async function guardarPropension(c, valor, despues) {
+  if (!PROPENSION[valor] || valor === c.propension) return;
+  const antes = [c.propension, c.propensionManualEn];
+  c.propension = valor; c.propensionManualEn = new Date().toISOString();
+  if (await dbPatch(c, { propension: valor, propension_manual_en: c.propensionManualEn })) toast("Nivel corregido ✓");
+  else [c.propension, c.propensionManualEn] = antes;
+  despues?.();
+}
+
 /* Recomendación de venta que se deriva de la etapa y del pago. Es la que se ve
    mientras nadie escriba una propia (`recomendacion` NULL). */
 export function recomendacionAuto(e) {
@@ -68,6 +97,7 @@ function resultadoCorto(e) {
 // Columnas ordenables. `v` da el valor; los vacíos van siempre al final.
 const COLS = {
   nombre: { v: c => c.nombre, txt: true },
+  prop:   { v: c => PROPENSION[c.propension]?.n ?? null },
   dias:   { v: c => dias(c.comunidadDesde) },
   etapas: { v: (c, E) => E(c).oro ? 6 : E(c).nivel },
   srv:    { v: c => clases(c).srv },
@@ -113,6 +143,7 @@ export function tablaHTML(vis, E, dir) {
     return `<tr data-id="${c.id}">
       <td class="ctfija"><button type="button" class="ctnom" data-perfil="${c.id}" title="Abrir el perfil">${esc(c.nombre)}</button>
         <span class="badge b-${c.mem}">${c.mem}</span>${owner}</td>
+      <td class="ctpropc">${propensionHTML(c)}</td>
       <td class="ctnum">${d == null ? `<span class="ctvacio">—</span>` : `${d}<small>desde ${corta(c.comunidadDesde)}</small>`}</td>
       <td>${etapasMini(c, e)}${res ? `<span class="ctres ${res[0]}">${esc(res[1])}</span>` : ""}</td>
       <td class="ctnum ${cl.srv ? "" : "cero"}">${cl.srv}</td>
@@ -121,6 +152,7 @@ export function tablaHTML(vis, E, dir) {
       <td class="ctnota">${!state.ventasOk ? `<span class="ctvacio">…</span>` : n
         ? `<span class="ctntxt" title="${esc(n.texto)}">${esc(n.texto)}</span><small>${corta(n.creado_en)}</small>`
         : `<span class="ctvacio">Sin notas</span>`}</td>
+      <td class="ctmot">${c.propensionMotivo ? esc(c.propensionMotivo) : `<span class="ctvacio">—</span>`}</td>
       <td class="ctedit"><textarea rows="2" data-campo="necesidad" maxlength="1000" aria-label="Necesidad de ${esc(c.nombre)}"
         placeholder="¿Qué quiere lograr? ¿Qué lo frena?">${esc(c.necesidad || "")}</textarea></td>
       <td class="ctedit">${c.recomendacion ? "" : auto ? `<span class="ctauto">Según etapa</span>` : ""}
@@ -131,9 +163,9 @@ export function tablaHTML(vis, E, dir) {
   return `<div class="ctbox"><table class="cttabla">
     <thead>
       <tr>
-        ${th("nombre", "Cliente", "ctfija")}${th("dias", "Días", "ctnum", "Días en Nexus, desde su primer FTD")}${th("etapas", "Etapas")}
+        ${th("nombre", "Cliente", "ctfija")}${th("prop", "Propensión", "", "Qué tan cerca está de comprar, según la IA (o tu corrección)")}${th("dias", "Días", "ctnum", "Días en Nexus, desde su primer FTD")}${th("etapas", "Etapas")}
         ${th("srv", "Serv.", "ctnum", "Servicios distintos a los que asistió (sin operativas)")}${th("ops", "Oper.", "ctnum", "Operativas con Juan Facundo a las que asistió (de 3)")}${th("pun", "Punt.", "ctnum", "Actividades puntuales a las que asistió")}
-        ${th("nota", "Última nota")}<th>Necesidad</th><th>Recomendación de venta</th>
+        ${th("nota", "Última nota")}<th>Por qué (IA)</th><th>Necesidad</th><th>Recomendación de venta</th>
       </tr>
     </thead>
     <tbody>${filas}</tbody>
@@ -155,6 +187,8 @@ export function wireTabla(root, { abrirPerfil, editarEtapa, repintar }) {
     if (!c) return;
     tr.querySelector(".ctnom").onclick = () => abrirPerfil(c);
     tr.querySelectorAll("[data-etp]").forEach(b => b.onclick = () => editarEtapa(c, b.dataset.etp));
+    const sel = tr.querySelector("[data-prop]");
+    if (sel) sel.onchange = () => guardarPropension(c, sel.value, repintar);
     tr.querySelectorAll("textarea[data-campo]").forEach(t => {
       alto(t);
       t.oninput = () => alto(t);
