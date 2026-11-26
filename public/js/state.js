@@ -479,6 +479,7 @@ export const motivoCorto  = m => (MOTIVOS_INACTIVO.find(([v]) => v === m) || [, 
 export const ZOOMS = [
   ["pres",     "Presentación Membresías", "Zoom Presentación Membresías"],
   ["ftds",     "Presentación FTDs",       "Zoom Presentación FTDs"],
+  ["bot",      "Presentación Bot",        "Zoom Presentación Bot"],
   ["avanzada", "Clase Avanzada",          "Clase Avanzada"],
   ["uno",      "1 a 1",                   "Zoom 1 a 1"],
   ["cierre",   "Cierre",                  "Zoom de cierre"],
