@@ -135,7 +135,7 @@ Etapas (desde 2026-11-04): `pres` (Zoom Presentación Membresías), `ftds` (Zoom
 
 La lista de Comunidad lee este embudo (y las ventas) para pintar las etapas de venta: ver «Vista de etapas de venta» en `people-followup.md`.
 
-Clases marcadas como Avanzada a posteriori (12/11/2026, elegidas por Sanviv): las dos «Clase Avanzada (Miembros Oro)» del 14/10, «Clase Avanzada» del 19/10, «Nexus Sniper» del 28/10 y «Golden Strategy» del 4/11. Se les puso `zoom_tipo='avanzada'` y se rellenó `zooms.avanzada` solo a quien tiene `puntuales[id].acc`.
+Clases marcadas como Avanzada a posteriori (12/11/2026, elegidas por Sanviv): las dos «Clase Avanzada (Miembros Oro)» del 14/10, «Clase Avanzada» del 19/10, «Nexus Sniper» del 28/10 y «Golden Strategy» del 4/11. Se les puso `zoom_tipo='avanzada'` y se rellenó `zooms.avanzada` solo a quien tiene `puntuales[id].acc`. El 26/11/2026 se sumó «Clase Estrategia Plus» del 25/11 (81 asistentes con `acc`; su `zooms.avanzada` pasó a 2026-11-25, todas las previas eran anteriores).
 
 Trampa: el guardado del embudo (perfil y formulario de venta) reconstruye `clientes.zooms` recorriendo las etapas conocidas; una clave que no esté en `ZOOMS` se pierde al guardar.
 
