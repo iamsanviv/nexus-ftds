@@ -131,7 +131,7 @@ El embudo pertenece al cliente (`clientes.zooms`), no a una venta concreta. La p
 
 Una actividad puntual puede representar una etapa del embudo mediante `zoom_tipo`; la asistencia puede sincronizar esa etapa sin convertir actividad y venta en dos fuentes separadas del mismo hecho.
 
-Etapas (desde 2026-11-04): `pres` (Zoom Presentación Membresías), `ftds` (Zoom Presentación FTDs), `avanzada` (Clase Avanzada), `uno` (1 a 1), `cierre`. La lista única es `ZOOMS` en `public/js/state.js`: de ahí salen el selector de la actividad puntual, el embudo del perfil y la tarjeta/formulario de Ventas. La clave es lo que se guarda; renombrar una etapa es solo cambiar su texto. Agregar una exige también ampliar `actividades_zoom_tipo_check` (`sql/2026-11-04_60_zooms_ftds_avanzada.sql`).
+Etapas (desde 2026-11-04): `pres` (Zoom Presentación Membresías), `ftds` (Zoom Presentación FTDs), `bot` (Zoom Presentación Bot, desde 2026-11-26), `avanzada` (Clase Avanzada), `uno` (1 a 1), `cierre`. La lista única es `ZOOMS` en `public/js/state.js`: de ahí salen el selector de la actividad puntual, el embudo del perfil y la tarjeta/formulario de Ventas. La clave es lo que se guarda; renombrar una etapa es solo cambiar su texto. Agregar una exige también ampliar `actividades_zoom_tipo_check` (`sql/2026-11-04_60_zooms_ftds_avanzada.sql`, `sql/2026-11-26_77_zoom_presentacion_bot.sql`).
 
 La lista de Comunidad lee este embudo (y las ventas) para pintar las etapas de venta: ver «Vista de etapas de venta» en `people-followup.md`.
 
