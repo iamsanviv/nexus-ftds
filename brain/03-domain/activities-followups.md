@@ -232,8 +232,8 @@ chats visibles son los de tu WhatsApp. Usa `entrantes.js`, el mismo cruce que Le
 
 El botón «🔕 Sin respuesta» de la tarjeta de la actividad (`abrirSinRespuesta`, 14/10/2026) se
 **quitó** a pedido de Sanviv: con la pregunta del link y la lectura de respuestas ya no era útil.
-Su regla sigue en SQL (`sin_respuesta_de`) para el aviso push de 15 min antes del rec_60
-(ver [[../04-features/notifications]]).
+Su regla sigue en SQL (`sin_respuesta_de`) para las preguntas del link. El aviso push de 15 min
+antes del rec_60 que la usaba se quitó el 27/11/2026 (ver [[../04-features/notifications]]).
 
 En su lugar, «Seguimientos activos» muestra píldoras con totales que también filtran
 (`pintarFiltrosAsis`, `seguimiento.js`): **Todos · ✓ Van · ✕ No van · No escribieron · ? Con duda**.

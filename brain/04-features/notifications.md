@@ -25,7 +25,7 @@ cron «notificaciones» (pg_cron, cada minuto) → generar_notificaciones() + re
 |---|---|---|
 | `zoom` | cron: actividad `activa` que empieza en ≤60 min; al dueño y a quien tenga seguimientos no cancelados en ella | actividad + inicio (reprogramar vuelve a avisar) |
 | `sin_enlace` | cron: actividad `activa` del creador (`owner_id`) que empieza en ≤10 min con `enlace` vacío (columna NOT NULL: vacío o solo espacios = sin enlace). Siempre, aunque no tenga invitados (Sanviv, 23/11/2026). Cualquier texto cuenta como enlace (Zoom o comunidad). `sql/2026-11-23_74_aviso_sin_enlace.sql` | actividad + inicio |
-| `sin_respuesta` | cron: `rec_60` pendiente propio que sale en ≤15 min, y `sin_respuesta_de(owner, actividad)` > 0 (`sql/2026-10-14_37_aviso_sin_respuesta.sql`). Si se desmarcó el recordatorio de 1 h, no avisa | actividad + inicio |
+| ~~`sin_respuesta`~~ | **Quitado** el 27/11/2026 (`sql/2026-11-27_78_…`): pedía cancelar a mano en un botón que ya no existe y el freno es automático (pregunta del link). El tipo sigue en los CHECK por filas históricas | — |
 | `canal` | trigger `canales_wa`: `vinculado` → otro estado, sin `comando`/baja | por hora |
 | `canal` | cron: `vinculado` pero sin latido >10 min (y <1 día) | último `actualizado` |
 | `canal` | cron: ≥3 errores en 30 min y ≥ enviados | por día (Bogotá) |
@@ -35,7 +35,7 @@ cron «notificaciones» (pg_cron, cada minuto) → generar_notificaciones() + re
 | `envio` | trigger `mensajes_programados`: el worker cancela o falla un mensaje (`error` no nulo, sin `omitido:`). Ver [[../03-domain/messaging-rules]] «Tope diario» | causa + campaña/actividad + día |
 | `aviso` | admin: Administración › Avisos. `enviar_avisos()` lo llama el trigger de inserción en `avisos` («Ahora») y el cron (programados). A todas las cuentas aprobadas; no se puede apagar | id del aviso |
 
-WhatsApp entrante: **un aviso por mensaje**, combinando los hechos nuevos (respondió a tu último envío de ≤3 días, subió de temperatura, primer mensaje del día). El tipo es el más importante encendido: respondió > temperatura > escribió hoy. Solo clientes propios (`owner_id` del chat). Escribió hoy y temperatura solo para leads y pendientes de depósito (lo que lista «Hoy»). Hereda la demora de ~5 min y los huecos de `chats_sync` (ver [[../05-integrations/whatsapp-worker]]: un bridge que no sincroniza no genera avisos).
+WhatsApp entrante: título con el **nombre completo** del cliente (antes solo el primero; con muchos José no se sabía quién era. Sin nombre, el teléfono. 27/11/2026). **Un aviso por mensaje**, combinando los hechos nuevos (respondió a tu último envío de ≤3 días, subió de temperatura, primer mensaje del día). El tipo es el más importante encendido: respondió > temperatura > escribió hoy. Solo clientes propios (`owner_id` del chat). Escribió hoy y temperatura solo para leads y pendientes de depósito (lo que lista «Hoy»). Hereda la demora de ~5 min y los huecos de `chats_sync` (ver [[../05-integrations/whatsapp-worker]]: un bridge que no sincroniza no genera avisos).
 
 ## Avisos del administrador
 
